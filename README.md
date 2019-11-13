@@ -6,6 +6,16 @@ Parts of Crux re-imagined in Rust.
 
 See https://github.com/juxt/crux
 
+## Building
+
+You need libclang installed, as the wrappers for the C libraries
+depend on this to build. On Ubuntu this can be done via `apt install
+llvm-dev libclang-dev clang`.
+
+```bash
+cargo build
+```
+
 ## Copyright & License
 
 The MIT License (MIT)

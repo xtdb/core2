@@ -1,7 +1,11 @@
 [package]
 name = "crux"
 version = "0.1.0"
-authors = ["Håkan Råberg <hakan.raberg@gmail.com>"]
+description = "Parts of Crux re-imagined in Rust"
+keywords = ["database", "bitemp", "kafka", "rocksdb"]
+homepage = "https://github.com/juxt/crux"
+readme = "README.md"
+authors = ["Håkan Råberg <hak@juxt.pro>"]
 license = "MIT"
 edition = "2018"
 

@@ -16,6 +16,15 @@ llvm-dev libclang-dev clang`.
 cargo build
 ```
 
+## Linting
+
+You need Clippy installed via `rustup component add clippy`. To lint
+everything, including examples:
+
+```bash
+cargo clippy --all-targets
+```
+
 ## Running
 
 You need Kafka and Zookeeper running.

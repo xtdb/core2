@@ -34,7 +34,8 @@ fn main() {
         GIT_HASH.unwrap_or("unknown")
     );
 
-    let bootstrap_servers = &env::var("BOOTSTRAP_SERVERS").unwrap_or("localhost:9092".to_string());
+    let bootstrap_servers =
+        &env::var("BOOTSTRAP_SERVERS").unwrap_or_else(|_| "localhost:9092".to_string());
     log::debug!("bootstrap.servers = {}", bootstrap_servers);
 
     let producer: FutureProducer = ClientConfig::new()
@@ -44,7 +45,7 @@ fn main() {
 
     let topic = "my-topic";
 
-    let value = "Hello World".as_bytes();
+    let value = b"Hello World";
     let key: &[u8] = &Sha1::digest(value);
     let record = FutureRecord::to(topic).key(key).payload(value);
 
@@ -106,7 +107,8 @@ fn main() {
                 };
 
                 let key_hex = hex::encode(key);
-                let payload_str = String::from_utf8(payload.to_vec()).unwrap_or("".to_string());
+                let payload_str =
+                    String::from_utf8(payload.to_vec()).unwrap_or_else(|_| "".to_string());
                 let timestamp = Utc.timestamp_millis(m.timestamp().to_millis().unwrap_or(0));
                 log::info!(
                     "Consumed message: {:?} {:?} {:?} {:?} {:?} {:?}",

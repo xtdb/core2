@@ -26,7 +26,7 @@ const GIT_HASH: Option<&'static str> = option_env!("GIT_HASH");
 fn main() {
     env_logger::from_env(Env::default().default_filter_or("info")).init();
     log::info!(
-        "Crux.rs version: {} revision: {}",
+        "crux.rs version: {} revision: {}",
         VERSION.unwrap_or("unknown"),
         GIT_HASH.unwrap_or("unknown")
     );

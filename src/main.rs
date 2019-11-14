@@ -10,6 +10,8 @@ use rdkafka::consumer::Consumer;
 use rdkafka::message::Message;
 use rdkafka::producer::{FutureProducer, FutureRecord};
 
+use rocksdb::DB;
+
 const VERSION: Option<&'static str> = option_env!("CARGO_PKG_VERSION");
 const GIT_HASH: Option<&'static str> = option_env!("GIT_HASH");
 
@@ -32,7 +34,7 @@ fn main() {
     let send_future = producer.send(
         FutureRecord {
             topic: topic,
-            key: Some(&vec![]),
+            key: Some("my-key"),
             payload: Some("Hello World"),
             partition: None,
             headers: None,
@@ -42,9 +44,11 @@ fn main() {
     );
 
     match send_future.wait() {
-        Err(e) => log::warn!("Could not deliver message: {:?}", e),
+        Err(e) => log::error!("Could not deliver message: {:?}", e),
         Ok(result) => log::debug!("Producer response: {:?}", result),
     }
+
+    let rocksdb = DB::open_default("data").expect("Could not open RocksDB");
 
     let group_id = "crux-group";
     let consumer: StreamConsumer = ClientConfig::new()
@@ -61,25 +65,48 @@ fn main() {
 
     for message in consumer.start().wait() {
         match message {
-            Err(e) => log::warn!("Stream error: {:?}", e),
-            Ok(Err(e)) => log::warn!("Consumer error: {:?}", e),
+            Err(e) => log::error!("Stream error: {:?}", e),
+            Ok(Err(e)) => log::error!("Consumer error: {:?}", e),
             Ok(Ok(m)) => {
                 let payload = match m.payload_view::<str>() {
                     None => "",
                     Some(Ok(s)) => s,
                     Some(Err(e)) => {
-                        log::warn!("Deserializing error: {:?}", e);
+                        log::error!("Deserializing error: {:?}", e);
+                        ""
+                    }
+                };
+                let key = match m.key_view::<str>() {
+                    None => "",
+                    Some(Ok(s)) => s,
+                    Some(Err(e)) => {
+                        log::error!("Deserializing error: {:?}", e);
                         ""
                     }
                 };
                 log::info!(
-                    "Consumed message: {:?} {:?} {:?} {:?} {:?}",
+                    "Consumed message: {:?} {:?} {:?} {:?} {:?} {:?}",
                     m.topic(),
                     m.partition(),
                     m.offset(),
                     m.timestamp(),
+                    key,
                     payload
                 );
+
+                log::debug!("Storing key {:?} into RocksDB: {:?}", key, payload);
+                rocksdb
+                    .put(key, payload)
+                    .expect("Could not write to RocksDB");
+
+                match rocksdb.get(key) {
+                    Ok(Some(value)) => match value.to_utf8() {
+                        Some(value) => log::info!("Read key {:?} from RocksDB: {:?}", key, value),
+                        None => log::warn!("Empty key: {}", key),
+                    },
+                    Ok(None) => log::warn!("Key not found: {:?}", key),
+                    Err(e) => log::error!("RocksDB error: {}", e),
+                }
             }
         }
     }

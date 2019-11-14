@@ -1,3 +1,6 @@
+use std::fs;
+use std::path::Path;
+
 use env_logger::Env;
 use log;
 
@@ -13,6 +16,7 @@ use rdkafka::consumer::Consumer;
 use rdkafka::message::Message;
 use rdkafka::producer::{FutureProducer, FutureRecord};
 
+use lmdb::{DatabaseFlags, Environment, Transaction, WriteFlags};
 use rocksdb::DB;
 
 const VERSION: Option<&'static str> = option_env!("CARGO_PKG_VERSION");
@@ -62,7 +66,17 @@ fn main() {
         .subscribe(&[topic])
         .expect("Could not subscribe to topic");
 
-    let rocksdb = DB::open_default("data").expect("Could not open RocksDB");
+    let rocksdb = DB::open_default("data/rocksdb").expect("Could not open RocksDB");
+
+    let lmdb_path = Path::new("data/lmdb");
+    fs::create_dir_all(lmdb_path).expect("Could not create LMDB directory");
+    let lmdb_env = Environment::new()
+        .open(lmdb_path)
+        .expect("Could not open LMDB environment");
+
+    let lmdb = lmdb_env
+        .create_db(None, DatabaseFlags::empty())
+        .expect("Could not create LMDB database");
 
     for message in consumer.start().wait() {
         match message {
@@ -100,17 +114,38 @@ fn main() {
                     key,
                     payload
                 );
+
+                match lmdb_env.begin_rw_txn() {
+                    Ok(mut tx) => {
+                        tx.put(lmdb, &key, &value, WriteFlags::empty())
+                            .expect("Could not write to LMDB");
+                        tx.commit().expect("Could not commit LMDB transaction");
+                    }
+                    Err(e) => log::error!("Could not start LMDB transaction: {:?}", e),
+                }
+
                 rocksdb
                     .put(key, payload)
                     .expect("Could not write to RocksDB");
 
+                match lmdb_env.begin_ro_txn() {
+                    Ok(tx) => match tx.get(lmdb, &key) {
+                        Ok(value) => match String::from_utf8(value.to_vec()) {
+                            Ok(value) => log::info!("Read key {:?} from LMDB: {:?}", key, value),
+                            Err(e) => log::warn!("Invalid LMDB value: {:?}", e),
+                        },
+                        Err(e) => log::error!("LMDB error: {:?}", e),
+                    },
+                    Err(e) => log::error!("Could not start LMDB transaction: {:?}", e),
+                }
+
                 match rocksdb.get(key) {
                     Ok(Some(value)) => match value.to_utf8() {
                         Some(value) => log::info!("Read key {:?} from RocksDB: {:?}", key, value),
-                        None => log::warn!("Empty key: {}", key),
+                        None => log::warn!("Empty RocksDB value: {:?}", key),
                     },
-                    Ok(None) => log::warn!("Key not found: {:?}", key),
-                    Err(e) => log::error!("RocksDB error: {}", e),
+                    Ok(None) => log::warn!("Key not found in RocksDB: {:?}", key),
+                    Err(e) => log::error!("RocksDB error: {:?}", e),
                 }
             }
         }

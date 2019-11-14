@@ -44,9 +44,9 @@ fn main() {
 
     let topic = "my-topic";
 
-    let value = "Hello World";
-    let key = &hex::encode(Sha1::digest(value.as_bytes()).as_slice());
-    let record = FutureRecord::to(topic).key(key).payload(value);
+    let value = "Hello World".as_bytes();
+    let key: [u8; 20] = Sha1::digest(value).into();
+    let record = FutureRecord::to(topic).key(&key).payload(value);
 
     match producer.send(record, 1000).wait() {
         Err(e) => log::error!("Could not deliver message: {:?}", e),
@@ -88,22 +88,25 @@ fn main() {
             Err(e) => log::error!("Stream error: {:?}", e),
             Ok(Err(e)) => log::error!("Consumer error: {:?}", e),
             Ok(Ok(m)) => {
-                let payload = match m.payload_view::<str>() {
-                    None => "",
+                let payload = match m.payload_view::<[u8]>() {
+                    None => &[],
                     Some(Ok(s)) => s,
                     Some(Err(e)) => {
                         log::error!("Deserializing error: {:?}", e);
-                        ""
+                        &[]
                     }
                 };
-                let key = match m.key_view::<str>() {
-                    None => "",
+                let key = match m.key_view::<[u8]>() {
+                    None => &[],
                     Some(Ok(s)) => s,
                     Some(Err(e)) => {
                         log::error!("Deserializing error: {:?}", e);
-                        ""
+                        &[]
                     }
                 };
+
+                let key_hex = hex::encode(key);
+                let payload_str = String::from_utf8(payload.to_vec()).unwrap_or("".to_string());
                 let timestamp = Utc.timestamp_millis(m.timestamp().to_millis().unwrap_or(0));
                 log::info!(
                     "Consumed message: {:?} {:?} {:?} {:?} {:?} {:?}",
@@ -111,8 +114,8 @@ fn main() {
                     m.partition(),
                     m.offset(),
                     timestamp,
-                    key,
-                    payload
+                    key_hex,
+                    payload_str
                 );
 
                 match lmdb_env.begin_rw_txn() {
@@ -131,7 +134,9 @@ fn main() {
                 match lmdb_env.begin_ro_txn() {
                     Ok(tx) => match tx.get(lmdb, &key) {
                         Ok(value) => match String::from_utf8(value.to_vec()) {
-                            Ok(value) => log::info!("Read key {:?} from LMDB: {:?}", key, value),
+                            Ok(value) => {
+                                log::info!("Read key {:?} from LMDB: {:?}", key_hex, value)
+                            }
                             Err(e) => log::warn!("Invalid LMDB value: {:?}", e),
                         },
                         Err(e) => log::error!("LMDB error: {:?}", e),
@@ -141,10 +146,12 @@ fn main() {
 
                 match rocksdb.get(key) {
                     Ok(Some(value)) => match value.to_utf8() {
-                        Some(value) => log::info!("Read key {:?} from RocksDB: {:?}", key, value),
-                        None => log::warn!("Empty RocksDB value: {:?}", key),
+                        Some(value) => {
+                            log::info!("Read key {:?} from RocksDB: {:?}", key_hex, value)
+                        }
+                        None => log::warn!("Empty RocksDB value: {:?}", key_hex),
                     },
-                    Ok(None) => log::warn!("Key not found in RocksDB: {:?}", key),
+                    Ok(None) => log::warn!("Key not found in RocksDB: {:?}", key_hex),
                     Err(e) => log::error!("RocksDB error: {:?}", e),
                 }
             }

@@ -5,6 +5,9 @@ use std::path::Path;
 use env_logger::Env;
 use log;
 
+use chrono::offset::TimeZone;
+use chrono::Utc;
+
 use hex;
 use sha1::{Digest, Sha1};
 
@@ -101,12 +104,13 @@ fn main() {
                         ""
                     }
                 };
+                let timestamp = Utc.timestamp_millis(m.timestamp().to_millis().unwrap_or(0));
                 log::info!(
                     "Consumed message: {:?} {:?} {:?} {:?} {:?} {:?}",
                     m.topic(),
                     m.partition(),
                     m.offset(),
-                    m.timestamp(),
+                    timestamp,
                     key,
                     payload
                 );

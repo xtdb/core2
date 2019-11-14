@@ -111,12 +111,6 @@ fn main() {
                     payload
                 );
 
-                log::debug!(
-                    "Storing key: {:?} into RocksDB with value: {:?}",
-                    key,
-                    payload
-                );
-
                 match lmdb_env.begin_rw_txn() {
                     Ok(mut tx) => {
                         tx.put(lmdb, &key, &value, WriteFlags::empty())

@@ -1,6 +1,9 @@
 use env_logger::Env;
 use log;
 
+use hex;
+use sha1::Digest;
+
 use futures::future::Future;
 use futures::stream::Stream;
 
@@ -31,11 +34,15 @@ fn main() {
         .create()
         .expect("Could not create producer");
 
+    let value = "Hello World";
+
     let send_future = producer.send(
         FutureRecord {
             topic: topic,
-            key: Some("my-key"),
-            payload: Some("Hello World"),
+            key: Some(&hex::encode(
+                sha1::Sha1::digest(value.as_bytes()).as_slice(),
+            )),
+            payload: Some(value),
             partition: None,
             headers: None,
             timestamp: None,

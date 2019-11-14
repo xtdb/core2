@@ -2,7 +2,7 @@ use env_logger::Env;
 use log;
 
 use hex;
-use sha1::Digest;
+use sha1::{Digest, Sha1};
 
 use futures::future::Future;
 use futures::stream::Stream;
@@ -26,33 +26,27 @@ fn main() {
         GIT_HASH.unwrap_or("unknown")
     );
 
-    let topic = "my-topic";
-    let bootstrap_servers = "localhost:9092";
+    let bootstrap_servers = option_env!("BOOTSTRAP_SERVERS").unwrap_or("localhost:9092");
 
     let producer: FutureProducer = ClientConfig::new()
         .set("bootstrap.servers", bootstrap_servers)
         .create()
         .expect("Could not create producer");
 
-    let value = "Hello World";
+    let topic = "my-topic";
 
-    let send_future = producer.send(
-        FutureRecord {
-            topic: topic,
-            key: Some(&hex::encode(
-                sha1::Sha1::digest(value.as_bytes()).as_slice(),
-            )),
-            payload: Some(value),
-            partition: None,
-            headers: None,
-            timestamp: None,
-        },
-        1000,
-    );
+    let value = "Hello World";
+    let key = &hex::encode(Sha1::digest(value.as_bytes()).as_slice());
+    let send_future = producer.send(FutureRecord::to(topic).key(key).payload(value), 1000);
 
     match send_future.wait() {
         Err(e) => log::error!("Could not deliver message: {:?}", e),
-        Ok(result) => log::debug!("Producer response: {:?}", result),
+        Ok(Err(e)) => log::error!("Could not deliver message: {:?}", e),
+        Ok(Ok((partition, offset))) => log::debug!(
+            "Producer response, partition: {:?} offset: {:?}",
+            partition,
+            offset
+        ),
     }
 
     let rocksdb = DB::open_default("data").expect("Could not open RocksDB");
@@ -101,7 +95,11 @@ fn main() {
                     payload
                 );
 
-                log::debug!("Storing key {:?} into RocksDB: {:?}", key, payload);
+                log::debug!(
+                    "Storing key: {:?} into RocksDB with value: {:?}",
+                    key,
+                    payload
+                );
                 rocksdb
                     .put(key, payload)
                     .expect("Could not write to RocksDB");

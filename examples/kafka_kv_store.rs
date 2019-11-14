@@ -1,3 +1,4 @@
+use std::env;
 use std::fs;
 use std::path::Path;
 
@@ -30,7 +31,8 @@ fn main() {
         GIT_HASH.unwrap_or("unknown")
     );
 
-    let bootstrap_servers = option_env!("BOOTSTRAP_SERVERS").unwrap_or("localhost:9092");
+    let bootstrap_servers = &env::var("BOOTSTRAP_SERVERS").unwrap_or("localhost:9092".to_string());
+    log::debug!("bootstrap.servers = {}", bootstrap_servers);
 
     let producer: FutureProducer = ClientConfig::new()
         .set("bootstrap.servers", bootstrap_servers)

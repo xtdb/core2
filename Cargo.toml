@@ -15,7 +15,6 @@ crate-type=["rlib", "cdylib"]
 [dependencies]
 croaring = "0.4"
 edn = "0.3"
-env_logger = "0.7"
 futures = "0.1"
 hex = "0.4"
 lmdb = "0.8"

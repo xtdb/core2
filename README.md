@@ -16,6 +16,14 @@ llvm-dev libclang-dev clang`.
 cargo build
 ```
 
+## Running
+
+You need Kafka and Zookeeper running.
+
+``` bash
+BOOSTRAP_SERVERS=localhost:9092 cargo run --example kafka_kv_store
+```
+
 ## Copyright & License
 
 The MIT License (MIT)

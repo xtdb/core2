@@ -45,8 +45,8 @@ fn main() {
     let topic = "my-topic";
 
     let value = "Hello World".as_bytes();
-    let key: [u8; 20] = Sha1::digest(value).into();
-    let record = FutureRecord::to(topic).key(&key).payload(value);
+    let key: &[u8] = &Sha1::digest(value);
+    let record = FutureRecord::to(topic).key(key).payload(value);
 
     match producer.send(record, 1000).wait() {
         Err(e) => log::error!("Could not deliver message: {:?}", e),
@@ -88,7 +88,7 @@ fn main() {
             Err(e) => log::error!("Stream error: {:?}", e),
             Ok(Err(e)) => log::error!("Consumer error: {:?}", e),
             Ok(Ok(m)) => {
-                let payload = match m.payload_view::<[u8]>() {
+                let payload = &match m.payload_view::<[u8]>() {
                     None => &[],
                     Some(Ok(s)) => s,
                     Some(Err(e)) => {
@@ -96,7 +96,7 @@ fn main() {
                         &[]
                     }
                 };
-                let key = match m.key_view::<[u8]>() {
+                let key = &match m.key_view::<[u8]>() {
                     None => &[],
                     Some(Ok(s)) => s,
                     Some(Err(e)) => {
@@ -120,7 +120,7 @@ fn main() {
 
                 match lmdb_env.begin_rw_txn() {
                     Ok(mut tx) => {
-                        tx.put(lmdb, &key, &value, WriteFlags::empty())
+                        tx.put(lmdb, key, payload, WriteFlags::empty())
                             .expect("Could not write to LMDB");
                         tx.commit().expect("Could not commit LMDB transaction");
                     }
@@ -132,7 +132,7 @@ fn main() {
                     .expect("Could not write to RocksDB");
 
                 match lmdb_env.begin_ro_txn() {
-                    Ok(tx) => match tx.get(lmdb, &key) {
+                    Ok(tx) => match tx.get(lmdb, key) {
                         Ok(value) => match String::from_utf8(value.to_vec()) {
                             Ok(value) => {
                                 log::info!("Read key {:?} from LMDB: {:?}", key_hex, value)

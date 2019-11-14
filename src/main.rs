@@ -37,9 +37,9 @@ fn main() {
 
     let value = "Hello World";
     let key = &hex::encode(Sha1::digest(value.as_bytes()).as_slice());
-    let send_future = producer.send(FutureRecord::to(topic).key(key).payload(value), 1000);
+    let record = FutureRecord::to(topic).key(key).payload(value);
 
-    match send_future.wait() {
+    match producer.send(record, 1000).wait() {
         Err(e) => log::error!("Could not deliver message: {:?}", e),
         Ok(Err(e)) => log::error!("Could not deliver message: {:?}", e),
         Ok(Ok((partition, offset))) => log::debug!(
@@ -48,8 +48,6 @@ fn main() {
             offset
         ),
     }
-
-    let rocksdb = DB::open_default("data").expect("Could not open RocksDB");
 
     let group_id = "crux-group";
     let consumer: StreamConsumer = ClientConfig::new()
@@ -63,6 +61,8 @@ fn main() {
     consumer
         .subscribe(&[topic])
         .expect("Could not subscribe to topic");
+
+    let rocksdb = DB::open_default("data").expect("Could not open RocksDB");
 
     for message in consumer.start().wait() {
         match message {

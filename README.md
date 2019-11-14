@@ -21,8 +21,10 @@ cargo build
 You need Kafka and Zookeeper running.
 
 ``` bash
-BOOSTRAP_SERVERS=localhost:9092 cargo run --example kafka_kv_store
+RUST_LOG=debug BOOTSTRAP_SERVERS=localhost:9092 cargo run --example kafka_kv_store
 ```
+
+KV data is stored under `data`.
 
 ## Copyright & License
 

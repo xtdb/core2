@@ -49,15 +49,16 @@ fn main() {
     let key: &[u8] = &Sha1::digest(value);
     let record = FutureRecord::to(topic).key(key).payload(value);
 
-    match producer.send(record, 1000).wait() {
-        Err(e) => log::error!("Could not deliver message: {:?}", e),
-        Ok(Err(e)) => log::error!("Could not deliver message: {:?}", e),
-        Ok(Ok((partition, offset))) => log::debug!(
-            "Producer response, partition: {:?} offset: {:?}",
-            partition,
-            offset
-        ),
-    }
+    let (partition, offset) = producer
+        .send(record, 1000)
+        .wait()
+        .expect("Future cancelled")
+        .expect("Delivery failed");
+    log::debug!(
+        "Producer response, partition: {:?} offset: {:?}",
+        partition,
+        offset
+    );
 
     let group_id = "crux-group";
     let consumer: StreamConsumer = ClientConfig::new()

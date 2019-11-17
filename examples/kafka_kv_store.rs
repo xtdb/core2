@@ -124,17 +124,13 @@ fn main() {
                     .put(key, payload)
                     .expect("Could not write to RocksDB");
 
-                {
-                    match rocksdb.snapshot().get(key) {
-                        Ok(Some(value)) => match String::from_utf8(value.to_vec()) {
-                            Ok(value) => {
-                                log::info!("Read key {:?} from RocksDB: {:?}", key_hex, value)
-                            }
-                            Err(e) => log::warn!("Invalid RocksDB value: {:?}", e),
-                        },
-                        Ok(None) => log::warn!("Key not found in RocksDB: {:?}", key_hex),
-                        Err(e) => log::error!("RocksDB error: {:?}", e),
-                    }
+                match rocksdb.snapshot().get(key) {
+                    Ok(Some(value)) => match String::from_utf8(value.to_vec()) {
+                        Ok(value) => log::info!("Read key {:?} from RocksDB: {:?}", key_hex, value),
+                        Err(e) => log::warn!("Invalid RocksDB value: {:?}", e),
+                    },
+                    Ok(None) => log::warn!("Key not found in RocksDB: {:?}", key_hex),
+                    Err(e) => log::error!("RocksDB error: {:?}", e),
                 }
 
                 match lmdb_env.begin_rw_txn() {

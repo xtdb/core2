@@ -133,13 +133,13 @@ fn main() {
                     Err(e) => log::error!("RocksDB error: {:?}", e),
                 }
 
-                match lmdb_env.begin_rw_txn() {
-                    Ok(mut tx) => {
-                        tx.put(lmdb, key, payload, WriteFlags::empty())
-                            .expect("Could not write to LMDB");
-                        tx.commit().expect("Could not commit LMDB transaction");
-                    }
-                    Err(e) => log::error!("Could not start LMDB transaction: {:?}", e),
+                {
+                    let mut tx = lmdb_env
+                        .begin_rw_txn()
+                        .expect("Could not start LMDB transaction");
+                    tx.put(lmdb, key, payload, WriteFlags::empty())
+                        .expect("Could not write to LMDB");
+                    tx.commit().expect("Could not commit LMDB transaction");
                 }
 
                 match lmdb_env.begin_ro_txn() {

@@ -89,13 +89,14 @@ fn main() {
             Err(e) => log::error!("Stream error: {:?}", e),
             Ok(Err(e)) => log::error!("Consumer error: {:?}", e),
             Ok(Ok(m)) => {
-                let payload = &m.payload().unwrap_or(&[]);
                 let key = &m.key().unwrap_or(&[]);
+                let payload = &m.payload().unwrap_or(&[]);
 
                 let key_hex = hex::encode(key);
                 let payload_str =
                     String::from_utf8(payload.to_vec()).unwrap_or_else(|_| "".to_string());
                 let timestamp = Utc.timestamp_millis(m.timestamp().to_millis().unwrap_or(0));
+
                 log::info!(
                     "Consumed message: {:?} {:?} {:?} {:?} {:?} {:?}",
                     m.topic(),

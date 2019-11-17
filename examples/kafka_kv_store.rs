@@ -120,18 +120,20 @@ fn main() {
                     payload_str
                 );
 
-                match lmdb_env.begin_rw_txn() {
-                    Ok(mut tx) => {
-                        tx.put(lmdb, key, payload, WriteFlags::empty())
-                            .expect("Could not write to LMDB");
-                        tx.commit().expect("Could not commit LMDB transaction");
-                    }
-                    Err(e) => log::error!("Could not start LMDB transaction: {:?}", e),
-                }
-
                 rocksdb
                     .put(key, payload)
                     .expect("Could not write to RocksDB");
+
+                match rocksdb.get(key) {
+                    Ok(Some(value)) => match value.to_utf8() {
+                        Some(value) => {
+                            log::info!("Read key {:?} from RocksDB: {:?}", key_hex, value)
+                        }
+                        None => log::warn!("Empty RocksDB value: {:?}", key_hex),
+                    },
+                    Ok(None) => log::warn!("Key not found in RocksDB: {:?}", key_hex),
+                    Err(e) => log::error!("RocksDB error: {:?}", e),
+                }
 
                 match lmdb_env.begin_ro_txn() {
                     Ok(tx) => match tx.get(lmdb, key) {
@@ -146,15 +148,13 @@ fn main() {
                     Err(e) => log::error!("Could not start LMDB transaction: {:?}", e),
                 }
 
-                match rocksdb.get(key) {
-                    Ok(Some(value)) => match value.to_utf8() {
-                        Some(value) => {
-                            log::info!("Read key {:?} from RocksDB: {:?}", key_hex, value)
-                        }
-                        None => log::warn!("Empty RocksDB value: {:?}", key_hex),
-                    },
-                    Ok(None) => log::warn!("Key not found in RocksDB: {:?}", key_hex),
-                    Err(e) => log::error!("RocksDB error: {:?}", e),
+                match lmdb_env.begin_rw_txn() {
+                    Ok(mut tx) => {
+                        tx.put(lmdb, key, payload, WriteFlags::empty())
+                            .expect("Could not write to LMDB");
+                        tx.commit().expect("Could not commit LMDB transaction");
+                    }
+                    Err(e) => log::error!("Could not start LMDB transaction: {:?}", e),
                 }
             }
         }

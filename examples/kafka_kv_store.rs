@@ -94,7 +94,7 @@ fn main() {
 
                 let key_hex = hex::encode(key);
                 let payload_str = String::from_utf8_lossy(payload);
-                let timestamp = Utc.timestamp_millis(m.timestamp().to_millis().unwrap_or(0));
+                let timestamp = Utc.timestamp_millis(m.timestamp().to_millis().unwrap_or_default());
 
                 log::info!(
                     "Consumed message: {:?} {:?} {:?} {:?} {:?} {:?}",

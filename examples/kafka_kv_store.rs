@@ -89,22 +89,8 @@ fn main() {
             Err(e) => log::error!("Stream error: {:?}", e),
             Ok(Err(e)) => log::error!("Consumer error: {:?}", e),
             Ok(Ok(m)) => {
-                let payload = &match m.payload_view::<[u8]>() {
-                    None => &[],
-                    Some(Ok(s)) => s,
-                    Some(Err(e)) => {
-                        log::error!("Deserializing error: {:?}", e);
-                        &[]
-                    }
-                };
-                let key = &match m.key_view::<[u8]>() {
-                    None => &[],
-                    Some(Ok(s)) => s,
-                    Some(Err(e)) => {
-                        log::error!("Deserializing error: {:?}", e);
-                        &[]
-                    }
-                };
+                let payload = &m.payload().unwrap_or(&[]);
+                let key = &m.key().unwrap_or(&[]);
 
                 let key_hex = hex::encode(key);
                 let payload_str =

@@ -125,11 +125,9 @@ fn main() {
                     .expect("Could not write to RocksDB");
 
                 match rocksdb.get(key) {
-                    Ok(Some(value)) => match value.to_utf8() {
-                        Some(value) => {
-                            log::info!("Read key {:?} from RocksDB: {:?}", key_hex, value)
-                        }
-                        None => log::warn!("Empty RocksDB value: {:?}", key_hex),
+                    Ok(Some(value)) => match String::from_utf8(value.to_vec()) {
+                        Ok(value) => log::info!("Read key {:?} from RocksDB: {:?}", key_hex, value),
+                        Err(e) => log::warn!("Invalid RocksDB value: {:?}", e),
                     },
                     Ok(None) => log::warn!("Key not found in RocksDB: {:?}", key_hex),
                     Err(e) => log::error!("RocksDB error: {:?}", e),
@@ -143,6 +141,9 @@ fn main() {
                             }
                             Err(e) => log::warn!("Invalid LMDB value: {:?}", e),
                         },
+                        Err(lmdb::Error::NotFound) => {
+                            log::warn!("Key not found in LMDB: {:?}", key_hex)
+                        }
                         Err(e) => log::error!("LMDB error: {:?}", e),
                     },
                     Err(e) => log::error!("Could not start LMDB transaction: {:?}", e),

@@ -86,10 +86,9 @@ fn main() {
         .expect("Could not create LMDB database");
 
     for message in consumer.start().wait() {
-        match message {
-            Err(e) => log::error!("Stream error: {:?}", e),
-            Ok(Err(e)) => log::error!("Consumer error: {:?}", e),
-            Ok(Ok(m)) => {
+        match message.expect("Stream error") {
+            Err(e) => log::error!("Consumer error: {:?}", e),
+            Ok(m) => {
                 let key = &m.key().unwrap_or(&[]);
                 let payload = &m.payload().unwrap_or(&[]);
 
@@ -113,10 +112,11 @@ fn main() {
                     .expect("Could not write to RocksDB");
 
                 match rocksdb.snapshot().get(key) {
-                    Ok(Some(value)) => match String::from_utf8(value.to_vec()) {
-                        Ok(value) => log::info!("Read key {:?} from RocksDB: {:?}", key_hex, value),
-                        Err(e) => log::warn!("Invalid RocksDB value: {:?}", e),
-                    },
+                    Ok(Some(value)) => log::info!(
+                        "Read key {:?} from RocksDB: {:?}",
+                        key_hex,
+                        String::from_utf8_lossy(&value)
+                    ),
                     Ok(None) => log::warn!("Key not found in RocksDB: {:?}", key_hex),
                     Err(e) => log::error!("RocksDB error: {:?}", e),
                 }
@@ -132,12 +132,11 @@ fn main() {
 
                 match lmdb_env.begin_ro_txn() {
                     Ok(tx) => match tx.get(lmdb, key) {
-                        Ok(value) => match String::from_utf8(value.to_vec()) {
-                            Ok(value) => {
-                                log::info!("Read key {:?} from LMDB: {:?}", key_hex, value)
-                            }
-                            Err(e) => log::warn!("Invalid LMDB value: {:?}", e),
-                        },
+                        Ok(value) => log::info!(
+                            "Read key {:?} from LMDB: {:?}",
+                            key_hex,
+                            String::from_utf8_lossy(value)
+                        ),
                         Err(lmdb::Error::NotFound) => {
                             log::warn!("Key not found in LMDB: {:?}", key_hex)
                         }

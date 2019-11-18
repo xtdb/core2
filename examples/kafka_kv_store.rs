@@ -164,7 +164,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         let payload = &message.payload().unwrap_or(&[]);
 
         let key_hex = hex::encode(key);
-        let payload_str = String::from_utf8_lossy(payload);
+        let payload_str = String::from_utf8(payload.to_vec())?;
         let timestamp = Utc.timestamp_millis(message.timestamp().to_millis().unwrap_or_default());
 
         log::info!(
@@ -183,7 +183,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             Some(value) => log::info!(
                 "Read key {:?} from RocksDB: {:?}",
                 key_hex,
-                String::from_utf8_lossy(value.as_ref())
+                String::from_utf8(value.as_ref().to_vec())?
             ),
             None => log::warn!("Key not found in RocksDB: {:?}", key_hex),
         }
@@ -200,7 +200,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             Some(value) => log::info!(
                 "Read key {:?} from LMDB: {:?}",
                 key_hex,
-                String::from_utf8_lossy(&value)
+                String::from_utf8(value.to_vec())?
             ),
             None => log::warn!("Key not found in RocksDB: {:?}", key_hex),
         }

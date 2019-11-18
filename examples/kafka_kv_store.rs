@@ -1,4 +1,5 @@
 use std::env;
+use std::error::Error;
 use std::fs;
 use std::path::Path;
 
@@ -44,7 +45,21 @@ where
 }
 
 fn rocksdb_get<K: AsRef<[u8]>>(snapshot: &Snapshot, key: &K) -> Option<impl AsRef<[u8]>> {
-    snapshot.get(key).expect("RocksDB error")
+    match snapshot.get(key) {
+        Ok(value) => value,
+        Err(e) => {
+            log::error!("RocksDB error: {:?}", e);
+            None
+        }
+    }
+}
+
+fn rocksdb_put<K: AsRef<[u8]>, V: AsRef<[u8]>>(
+    rocksdb: &DB,
+    key: &K,
+    value: &V,
+) -> Result<(), rocksdb::Error> {
+    rocksdb.put(key, value)
 }
 
 fn lmdb_get<'txn, K: AsRef<[u8]>>(
@@ -55,11 +70,25 @@ fn lmdb_get<'txn, K: AsRef<[u8]>>(
     match tx.get(lmdb, key) {
         Ok(value) => Some(value),
         Err(lmdb::Error::NotFound) => None,
-        Err(e) => panic!("LMDB error: {:?}", e),
+        Err(e) => {
+            log::error!("LMDB error: {:?}", e);
+            None
+        }
     }
 }
 
-fn main() {
+fn lmdb_put<K: AsRef<[u8]>, V: AsRef<[u8]>>(
+    lmdb_env: &Environment,
+    lmdb: Database,
+    key: &K,
+    value: &V,
+) -> Result<(), lmdb::Error> {
+    let mut tx = lmdb_env.begin_rw_txn()?;
+    tx.put(lmdb, key, value, WriteFlags::empty())?;
+    tx.commit()
+}
+
+fn main() -> Result<(), Box<dyn Error>> {
     env_logger::from_env(Env::default().default_filter_or("info")).init();
     log::info!(
         "crux.rs version: {} revision: {}",
@@ -75,8 +104,7 @@ fn main() {
 
     let producer: FutureProducer = ClientConfig::new()
         .set("bootstrap.servers", bootstrap_servers)
-        .create()
-        .expect("Could not create producer");
+        .create()?;
 
     let value = b"Hello World";
     let key: &[u8] = &Sha1::digest(value);
@@ -90,83 +118,64 @@ fn main() {
         .set("bootstrap.servers", bootstrap_servers)
         .set("enable.auto.commit", "false")
         .set("auto.offset.reset", "earliest")
-        .create()
-        .expect("Could not create consumer");
+        .create()?;
 
-    consumer
-        .subscribe(&[topic])
-        .expect("Could not subscribe to topic");
+    consumer.subscribe(&[topic])?;
 
-    let rocksdb = DB::open_default("data/rocksdb").expect("Could not open RocksDB");
+    let rocksdb = DB::open_default("data/rocksdb")?;
 
     let lmdb_path = Path::new("data/lmdb");
-    fs::create_dir_all(lmdb_path).expect("Could not create LMDB directory");
-    let lmdb_env = Environment::new()
-        .open(lmdb_path)
-        .expect("Could not open LMDB environment");
+    fs::create_dir_all(lmdb_path)?;
+    let lmdb_env = Environment::new().open(lmdb_path)?;
 
-    let lmdb = lmdb_env
-        .create_db(None, DatabaseFlags::empty())
-        .expect("Could not create LMDB database");
+    let lmdb = lmdb_env.create_db(None, DatabaseFlags::empty())?;
 
     for message in consumer.start().wait() {
-        match message.expect("Stream error") {
-            Err(e) => log::error!("Consumer error: {:?}", e),
-            Ok(m) => {
-                let key = &m.key().unwrap_or(&[]);
-                let payload = &m.payload().unwrap_or(&[]);
+        let message = message.expect("Stream error")?;
+        let key = &message.key().unwrap_or(&[]);
+        let payload = &message.payload().unwrap_or(&[]);
 
-                let key_hex = hex::encode(key);
-                let payload_str = String::from_utf8_lossy(payload);
-                let timestamp = Utc.timestamp_millis(m.timestamp().to_millis().unwrap_or_default());
+        let key_hex = hex::encode(key);
+        let payload_str = String::from_utf8_lossy(payload);
+        let timestamp = Utc.timestamp_millis(message.timestamp().to_millis().unwrap_or_default());
 
-                log::info!(
-                    "Consumed message: {:?} {:?} {:?} {:?} {:?} {:?}",
-                    m.topic(),
-                    m.partition(),
-                    m.offset(),
-                    timestamp,
-                    key_hex,
-                    payload_str
-                );
+        log::info!(
+            "Consumed message: {:?} {:?} {:?} {:?} {:?} {:?}",
+            message.topic(),
+            message.partition(),
+            message.offset(),
+            timestamp,
+            key_hex,
+            payload_str
+        );
 
-                rocksdb
-                    .put(key, payload)
-                    .expect("Could not write to RocksDB");
+        rocksdb_put(&rocksdb, key, payload)?;
 
-                match rocksdb_get(&rocksdb.snapshot(), key) {
-                    Some(value) => log::info!(
-                        "Read key {:?} from RocksDB: {:?}",
-                        key_hex,
-                        String::from_utf8_lossy(value.as_ref())
-                    ),
-                    None => log::warn!("Key not found in RocksDB: {:?}", key_hex),
-                }
+        match rocksdb_get(&rocksdb.snapshot(), key) {
+            Some(value) => log::info!(
+                "Read key {:?} from RocksDB: {:?}",
+                key_hex,
+                String::from_utf8_lossy(value.as_ref())
+            ),
+            None => log::warn!("Key not found in RocksDB: {:?}", key_hex),
+        }
 
-                {
-                    let mut tx = lmdb_env
-                        .begin_rw_txn()
-                        .expect("Could not start LMDB transaction");
-                    tx.put(lmdb, key, payload, WriteFlags::empty())
-                        .expect("Could not write to LMDB");
-                    tx.commit().expect("Could not commit LMDB transaction");
-                }
+        lmdb_put(&lmdb_env, lmdb, key, value)?;
 
-                match lmdb_get(
-                    &lmdb_env
-                        .begin_ro_txn()
-                        .expect("Could not start LMDB transaction"),
-                    lmdb,
-                    key,
-                ) {
-                    Some(value) => log::info!(
-                        "Read key {:?} from LMDB: {:?}",
-                        key_hex,
-                        String::from_utf8_lossy(&value)
-                    ),
-                    None => log::warn!("Key not found in RocksDB: {:?}", key_hex),
-                }
-            }
+        match lmdb_get(
+            &lmdb_env
+                .begin_ro_txn()
+                .expect("Could not start LMDB transaction"),
+            lmdb,
+            key,
+        ) {
+            Some(value) => log::info!(
+                "Read key {:?} from LMDB: {:?}",
+                key_hex,
+                String::from_utf8_lossy(&value)
+            ),
+            None => log::warn!("Key not found in RocksDB: {:?}", key_hex),
         }
     }
+    Ok(())
 }

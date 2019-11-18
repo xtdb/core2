@@ -27,21 +27,26 @@ use rocksdb::{Snapshot, DB};
 const VERSION: Option<&'static str> = option_env!("CARGO_PKG_VERSION");
 const GIT_HASH: Option<&'static str> = option_env!("GIT_HASH");
 
-fn send_record<K, P>(producer: FutureProducer, record: FutureRecord<K, P>)
+fn send_record<K, P>(
+    producer: FutureProducer,
+    record: FutureRecord<K, P>,
+) -> Result<(), rdkafka::error::KafkaError>
 where
     K: ToBytes + ?Sized,
     P: ToBytes + ?Sized,
 {
-    let (partition, offset) = producer
-        .send(record, 1000)
-        .wait()
-        .expect("Future cancelled")
-        .expect("Delivery failed");
-    log::debug!(
-        "Producer response, partition: {:?} offset: {:?}",
-        partition,
-        offset
-    );
+    match producer.send(record, 1000).wait() {
+        Err(e) => log::error!("Future cancelled: {:?}", e),
+        Ok(Err((e, _))) => return Err(e),
+        Ok(Ok((partition, offset))) => {
+            log::debug!(
+                "Producer response, partition: {:?} offset: {:?}",
+                partition,
+                offset
+            );
+        }
+    }
+    Ok(())
 }
 
 fn rocksdb_get<K: AsRef<[u8]>>(snapshot: &Snapshot, key: &K) -> Option<impl AsRef<[u8]>> {
@@ -110,7 +115,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let key: &[u8] = &Sha1::digest(value);
     let record = FutureRecord::to(topic).key(key).payload(value);
 
-    send_record(producer, record);
+    send_record(producer, record)?;
 
     let group_id = "crux-group";
     let consumer: StreamConsumer = ClientConfig::new()

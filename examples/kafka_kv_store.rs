@@ -93,45 +93,68 @@ fn lmdb_put<K: AsRef<[u8]>, V: AsRef<[u8]>>(
     tx.commit()
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
+#[derive(Debug)]
+struct Config {
+    bootstrap_servers: String,
+    topic: String,
+    group_id: String,
+    db_dir: String,
+}
+
+fn init_logging() {
     env_logger::from_env(Env::default().default_filter_or("info")).init();
+}
+
+fn print_banner(config: &Config) {
     log::info!(
         "crux.rs version: {} revision: {}",
         VERSION.unwrap_or("unknown"),
         GIT_HASH.unwrap_or("unknown")
     );
+    log::debug!("config = {:#?}", config);
+}
 
-    let bootstrap_servers =
-        &env::var("BOOTSTRAP_SERVERS").unwrap_or_else(|_| "localhost:9092".to_string());
-    log::debug!("bootstrap.servers = {}", bootstrap_servers);
+fn init_config() -> Config {
+    Config {
+        bootstrap_servers: env::var("BOOTSTRAP_SERVERS")
+            .unwrap_or_else(|_| "localhost:9092".to_string()),
+        topic: "crux_topic".to_string(),
+        group_id: "crux-group".to_string(),
+        db_dir: "data".to_string(),
+    }
+}
 
-    let topic = "my-topic";
+fn main() -> Result<(), Box<dyn Error>> {
+    init_logging();
+
+    let config = init_config();
+    print_banner(&config);
 
     let producer: FutureProducer = ClientConfig::new()
-        .set("bootstrap.servers", bootstrap_servers)
+        .set("bootstrap.servers", &config.bootstrap_servers)
         .create()?;
 
     let value = b"Hello World";
     let key: &[u8] = &Sha1::digest(value);
-    let record = FutureRecord::to(topic).key(key).payload(value);
+    let record = FutureRecord::to(&config.topic).key(key).payload(value);
 
     send_record(producer, record)?;
 
-    let group_id = "crux-group";
     let consumer: StreamConsumer = ClientConfig::new()
-        .set("group.id", group_id)
-        .set("bootstrap.servers", bootstrap_servers)
+        .set("group.id", &config.group_id)
+        .set("bootstrap.servers", &config.bootstrap_servers)
         .set("enable.auto.commit", "false")
         .set("auto.offset.reset", "earliest")
         .create()?;
 
-    consumer.subscribe(&[topic])?;
+    consumer.subscribe(&[&config.topic])?;
 
-    let rocksdb = DB::open_default("data/rocksdb")?;
+    let rocksdb_path = Path::new(&config.db_dir).join("rocksdb");
+    let rocksdb = DB::open_default(&rocksdb_path)?;
 
-    let lmdb_path = Path::new("data/lmdb");
-    fs::create_dir_all(lmdb_path)?;
-    let lmdb_env = Environment::new().open(lmdb_path)?;
+    let lmdb_path = Path::new(&config.db_dir).join("lmdb");
+    fs::create_dir_all(&lmdb_path)?;
+    let lmdb_env = Environment::new().open(&lmdb_path)?;
 
     let lmdb = lmdb_env.create_db(None, DatabaseFlags::empty())?;
 

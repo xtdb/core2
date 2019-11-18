@@ -1,4 +1,18 @@
-use lmdb::{Database, Environment, RoTransaction, Transaction, WriteFlags};
+use std::fs;
+use std::path::Path;
+
+use lmdb::{Database, DatabaseFlags, Environment, RoTransaction, Transaction, WriteFlags};
+
+type LMDB = (Database, Environment);
+
+pub fn open(path: &Path) -> Result<LMDB, lmdb::Error> {
+    if let Err(e) = fs::create_dir_all(path) {
+        log::error!("{}", e);
+    }
+    let lmdb_env = Environment::new().open(path)?;
+    let lmdb = lmdb_env.create_db(None, DatabaseFlags::empty())?;
+    Ok((lmdb, lmdb_env))
+}
 
 pub fn get<'txn, K: AsRef<[u8]>>(
     tx: &'txn RoTransaction,

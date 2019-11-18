@@ -1,4 +1,9 @@
 use rocksdb::{Snapshot, DB};
+use std::path::Path;
+
+pub fn open(path: &Path) -> Result<DB, rocksdb::Error> {
+    DB::open_default(path)
+}
 
 pub fn get<K: AsRef<[u8]>>(snapshot: &Snapshot, key: &K) -> Option<impl AsRef<[u8]>> {
     match snapshot.get(key) {

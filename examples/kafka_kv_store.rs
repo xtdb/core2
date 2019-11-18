@@ -11,9 +11,6 @@ use rdkafka::consumer::Consumer;
 use rdkafka::message::Message;
 use rdkafka::producer::FutureRecord;
 
-use lmdb::{DatabaseFlags, Environment};
-use rocksdb::DB;
-
 fn init_logging() {
     env_logger::from_env(Env::default().default_filter_or("info")).init();
 }
@@ -35,12 +32,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     consumer.subscribe(&[&config.topic])?;
 
     let rocksdb_path = Path::new(&config.db_dir).join("rocksdb");
-    let rocksdb = DB::open_default(&rocksdb_path)?;
+    let rocksdb = crux::kv::rocksdb::open(&rocksdb_path)?;
 
     let lmdb_path = Path::new(&config.db_dir).join("lmdb");
     fs::create_dir_all(&lmdb_path)?;
-    let lmdb_env = Environment::new().open(&lmdb_path)?;
-    let lmdb = lmdb_env.create_db(None, DatabaseFlags::empty())?;
+    let (lmdb, lmdb_env) = crux::kv::lmdb::open(&lmdb_path)?;
 
     for message in consumer.start().wait() {
         let message = message.expect("Stream error")?;

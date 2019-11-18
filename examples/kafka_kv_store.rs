@@ -17,14 +17,47 @@ use futures::stream::Stream;
 use rdkafka::config::ClientConfig;
 use rdkafka::consumer::stream_consumer::StreamConsumer;
 use rdkafka::consumer::Consumer;
-use rdkafka::message::Message;
+use rdkafka::message::{Message, ToBytes};
 use rdkafka::producer::{FutureProducer, FutureRecord};
 
-use lmdb::{DatabaseFlags, Environment, Transaction, WriteFlags};
-use rocksdb::DB;
+use lmdb::{Database, DatabaseFlags, Environment, RoTransaction, Transaction, WriteFlags};
+use rocksdb::{Snapshot, DB};
 
 const VERSION: Option<&'static str> = option_env!("CARGO_PKG_VERSION");
 const GIT_HASH: Option<&'static str> = option_env!("GIT_HASH");
+
+fn send_record<K, P>(producer: FutureProducer, record: FutureRecord<K, P>)
+where
+    K: ToBytes + ?Sized,
+    P: ToBytes + ?Sized,
+{
+    let (partition, offset) = producer
+        .send(record, 1000)
+        .wait()
+        .expect("Future cancelled")
+        .expect("Delivery failed");
+    log::debug!(
+        "Producer response, partition: {:?} offset: {:?}",
+        partition,
+        offset
+    );
+}
+
+fn rocksdb_get<K: AsRef<[u8]>>(snapshot: &Snapshot, key: &K) -> Option<impl AsRef<[u8]>> {
+    snapshot.get(key).expect("RocksDB error")
+}
+
+fn lmdb_get<'txn, K: AsRef<[u8]>>(
+    tx: &'txn RoTransaction,
+    lmdb: Database,
+    key: &K,
+) -> Option<&'txn [u8]> {
+    match tx.get(lmdb, key) {
+        Ok(value) => Some(value),
+        Err(lmdb::Error::NotFound) => None,
+        Err(e) => panic!("LMDB error: {:?}", e),
+    }
+}
 
 fn main() {
     env_logger::from_env(Env::default().default_filter_or("info")).init();
@@ -38,27 +71,18 @@ fn main() {
         &env::var("BOOTSTRAP_SERVERS").unwrap_or_else(|_| "localhost:9092".to_string());
     log::debug!("bootstrap.servers = {}", bootstrap_servers);
 
+    let topic = "my-topic";
+
     let producer: FutureProducer = ClientConfig::new()
         .set("bootstrap.servers", bootstrap_servers)
         .create()
         .expect("Could not create producer");
 
-    let topic = "my-topic";
-
     let value = b"Hello World";
     let key: &[u8] = &Sha1::digest(value);
     let record = FutureRecord::to(topic).key(key).payload(value);
 
-    let (partition, offset) = producer
-        .send(record, 1000)
-        .wait()
-        .expect("Future cancelled")
-        .expect("Delivery failed");
-    log::debug!(
-        "Producer response, partition: {:?} offset: {:?}",
-        partition,
-        offset
-    );
+    send_record(producer, record);
 
     let group_id = "crux-group";
     let consumer: StreamConsumer = ClientConfig::new()
@@ -110,14 +134,13 @@ fn main() {
                     .put(key, payload)
                     .expect("Could not write to RocksDB");
 
-                match rocksdb.snapshot().get(key) {
-                    Ok(Some(value)) => log::info!(
+                match rocksdb_get(&rocksdb.snapshot(), key) {
+                    Some(value) => log::info!(
                         "Read key {:?} from RocksDB: {:?}",
                         key_hex,
-                        String::from_utf8_lossy(&value)
+                        String::from_utf8_lossy(value.as_ref())
                     ),
-                    Ok(None) => log::warn!("Key not found in RocksDB: {:?}", key_hex),
-                    Err(e) => log::error!("RocksDB error: {:?}", e),
+                    None => log::warn!("Key not found in RocksDB: {:?}", key_hex),
                 }
 
                 {
@@ -129,19 +152,19 @@ fn main() {
                     tx.commit().expect("Could not commit LMDB transaction");
                 }
 
-                match lmdb_env.begin_ro_txn() {
-                    Ok(tx) => match tx.get(lmdb, key) {
-                        Ok(value) => log::info!(
-                            "Read key {:?} from LMDB: {:?}",
-                            key_hex,
-                            String::from_utf8_lossy(value)
-                        ),
-                        Err(lmdb::Error::NotFound) => {
-                            log::warn!("Key not found in LMDB: {:?}", key_hex)
-                        }
-                        Err(e) => log::error!("LMDB error: {:?}", e),
-                    },
-                    Err(e) => log::error!("Could not start LMDB transaction: {:?}", e),
+                match lmdb_get(
+                    &lmdb_env
+                        .begin_ro_txn()
+                        .expect("Could not start LMDB transaction"),
+                    lmdb,
+                    key,
+                ) {
+                    Some(value) => log::info!(
+                        "Read key {:?} from LMDB: {:?}",
+                        key_hex,
+                        String::from_utf8_lossy(&value)
+                    ),
+                    None => log::warn!("Key not found in RocksDB: {:?}", key_hex),
                 }
             }
         }

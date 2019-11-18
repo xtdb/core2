@@ -36,7 +36,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let lmdb_path = Path::new(&config.db_dir).join("lmdb");
     fs::create_dir_all(&lmdb_path)?;
-    let (lmdb, lmdb_env) = crux::kv::lmdb::open(&lmdb_path)?;
+    let lmdb = crux::kv::lmdb::open(&lmdb_path)?;
 
     for message in consumer.start().wait() {
         let message = message.expect("Stream error")?;
@@ -47,18 +47,15 @@ fn main() -> Result<(), Box<dyn Error>> {
         crux::kafka::log_message(&message);
 
         crux::kv::rocksdb::put(&rocksdb, key, payload)?;
-        crux::kv::log_key_access(key, crux::kv::rocksdb::get(&rocksdb.snapshot(), key));
-
-        crux::kv::lmdb::put(&lmdb_env, lmdb, key, value)?;
         crux::kv::log_key_access(
             key,
-            crux::kv::lmdb::get(
-                &lmdb_env
-                    .begin_ro_txn()
-                    .expect("Could not start LMDB transaction"),
-                lmdb,
-                key,
-            ),
+            crux::kv::rocksdb::get(&crux::kv::rocksdb::snapshot(&rocksdb)?, key),
+        );
+
+        crux::kv::lmdb::put(&lmdb, key, value)?;
+        crux::kv::log_key_access(
+            key,
+            crux::kv::lmdb::get(&crux::kv::lmdb::snapshot(&lmdb)?, key),
         );
     }
     Ok(())

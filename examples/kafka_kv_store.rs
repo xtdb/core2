@@ -12,6 +12,8 @@ use rdkafka::consumer::Consumer;
 use rdkafka::message::Message;
 use rdkafka::producer::FutureRecord;
 
+use crux::Config;
+
 fn init_logging() {
     env_logger::from_env(Env::default().default_filter_or(Level::Info.to_string())).init();
 }
@@ -19,7 +21,7 @@ fn init_logging() {
 fn main() -> Result<(), Box<dyn Error>> {
     init_logging();
 
-    let config = crux::init_config();
+    let config = Config::from_env();
     crux::print_banner(&config);
 
     let value = b"Hello World";

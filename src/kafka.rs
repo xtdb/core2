@@ -51,20 +51,13 @@ where
 }
 
 pub fn log_message(message: &impl Message) {
-    let key = &message.key().unwrap_or(&[]);
-    let payload = &message.payload().unwrap_or(&[]);
-
-    let key_hex = hex::encode(key);
-    let payload_str = String::from_utf8_lossy(payload);
-    let timestamp = Utc.timestamp_millis(message.timestamp().to_millis().unwrap_or_default());
-
     log::info!(
         "Consumed message: {:?} {:?} {:?} {:?} {:?} {:?}",
         message.topic(),
         message.partition(),
         message.offset(),
-        timestamp,
-        key_hex,
-        payload_str
+        Utc.timestamp_millis(message.timestamp().to_millis().unwrap_or_default()),
+        hex::encode(message.key().unwrap_or(&[])),
+        String::from_utf8_lossy(message.payload().unwrap_or(&[]))
     );
 }

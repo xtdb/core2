@@ -5,17 +5,13 @@ use chrono::Utc;
 
 use futures::future::Future;
 
-use hex;
-
-use log;
-
 use rdkafka::config::ClientConfig;
 use rdkafka::consumer::stream_consumer::StreamConsumer;
 use rdkafka::error::KafkaError;
 use rdkafka::message::{Message, ToBytes};
 use rdkafka::producer::{FutureProducer, FutureRecord};
 
-use super::Config;
+use crate::config::Config;
 
 pub fn create_producer(config: &Config) -> Result<FutureProducer, KafkaError> {
     ClientConfig::new()

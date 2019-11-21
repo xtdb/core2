@@ -1,9 +1,6 @@
 pub mod lmdb;
 pub mod rocksdb;
 
-use hex;
-use log;
-
 pub fn log_key_access<K: AsRef<[u8]>, V: AsRef<[u8]>>(key: K, value: Option<V>) {
     match value {
         Some(value) => log::info!(

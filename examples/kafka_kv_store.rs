@@ -43,13 +43,12 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     for message in consumer.start().wait() {
         let message = message.expect("Stream error")?;
-
-        let key = &message.key().unwrap_or(&[]);
-        let payload = &message.payload().unwrap_or(&[]);
-
         crux::kafka::log_message(&message);
 
-        crux::kv::rocksdb::put(&rocksdb, key, payload)?;
+        let key = &message.key().unwrap_or(&[]);
+        let value = &message.payload().unwrap_or(&[]);
+
+        crux::kv::rocksdb::put(&rocksdb, key, value)?;
         crux::kv::log_key_access(
             key,
             crux::kv::rocksdb::get(&crux::kv::rocksdb::snapshot(&rocksdb)?, key),

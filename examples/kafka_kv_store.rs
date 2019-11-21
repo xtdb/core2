@@ -1,5 +1,4 @@
 use std::error::Error;
-use std::fs;
 use std::path::Path;
 
 use env_logger::Env;
@@ -38,7 +37,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     let rocksdb = crux::kv::rocksdb::open(&rocksdb_path)?;
 
     let lmdb_path = Path::new(&config.db_dir).join("lmdb");
-    fs::create_dir_all(&lmdb_path)?;
     let lmdb = crux::kv::lmdb::open(&lmdb_path)?;
 
     for message in consumer.start().wait() {

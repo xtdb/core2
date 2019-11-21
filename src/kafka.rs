@@ -15,13 +15,15 @@ use rdkafka::error::KafkaError;
 use rdkafka::message::{Message, ToBytes};
 use rdkafka::producer::{FutureProducer, FutureRecord};
 
-pub fn create_producer(config: &super::Config) -> Result<FutureProducer, KafkaError> {
+use super::Config;
+
+pub fn create_producer(config: &Config) -> Result<FutureProducer, KafkaError> {
     ClientConfig::new()
         .set("bootstrap.servers", &config.bootstrap_servers)
         .create()
 }
 
-pub fn create_consumer(config: &super::Config) -> Result<StreamConsumer, KafkaError> {
+pub fn create_consumer(config: &Config) -> Result<StreamConsumer, KafkaError> {
     ClientConfig::new()
         .set("group.id", &config.group_id)
         .set("bootstrap.servers", &config.bootstrap_servers)

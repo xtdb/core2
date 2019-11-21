@@ -1,9 +1,12 @@
+use std::error::Error;
 use std::process::Command;
 
-fn main() {
-    if let Ok(output) = Command::new("git").args(&["rev-parse", "HEAD"]).output() {
-        if let Ok(git_hash) = String::from_utf8(output.stdout) {
-            println!("cargo:rustc-env=GIT_HASH={}", git_hash);
-        }
-    }
+fn main() -> Result<(), Box<dyn Error>> {
+    let output = Command::new("git").args(&["rev-parse", "HEAD"]).output()?;
+    println!(
+        "cargo:rustc-env=GIT_HASH={}",
+        String::from_utf8(output.stdout)?
+    );
+
+    Ok(())
 }

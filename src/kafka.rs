@@ -31,7 +31,7 @@ pub fn create_consumer(config: &super::Config) -> Result<StreamConsumer, KafkaEr
 pub fn send_record<K, P>(
     producer: FutureProducer,
     record: FutureRecord<K, P>,
-) -> Result<(), rdkafka::error::KafkaError>
+) -> Result<(), KafkaError>
 where
     K: ToBytes + ?Sized,
     P: ToBytes + ?Sized,

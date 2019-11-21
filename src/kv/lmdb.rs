@@ -1,12 +1,12 @@
 use std::fs;
 use std::path::Path;
 
-use lmdb::{Database, DatabaseFlags, Environment, RoTransaction, Transaction, WriteFlags};
+use lmdb::{Database, DatabaseFlags, Environment, Error, RoTransaction, Transaction, WriteFlags};
 
 type LMDB = (Database, Environment);
 type LMDBSnapshot<'database> = (Database, RoTransaction<'database>);
 
-pub fn open(path: &Path) -> Result<LMDB, lmdb::Error> {
+pub fn open(path: &Path) -> Result<LMDB, Error> {
     if let Err(e) = fs::create_dir_all(path) {
         log::error!("{}", e);
     }
@@ -15,7 +15,7 @@ pub fn open(path: &Path) -> Result<LMDB, lmdb::Error> {
     Ok((lmdb, lmdb_env))
 }
 
-pub fn snapshot<'lmdb>((lmdb, lmdb_env): &'lmdb LMDB) -> Result<LMDBSnapshot<'lmdb>, lmdb::Error> {
+pub fn snapshot<'lmdb>((lmdb, lmdb_env): &'lmdb LMDB) -> Result<LMDBSnapshot<'lmdb>, Error> {
     Ok((*lmdb, lmdb_env.begin_ro_txn()?))
 }
 
@@ -37,7 +37,7 @@ pub fn put<K: AsRef<[u8]>, V: AsRef<[u8]>>(
     (lmdb, lmdb_env): &LMDB,
     key: &K,
     value: &V,
-) -> Result<(), lmdb::Error> {
+) -> Result<(), Error> {
     let mut tx = lmdb_env.begin_rw_txn()?;
     tx.put(*lmdb, key, value, WriteFlags::empty())?;
     tx.commit()

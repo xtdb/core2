@@ -1,3 +1,5 @@
+use std::error::Error;
+
 use chrono::offset::TimeZone;
 use chrono::Utc;
 
@@ -28,26 +30,29 @@ pub fn create_consumer(config: &super::Config) -> Result<StreamConsumer, KafkaEr
         .create()
 }
 
+type RecordMetadata = (i32, i64);
+
 pub fn send_record<K, P>(
     producer: FutureProducer,
     record: FutureRecord<K, P>,
-) -> Result<(), KafkaError>
+) -> Result<RecordMetadata, Box<dyn Error>>
 where
     K: ToBytes + ?Sized,
     P: ToBytes + ?Sized,
 {
     match producer.send(record, 1000).wait() {
-        Err(e) => log::error!("Future cancelled: {:?}", e),
-        Ok(Err((e, _))) => return Err(e),
-        Ok(Ok((partition, offset))) => {
-            log::debug!(
-                "Producer response, partition: {:?} offset: {:?}",
-                partition,
-                offset
-            );
-        }
+        Err(e) => Err(Box::new(e)),
+        Ok(Err((e, _))) => Err(Box::new(e)),
+        Ok(Ok(record_metadata)) => Ok(record_metadata),
     }
-    Ok(())
+}
+
+pub fn log_record_metadata((partition, offset): RecordMetadata) {
+    log::debug!(
+        "Producer response, partition: {:?} offset: {:?}",
+        partition,
+        offset
+    );
 }
 
 pub fn log_message(message: &impl Message) {

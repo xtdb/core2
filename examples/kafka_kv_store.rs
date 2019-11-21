@@ -28,7 +28,8 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let producer = crux::kafka::create_producer(&config)?;
     let record = FutureRecord::to(&config.topic).key(key).payload(value);
-    crux::kafka::send_record(producer, record)?;
+    let record_metadata = crux::kafka::send_record(producer, record)?;
+    crux::kafka::log_record_metadata(record_metadata);
 
     let consumer = crux::kafka::create_consumer(&config)?;
     consumer.subscribe(&[&config.topic])?;

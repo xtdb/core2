@@ -3,6 +3,7 @@ use std::fs;
 use std::path::Path;
 
 use env_logger::Env;
+use log::Level;
 use sha1::{Digest, Sha1};
 
 use futures::stream::Stream;
@@ -12,7 +13,7 @@ use rdkafka::message::Message;
 use rdkafka::producer::FutureRecord;
 
 fn init_logging() {
-    env_logger::from_env(Env::default().default_filter_or("info")).init();
+    env_logger::from_env(Env::default().default_filter_or(Level::Info.to_string())).init();
 }
 
 fn main() -> Result<(), Box<dyn Error>> {

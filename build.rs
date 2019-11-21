@@ -7,6 +7,5 @@ fn main() -> Result<(), Box<dyn Error>> {
         "cargo:rustc-env=GIT_HASH={}",
         String::from_utf8(output.stdout)?
     );
-
     Ok(())
 }

@@ -15,7 +15,7 @@ pub fn open(path: &Path) -> Result<LMDB, Error> {
     Ok((lmdb, lmdb_env))
 }
 
-pub fn snapshot<'lmdb>((lmdb, lmdb_env): &'lmdb LMDB) -> Result<LMDBSnapshot<'lmdb>, Error> {
+pub fn snapshot((lmdb, lmdb_env): &LMDB) -> Result<LMDBSnapshot, Error> {
     Ok((*lmdb, lmdb_env.begin_ro_txn()?))
 }
 

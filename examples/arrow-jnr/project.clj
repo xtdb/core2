@@ -8,4 +8,5 @@
                  [org.clojure/tools.logging "0.5.0"]
                  [com.github.jnr/jnr-ffi "2.1.9"]
                  [ch.qos.logback/logback-classic "1.2.3"]
-                 [org.apache.arrow/arrow-vector "0.15.1"]])
+                 [org.apache.arrow/arrow-vector "0.15.1"]]
+  :global-vars {*warn-on-reflection* true})

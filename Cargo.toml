@@ -2,8 +2,9 @@
 name = "crux"
 version = "0.1.0"
 description = "Parts of Crux re-imagined in Rust"
-keywords = ["database", "bitemp", "kafka", "rocksdb"]
-homepage = "https://github.com/juxt/crux"
+keywords = ["database", "bitemp", "kafka", "rocksdb", "lmdb", "arrow", "datalog"]
+repository = "https://github.com/juxt/crux-rnd"
+homepage = "https://github.com/juxt/crux-rnd"
 readme = "README.md"
 authors = ["Håkan Råberg <hak@juxt.pro>"]
 license = "MIT"

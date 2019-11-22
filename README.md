@@ -19,6 +19,7 @@ inspired by KDB to implement the engine itself.
 * Worst Case Optimal Joins
 * Basic Graph Patterns only
 * Bitemp implemented as lower level join operators
+* Point-in-time and valid-time range queries
 * Clojure to Rust JNR bridge
 
 ### Stretch Goals

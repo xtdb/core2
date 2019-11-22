@@ -2,15 +2,17 @@
 
 **Experimental**
 
-Parts of Crux re-imagined in Rust.
+Parts of Crux re-imagined in Rust (nightly).
 
 See https://github.com/juxt/crux
 
 ## Building
 
-You need libclang installed, as the wrappers for the C libraries
-depend on this to build. On Ubuntu this can be done via `apt install
-llvm-dev libclang-dev clang`.
+First, you need `rustup`, see https://www.rust-lang.org/tools/install
+
+You also need `libclang` installed, as the wrappers for the C
+libraries depend on this to build. On Ubuntu this can be done via `apt
+install llvm-dev libclang-dev clang`.
 
 ```bash
 cargo build
@@ -27,7 +29,7 @@ cargo clippy --all-targets
 
 ## Running
 
-You need Kafka and Zookeeper running.
+You need Kafka and Zookeeper running, see https://kafka.apache.org/quickstart
 
 ``` bash
 RUST_LOG=debug BOOTSTRAP_SERVERS=localhost:9092 cargo run --example kafka_kv_store

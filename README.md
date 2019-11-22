@@ -6,6 +6,26 @@ Parts of Crux re-imagined in Rust (nightly).
 
 See https://github.com/juxt/crux
 
+## Scope
+
+The plan of attack using Rust+Arrow to build a bitemporal Datalog
+engine based on columnar formats using a set of primitives somewhat
+inspired by KDB to implement the engine itself.
+
+### Goals
+
+* Apache Arrow
+* JSON documents
+* Worst Case Optimal Joins
+* Basic Graph Patterns only
+* Bitemp implemented as lower level join operators
+* Clojure to Rust JNR bridge
+
+### Stretch Goals
+
+* Ingest
+* Remote storage
+
 ## Building
 
 First, you need `rustup`, see https://www.rust-lang.org/tools/install
@@ -27,7 +47,7 @@ everything, including examples:
 cargo clippy --all-targets
 ```
 
-## Running
+## Running the Kafka KV Example
 
 You need Kafka and Zookeeper running, see https://kafka.apache.org/quickstart
 

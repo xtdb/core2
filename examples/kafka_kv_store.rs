@@ -21,7 +21,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     init_logging();
 
     let config = Config::from_env();
-    crux::config::print_banner(&config);
+    crux::config::log_banner(&config);
 
     let value = b"Hello World";
     let key: &[u8] = &Sha1::digest(value);

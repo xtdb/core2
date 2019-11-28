@@ -5,7 +5,7 @@
 
 (def ^:const crux-library-path (or (System/getenv "CRUX_LIBRARY_PATH")
                                    (first (for [target ["debug" "release"]
-                                                :let [f (io/file (format "../../target/%s/libcrux.so" target))]
+                                                :let [f (io/file (format "../../target/%s/%s" target (System/mapLibraryName "crux")))]
                                                 :when (.exists f)]
                                             (.getAbsolutePath f)))))
 

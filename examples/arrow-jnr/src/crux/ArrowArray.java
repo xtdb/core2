@@ -19,9 +19,12 @@ public class ArrowArray extends Struct {
         public void call(Pointer arrow_array);
     }
 
+    // Type description
     public final Pointer format = new Pointer();
     public final Pointer name = new Pointer();
     public final Pointer metadata = new Pointer();
+
+    // Data description
     public final int64_t flags = new int64_t();
     public final int64_t length = new int64_t();
     public final int64_t null_count = new int64_t();
@@ -31,6 +34,9 @@ public class ArrowArray extends Struct {
     public final Pointer buffers = new Pointer();
     public final Pointer children = new Pointer();
     public final StructRef<ArrowArray> dictionary = new StructRef<ArrowArray>(ArrowArray.class);
+
+    // Release callback
     public final Function<Release> release = function(Release.class);
+    // Opaque producer-specific data
     public final Pointer private_data = new Pointer();
 }

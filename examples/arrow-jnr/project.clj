@@ -9,4 +9,5 @@
                  [com.github.jnr/jnr-ffi "2.1.9"]
                  [ch.qos.logback/logback-classic "1.2.3"]
                  [org.apache.arrow/arrow-vector "0.15.1"]]
+  :java-source-paths ["src"]
   :global-vars {*warn-on-reflection* true})

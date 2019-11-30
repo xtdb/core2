@@ -1,5 +1,6 @@
 // https://github.com/pitrou/arrow/blob/doc-c-protocol/docs/source/format/CDataInterface.rst
 // https://github.com/pitrou/arrow/blob/c-data-interface-impl/cpp/src/arrow/c/bridge.cc
+
 // Apache License 2.0
 
 // #include <stdint.h>

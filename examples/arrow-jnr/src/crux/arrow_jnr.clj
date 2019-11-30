@@ -34,6 +34,11 @@
       (finally
         (.c_string_free crux-rs c-version-string)))))
 
+;; https://github.com/apache/arrow/blob/master/cpp/src/gandiva/jni/jni_common.cc
+;; https://github.com/apache/arrow/blob/master/java/gandiva/src/main/java/org/apache/arrow/gandiva/evaluator/JniWrapper.java
+;; https://github.com/apache/arrow/blob/master/java/gandiva/src/main/java/org/apache/arrow/gandiva/evaluator/Filter.java
+;; https://github.com/apache/arrow/blob/master/java/gandiva/src/main/java/org/apache/arrow/gandiva/evaluator/Projector.java
+
 ;; https://github.com/tianchen92/jni-poc-java/blob/master/src/main/java/com/odps/arrow/TestArrowJni.java
 
 ;; (setenv "RUST_BACKTRACE" "1")

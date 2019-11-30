@@ -20,8 +20,8 @@ pub unsafe extern "C" fn c_string_free(c_string: *mut c_char) {
 
 #[allow(clippy::missing_safety_doc)]
 #[no_mangle]
-pub unsafe extern "C" fn print_schema(schema_fb: *const u8, schema_len: usize) {
-    let schema_buffer = slice::from_raw_parts(schema_fb, schema_len);
+pub extern "C" fn print_schema(schema_fb: *const u8, schema_len: usize) {
+    let schema_buffer = unsafe { slice::from_raw_parts(schema_fb, schema_len) };
     let schema_fb = ipc::get_root_as_message(schema_buffer)
         .header_as_schema()
         .expect("Not a schema message");

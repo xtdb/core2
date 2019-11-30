@@ -1,7 +1,7 @@
 (ns crux.arrow-jnr
   (:require [clojure.tools.logging :as log]
             [clojure.java.io :as io])
-  (:import jnr.ffi.LibraryLoader
+  (:import [jnr.ffi LibraryLoader Pointer]
            java.util.List
            [java.nio ByteBuffer ByteOrder]
            [com.google.flatbuffers FlatBufferBuilder FlatBufferBuilder$ByteBufferFactory Table]
@@ -21,7 +21,10 @@
 
 (definterface CruxRs
   (^jnr.ffi.Pointer c_version_string [])
-  (^void c_string_free [^jnr.ffi.Pointer c_string]))
+  (^void c_string_free [^{jnr.ffi.annotations.Out true :tag jnr.ffi.Pointer} c_string])
+
+  (^void print_schema [^{jnr.ffi.annotations.Out true :tag jnr.ffi.Pointer} schema_fb
+                       ^{jnr.ffi.types.size_t true :tag long} schema_len]))
 
 (defn -main [& args]
   (let [crux-rs ^CruxRs (.load (LibraryLoader/create CruxRs) crux-library-path)
@@ -32,6 +35,8 @@
         (.c_string_free crux-rs c-version-string)))))
 
 ;; https://github.com/tianchen92/jni-poc-java/blob/master/src/main/java/com/odps/arrow/TestArrowJni.java
+
+;; (setenv "RUST_BACKTRACE" "1")
 
 (defonce ^BufferAllocator allocator (RootAllocator. Integer/MAX_VALUE))
 
@@ -99,3 +104,13 @@
 (defn- load-record-batch ^org.apache.arrow.vector.VectorSchemaRoot [^VectorSchemaRoot root ^ByteBuffer buffer]
   (.load (VectorLoader. root) (deserialize-record-batch buffer))
   root)
+
+(defn rust-print-schema [^Schema schema]
+  (let [s (serialize-schema schema)
+        crux-rs ^CruxRs (.load (LibraryLoader/create CruxRs) crux-library-path)
+        crux-rt (jnr.ffi.Runtime/getRuntime crux-rs)
+        ptr (Pointer/wrap crux-rt s)]
+    (.print_schema crux-rs ptr (.size ptr))))
+
+(comment
+  (rust-print-schema (.getSchema (generate-vector-schema-root))))

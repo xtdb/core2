@@ -16,7 +16,7 @@ public class ArrowArray extends Struct {
 
     public static interface Release {
         @Delegate
-        public void call(Pointer arrow_array);
+        public void call(jnr.ffi.Pointer arrow_array);
     }
 
     // Type description
@@ -33,7 +33,7 @@ public class ArrowArray extends Struct {
     public final int64_t n_children = new int64_t();
     public final Pointer buffers = new Pointer();
     public final Pointer children = new Pointer();
-    public final StructRef<ArrowArray> dictionary = new StructRef<ArrowArray>(ArrowArray.class);
+    public final Pointer dictionary = new Pointer();
 
     // Release callback
     public final Function<Release> release = function(Release.class);

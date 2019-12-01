@@ -2,6 +2,7 @@
   (:require [clojure.tools.logging :as log]
             [clojure.java.io :as io])
   (:import [jnr.ffi LibraryLoader Pointer]
+           crux.ArrowArray
            java.util.List
            [java.nio ByteBuffer ByteOrder]
            [com.google.flatbuffers FlatBufferBuilder FlatBufferBuilder$ByteBufferFactory Table]
@@ -24,7 +25,8 @@
   (^void c_string_free [^{jnr.ffi.annotations.Out true :tag jnr.ffi.Pointer} c_string])
 
   (^void print_schema [^{jnr.ffi.annotations.Out true :tag jnr.ffi.Pointer} schema_fb
-                       ^{jnr.ffi.types.size_t true :tag long} schema_len]))
+                       ^{jnr.ffi.types.size_t true :tag long} schema_len])
+  (^void print_arrow_array [^crux.ArrowArray arrow_array]))
 
 (defn -main [& args]
   (let [crux-rs ^CruxRs (.load (LibraryLoader/create CruxRs) crux-library-path)
@@ -117,5 +119,14 @@
         ptr (Pointer/wrap crux-rt s)]
     (.print_schema crux-rs ptr (.size ptr))))
 
+(defn rust-print-arrow-array [^ArrowArray arrow-array]
+  (let [crux-rs ^CruxRs (.load (LibraryLoader/create CruxRs) crux-library-path)]
+    (.print_arrow_array crux-rs arrow-array)))
+
 (comment
-  (rust-print-schema (.getSchema (generate-vector-schema-root))))
+  (rust-print-schema (.getSchema (generate-vector-schema-root)))
+
+  (let [crux-rs ^CruxRs (.load (LibraryLoader/create CruxRs) crux-library-path)
+        crux-rt (jnr.ffi.Runtime/getRuntime crux-rs)
+        arrow-array (ArrowArray. crux-rt)]
+    (rust-print-arrow-array arrow-array)))

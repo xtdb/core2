@@ -5,9 +5,9 @@
 
 // #include <stdint.h>
 
-// #define ARROW_FLAG_ORDERED 1
+// #define ARROW_FLAG_DICTIONARY_ORDERED 1
 // #define ARROW_FLAG_NULLABLE 2
-// #define ARROW_FLAG_KEYS_SORTED 4
+// #define ARROW_FLAG_MAP_KEYS_SORTED 4
 
 // struct ArrowArray {
 //   // Type description
@@ -38,9 +38,9 @@
 // cargo install bindgen
 // bindgen arrow_array.h -o src/arrow_array.rs
 
-pub const ARROW_FLAG_ORDERED: u32 = 1;
+pub const ARROW_FLAG_DICTIONARY_ORDERED: u32 = 1;
 pub const ARROW_FLAG_NULLABLE: u32 = 2;
-pub const ARROW_FLAG_KEYS_SORTED: u32 = 4;
+pub const ARROW_FLAG_MAP_KEYS_SORTED: u32 = 4;
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]

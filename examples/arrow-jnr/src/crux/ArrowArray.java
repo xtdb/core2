@@ -6,9 +6,9 @@ import jnr.ffi.Struct;
 import jnr.ffi.annotations.Delegate;
 
 public class ArrowArray extends Struct {
-    public static final int ARROW_FLAG_ORDERED = 1;
+    public static final int ARROW_FLAG_DICTIONARY_ORDERED = 1;
     public static final int ARROW_FLAG_NULLABLE = 2;
-    public static final int ARROW_FLAG_KEYS_SORTED = 4;
+    public static final int ARROW_FLAG_MAP_KEYS_SORTED = 4;
 
     public ArrowArray(Runtime runtime) {
         super(runtime);

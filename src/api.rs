@@ -17,7 +17,10 @@ pub extern "C" fn c_version_string() -> *const c_char {
 #[allow(clippy::missing_safety_doc)]
 #[no_mangle]
 pub unsafe extern "C" fn c_string_free(c_string: *mut c_char) {
-    let _ = CString::from_raw(c_string);
+    if c_string.is_null() {
+        return;
+    }
+    CString::from_raw(c_string);
 }
 
 #[allow(clippy::missing_safety_doc)]

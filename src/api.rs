@@ -5,7 +5,7 @@ use std::slice;
 use arrow::ipc;
 use arrow::ipc::convert;
 
-use crate::arrow_array::ArrowArray;
+use crate::arrow_abi::ArrowArray;
 
 #[no_mangle]
 pub extern "C" fn c_version_string() -> *const c_char {

@@ -5,23 +5,26 @@ import jnr.ffi.Runtime;
 import jnr.ffi.Struct;
 import jnr.ffi.annotations.Delegate;
 
-public class ArrowArray extends Struct {
-    public ArrowArray(Runtime runtime) {
+public class ArrowSchema extends Struct {
+    public static final int ARROW_FLAG_DICTIONARY_ORDERED = 1;
+    public static final int ARROW_FLAG_NULLABLE = 2;
+    public static final int ARROW_FLAG_MAP_KEYS_SORTED = 4;
+
+    public ArrowSchema(Runtime runtime) {
         super(runtime);
     }
 
     public static interface Release {
         @Delegate
-        public void call(jnr.ffi.Pointer arrow_array);
+        public void call(jnr.ffi.Pointer arrow_schema);
     }
 
-    // Array data description
-    public final int64_t length = new int64_t();
-    public final int64_t null_count = new int64_t();
-    public final int64_t offset = new int64_t();
-    public final int64_t n_buffers = new int64_t();
+    // Array type description
+    public final Pointer format = new Pointer();
+    public final Pointer name = new Pointer();
+    public final Pointer metadata = new Pointer();
+    public final int64_t flags = new int64_t();
     public final int64_t n_children = new int64_t();
-    public final Pointer buffers = new Pointer();
     public final Pointer children = new Pointer();
     public final Pointer dictionary = new Pointer();
 

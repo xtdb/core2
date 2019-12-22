@@ -18,21 +18,25 @@ their own history.
 Every indexed document has a companion meta document. This document
 contains the following keys:
 
-* `_id` - the meta document id, of the form `meta_{_document_id}`.
-* `_document_id` - the `_id` of the document it annotates.
-* `_document` - the JSON string of the normalised document (see above).
-* `_document_hash` - the hash of `_document`.
-* `_tx` - link to the transaction document.
+* `_id` - `string`, the meta document id, of the form
+  `meta_{_document_id}`.
+* `_document` - `string`, the JSON string of the normalised document
+  (see above).
+* `_document_hash` - `string`, the hash of `_document`.
+* `_document_id` - `string, the `_id` of the document it annotates.
+* `_tx` - `string`, link to the transaction document.
 
 Meta documents don't have their own meta documents.
 
 The transaction document is shared between all documents written in a
 transaction. It contains the following keys:
 
-* `_id` - the transaction/document id, of the form `tx_{td-ix}`.
-* `_tx_id` - the transaction id as a number.
-* `_tx_time` - the transaction time as a ISO date string with nanosecond precision.
-* `_vt_time` - the valid time as a ISO date string with nanosecond precision.
+* `_id` - `string`, the transaction/document id, of the form `tx_{td_ix}`.
+* `_tx_time` - `string`, the transaction time as a ISO date string with nanosecond precision.
+* `_vt_time` - `string`, the valid time as a ISO date string with nanosecond precision.
+* `_tx_id` - `number`.
+* `_meta` - `string`, link to an optional document containing meta
+  data specified by the user when submitting the transaction.
 
 Notes:
 * The concept of entities is downplayed. Instead we simply have
@@ -55,22 +59,25 @@ Potential extra columns:
 * `_version` - `bytes`, the combination of `_vt_time_nanos` and
 `_tt_time_nanos`. Likely to not be stored explicitly but be derived.
 * `_deleted` - `boolean`, `_value is always `null` if `true`. Might
-  not be needed and Arrow's concept of `null` values can be used for
-  `_value` instead.
+  not be needed and Arrow's concept of `null` values could be used for
+  the `_value` column instead.
 * `_tx_id` - `long`, not likely necessary in the index.
+* `_order` - `long`, potentially used for arrays.
 
 The variable-length `strings` above will be stored using dictionary
-encoding, either local, per file, or global, where the ids are tracked
-across several files.
+encoding, either local per file, or potentially globally, where the
+ids are tracked across several files.
 
-JSON objects are lifted up as described above and will be replaced by
-their string `_id` in the index (which will be the `_document_hash`
+JSON objects are lifted up as described above and their `_value` will
+be their string `_id` in the index (which will be the `_document_hash`
 for components). JSON arrays are stored as repeated
 attributes. Ordering is specified inside the original `_document`.
 
 The current `_version` of a document at a point in time can be found
 via its `_id` attribute. Repeated attributes share the same version
 and are all visible.
+
+## Index Storage
 
 The columnar data itself will be stored using memory mapped Arrow
 files. Index chunks will have `min` and `max` and bloom-filter

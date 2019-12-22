@@ -46,6 +46,8 @@ Notes:
   versions of documents.
 * Queries can operate as expected over the meta and transaction
   documents.
+* One can potentially stretch the model a bit so the entire
+  bi-temporal engine can operate directly in Datalog, to be decided.
 
 ## Indexing
 

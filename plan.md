@@ -120,7 +120,9 @@ construct better in-memory versions of the column data above, for
 example by sorting it on different attributes.
 
 The query engine should eventually support range queries in valid
-time.
+time. This is a form of interval joins. The current suggested index
+isn't great for finding the intervals as they're not explicitly
+stored, so might need to be revisited.
 
 ## Ingestion
 

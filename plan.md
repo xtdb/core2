@@ -10,7 +10,7 @@ The document has to be valid JSON. It can optionally contain a `_id`
 attribute as per above.
 
 A nested document will be lifted out and indexed separately. If it
-doesn't have an `_id` attribute it will be indexed under the content
+doesn't have an `_id` attribute it will be stored under the content
 hash of its normalised JSON string (sorted keys, single line, no extra
 spaces). This allows component documents to be shared, and be without
 their own history.
@@ -18,10 +18,10 @@ their own history.
 Every indexed document has a companion meta document. This document
 contains the following keys:
 
-* `_id` - the meta document id, of the form `meta/{_document_id}`.
+* `_id` - the meta document id, of the form `meta_{_document_id}`.
 * `_document_id` - the `_id` of the document it annotates.
 * `_document` - the JSON string of the normalised document (see above).
-* `_content_hash` - the hash of `_document`.
+* `_document_hash` - the hash of `_document`.
 * `_tx` - link to the transaction document.
 
 Meta documents don't have their own meta documents.
@@ -29,7 +29,7 @@ Meta documents don't have their own meta documents.
 The transaction document is shared between all documents written in a
 transaction. It contains the following keys:
 
-* `_id` - the transaction/document id, of the form `tx/{td-ix}`.
+* `_id` - the transaction/document id, of the form `tx_{td-ix}`.
 * `_tx_id` - the transaction id as a number.
 * `_tx_time` - the transaction time as a ISO date string with nanosecond precision.
 * `_vt_time` - the valid time as a ISO date string with nanosecond precision.
@@ -38,37 +38,39 @@ Notes:
 * The concept of entities is downplayed. Instead we simply have
   versions of documents.
 * Queries can operate as expected over the meta and transaction
-  documents, but actual indexing is a bit more involved as the
-  versions needs to be stored as columns directly on the
-  attributes. To be clarified.
+  documents.
 
 ## Indexing
 
-This data is shared based on attribute. The above documents are
-indexed into a columnar format similar to this:
+This data is stored and grouped based on the attribute name. The above
+documents are indexed into a columnar format similar to this:
 
 * `_document_id` - `string`.
-* `_attribute_value` - one of `number`, `boolean`, `string` or `null`.
+* `_value` - one of `number`, `boolean`, `string` or `null`.
 * `_vt_time_nanos` - `long`.
 * `_tx_time_nanos` - `long`.
-* `_tx_id` - `long`.
-* `_deleted` - `boolean`, value is always `null` if `true`. Might not
-  be needed.
+
+Potential extra columns:
+
+* `_version` - `bytes`, the combination of `_vt_time_nanos` and
+`_tt_time_nanos`. Likely to not be stored explicitly but be derived.
+* `_deleted` - `boolean`, `_value is always `null` if `true`. Might
+  not be needed and Arrow's concept of `null` values can be used for
+  `_value` instead.
+* `_tx_id` - `long`, not likely necessary in the index.
 
 The variable-length `strings` above will be stored using dictionary
 encoding, either local, per file, or global, where the ids are tracked
-across files.
+across several files.
 
 JSON objects are lifted up as described above and will be replaced by
-their string `_id` in the index. JSON arrays are repeated
+their string `_id` in the index (which will be the `_document_hash`
+for components). JSON arrays are stored as repeated
 attributes. Ordering is specified inside the original `_document`.
 
-A document's version is essentially the combination of
-`_vt_time_nanos` and `_tt_time_nanos`. The current version of a
-document at a point in time can be found via its `_id` attribute.
-
-Documents themselves aren't used explicitly during query processing,
-the data is served straight from the index.
+The current `_version` of a document at a point in time can be found
+via its `_id` attribute. Repeated attributes share the same version
+and are all visible.
 
 The columnar data itself will be stored using memory mapped Arrow
 files. Index chunks will have `min` and `max` and bloom-filter
@@ -76,11 +78,12 @@ metadata for their columns, and potentially also `_va` column, which
 is a "vector approximation" of the other columns fitting inside say an
 `_int` which can be quickly scanned for without touching the real
 columns. Each file will be split into several record batches, each
-with their own metadata so they can be skipped. Alternatively, the
-file could also be stored as the leaves of the data based on their
-k2-tree sort order, and include the k2-tree bitmap as part of the
-metadata. This would allow range queries based on this bitmap, at the
-cost of complexity.
+with their own metadata so they can be skipped.
+
+Alternatively, the file could also be stored as the leaves of the data
+based on their k2-tree sort order, and include the k2-tree bitmap as
+part of the metadata. This would allow range queries based on this
+bitmap, at the cost of complexity.
 
 These files themselves will be stored using a multidimensional
 structure of the Grid File family (but preferably an immutable
@@ -96,6 +99,10 @@ associated_with(Person, Movie) :- movie_cast(Movie, Person).
 associated_with(Person, Movie) :- movie_director(Movie, Person).
 query(Name) :- movie_title(Movie, "Predator"), associated_with(Person, Movie), person_name(Person, Name).
 ```
+
+Documents themselves aren't used explicitly during query processing,
+the data is served straight from the index. The original document can
+be found via the `_document` attribute if needed.
 
 The query engine itself will be implemented using lower-level
 primitives directly supporting scans and bi-temporality on the column

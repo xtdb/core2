@@ -20,6 +20,8 @@ contains the following keys:
 
 * `_id` - `string`, the meta document id, of the form
   `meta_{_document_id}`.
+* `_vt_time` - `string`, the valid time as a ISO date string with
+  nanosecond precision.
 * `_document` - `string`, the JSON string of the normalised document
   (see above).
 * `_document_hash` - `string`, the hash of `_document`.
@@ -31,11 +33,12 @@ Meta documents don't have their own meta documents.
 The transaction document is shared between all documents written in a
 transaction. It contains the following keys:
 
-* `_id` - `string`, the transaction/document id, of the form `tx_{td_ix}`.
-* `_tx_time` - `string`, the transaction time as a ISO date string with nanosecond precision.
-* `_vt_time` - `string`, the valid time as a ISO date string with nanosecond precision.
+* `_id` - `string`, the transaction/document id, of the form
+  `tx_{td_ix}`.
+* `_tx_time` - `string`, the transaction time as a ISO date string
+  with nanosecond precision.
 * `_tx_id` - `number`.
-* `_meta` - `string`, link to an optional document containing meta
+* `_meta` - `string`, an optional component document containing meta
   data specified by the user when submitting the transaction.
 
 Notes:
@@ -104,7 +107,9 @@ Prolog-syntax, like this:
 ```prolog
 associated_with(Person, Movie) :- movie_cast(Movie, Person).
 associated_with(Person, Movie) :- movie_director(Movie, Person).
-query(Name) :- movie_title(Movie, "Predator"), associated_with(Person, Movie), person_name(Person, Name).
+query(Name) :- movie_title(Movie, "Predator"),
+               associated_with(Person, Movie),
+               person_name(Person, Name).
 ```
 
 Documents themselves aren't used explicitly during query processing,

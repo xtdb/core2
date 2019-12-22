@@ -130,6 +130,13 @@ The documents might originate from somewhere like Kafka, but this is
 left undecided as part of this work. There will be a way to update
 several documents in a single transaction to the local files.
 
+Deletion of a document sets all visible attributes to a `null`
+tombstone. Adding a document which has fewer keys need to explicitly
+delete the missing keys in the new version.
+
+For range updates and interval queries to work, other modifications of
+the index might also be needed.
+
 ## Distribution
 
 The queries will always be run on one node, but the chunks built above

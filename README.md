@@ -6,6 +6,8 @@ Parts of Crux re-imagined in Rust (nightly).
 
 See https://github.com/juxt/crux
 
+[Plan for Q1 2020](plan.md)
+
 ## Scope
 
 The plan of attack using Rust+Arrow to build a bitemporal Datalog

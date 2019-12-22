@@ -1,0 +1,139 @@
+# Plan for Q1 2020
+
+## Data model
+
+The document id has to be a string. It's either provided when storing
+it or taken from the `_id` attribute. These have to match or an error
+is raised.
+
+The document has to be valid JSON. It can optionally contain a `_id`
+attribute as per above.
+
+A nested document will be lifted out and indexed separately. If it
+doesn't have an `_id` attribute it will be indexed under the content
+hash of its normalised JSON string (sorted keys, single line, no extra
+spaces). This allows component documents to be shared, and be without
+their own history.
+
+Every indexed document has a companion meta document. This document
+contains the following keys:
+
+* `_id` - the meta document id, of the form `meta/{_document_id}`.
+* `_document_id` - the `_id` of the document it annotates.
+* `_document` - the JSON string of the normalised document (see above).
+* `_content_hash` - the hash of `_document`.
+* `_tx` - link to the transaction document.
+
+Meta documents don't have their own meta documents.
+
+The transaction document is shared between all documents written in a
+transaction. It contains the following keys:
+
+* `_id` - the transaction/document id, of the form `tx/{td-ix}`.
+* `_tx_id` - the transaction id as a number.
+* `_tx_time` - the transaction time as a ISO date string with nanosecond precision.
+* `_vt_time` - the valid time as a ISO date string with nanosecond precision.
+
+Notes:
+* The concept of entities is downplayed. Instead we simply have
+  versions of documents.
+* Queries can operate as expected over the meta and transaction
+  documents, but actual indexing is a bit more involved as the
+  versions needs to be stored as columns directly on the
+  attributes. To be clarified.
+
+## Indexing
+
+This data is shared based on attribute. The above documents are
+indexed into a columnar format similar to this:
+
+* `_document_id` - `string`.
+* `_attribute_value` - one of `number`, `boolean`, `string` or `null`.
+* `_vt_time_nanos` - `long`.
+* `_tx_time_nanos` - `long`.
+* `_tx_id` - `long`.
+* `_deleted` - `boolean`, value is always `null` if `true`. Might not
+  be needed.
+
+The variable-length `strings` above will be stored using dictionary
+encoding, either local, per file, or global, where the ids are tracked
+across files.
+
+JSON objects are lifted up as described above and will be replaced by
+their string `_id` in the index. JSON arrays are repeated
+attributes. Ordering is specified inside the original `_document`.
+
+A document's version is essentially the combination of
+`_vt_time_nanos` and `_tt_time_nanos`. The current version of a
+document at a point in time can be found via its `_id` attribute.
+
+Documents themselves aren't used explicitly during query processing,
+the data is served straight from the index.
+
+The columnar data itself will be stored using memory mapped Arrow
+files. Index chunks will have `min` and `max` and bloom-filter
+metadata for their columns, and potentially also `_va` column, which
+is a "vector approximation" of the other columns fitting inside say an
+`_int` which can be quickly scanned for without touching the real
+columns. Each file will be split into several record batches, each
+with their own metadata so they can be skipped. Alternatively, the
+file could also be stored as the leaves of the data based on their
+k2-tree sort order, and include the k2-tree bitmap as part of the
+metadata. This would allow range queries based on this bitmap, at the
+cost of complexity.
+
+These files themselves will be stored using a multidimensional
+structure of the Grid File family (but preferably an immutable
+variant), where each data bucket is a file.
+
+## Querying
+
+Queries will be done via simple Datalog with negation using
+Prolog-syntax, like this:
+
+```prolog
+associated_with(Person, Movie) :- movie_cast(Movie, Person).
+associated_with(Person, Movie) :- movie_director(Movie, Person).
+query(Name) :- movie_title(Movie, "Predator"), associated_with(Person, Movie), person_name(Person, Name).
+```
+
+The query engine itself will be implemented using lower-level
+primitives directly supporting scans and bi-temporality on the column
+format without being tied to the exact representation. Bi-temporality
+itself will be implemented using lower-level primitives, similar to
+the `aj` as of join in KDB. The query engine might optionally
+construct better in-memory versions of the column data above, for
+example by sorting it on different attributes.
+
+The query engine should eventually support range queries in valid
+time.
+
+## Ingestion
+
+The documents might originate from somewhere like Kafka, but this is
+left undecided as part of this work. There will be a way to update
+several documents in a single transaction to the local files.
+
+## Distribution
+
+The queries will always be run on one node, but the chunks built above
+will be consistent once build (ignoring eviction) so they and their
+meta data can separately be stored elsewhere and the indexing burden
+potentially shared in various ways.
+
+The local node would keep the meta-data of the existing chunks around
+so it knows how what to fetch. A simple alternative is to have a
+shared store for this so nodes can bootstrap themselves. This may be
+Kafka, a RDBMS or simply S3.
+
+## Eviction
+
+Eviction is harder in this scheme, but essentially involves mutating
+chunks and setting various fields to `null`. It's not explicitly part
+of this work.
+
+## Implementation Language
+
+The goal is to have Clojure or Java versions implemented for all
+layers, but optionally be able to swap out some for Rust, especially
+in the lower layers.

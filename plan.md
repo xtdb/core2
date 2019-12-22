@@ -58,7 +58,7 @@ Potential extra columns:
 
 * `_version` - `bytes`, the combination of `_vt_time_nanos` and
 `_tt_time_nanos`. Likely to not be stored explicitly but be derived.
-* `_deleted` - `boolean`, `_value is always `null` if `true`. Might
+* `_deleted` - `boolean`, `_value` is always `null` if `true`. Might
   not be needed and Arrow's concept of `null` values could be used for
   the `_value` column instead.
 * `_tx_id` - `long`, not likely necessary in the index.

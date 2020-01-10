@@ -124,28 +124,32 @@
 
 (comment
 
-  (let [r [[1 3]
-           [1 4]
-           [1 5]
-           [3 5]]
-        t [[1 4]
-           [1 5]
-           [1 6]
-           [1 8]
-           [1 9]
-           [1 2]
-           [3 2]]
-        s [[3 4]
-           [3 5]
-           [4 6]
-           [4 8]
-           [4 9]
-           [5 2]]
+  (let [db {'r [[1 3]
+                [1 4]
+                [1 5]
+                [3 5]]
+            't [[1 4]
+                [1 5]
+                [1 6]
+                [1 8]
+                [1 9]
+                [1 2]
+                [3 2]]
+            's [[3 4]
+                [3 5]
+                [4 6]
+                [4 8]
+                [4 9]
+                [5 2]]
 
-        result (->> (let [[a b c] (repeat '_)]
-                      (for [[a b] (table-filter r [a b])
-                            [a c] (table-filter t [a c])
-                            [b c] (table-filter s [b c])]
-                        [a b c]))
-                    (into (sorted-set)))]
-    (= #{[1 3 4] [1 3 5] [1 4 6] [1 4 8] [1 4 9] [1 5 2] [3 5 2]} result)))
+            'q (fn q
+                 ([db]
+                  (q db '_ '_ '_))
+                 ([db a b c]
+                  (for [[a b] (table-filter (get db 'r) [a b])
+                        [b c] (table-filter (get db 's) [b c])
+                        [a c] (table-filter (get db 't) [a c])]
+                    [a b c])))}
+
+        result ((get db 'q) db)]
+    (= #{[1 3 4] [1 3 5] [1 4 6] [1 4 8] [1 4 9] [1 5 2] [3 5 2]} (set result))))

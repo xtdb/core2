@@ -10,6 +10,8 @@
 ;; https://arxiv.org/abs/1912.12747
 ;; https://brodyf.github.io/thesis.pdf
 
+(set! *unchecked-math* :warn-on-boxed)
+
 (defn ->binary-str ^String [^long i]
   (s/replace
    (format "%64s" (Long/toUnsignedString i 2))

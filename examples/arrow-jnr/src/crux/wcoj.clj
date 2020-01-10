@@ -165,9 +165,11 @@
                 :predicate
                 (let [{:keys [symbol terms]} literal-body
                       args (mapv second terms)
-                      _ (assert (= args (distinct args))
-                                "argument names cannot be reused")
-                      free-vars (apply disj (find-vars body) args)
+                      _ (assert (= args (distinct args)) "argument names cannot be reused")
+                      {:keys [predicate external-query]} (group-by first body)
+                      free-vars (->> (map (comp :variable second) external-query)
+                                     (concat args)
+                                     (apply disj (find-vars predicate)))
                       db-sym (gensym 'db)
                       fn-source `(fn ~symbol
                                    ([~db-sym] (~symbol ~db-sym [~@(repeat (count terms) ''_)]))

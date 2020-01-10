@@ -198,6 +198,12 @@
         db))
     db (s/conform :crux.datalog/program datalog))))
 
+(defn query-datalog
+  ([db q]
+   (table-scan (relation-by-name db q) db))
+  ([db q args]
+   (table-filter (relation-by-name db q) db args)))
+
 (comment
   (let [triangle '[r(1, 3).
                    r(1, 4).
@@ -222,5 +228,5 @@
                    q(A, B, C) :- r(A, B), s(B, C), t(A, C).]
         db {}
         db (compile-datalog db triangle)
-        result (table-scan (relation-by-name db 'q) db)]
+        result (query-datalog db 'q)]
     (= #{[1 3 4] [1 3 5] [1 4 6] [1 4 8] [1 4 9] [1 5 2] [3 5 2]} (set result))))

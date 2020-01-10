@@ -25,7 +25,11 @@
 (s/def ::body (s/+ ::literal))
 (s/def ::literal (s/alt :predicate (s/cat :symbol ::identifier
                                           :terms (s/? (s/coll-of ::term :kind list?)))
-                        :equality-predicate ::equality-predicate))
+                        :equality-predicate ::equality-predicate
+                        :external-query (s/cat :variable ::variable
+                                               :colon-hypen #{:-}
+                                               :external-symbol ::identifier
+                                               :terms (s/? (s/coll-of ::term :kind list?)))))
 (s/def ::equality-predicate (s/cat :lhs ::term
                                    :op '#{= !=}
                                    :rhs ::term))

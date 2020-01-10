@@ -155,21 +155,28 @@
                                                  "argument names cannot be reused")
                                        free-vars (apply disj (find-vars body) args)
                                        db-sym (gensym 'db)
-                                       fn (list 'fn symbol
-                                                (list [db-sym] (cons symbol (cons db-sym (vec (repeat (count terms) (list 'quote '_))))))
-                                                (list [db-sym args]
-                                                      (list 'let
-                                                            (vec (interleave free-vars (repeat (list 'quote '_))))
-                                                            (cons 'for
-                                                                  [(->> (for [[literal-type literal] body]
-                                                                          (case literal-type
-                                                                            :predicate (let [{:keys [symbol terms]} literal
-                                                                                             vars (mapv second terms)]
-                                                                                         [vars (list 'crux.wcoj/table-filter (list 'crux.wcoj/relation-by-name db-sym (list 'quote symbol)) db-sym vars)])
-                                                                            :equality-predicate (let [{:keys [lhs op rhs]} literal]
-                                                                                                  (list :when (list (get '{!= not=} op op) (second lhs) (second rhs))))))
-                                                                        (reduce into ['_ [(list 'quote '_)]]))
-                                                                   args]))))]
+                                       fn `(fn ~symbol
+                                             ([~db-sym] (~symbol ~db-sym [~@(repeat (count terms) ''_)]))
+                                             ([~db-sym ~args]
+                                              (let [~@(interleave free-vars (repeat ''_))]
+                                                (for ~(->> (for [[literal-type literal] body]
+                                                             (case literal-type
+                                                               :predicate (let [{:keys [symbol terms]} literal]
+                                                                            [(vec (for [[type arg] terms]
+                                                                                    (if (= :constant type)
+                                                                                      (gensym '_)
+                                                                                      arg)))
+                                                                             `(crux.wcoj/table-filter
+                                                                               (crux.wcoj/relation-by-name ~db-sym '~symbol)
+                                                                               ~db-sym ~(mapv second terms))])
+                                                               :external-query (let [{:keys [variable external-symbol terms]} literal]
+                                                                                 [:let [variable `(~external-symbol ~@(mapv second terms))]])
+                                                               :equality-predicate (let [{:keys [lhs op rhs]} literal
+                                                                                         op (get '{!= not=} op op)]
+                                                                                     [:when `(~op ~@(map second [lhs rhs]))])))
+                                                           (reduce into ['_ [''_]]))
+                                                  ~args))))]
+                                   (prn fn)
                                    (assertion db symbol (with-meta (eval fn) {::datalog-head literal-body
                                                                               ::datalog-body body
                                                                               ::clojure-source fn})))))))

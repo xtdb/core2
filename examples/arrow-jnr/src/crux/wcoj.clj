@@ -103,7 +103,7 @@
 (defn can-unify? [tuple bindings]
   (->> (map (fn [col bound-var]
               (or (= '_ bound-var)
-                  (= col boind-var)))
+                  (= col bound-var)))
             tuple bindings)
        (every? true?)))
 
@@ -114,7 +114,7 @@
 (extend-type IPersistentVector
   Relation
   (table-scan [this]
-    this)
+    (seq this))
 
   (table-filter [this vars]
     (for [tuple this

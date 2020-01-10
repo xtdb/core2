@@ -1,7 +1,8 @@
 (ns crux.wcoj
   (:require [clojure.spec.alpha :as s]
             [clojure.string :as str]
-            [crux.datalog]))
+            [crux.datalog])
+  (:import clojure.lang.IPersistentVector))
 
 ;; Simplistic spike using binary strings for z-order to
 ;; explore the algorithms described in the papers:
@@ -95,9 +96,33 @@
                   s(1, 2).
                   t(0, 2).
 
-                  q(A, B, C) :- r(A, B), s(B, C), t(A, C).])])
+                  q(A, B, C) :- r(A, B), s(B, C), t(A, C).])]))
 
   ;; generic-join
+
+(defn can-unify? [tuple bindings]
+  (->> (map (fn [col bound-var]
+              (or (= '_ bound-var)
+                  (= col boind-var)))
+            tuple bindings)
+       (every? true?)))
+
+(defprotocol Relation
+  (table-scan [this])
+  (table-filter [this vars]))
+
+(extend-type IPersistentVector
+  Relation
+  (table-scan [this]
+    this)
+
+  (table-filter [this vars]
+    (for [tuple this
+          :when (can-unify? tuple vars)]
+      tuple)))
+
+(comment
+
   (let [r [[1 3]
            [1 4]
            [1 5]
@@ -115,12 +140,9 @@
            [4 8]
            [4 9]
            [5 2]]
-        result (->> (for [[a b] r
-                          [a' c] t
-                          :when (= a a')
-                          [b' c'] s
-                          :when (= b b')
-                          :when (= c c')]
+        result (->> (for [[a b] (table-scan r)
+                          [a c] (table-filter t [a '_])
+                          [b c] (table-filter s [b c])]
                       [a b c])
                     (into (sorted-set)))]
     (= #{[1 3 4] [1 3 5] [1 4 6] [1 4 8] [1 4 9] [1 5 2] [3 5 2]} result)))

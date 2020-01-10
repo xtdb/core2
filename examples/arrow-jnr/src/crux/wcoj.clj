@@ -12,9 +12,11 @@
 
 (set! *unchecked-math* :warn-on-boxed)
 
+(def ^:dynamic ^{:tag 'long} *binary-str-length* Long/SIZE)
+
 (defn ->binary-str ^String [^long i]
   (s/replace
-   (format "%64s" (Long/toUnsignedString i 2))
+   (format (str "%" *binary-str-length* "s") (Long/toUnsignedString i 2))
    \space \0))
 
 (defn parse-binary-str ^Number [^String b]
@@ -23,7 +25,7 @@
     (Long/parseUnsignedLong b 2)))
 
 (defn dimension ^long [^String b]
-  (quot (count b) Long/SIZE))
+  (quot (count b) *binary-str-length*))
 
 (defn interleave-bits ^String [bs]
   (->> (for [b bs]

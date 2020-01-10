@@ -92,7 +92,7 @@
      find-vars
      joins
      (s/conform :crux.datalog/program
-                '[r(0, 2).
+                '[r(0, 1).
                   s(1, 2).
                   t(0, 2).
 
@@ -122,34 +122,62 @@
           :when (can-unify-tuple? tuple vars)]
       tuple)))
 
+(defn compile-datalog [datalog]
+  (reduce
+   (fn [db [type body :as form]]
+     (case type
+       :assertion (let [{:keys [clause]} body
+                        [type body] clause]
+                    (case type
+                      :fact (let [[type body] body]
+                              (case type
+                                :predicate
+                                (let [{:keys [symbol terms]} body]
+                                  (update db symbol (fnil conj [])
+                                          (mapv second terms)))))
+                      :rule (let [{:keys [literal body]} body
+                                  [literal-type literal-body] literal]
+                              (case literal-type
+                                :predicate
+                                (let [{:keys [symbol terms]} literal-body
+                                      fn (list 'fn symbol
+                                               (list '[db] (cons symbol (cons 'db (repeat (count terms) (list 'quote '_)))))
+                                               (list (vec (cons 'db (mapv second terms)))
+                                                     (cons 'for
+                                                           [(reduce into []
+                                                                    (for [[form-type body] body]
+                                                                      (case form-type
+                                                                        :predicate (let [{:keys [symbol terms]} body
+                                                                                         vars (mapv second terms)]
+                                                                                     [vars (list 'crux.wcoj/table-filter (list 'get 'db (list 'quote symbol)) vars)]))))
+                                                            (mapv second terms)])))]
+                                  (assoc db symbol (eval fn)))))))
+       db))
+   {} (s/conform :crux.datalog/program datalog)))
+
 (comment
+  (let [triangle '[r(1, 3).
+                   r(1, 4).
+                   r(1, 5).
+                   r(3, 5).
 
-  (let [db {'r [[1 3]
-                [1 4]
-                [1 5]
-                [3 5]]
-            't [[1 4]
-                [1 5]
-                [1 6]
-                [1 8]
-                [1 9]
-                [1 2]
-                [3 2]]
-            's [[3 4]
-                [3 5]
-                [4 6]
-                [4 8]
-                [4 9]
-                [5 2]]
+                   t(1, 2).
+                   t(1, 4).
+                   t(1, 5).
+                   t(1, 6).
+                   t(1, 8).
+                   t(1, 9).
+                   t(3, 2).
 
-            'q (fn q
-                 ([db]
-                  (q db '_ '_ '_))
-                 ([db a b c]
-                  (for [[a b] (table-filter (get db 'r) [a b])
-                        [b c] (table-filter (get db 's) [b c])
-                        [a c] (table-filter (get db 't) [a c])]
-                    [a b c])))}
+                   s(3, 4).
+                   s(3, 5).
+                   s(4, 6).
+                   s(4, 8).
+                   s(4, 9).
+                   s(5, 2).
 
+                   q(A, B, C) :- r(A, B), s(B, C), t(A, C).]
+
+        db (compile-datalog triangle)
         result ((get db 'q) db)]
     (= #{[1 3 4] [1 3 5] [1 4 6] [1 4 8] [1 4 9] [1 5 2] [3 5 2]} (set result))))

@@ -26,8 +26,9 @@
 (s/def ::literal (s/alt :predicate (s/cat :symbol ::identifier
                                           :terms (s/? (s/coll-of ::term :kind list?)))
                         :equality-predicate ::equality-predicate))
-(s/def ::equality-predicate (s/and list? (s/cat :op '#{= !=}
-                                                :terms (s/+ ::term))))
+(s/def ::equality-predicate (s/cat :lhs ::term
+                                   :op '#{= !=}
+                                   :rhs ::term))
 (s/def ::term (s/or :variable ::variable
                     :constant ::constant))
 

@@ -6,6 +6,7 @@
   (:import [clojure.lang IPersistentCollection IPersistentMap Repeat]))
 
 (set! *unchecked-math* :warn-on-boxed)
+(s/check-asserts true)
 
 ;; generic-join
 
@@ -102,6 +103,7 @@
   ([datalog]
    (compile-datalog {} datalog))
   ([db datalog]
+   (s/assert :crux.datalog/program datalog)
    (reduce
     (fn [db [type body :as form]]
       (case type
@@ -150,12 +152,14 @@
                                                             [(vec free-vars)
                                                              (vec (repeat (count free-vars) (list 'quote '_)))]
                                                             (cons 'for
-                                                                  [(->> (for [[form-type body] body]
-                                                                          (case form-type
-                                                                            :predicate (let [{:keys [symbol terms]} body
+                                                                  [(->> (for [[literal-type literal] body]
+                                                                          (case literal-type
+                                                                            :predicate (let [{:keys [symbol terms]} literal
                                                                                              vars (mapv second terms)]
-                                                                                         [vars (list 'crux.wcoj/table-filter (list 'crux.wcoj/relation-by-name 'db (list 'quote symbol)) 'db vars)])))
-                                                                        (reduce into []))
+                                                                                         [vars (list 'crux.wcoj/table-filter (list 'crux.wcoj/relation-by-name 'db (list 'quote symbol)) 'db vars)])
+                                                                            :equality-predicate (let [{:keys [lhs op rhs]} literal]
+                                                                                                  (list :when (list (get '{!= not=} op op) (second lhs) (second rhs))))))
+                                                                        (reduce into ['_ [(list 'quote '_)]]))
                                                                    (mapv second terms)]))))]
                                    (assertion db symbol (eval fn)))))))
         db))

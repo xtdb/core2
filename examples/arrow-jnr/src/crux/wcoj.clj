@@ -154,22 +154,22 @@
                                        _ (assert (= args (distinct args))
                                                  "argument names cannot be reused")
                                        free-vars (apply disj (find-vars body) args)
+                                       db-sym (gensym 'db)
                                        fn (list 'fn symbol
-                                                (list '[db] (cons symbol (cons 'db (vec (repeat (count terms) (list 'quote '_))))))
-                                                (list ['db args]
+                                                (list [db-sym] (cons symbol (cons db-sym (vec (repeat (count terms) (list 'quote '_))))))
+                                                (list [db-sym args]
                                                       (list 'let
-                                                            [(vec free-vars)
-                                                             (vec (repeat (count free-vars) (list 'quote '_)))]
+                                                            (vec (interleave free-vars (repeat (list 'quote '_))))
                                                             (cons 'for
                                                                   [(->> (for [[literal-type literal] body]
                                                                           (case literal-type
                                                                             :predicate (let [{:keys [symbol terms]} literal
                                                                                              vars (mapv second terms)]
-                                                                                         [vars (list 'crux.wcoj/table-filter (list 'crux.wcoj/relation-by-name 'db (list 'quote symbol)) 'db vars)])
+                                                                                         [vars (list 'crux.wcoj/table-filter (list 'crux.wcoj/relation-by-name db-sym (list 'quote symbol)) db-sym vars)])
                                                                             :equality-predicate (let [{:keys [lhs op rhs]} literal]
                                                                                                   (list :when (list (get '{!= not=} op op) (second lhs) (second rhs))))))
                                                                         (reduce into ['_ [(list 'quote '_)]]))
-                                                                   (mapv second terms)]))))]
+                                                                   args]))))]
                                    (assertion db symbol (with-meta (eval fn) {::datalog-head literal-body
                                                                               ::datalog-body body
                                                                               ::clojure-source fn})))))))

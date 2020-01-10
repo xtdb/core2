@@ -123,69 +123,82 @@
    (reduce
     (fn [db [type body :as form]]
       (case type
-        :query (let [{:keys [literal]} body
-                     [type body] literal]
-                 (case type
-                   :predicate
-                   (let [{:keys [symbol terms]} body
-                         args (for [[type arg] terms]
-                                (if (= :variable type)
-                                  '_
-                                  arg))]
-                     (doseq [tuple (query-datalog db symbol args)]
-                       (println (tuple->datalog-str symbol tuple)))
-                     db)))
-        :retraction (let [{:keys [clause]} body
-                          [type body] clause]
-                      (case type
-                        :fact (let [[type body] body]
-                                (case type
-                                  :predicate
-                                  (let [{:keys [symbol terms]} body]
-                                    (retraction db symbol (mapv second terms)))))))
-        :assertion (let [{:keys [clause]} body
-                         [type body] clause]
-                     (case type
-                       :fact (let [[type body] body]
-                               (case type
-                                 :predicate
-                                 (let [{:keys [symbol terms]} body]
-                                   (assertion db symbol (mapv second terms)))))
-                       :rule (let [{:keys [literal body]} body
-                                   [literal-type literal-body] literal]
-                               (case literal-type
-                                 :predicate
-                                 (let [{:keys [symbol terms]} literal-body
-                                       args (mapv second terms)
-                                       _ (assert (= args (distinct args))
-                                                 "argument names cannot be reused")
-                                       free-vars (apply disj (find-vars body) args)
-                                       db-sym (gensym 'db)
-                                       fn-source `(fn ~symbol
-                                                    ([~db-sym] (~symbol ~db-sym [~@(repeat (count terms) ''_)]))
-                                                    ([~db-sym ~args]
-                                                     (let [~@(interleave free-vars (repeat ''_))]
-                                                       (for ~(->> (for [[literal-type literal] body]
-                                                                    (case literal-type
-                                                                      :predicate (let [{:keys [symbol terms]} literal]
-                                                                                   [(vec (for [[type arg] terms]
-                                                                                           (if (= :constant type)
-                                                                                             (gensym '_)
-                                                                                             arg)))
-                                                                                    `(crux.wcoj/table-filter
-                                                                                      (crux.wcoj/relation-by-name ~db-sym '~symbol)
-                                                                                      ~db-sym ~(mapv second terms))])
-                                                                      :external-query (let [{:keys [variable external-symbol terms]} literal]
-                                                                                        [:let [variable `(~external-symbol ~@(mapv second terms))]])
-                                                                      :equality-predicate (let [{:keys [lhs op rhs]} literal
-                                                                                                op (get '{!= not=} op op)]
-                                                                                            [:when `(~op ~@(map second [lhs rhs]))])))
-                                                                  (reduce into [(gensym '_) [''_]]))
-                                                         ~args))))
-                                       rule-fn (with-meta (eval fn-source) {::datalog-head literal-body
-                                                                            ::datalog-body body
-                                                                            ::clojure-source fn-source})]
-                                   (assertion db symbol rule-fn))))))
+        :query
+        (let [{:keys [literal]} body
+              [type body] literal]
+          (case type
+            :predicate
+            (let [{:keys [symbol terms]} body
+                  args (for [[type arg] terms]
+                         (if (= :variable type)
+                           '_
+                           arg))]
+              (doseq [tuple (query-datalog db symbol args)]
+                (println (tuple->datalog-str symbol tuple)))
+              db)))
+
+        :retraction
+        (let [{:keys [clause]} body
+              [type body] clause]
+          (case type
+            :fact (let [[type body] body]
+                    (case type
+                      :predicate
+                      (let [{:keys [symbol terms]} body]
+                        (retraction db symbol (mapv second terms)))))))
+
+        :assertion
+        (let [{:keys [clause]} body
+              [type body] clause]
+          (case type
+            :fact
+            (let [[type body] body]
+              (case type
+                :predicate
+                (let [{:keys [symbol terms]} body]
+                  (assertion db symbol (mapv second terms)))))
+
+            :rule
+            (let [{:keys [literal body]} body
+                  [literal-type literal-body] literal]
+              (case literal-type
+                :predicate
+                (let [{:keys [symbol terms]} literal-body
+                      args (mapv second terms)
+                      _ (assert (= args (distinct args))
+                                "argument names cannot be reused")
+                      free-vars (apply disj (find-vars body) args)
+                      db-sym (gensym 'db)
+                      fn-source `(fn ~symbol
+                                   ([~db-sym] (~symbol ~db-sym [~@(repeat (count terms) ''_)]))
+                                   ([~db-sym ~args]
+                                    (let [~@(interleave free-vars (repeat ''_))]
+                                      (for ~(->> (for [[literal-type literal] body]
+                                                   (case literal-type
+                                                     :predicate
+                                                     (let [{:keys [symbol terms]} literal]
+                                                       [(vec (for [[type arg] terms]
+                                                               (if (= :constant type)
+                                                                 (gensym 'constant)
+                                                                 arg)))
+                                                        `(crux.wcoj/table-filter
+                                                          (crux.wcoj/relation-by-name ~db-sym '~symbol)
+                                                          ~db-sym ~(mapv second terms))])
+
+                                                     :external-query
+                                                     (let [{:keys [variable external-symbol terms]} literal]
+                                                       [:let [variable `(~external-symbol ~@(mapv second terms))]])
+
+                                                     :equality-predicate
+                                                     (let [{:keys [lhs op rhs]} literal
+                                                           op (get '{!= not=} op op)]
+                                                       [:when `(~op ~@(map second [lhs rhs]))])))
+                                                 (reduce into [(gensym 'loop) [''_]]))
+                                        ~args))))
+                      rule-fn (with-meta (eval fn-source) {::datalog-head literal-body
+                                                           ::datalog-body body
+                                                           ::clojure-source fn-source})]
+                  (assertion db symbol rule-fn))))))
         db))
     db (s/conform :crux.datalog/program datalog))))
 

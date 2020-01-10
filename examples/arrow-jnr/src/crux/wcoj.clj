@@ -98,13 +98,14 @@
 
                   q(A, B, C) :- r(A, B), s(B, C), t(A, C).])]))
 
-  ;; generic-join
+;; generic-join
 
-(defn can-unify? [tuple bindings]
-  (->> (map (fn [col bound-var]
-              (or (= '_ bound-var)
-                  (= col bound-var)))
-            tuple bindings)
+(defn can-unify-var? [value bound-var]
+  (or (= '_ bound-var)
+      (= value bound-var)))
+
+(defn can-unify-tuple? [tuple bindings]
+  (->> (map can-unify-var? tuple bindings)
        (every? true?)))
 
 (defprotocol Relation
@@ -117,8 +118,8 @@
     (seq this))
 
   (table-filter [this vars]
-    (for [tuple this
-          :when (can-unify? tuple vars)]
+    (for [tuple (table-scan this)
+          :when (can-unify-tuple? tuple vars)]
       tuple)))
 
 (comment
@@ -140,9 +141,11 @@
            [4 8]
            [4 9]
            [5 2]]
-        result (->> (for [[a b] (table-scan r)
-                          [a c] (table-filter t [a '_])
-                          [b c] (table-filter s [b c])]
-                      [a b c])
+
+        result (->> (let [[a b c] (repeat '_)]
+                      (for [[a b] (table-filter r [a b])
+                            [a c] (table-filter t [a c])
+                            [b c] (table-filter s [b c])]
+                        [a b c]))
                     (into (sorted-set)))]
     (= #{[1 3 4] [1 3 5] [1 4 6] [1 4 8] [1 4 9] [1 5 2] [3 5 2]} result)))

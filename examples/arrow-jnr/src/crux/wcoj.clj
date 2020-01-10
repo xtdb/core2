@@ -2,7 +2,7 @@
   (:require [clojure.spec.alpha :as s]
             [clojure.string :as str]
             [crux.datalog])
-  (:import clojure.lang.IPersistentVector))
+  (:import [clojure.lang IPersistentVector IPersistentMap]))
 
 ;; Simplistic spike using binary strings for z-order to
 ;; explore the algorithms described in the papers:
@@ -110,7 +110,12 @@
 
 (defprotocol Relation
   (table-scan [this])
-  (table-filter [this vars]))
+  (table-filter [this vars])
+  (insert-tuple [this tuple]))
+
+(defprotocol Db
+  (assert-fact [db relation-name fact])
+  (assert-rule [db rule-name rule-fn-form]))
 
 (extend-type IPersistentVector
   Relation
@@ -120,40 +125,59 @@
   (table-filter [this vars]
     (for [tuple (table-scan this)
           :when (can-unify-tuple? tuple vars)]
-      tuple)))
+      tuple))
 
-(defn compile-datalog [datalog]
-  (reduce
-   (fn [db [type body :as form]]
-     (case type
-       :assertion (let [{:keys [clause]} body
-                        [type body] clause]
-                    (case type
-                      :fact (let [[type body] body]
-                              (case type
-                                :predicate
-                                (let [{:keys [symbol terms]} body]
-                                  (update db symbol (fnil conj [])
-                                          (mapv second terms)))))
-                      :rule (let [{:keys [literal body]} body
-                                  [literal-type literal-body] literal]
-                              (case literal-type
-                                :predicate
-                                (let [{:keys [symbol terms]} literal-body
-                                      fn (list 'fn symbol
-                                               (list '[db] (cons symbol (cons 'db (repeat (count terms) (list 'quote '_)))))
-                                               (list (vec (cons 'db (mapv second terms)))
-                                                     (cons 'for
-                                                           [(reduce into []
-                                                                    (for [[form-type body] body]
-                                                                      (case form-type
-                                                                        :predicate (let [{:keys [symbol terms]} body
-                                                                                         vars (mapv second terms)]
-                                                                                     [vars (list 'crux.wcoj/table-filter (list 'get 'db (list 'quote symbol)) vars)]))))
-                                                            (mapv second terms)])))]
-                                  (assoc db symbol (eval fn)))))))
-       db))
-   {} (s/conform :crux.datalog/program datalog)))
+  (insert-tuple [this tuple]
+    (conj this tuple)))
+
+(extend-type IPersistentMap
+  Db
+  (assert-fact [db relation-name fact]
+    (update db
+            relation-name
+            (fnil insert-tuple [])
+            fact))
+
+  (assert-rule [db rule-name rule-fn-form]
+    (assoc db rule-name (eval rule-fn-form))))
+
+(defn compile-datalog
+  ([datalog]
+   (compile-datalog {} datalog))
+  ([db datalog]
+   (reduce
+    (fn [db [type body :as form]]
+      (case type
+        :assertion (let [{:keys [clause]} body
+                         [type body] clause]
+                     (case type
+                       :fact (let [[type body] body]
+                               (case type
+                                 :predicate
+                                 (let [{:keys [symbol terms]} body]
+                                   (assert-fact db symbol (mapv second terms)))))
+                       :rule (let [{:keys [literal body]} body
+                                   [literal-type literal-body] literal]
+                               (case literal-type
+                                 :predicate
+                                 (let [{:keys [symbol terms]} literal-body
+                                       fn (list 'fn symbol
+                                                (list '[db] (cons symbol (cons 'db (repeat (count terms) (list 'quote '_)))))
+                                                (list (vec (cons 'db (mapv second terms)))
+                                                      (cons 'for
+                                                            [(reduce into []
+                                                                     (for [[form-type body] body]
+                                                                       (case form-type
+                                                                         :predicate (let [{:keys [symbol terms]} body
+                                                                                          vars (mapv second terms)]
+                                                                                      [vars (list 'crux.wcoj/table-filter (list 'get 'db (list 'quote symbol)) vars)]))))
+                                                             (mapv second terms)])))]
+                                   (assert-rule db symbol fn))))))
+        db))
+    db (s/conform :crux.datalog/program datalog))))
+
+(defn query-datalog [db q & args]
+  (apply (get db q) db args))
 
 (comment
   (let [triangle '[r(1, 3).
@@ -177,7 +201,7 @@
                    s(5, 2).
 
                    q(A, B, C) :- r(A, B), s(B, C), t(A, C).]
-
-        db (compile-datalog triangle)
-        result ((get db 'q) db)]
+        db {}
+        db (compile-datalog db triangle)
+        result (query-datalog db 'q)]
     (= #{[1 3 4] [1 3 5] [1 4 6] [1 4 8] [1 4 9] [1 5 2] [3 5 2]} (set result))))

@@ -37,5 +37,5 @@
                     :constant ::constant))
 
 (s/def ::constant (complement (some-fn list? prolog-var?)))
-(s/def ::identifier (s/and symbol? (complement (some-fn prolog-var? '#{. - ? = %}))))
+(s/def ::identifier (s/and symbol? (complement (some-fn prolog-var? '#{. ? = %}))))
 (s/def ::variable prolog-var?)

@@ -30,6 +30,9 @@
   (ensure-relation [this relation-name relation-factory])
   (relation-by-name [this relation-name]))
 
+(defn- rule-fn? [f]
+  (boolean (and (fn? f) (::clojure-source (meta f)))))
+
 (defrecord RuleRelation [rule-fns]
   Relation
   (table-scan [this db]
@@ -45,8 +48,7 @@
          (apply concat)))
 
   (insert [this rule]
-    (assert (and (fn? rule) (::clojure-source (meta rule)))
-            "a rule needs to be a function")
+    (assert (rule-fn? rule) "a rule needs to be a function")
     (update this :rule-fns conj rule))
 
   (delete [this rule]
@@ -74,7 +76,7 @@
 (extend-type IPersistentMap
   Db
   (assertion [this relation-name value]
-    (update (ensure-relation this relation-name (if (fn? value)
+    (update (ensure-relation this relation-name (if (rule-fn? value)
                                                   new-rule-relation
                                                   sorted-set))
             relation-name
@@ -125,9 +127,13 @@
                      [type body] literal]
                  (case type
                    :predicate
-                   (let [{:keys [symbol terms]} body]
-                     (doseq [tuple (query-datalog db symbol (repeat (count terms) '_))]
-                       (println (tuple->datalog-str symbol terms)))
+                   (let [{:keys [symbol terms]} body
+                         args (for [[type arg] terms]
+                                (if (= :variable type)
+                                  '_
+                                  arg))]
+                     (doseq [tuple (query-datalog db symbol args)]
+                       (println (tuple->datalog-str symbol tuple)))
                      db)))
         :retraction (let [{:keys [clause]} body
                           [type body] clause]
@@ -155,31 +161,31 @@
                                                  "argument names cannot be reused")
                                        free-vars (apply disj (find-vars body) args)
                                        db-sym (gensym 'db)
-                                       fn `(fn ~symbol
-                                             ([~db-sym] (~symbol ~db-sym [~@(repeat (count terms) ''_)]))
-                                             ([~db-sym ~args]
-                                              (let [~@(interleave free-vars (repeat ''_))]
-                                                (for ~(->> (for [[literal-type literal] body]
-                                                             (case literal-type
-                                                               :predicate (let [{:keys [symbol terms]} literal]
-                                                                            [(vec (for [[type arg] terms]
-                                                                                    (if (= :constant type)
-                                                                                      (gensym '_)
-                                                                                      arg)))
-                                                                             `(crux.wcoj/table-filter
-                                                                               (crux.wcoj/relation-by-name ~db-sym '~symbol)
-                                                                               ~db-sym ~(mapv second terms))])
-                                                               :external-query (let [{:keys [variable external-symbol terms]} literal]
-                                                                                 [:let [variable `(~external-symbol ~@(mapv second terms))]])
-                                                               :equality-predicate (let [{:keys [lhs op rhs]} literal
-                                                                                         op (get '{!= not=} op op)]
-                                                                                     [:when `(~op ~@(map second [lhs rhs]))])))
-                                                           (reduce into ['_ [''_]]))
-                                                  ~args))))]
-                                   (prn fn)
-                                   (assertion db symbol (with-meta (eval fn) {::datalog-head literal-body
-                                                                              ::datalog-body body
-                                                                              ::clojure-source fn})))))))
+                                       fn-source `(fn ~symbol
+                                                    ([~db-sym] (~symbol ~db-sym [~@(repeat (count terms) ''_)]))
+                                                    ([~db-sym ~args]
+                                                     (let [~@(interleave free-vars (repeat ''_))]
+                                                       (for ~(->> (for [[literal-type literal] body]
+                                                                    (case literal-type
+                                                                      :predicate (let [{:keys [symbol terms]} literal]
+                                                                                   [(vec (for [[type arg] terms]
+                                                                                           (if (= :constant type)
+                                                                                             (gensym '_)
+                                                                                             arg)))
+                                                                                    `(crux.wcoj/table-filter
+                                                                                      (crux.wcoj/relation-by-name ~db-sym '~symbol)
+                                                                                      ~db-sym ~(mapv second terms))])
+                                                                      :external-query (let [{:keys [variable external-symbol terms]} literal]
+                                                                                        [:let [variable `(~external-symbol ~@(mapv second terms))]])
+                                                                      :equality-predicate (let [{:keys [lhs op rhs]} literal
+                                                                                                op (get '{!= not=} op op)]
+                                                                                            [:when `(~op ~@(map second [lhs rhs]))])))
+                                                                  (reduce into ['_ [''_]]))
+                                                         ~args))))
+                                       rule-fn (with-meta (eval fn-source) {::datalog-head literal-body
+                                                                            ::datalog-body body
+                                                                            ::clojure-source fn-source})]
+                                   (assertion db symbol rule-fn))))))
         db))
     db (s/conform :crux.datalog/program datalog))))
 
@@ -205,8 +211,7 @@
                    s(5, 2).
 
                    q(A, B, C) :- r(A, B), s(B, C), t(A, C).]
-        db {}
-        db (compile-datalog db triangle)
+        db (compile-datalog {} triangle)
         result (query-datalog db 'q)]
     (= #{[1 3 4] [1 3 5] [1 4 6] [1 4 8] [1 4 9] [1 5 2] [3 5 2]} (set result)))
 
@@ -214,10 +219,28 @@
                edge(2, 3).
                path(X, Y) :- edge(X, Y).
                path(X, Z) :- path(X, Y), edge(Y, Z).]
-        db {}
-        db (compile-datalog db edge)
+        db (compile-datalog {} edge)
         result (query-datalog db 'path)]
-    (= #{[1 2] [2 3] [1 3]} (set result))))
+    (= #{[1 2] [2 3] [1 3]} (set result)))
+
+  (let [fib '[fib_base(0, 0).
+              fib_base(1, 1).
+
+              fib(N, F) :- fib_base(N, F).
+
+              fib(N, F) :-
+              N != 1,
+              N != 0,
+              N1 :- -(N, 1),
+              N2 :- -(N, 2),
+              fib(N1, F1),
+              fib(N2, F2),
+
+              F :- +(F1, F2).
+
+              fib(15, F)?]]
+    (compile-datalog {} fib)
+    nil))
 
 ;; Simplistic spike using binary strings for z-order to
 ;; explore the algorithms described in the papers:

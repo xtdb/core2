@@ -217,6 +217,7 @@
 
   (let [edge '[edge(1, 2).
                edge(2, 3).
+
                path(X, Y) :- edge(X, Y).
                path(X, Z) :- path(X, Y), edge(Y, Z).]
         db (compile-datalog {} edge)
@@ -227,7 +228,6 @@
               fib_base(1, 1).
 
               fib(N, F) :- fib_base(N, F).
-
               fib(N, F) :-
               N != 1,
               N != 0,
@@ -235,12 +235,10 @@
               N2 :- -(N, 2),
               fib(N1, F1),
               fib(N2, F2),
-
-              F :- +(F1, F2).
-
-              fib(15, F)?]]
-    (compile-datalog {} fib)
-    nil))
+              F :- +(F1, F2).]
+        db (compile-datalog {} fib)
+        result (query-datalog db 'fib '[15 F])]
+    (= #{[15 610]} (set result))))
 
 ;; Simplistic spike using binary strings for z-order to
 ;; explore the algorithms described in the papers:

@@ -2,6 +2,7 @@
   (:require [clojure.spec.alpha :as s]
             [clojure.string :as str]
             [clojure.walk :as w]
+            [clojure.test :as t]
             [crux.datalog])
   (:import [clojure.lang IPersistentCollection IPersistentMap Repeat]))
 
@@ -205,7 +206,7 @@
         db))
     db (s/conform :crux.datalog/program datalog))))
 
-(comment
+(t/deftest triangle-join-query
   (let [triangle '[r(1, 3).
                    r(1, 4).
                    r(1, 5).
@@ -229,8 +230,10 @@
                    q(A, B, C) :- r(A, B), s(B, C), t(A, C).]
         db (compile-datalog {} triangle)
         result (query-datalog db 'q)]
-    (= #{[1 3 4] [1 3 5] [1 4 6] [1 4 8] [1 4 9] [1 5 2] [3 5 2]} (set result)))
+    (t/is (= #{[1 3 4] [1 3 5] [1 4 6] [1 4 8] [1 4 9] [1 5 2] [3 5 2]}
+             (set result)))))
 
+(t/deftest edge-recursion-rules
   (let [edge '[edge(1, 2).
                edge(2, 3).
 
@@ -238,8 +241,9 @@
                path(X, Z) :- path(X, Y), edge(Y, Z).]
         db (compile-datalog {} edge)
         result (query-datalog db 'path)]
-    (= #{[1 2] [2 3] [1 3]} (set result)))
+    (t/is (= #{[1 2] [2 3] [1 3]} (set result)))))
 
+(t/deftest fib-using-interop
   (let [fib '[fib_base(0, 0).
               fib_base(1, 1).
 
@@ -254,4 +258,4 @@
               F :- +(F1, F2).]
         db (compile-datalog {} fib)
         result (query-datalog db 'fib '[15 F])]
-    (= #{[15 610]} (set result))))
+    (t/is (= #{[15 610]} (set result)))))

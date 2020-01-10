@@ -60,6 +60,7 @@
 ;; A1, C0, C1) = {(0, 0, 1, 0)}
 
 (comment
+  ;; bits
   (let [r (interleave-bits [0 1])
         s (interleave-bits [1 2])
         t (interleave-bits [0 2])
@@ -81,7 +82,6 @@
         result (when (= (count find-vars)
                         (count result-tuple))
                  (interleave-bits result-tuple))]
-
     [expected-q
      result
      (= expected-q result)
@@ -95,4 +95,32 @@
                   s(1, 2).
                   t(0, 2).
 
-                  q(A, B, C) :- r(A, B), s(B, C), t(A, C).])]))
+                  q(A, B, C) :- r(A, B), s(B, C), t(A, C).])])
+
+  ;; generic-join
+  (let [r [[1 3]
+           [1 4]
+           [1 5]
+           [3 5]]
+        t [[1 4]
+           [1 5]
+           [1 6]
+           [1 8]
+           [1 9]
+           [1 2]
+           [3 2]]
+        s [[3 4]
+           [3 5]
+           [4 6]
+           [4 8]
+           [4 9]
+           [5 2]]
+        result (->> (for [[a b] r
+                          [a' c] t
+                          :when (= a a')
+                          [b' c'] s
+                          :when (= b b')
+                          :when (= c c')]
+                      [a b c])
+                    (into (sorted-set)))]
+    (= #{[1 3 4] [1 3 5] [1 4 6] [1 4 8] [1 4 9] [1 5 2] [3 5 2]} result)))

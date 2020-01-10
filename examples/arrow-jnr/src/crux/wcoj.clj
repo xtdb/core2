@@ -20,10 +20,12 @@
 (defprotocol Relation
   (table-scan [this db])
   (table-filter [this db var-bindings])
-  (insert [this value]))
+  (insert [this value])
+  (delete [this value]))
 
 (defprotocol Db
   (assertion [this relation-name value])
+  (retraction [this relation-name value])
   (ensure-relation [this relation-name relation-factory])
   (relation-by-name [this relation-name]))
 
@@ -31,6 +33,7 @@
   Relation
   (table-scan [this db]
     (table-filter this db (repeat '_)))
+
   (table-filter [this db var-bindings]
     (->> (for [rule rule-fns
                :let [memo-key [rule (if (instance? Repeat var-bindings)
@@ -39,9 +42,13 @@
                :when (not (contains? (:rule-memo (meta db)) memo-key))]
            (rule (vary-meta db update :rule-memo (fnil conj #{}) memo-key) var-bindings))
          (apply concat)))
+
   (insert [this rule]
     (assert (fn? rule))
-    (update this :rule-fns conj rule)))
+    (update this :rule-fns conj rule))
+
+  (delete [this rule]
+    (throw (UnsupportedOperationException.))))
 
 (defn new-rule-relation []
   (->RuleRelation []))
@@ -57,7 +64,10 @@
       tuple))
 
   (insert [this tuple]
-    (conj this tuple)))
+    (conj this tuple))
+
+  (delete [this tuple]
+    (disj this tuple)))
 
 (extend-type IPersistentMap
   Db
@@ -69,12 +79,24 @@
             insert
             value))
 
+  (retraction [this relation-name value]
+    (update this
+            relation-name
+            delete
+            value))
+
   (ensure-relation [this relation-name relation-factory]
     (cond-> this
       (not (contains? this relation-name)) (assoc relation-name (relation-factory))))
 
   (relation-by-name [this relation-name]
     (get this relation-name)))
+
+(defn query-datalog
+  ([db q]
+   (table-scan (relation-by-name db q) db))
+  ([db q args]
+   (table-filter (relation-by-name db q) db args)))
 
 (defn compile-datalog
   ([datalog]
@@ -83,6 +105,22 @@
    (reduce
     (fn [db [type body :as form]]
       (case type
+        :query (let [{:keys [literal]} body
+                     [type body] literal]
+                 (case type
+                   :predicate
+                   (let [{:keys [symbol terms]} body]
+                     (doseq [tuple (query-datalog db symbol (repeat (count terms) '_))]
+                       (println (str symbol "(" (str/join ", " tuple) ").")))
+                     db)))
+        :retraction (let [{:keys [clause]} body
+                          [type body] clause]
+                      (case type
+                        :fact (let [[type body] body]
+                                (case type
+                                  :predicate
+                                  (let [{:keys [symbol terms]} body]
+                                    (retraction db symbol (mapv second terms)))))))
         :assertion (let [{:keys [clause]} body
                          [type body] clause]
                      (case type
@@ -100,7 +138,7 @@
                                        vars (atom #{})
                                        _ (w/postwalk (fn [x]
                                                        (when (and (vector? x)
-                                                                (= :variable (first x)))
+                                                                  (= :variable (first x)))
                                                          (swap! vars conj (second x)))
                                                        x)
                                                      body)
@@ -122,12 +160,6 @@
                                    (assertion db symbol (eval fn)))))))
         db))
     db (s/conform :crux.datalog/program datalog))))
-
-(defn query-datalog
-  ([db q]
-   (table-scan (relation-by-name db q) db))
-  ([db q args]
-   (table-filter (relation-by-name db q) db args)))
 
 (comment
   (let [triangle '[r(1, 3).
@@ -156,10 +188,10 @@
         result (query-datalog db 'q)]
     (= #{[1 3 4] [1 3 5] [1 4 6] [1 4 8] [1 4 9] [1 5 2] [3 5 2]} (set result)))
 
-  (let [edge '[edge (1, 2).
-               edge (2, 3).
-               path (X, Y) :- edge(X, Y).
-               path (X, Z) :- path(X, Y), edge(Y, Z).]
+  (let [edge '[edge(1, 2).
+               edge(2, 3).
+               path(X, Y) :- edge(X, Y).
+               path(X, Z) :- path(X, Y), edge(Y, Z).]
         db {}
         db (compile-datalog db edge)
         result (query-datalog db 'path)]

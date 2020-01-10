@@ -10,11 +10,11 @@
 
 ;; generic-join
 
-(defn can-unify-var? [value bound-var]
+(defn- can-unify-var? [value bound-var]
   (or (= '_ bound-var)
       (= value bound-var)))
 
-(defn can-unify-tuple? [tuple bindings]
+(defn- can-unify-tuple? [tuple bindings]
   (->> (map can-unify-var? tuple bindings)
        (every? true?)))
 
@@ -51,7 +51,7 @@
   (delete [this rule]
     (throw (UnsupportedOperationException.))))
 
-(defn new-rule-relation []
+(defn- new-rule-relation []
   (->RuleRelation []))
 
 (extend-type IPersistentCollection

@@ -45,7 +45,8 @@
          (apply concat)))
 
   (insert [this rule]
-    (assert (fn? rule))
+    (assert (and (fn? rule) (::clojure-source (meta rule)))
+            "a rule needs to be a function")
     (update this :rule-fns conj rule))
 
   (delete [this rule]
@@ -99,6 +100,19 @@
   ([db q args]
    (table-filter (relation-by-name db q) db args)))
 
+(defn tuple->datalog-str [symbol tuple]
+  (str symbol "(" (str/join ", " tuple) ")."))
+
+(defn- find-vars [body]
+  (let [vars (atom #{})]
+    (w/postwalk (fn [x]
+                  (when (and (vector? x)
+                             (= :variable (first x)))
+                    (swap! vars conj (second x)))
+                  x)
+                body)
+    @vars))
+
 (defn compile-datalog
   ([datalog]
    (compile-datalog {} datalog))
@@ -113,7 +127,7 @@
                    :predicate
                    (let [{:keys [symbol terms]} body]
                      (doseq [tuple (query-datalog db symbol (repeat (count terms) '_))]
-                       (println (str symbol "(" (str/join ", " tuple) ").")))
+                       (println (tuple->datalog-str symbol terms)))
                      db)))
         :retraction (let [{:keys [clause]} body
                           [type body] clause]
@@ -137,14 +151,9 @@
                                  :predicate
                                  (let [{:keys [symbol terms]} literal-body
                                        args (mapv second terms)
-                                       vars (atom #{})
-                                       _ (w/postwalk (fn [x]
-                                                       (when (and (vector? x)
-                                                                  (= :variable (first x)))
-                                                         (swap! vars conj (second x)))
-                                                       x)
-                                                     body)
-                                       free-vars (apply disj @vars args)
+                                       _ (assert (= args (distinct args))
+                                                 "argument names cannot be reused")
+                                       free-vars (apply disj (find-vars body) args)
                                        fn (list 'fn symbol
                                                 (list '[db] (cons symbol (cons 'db (vec (repeat (count terms) (list 'quote '_))))))
                                                 (list ['db args]
@@ -161,7 +170,9 @@
                                                                                                   (list :when (list (get '{!= not=} op op) (second lhs) (second rhs))))))
                                                                         (reduce into ['_ [(list 'quote '_)]]))
                                                                    (mapv second terms)]))))]
-                                   (assertion db symbol (eval fn)))))))
+                                   (assertion db symbol (with-meta (eval fn) {::datalog-head literal-body
+                                                                              ::datalog-body body
+                                                                              ::clojure-source fn})))))))
         db))
     db (s/conform :crux.datalog/program datalog))))
 

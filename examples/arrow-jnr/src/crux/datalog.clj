@@ -27,9 +27,14 @@
                                           :terms (s/? (s/coll-of ::term :kind list?)))
                         :equality-predicate ::equality-predicate
                         :external-query (s/cat :variable ::variable
-                                               :colon-hypen #{:-}
+                                               :colon-hypen #{:- 'is}
                                                :external-symbol ::identifier
-                                               :terms (s/? (s/coll-of ::term :kind list?)))))
+                                               :terms (s/? (s/coll-of ::term :kind list?)))
+                        :arithmetic (s/cat :variable ::variable
+                                           :colon-hypen #{:- 'is}
+                                           :lhs (s/? ::term)
+                                           :op '#{+ - * / %}
+                                           :rhs ::term)))
 (s/def ::equality-predicate (s/cat :lhs ::term
                                    :op '#{= != < <= > >=}
                                    :rhs ::term))

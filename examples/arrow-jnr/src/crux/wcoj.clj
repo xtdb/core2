@@ -168,8 +168,8 @@
                 (let [{:keys [symbol terms]} literal-body
                       args (mapv second terms)
                       _ (assert (= args (distinct args)) "argument names cannot be reused")
-                      {:keys [predicate external-query]} (group-by first body)
-                      free-vars (->> (map (comp :variable second) external-query)
+                      {:keys [predicate arithmetic external-query]} (group-by first body)
+                      free-vars (->> (map (comp :variable second) (concat arithmetic external-query))
                                      (concat args)
                                      (apply disj (find-vars predicate)))
                       db-sym (gensym 'db)
@@ -192,6 +192,11 @@
                                                      :external-query
                                                      (let [{:keys [variable external-symbol terms]} literal]
                                                        [:let [variable `(~external-symbol ~@(mapv second terms))]])
+
+                                                     :arithmetic
+                                                     (let [{:keys [variable lhs op rhs]} literal
+                                                           op (get '{% mod} op op)]
+                                                       [:let [variable `(~op ~@(map second (remove nil? [lhs rhs])))]])
 
                                                      :equality-predicate
                                                      (let [{:keys [lhs op rhs]} literal
@@ -249,13 +254,35 @@
 
               fib(N, F) :- fib_base(N, F).
               fib(N, F) :-
-              N != 1,
-              N != 0,
-              N1 :- -(N, 1),
-              N2 :- -(N, 2),
+              N > 1,
+              N1 is N - 1,
+              N2 is N - 2,
               fib(N1, F1),
               fib(N2, F2),
-              F :- +(F1, F2).]
+              F is F1 + F2 .]
         db (compile-datalog {} fib)
         result (query-datalog db 'fib '[15 F])]
     (t/is (= #{[15 610]} (set result)))))
+
+;; https://www.swi-prolog.org/pldoc/man?section=tabling-non-termination
+(t/deftest connection-recursion-rules
+  (let [connection '[connection(X, Y) :-
+                     connection(X, Z),
+                     connection(Z, Y).
+
+                     connection(X, Y) :-
+                     connection_base(Y, X).
+
+                     connection(X, Y) :-
+                     connection_base(X, Y).
+
+                     connection_base("Amsterdam", "Schiphol").
+                     connection_base("Amsterdam", "Haarlem").
+                     connection_base("Schiphol", "Leiden").
+                     connection_base("Haarlem", "Leiden").]
+        db (compile-datalog {} connection)
+        result (query-datalog db 'connection '["Amsterdam" _])]
+    (t/is (= #{["Amsterdam" "Haarlem"]
+               ["Amsterdam" "Schiphol"]
+               ["Amsterdam" "Amsterdam"]
+               ["Amsterdam" "Leiden"]} (set result)))))

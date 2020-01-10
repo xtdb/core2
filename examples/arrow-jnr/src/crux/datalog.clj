@@ -31,7 +31,7 @@
                                                :external-symbol ::identifier
                                                :terms (s/? (s/coll-of ::term :kind list?)))))
 (s/def ::equality-predicate (s/cat :lhs ::term
-                                   :op '#{= !=}
+                                   :op '#{= != < <= > >=}
                                    :rhs ::term))
 (s/def ::term (s/or :variable ::variable
                     :constant ::constant))

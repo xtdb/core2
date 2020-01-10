@@ -102,8 +102,8 @@
   ([db q args]
    (table-filter (relation-by-name db q) db args)))
 
-(defn tuple->datalog-str [symbol tuple]
-  (str symbol "(" (str/join ", " tuple) ")."))
+(defn tuple->datalog-str [relation-name tuple]
+  (str relation-name "(" (str/join ", " tuple) ")."))
 
 (defn- find-vars [body]
   (let [vars (atom #{})]

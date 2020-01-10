@@ -1,5 +1,7 @@
 (ns crux.wcoj
-  (:require [clojure.string :as s]))
+  (:require [clojure.spec.alpha :as s]
+            [clojure.string :as str]
+            [crux.datalog]))
 
 ;; Simplistic spike using binary strings for z-order to
 ;; explore the algorithms described in the papers:
@@ -15,7 +17,7 @@
 (def ^:dynamic ^{:tag 'long} *binary-str-length* Long/SIZE)
 
 (defn ->binary-str ^String [^long i]
-  (s/replace
+  (str/replace
    (format (str "%" *binary-str-length* "s") (Long/toUnsignedString i 2))
    \space \0))
 
@@ -32,20 +34,20 @@
          (cond-> b
            (int? b) (->binary-str)))
        (apply interleave)
-       (s/join)))
+       (str/join)))
 
 (defn as-path
   ([^String b]
    (as-path b (dimension b)))
   ([^String b ^long d]
-   (map s/join (partition d b))))
+   (map str/join (partition d b))))
 
 (defn select-in-path [p idxs]
   (for [p p]
-    (s/join (map (vec p) idxs))))
+    (str/join (map (vec p) idxs))))
 
 (defn component [^String b ^long idx]
-  (s/join (take-nth (dimension b) (drop idx b))))
+  (str/join (take-nth (dimension b) (drop idx b))))
 
 (defn components [^String b idxs]
   (for [i idxs]
@@ -58,7 +60,39 @@
 ;; A1, C0, C1) = {(0, 0, 1, 0)}
 
 (comment
-  (let [q (interleave-bits [0 1 2])
-        r (interleave-bits [0 1])
+  (let [r (interleave-bits [0 1])
         s (interleave-bits [1 2])
-        t (interleave-bits [0 2])]))
+        t (interleave-bits [0 2])
+        expected-q (interleave-bits [0 1 2])
+
+        find-vars '[A B C]
+        joins {'A [[r 0]
+                   [t 0]]
+               'B [[r 1]
+                   [s 0]]
+               'C [[s 1]
+                   [t 1]]}
+
+        result-tuple (for [[v join] joins
+                           :let [vs (for [[rel col] join]
+                                      (component rel col))]
+                           :while (apply = vs)]
+                       (first vs))
+        result (when (= (count find-vars)
+                        (count result-tuple))
+                 (interleave-bits result-tuple))]
+
+    [expected-q
+     result
+     (= expected-q result)
+     (->> (range (count find-vars))
+          (components result)
+          (mapv parse-binary-str))
+     find-vars
+     joins
+     (s/conform :crux.datalog/program
+                '[r(0, 2).
+                  s(1, 2).
+                  t(0, 2).
+
+                  q(A, B, C) :- r(A, B), s(B, C), t(A, C).])]))

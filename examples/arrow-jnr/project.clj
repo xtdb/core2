@@ -6,6 +6,7 @@
   :main crux.arrow-jnr
   :dependencies [[org.clojure/clojure "1.10.1"]
                  [org.clojure/tools.logging "0.5.0"]
+                 [org.clojure/spec.alpha "0.2.176"]
                  [com.github.jnr/jnr-ffi "2.1.9"]
                  [ch.qos.logback/logback-classic "1.2.3"]
                  [org.apache.arrow/arrow-vector "0.15.1"]

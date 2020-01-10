@@ -19,7 +19,7 @@
 (s/def ::query (s/cat :literal ::literal
                       :question-mark #{'?}))
 (s/def ::clause (s/alt :rule (s/cat :literal ::literal
-                                    :comma-hypen #{:-}
+                                    :colon-hypen #{:-}
                                     :body ::body)
                        :fact ::literal))
 (s/def ::body (s/+ ::literal))

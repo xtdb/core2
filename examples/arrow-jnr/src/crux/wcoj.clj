@@ -180,7 +180,7 @@
                                                                       :equality-predicate (let [{:keys [lhs op rhs]} literal
                                                                                                 op (get '{!= not=} op op)]
                                                                                             [:when `(~op ~@(map second [lhs rhs]))])))
-                                                                  (reduce into ['_ [''_]]))
+                                                                  (reduce into [(gensym '_) [''_]]))
                                                          ~args))))
                                        rule-fn (with-meta (eval fn-source) {::datalog-head literal-body
                                                                             ::datalog-body body

@@ -66,14 +66,14 @@
         expected-q (interleave-bits [0 1 2])
 
         find-vars '[A B C]
-        joins {'A [[r 0]
-                   [t 0]]
-               'B [[r 1]
-                   [s 0]]
-               'C [[s 1]
-                   [t 1]]}
+        joins [['A [[r 0]
+                    [t 0]]]
+               ['B [[r 1]
+                    [s 0]]]
+               ['C [[s 1]
+                    [t 1]]]]
 
-        result-tuple (for [[v join] joins
+        result-tuple (for [[_ join] joins
                            :let [vs (for [[rel col] join]
                                       (component rel col))]
                            :while (apply = vs)]

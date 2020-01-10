@@ -40,9 +40,10 @@
 
   (table-filter [this db var-bindings]
     (->> (for [rule rule-fns
-               :let [memo-key [rule (if (instance? Repeat var-bindings)
-                                      nil
-                                      var-bindings)]]
+               :let [memo-key [(System/identityHashCode rule)
+                               (if (instance? Repeat var-bindings)
+                                 nil
+                                 var-bindings)]]
                :when (not (contains? (:rule-memo (meta db)) memo-key))]
            (rule (vary-meta db update :rule-memo (fnil conj #{}) memo-key) var-bindings))
          (apply concat)))

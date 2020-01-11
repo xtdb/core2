@@ -32,12 +32,16 @@
   (relation-by-name [this relation-name]))
 
 (defn- rule-fn? [f]
-  (boolean (and (fn? f) (::clojure-source (meta f)))))
+  (boolean (::datalog-body (meta f))))
 
 (defn- interleave-all [colls]
   (lazy-seq
    (when-let [ss (seq (remove empty? colls))]
      (concat (map first ss) (interleave-all (map rest ss))))) )
+
+(def ^:private compile-rule (memoize
+                             (fn [rule]
+                               (eval (apply list rule)))))
 
 (defrecord RuleRelation [rule-fns]
   Relation
@@ -57,7 +61,7 @@
                    :let [memo-key [(System/identityHashCode rule) key-var-bindings]]]
                (if (contains? @rule-table memo-key)
                  (get @rule-table memo-key)
-                 (doto (rule db var-bindings)
+                 (doto ((compile-rule rule) db var-bindings)
                    (->> (swap! rule-table assoc memo-key)))))
              (interleave-all)))))
 
@@ -244,9 +248,8 @@
                                                        [:when `(~op ~@(map second [lhs rhs]))])))
                                                  (reduce into [(gensym 'loop) [''_]]))
                                         ~args))))
-                      rule-fn (with-meta (eval fn-source) {::datalog-head literal-body
-                                                           ::datalog-body body
-                                                           ::clojure-source fn-source})]
+                      rule-fn (with-meta fn-source {::datalog-head literal-body
+                                                    ::datalog-body body})]
                   (assertion db symbol rule-fn))))))
         db))
     db (s/conform :crux.datalog/program datalog))))

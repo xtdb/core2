@@ -45,14 +45,18 @@
     (table-filter this db (repeat '_)))
 
   (table-filter [this db var-bindings]
-    (->> (for [rule rule-fns
-               :let [memo-key [(System/identityHashCode rule)
-                               (if (instance? Repeat var-bindings)
-                                 nil
-                                 var-bindings)]]
-               :when (not (contains? (:rule-memo (meta db)) memo-key))]
-           (rule (vary-meta db update :rule-memo (fnil conj #{}) memo-key) var-bindings))
-         (interleave-all)))
+    (let [db (vary-meta db update :rule-table #(or % (atom {})))
+          {:keys [rule-recursion-guard rule-table]} (meta db)]
+      (->> (for [rule rule-fns
+                 :let [memo-key [(System/identityHashCode rule)
+                                 (if (instance? Repeat var-bindings)
+                                   nil
+                                   var-bindings)]]
+                 :when (not (contains? rule-recursion-guard memo-key))]
+             (get @rule-table memo-key
+                  (doto (rule (vary-meta db update :rule-recursion-guard (fnil conj #{}) memo-key) var-bindings)
+                    (->> (swap! rule-table assoc memo-key)))))
+           (interleave-all))))
 
   (insert [this rule]
     (assert (rule-fn? rule) "a rule needs to be a function")
@@ -273,8 +277,8 @@
               fib(N2, F2),
               F is F1 + F2 .]
         db (compile-datalog {} fib)
-        result (query-datalog db 'fib '[15 F])]
-    (t/is (= #{[15 610]} (set result)))))
+        result (query-datalog db 'fib '[30 F])]
+    (t/is (= #{[30 832040]} (set result)))))
 
 ;; https://www.swi-prolog.org/pldoc/man?section=tabling-non-termination
 (t/deftest connection-recursion-rules

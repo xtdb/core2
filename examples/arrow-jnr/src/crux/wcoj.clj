@@ -31,7 +31,7 @@
   (ensure-relation [this relation-name relation-factory])
   (relation-by-name [this relation-name]))
 
-(defn- rule-fn? [f]
+(defn- rule? [f]
   (s/valid? :crux.datalog/rule f))
 
 (defn- interleave-all [colls]
@@ -102,7 +102,7 @@
                              (fn [rule]
                                (eval (rule->clojure rule)))))
 
-(defrecord RuleRelation [rule-fns]
+(defrecord RuleRelation [rules]
   Relation
   (table-scan [this db]
     (table-filter this db (repeat '_)))
@@ -113,10 +113,10 @@
           key-var-bindings (if (instance? Repeat var-bindings)
                              nil
                              var-bindings)
-          guard-key [(System/identityHashCode rule-fns) key-var-bindings]
+          guard-key [(System/identityHashCode rules) key-var-bindings]
           db (vary-meta db update :rule-recursion-guard (fnil conj #{}) guard-key)]
       (when-not (contains? rule-recursion-guard guard-key)
-        (->> (for [rule rule-fns
+        (->> (for [rule rules
                    :let [memo-key [(System/identityHashCode rule) key-var-bindings]]]
                (if (contains? @rule-table memo-key)
                  (get @rule-table memo-key)
@@ -125,11 +125,11 @@
              (interleave-all)))))
 
   (insert [this rule]
-    (assert (rule-fn? rule) "not a rule")
-    (update this :rule-fns conj rule))
+    (assert (rule? rule) "not a rule")
+    (update this :rules conj rule))
 
   (delete [this rule]
-    (update this :rule-fns disj rule)))
+    (update this :rules disj rule)))
 
 (defn- new-rule-relation []
   (->RuleRelation #{}))
@@ -161,12 +161,12 @@
                      (table-filter rules db vars)]))
 
   (insert [this value]
-    (if (rule-fn? value)
+    (if (rule? value)
       (update this :rules insert value)
       (update this :tuples insert value)))
 
   (delete [this value]
-    (if (rule-fn? value)
+    (if (rule? value)
       (update this :rules delete value)
       (update this :tuples delete value))))
 

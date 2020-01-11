@@ -46,21 +46,20 @@
 
   (table-filter [this db var-bindings]
     (let [db (vary-meta db update :rule-table #(or % (atom {})))
-          {:keys [rule-recursion-guard rule-table]} (meta db)]
-      (->> (for [rule rule-fns
-                 :let [key-var-bindings (if (instance? Repeat var-bindings)
-                                          nil
-                                          var-bindings)
-                       memo-key [(System/identityHashCode rule)
-                                 key-var-bindings]
-                       guard-key [(System/identityHashCode rule-fns)
-                                  key-var-bindings]]
-                 :when (not (contains? rule-recursion-guard guard-key))]
-             (if (contains? @rule-table memo-key)
-               (get @rule-table memo-key)
-               (doto (rule (vary-meta db update :rule-recursion-guard (fnil conj #{}) guard-key) var-bindings)
-                 (->> (swap! rule-table assoc memo-key)))))
-           (interleave-all))))
+          {:keys [rule-recursion-guard rule-table]} (meta db)
+          key-var-bindings (if (instance? Repeat var-bindings)
+                             nil
+                             var-bindings)
+          guard-key [(System/identityHashCode rule-fns) key-var-bindings]
+          db (vary-meta db update :rule-recursion-guard (fnil conj #{}) guard-key)]
+      (when-not (contains? rule-recursion-guard guard-key)
+        (->> (for [rule rule-fns
+                   :let [memo-key [(System/identityHashCode rule) key-var-bindings]]]
+               (if (contains? @rule-table memo-key)
+                 (get @rule-table memo-key)
+                 (doto (rule db var-bindings)
+                   (->> (swap! rule-table assoc memo-key)))))
+             (interleave-all)))))
 
   (insert [this rule]
     (assert (rule-fn? rule) "a rule needs to be a function")

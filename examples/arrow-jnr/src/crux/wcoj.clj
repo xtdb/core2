@@ -32,16 +32,77 @@
   (relation-by-name [this relation-name]))
 
 (defn- rule-fn? [f]
-  (s/valid? :crux.datalog/assertion f))
+  (s/valid? :crux.datalog/clause f))
 
 (defn- interleave-all [colls]
   (lazy-seq
    (when-let [ss (seq (remove empty? colls))]
      (concat (map first ss) (interleave-all (map rest ss))))) )
 
+(def ^:private ^:const internal-chunk-size 128)
+
+(defn- rule->clojure [rule-source]
+  (let [[type body] (s/conform :crux.datalog/clause rule-source)
+        _ (assert (= :rule type) "clause must be a rule")
+        {:keys [literal body]} body
+        [literal-type literal-body] literal]
+    (case literal-type
+      :predicate
+      (let [{:keys [symbol terms]} literal-body
+            args (mapv second terms)
+            _ (assert (= args (distinct args)) "argument names cannot be reused")
+            {:keys [predicate arithmetic external-query]} (group-by first body)
+            free-vars (->> (map (comp :variable second) (concat arithmetic external-query))
+                           (concat args)
+                           (apply disj (find-vars predicate)))
+            db-sym (gensym 'db)]
+        `(fn ~symbol
+           ([~db-sym] (~symbol ~db-sym [~@(repeat (count terms) ''_)]))
+           ([~db-sym ~args]
+            (let [~@(interleave free-vars (repeat ''_))]
+              (for ~(->> (for [[literal-type literal] body]
+                           (case literal-type
+                             :predicate
+                             (let [{:keys [symbol terms]} literal
+                                   chunk-sym (gensym 'chunk)
+                                   chunk-size internal-chunk-size]
+                               [chunk-sym
+                                `(->> (crux.wcoj/table-filter
+                                       (crux.wcoj/relation-by-name ~db-sym '~symbol)
+                                       ~db-sym ~(mapv second terms))
+                                      (partition-all ~chunk-size))
+                                (vec (for [[type arg] terms]
+                                       (if (= :constant type)
+                                         (gensym 'constant)
+                                         arg)))
+                                chunk-sym])
+
+                             :not
+                             (let [{:keys [predicate]} literal
+                                   {:keys [symbol terms]} predicate]
+                               [:when `(empty? (crux.wcoj/table-filter
+                                                (crux.wcoj/relation-by-name ~db-sym '~symbol)
+                                                ~db-sym ~(mapv second terms)))])
+
+                             :external-query
+                             (let [{:keys [variable external-symbol terms]} literal]
+                               [:let [variable `(~external-symbol ~@(mapv second terms))]])
+
+                             :arithmetic
+                             (let [{:keys [variable lhs op rhs]} literal
+                                   op (get '{% mod} op op)]
+                               [:let [variable `(~op ~@(map second (remove nil? [lhs rhs])))]])
+
+                             :equality-predicate
+                             (let [{:keys [lhs op rhs]} literal
+                                   op (get '{!= not=} op op)]
+                               [:when `(~op ~@(map second [lhs rhs]))])))
+                         (reduce into [(gensym 'loop) [''_]]))
+                ~args))))))))
+
 (def ^:private compile-rule (memoize
                              (fn [rule]
-                               (eval (apply list (::clojure-source (meta rule)))))))
+                               (eval (apply list (rule->clojure rule))))))
 
 (defrecord RuleRelation [rule-fns]
   Relation
@@ -154,8 +215,6 @@
                 body)
     @vars))
 
-(def ^:private ^:const internal-chunk-size 128)
-
 (defn compile-datalog
   ([datalog]
    (compile-datalog {} datalog))
@@ -204,60 +263,8 @@
                   [literal-type literal-body] literal]
               (case literal-type
                 :predicate
-                (let [{:keys [symbol terms]} literal-body
-                      args (mapv second terms)
-                      _ (assert (= args (distinct args)) "argument names cannot be reused")
-                      {:keys [predicate arithmetic external-query]} (group-by first body)
-                      free-vars (->> (map (comp :variable second) (concat arithmetic external-query))
-                                     (concat args)
-                                     (apply disj (find-vars predicate)))
-                      db-sym (gensym 'db)
-                      fn-source `(fn ~symbol
-                                   ([~db-sym] (~symbol ~db-sym [~@(repeat (count terms) ''_)]))
-                                   ([~db-sym ~args]
-                                    (let [~@(interleave free-vars (repeat ''_))]
-                                      (for ~(->> (for [[literal-type literal] body]
-                                                   (case literal-type
-                                                     :predicate
-                                                     (let [{:keys [symbol terms]} literal
-                                                           chunk-sym (gensym 'chunk)
-                                                           chunk-size internal-chunk-size]
-                                                       [chunk-sym
-                                                        `(->> (crux.wcoj/table-filter
-                                                               (crux.wcoj/relation-by-name ~db-sym '~symbol)
-                                                               ~db-sym ~(mapv second terms))
-                                                              (partition-all ~chunk-size))
-                                                        (vec (for [[type arg] terms]
-                                                               (if (= :constant type)
-                                                                 (gensym 'constant)
-                                                                 arg)))
-                                                        chunk-sym])
-
-                                                     :not
-                                                     (let [{:keys [predicate]} literal
-                                                           {:keys [symbol terms]} predicate]
-                                                       [:when `(empty? (crux.wcoj/table-filter
-                                                                        (crux.wcoj/relation-by-name ~db-sym '~symbol)
-                                                                        ~db-sym ~(mapv second terms)))])
-
-                                                     :external-query
-                                                     (let [{:keys [variable external-symbol terms]} literal]
-                                                       [:let [variable `(~external-symbol ~@(mapv second terms))]])
-
-                                                     :arithmetic
-                                                     (let [{:keys [variable lhs op rhs]} literal
-                                                           op (get '{% mod} op op)]
-                                                       [:let [variable `(~op ~@(map second (remove nil? [lhs rhs])))]])
-
-                                                     :equality-predicate
-                                                     (let [{:keys [lhs op rhs]} literal
-                                                           op (get '{!= not=} op op)]
-                                                       [:when `(~op ~@(map second [lhs rhs]))])))
-                                                 (reduce into [(gensym 'loop) [''_]]))
-                                        ~args))))
-                      rule-fn (with-meta (vec (s/unform :crux.datalog/program [form]))
-                                {::clojure-source fn-source})]
-                  (assertion db symbol rule-fn))))))
+                (let [{:keys [symbol terms]} literal-body]
+                  (assertion db symbol (vec (s/unform :crux.datalog/clause clause))))))))
         db))
     db (s/conform :crux.datalog/program datalog))))
 

@@ -233,6 +233,13 @@
                                                                  arg)))
                                                         chunk-sym])
 
+                                                     :not
+                                                     (let [{:keys [predicate]} literal
+                                                           {:keys [symbol terms]} predicate]
+                                                       [:when `(empty? (crux.wcoj/table-filter
+                                                                        (crux.wcoj/relation-by-name ~db-sym '~symbol)
+                                                                        ~db-sym ~(mapv second terms)))])
+
                                                      :external-query
                                                      (let [{:keys [variable external-symbol terms]} literal]
                                                        [:let [variable `(~external-symbol ~@(mapv second terms))]])

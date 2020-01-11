@@ -60,44 +60,43 @@
           free-vars (->> (map (comp :variable second) external-query)
                          (concat args)
                          (apply disj (find-vars predicate)))
-          db-sym (gensym 'db)]
+          db-sym (gensym 'db)
+          bindings (for [[type literal] body]
+                     (case type
+                       :predicate
+                       (let [{:keys [symbol terms]} literal]
+                         `[chunk#
+                           (->> (crux.wcoj/table-filter
+                                 (crux.wcoj/relation-by-name ~db-sym '~symbol)
+                                 ~db-sym ~(mapv second terms))
+                                (partition-all ~internal-chunk-size))
+                           ~(vec (for [[type term] terms]
+                                   (if (= :constant type)
+                                     (gensym 'constant)
+                                     term)))
+                           chunk#])
+
+                       :not
+                       (let [{:keys [symbol terms]} (:predicate literal)]
+                         [:when `(empty? (crux.wcoj/table-filter
+                                          (crux.wcoj/relation-by-name ~db-sym '~symbol)
+                                          ~db-sym ~(mapv second terms)))])
+
+                       :external-query
+                       (let [{:keys [variable symbol terms]} literal]
+                         [:let [variable `(~symbol ~@(mapv second terms))]])
+
+                       :equality-predicate
+                       (let [{:keys [lhs op rhs]} literal
+                             op (get '{!= not=} op op)]
+                         [:when `(~op ~@(map second [lhs rhs]))])))]
       `(fn ~symbol
          ([~db-sym] (~symbol ~db-sym [~@(repeat (count terms) ''_)]))
          ([~db-sym ~args]
-          (let [~@(interleave free-vars (repeat ''_))]
-            (for ~(->> (for [[type literal] body]
-                         (case type
-                           :predicate
-                           (let [{:keys [symbol terms]} literal
-                                 chunk-sym (gensym 'chunk)
-                                 chunk-size internal-chunk-size]
-                             [chunk-sym
-                              `(->> (crux.wcoj/table-filter
-                                     (crux.wcoj/relation-by-name ~db-sym '~symbol)
-                                     ~db-sym ~(mapv second terms))
-                                    (partition-all ~chunk-size))
-                              (vec (for [[type term] terms]
-                                     (if (= :constant type)
-                                       (gensym 'constant)
-                                       term)))
-                              chunk-sym])
-
-                           :not
-                           (let [{:keys [symbol terms]} (:predicate literal)]
-                             [:when `(empty? (crux.wcoj/table-filter
-                                              (crux.wcoj/relation-by-name ~db-sym '~symbol)
-                                              ~db-sym ~(mapv second terms)))])
-
-                           :external-query
-                           (let [{:keys [variable symbol terms]} literal]
-                             [:let [variable `(~symbol ~@(mapv second terms))]])
-
-                           :equality-predicate
-                           (let [{:keys [lhs op rhs]} literal
-                                 op (get '{!= not=} op op)]
-                             [:when `(~op ~@(map second [lhs rhs]))])))
-                       (reduce into [(gensym 'loop) [''_]]))
-              ~args)))))))
+          (for [loop# ['_]
+                :let [~@(interleave free-vars (repeat ''_))]
+                ~@(apply concat bindings)]
+            ~args))))))
 
 (def ^:private compile-rule (memoize
                              (fn [rule]

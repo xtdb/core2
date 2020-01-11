@@ -48,14 +48,18 @@
     (let [db (vary-meta db update :rule-table #(or % (atom {})))
           {:keys [rule-recursion-guard rule-table]} (meta db)]
       (->> (for [rule rule-fns
-                 :let [memo-key [(System/identityHashCode rule)
-                                 (if (instance? Repeat var-bindings)
-                                   nil
-                                   var-bindings)]]
-                 :when (not (contains? rule-recursion-guard memo-key))]
-             (get @rule-table memo-key
-                  (doto (rule (vary-meta db update :rule-recursion-guard (fnil conj #{}) memo-key) var-bindings)
-                    (->> (swap! rule-table assoc memo-key)))))
+                 :let [key-var-bindings (if (instance? Repeat var-bindings)
+                                          nil
+                                          var-bindings)
+                       memo-key [(System/identityHashCode rule)
+                                 key-var-bindings]
+                       guard-key [(System/identityHashCode rule-fns)
+                                  key-var-bindings]]
+                 :when (not (contains? rule-recursion-guard guard-key))]
+             (if (contains? @rule-table memo-key)
+               (get @rule-table memo-key)
+               (doto (rule (vary-meta db update :rule-recursion-guard (fnil conj #{}) guard-key) var-bindings)
+                 (->> (swap! rule-table assoc memo-key)))))
            (interleave-all))))
 
   (insert [this rule]
@@ -84,12 +88,33 @@
   (delete [this tuple]
     (disj this tuple)))
 
+(defrecord CombinedRelation [rules tuples]
+  Relation
+  (table-scan [this db]
+    (interleave-all [(table-scan tuples db)
+                     (table-scan rules db)]))
+
+  (table-filter [this db vars]
+    (interleave-all [(table-filter tuples db vars)
+                     (table-filter rules db vars)]))
+
+  (insert [this value]
+    (if (rule-fn? value)
+      (update this :rules insert value)
+      (update this :tuples insert value)))
+
+  (delete [this value]
+    (if (rule-fn? value)
+      (update this :rules delete value)
+      (update this :tuples delete value))))
+
+(defn- new-combined-relation []
+  (->CombinedRelation (new-rule-relation) (sorted-set)))
+
 (extend-type IPersistentMap
   Db
   (assertion [this relation-name value]
-    (update (ensure-relation this relation-name (if (rule-fn? value)
-                                                  new-rule-relation
-                                                  sorted-set))
+    (update (ensure-relation this relation-name new-combined-relation)
             relation-name
             insert
             value))
@@ -265,10 +290,9 @@
     (t/is (= #{[1 2] [2 3] [1 3]} (set result)))))
 
 (t/deftest fib-using-interop
-  (let [fib '[fib_base(0, 0).
-              fib_base(1, 1).
+  (let [fib '[fib(0, 0).
+              fib(1, 1).
 
-              fib(N, F) :- fib_base(N, F).
               fib(N, F) :-
               N > 1,
               N1 is N - 1,
@@ -287,15 +311,12 @@
                      connection(Z, Y).
 
                      connection(X, Y) :-
-                     connection_base(Y, X).
+                     connection(Y, X).
 
-                     connection(X, Y) :-
-                     connection_base(X, Y).
-
-                     connection_base("Amsterdam", "Schiphol").
-                     connection_base("Amsterdam", "Haarlem").
-                     connection_base("Schiphol", "Leiden").
-                     connection_base("Haarlem", "Leiden").]
+                     connection("Amsterdam", "Schiphol").
+                     connection("Amsterdam", "Haarlem").
+                     connection("Schiphol", "Leiden").
+                     connection("Haarlem", "Leiden").]
         db (compile-datalog {} connection)
         result (query-datalog db 'connection '["Amsterdam" _])]
     (t/is (= #{["Amsterdam" "Haarlem"]

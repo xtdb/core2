@@ -32,7 +32,7 @@
   (relation-by-name [this relation-name]))
 
 (defn- rule-fn? [f]
-  (boolean (::datalog-body (meta f))))
+  (boolean (::clojure-source (meta f))))
 
 (defn- interleave-all [colls]
   (lazy-seq
@@ -41,7 +41,7 @@
 
 (def ^:private compile-rule (memoize
                              (fn [rule]
-                               (eval (apply list rule)))))
+                               (eval (apply list (::clojure-source (meta rule)))))))
 
 (defrecord RuleRelation [rule-fns]
   Relation
@@ -66,14 +66,14 @@
              (interleave-all)))))
 
   (insert [this rule]
-    (assert (rule-fn? rule) "a rule needs to be a function")
+    (assert (rule-fn? rule) "not a rule")
     (update this :rule-fns conj rule))
 
   (delete [this rule]
-    (throw (UnsupportedOperationException.))))
+    (update this :rule-fns disj rule)))
 
 (defn- new-rule-relation []
-  (->RuleRelation []))
+  (->RuleRelation #{}))
 
 (extend-type IPersistentCollection
   Relation
@@ -255,8 +255,9 @@
                                                        [:when `(~op ~@(map second [lhs rhs]))])))
                                                  (reduce into [(gensym 'loop) [''_]]))
                                         ~args))))
-                      rule-fn (with-meta fn-source {::datalog-head literal-body
-                                                    ::datalog-body body})]
+                      rule-fn (with-meta {::datalog-head literal-body
+                                          ::datalog-body body}
+                                {::clojure-source fn-source})]
                   (assertion db symbol rule-fn))))))
         db))
     db (s/conform :crux.datalog/program datalog))))

@@ -16,12 +16,12 @@
                           :dot #{'.}))
 (s/def ::retraction (s/cat :clause ::clause
                            :tilde #{'-}))
-(s/def ::query (s/cat :literal ::literal
+(s/def ::query (s/cat :head ::predicate
                       :question-mark #{'?}))
-(s/def ::rule (s/cat :literal ::literal
+(s/def ::rule (s/cat :head ::predicate
                      :colon-hypen #{:-}
                      :body ::body))
-(s/def ::fact (s/cat :literal ::literal))
+(s/def ::fact (s/cat :head ::predicate))
 (s/def ::clause (s/alt :rule ::rule
                        :fact ::fact))
 (s/def ::body (s/+ ::literal))

@@ -52,60 +52,57 @@
     @vars))
 
 (defn- rule->clojure [rule-source]
-  (let [{:keys [literal body]} (s/conform :crux.datalog/rule rule-source)
-        [type literal] literal]
-    (case type
-      :predicate
-      (let [{:keys [symbol terms]} literal
-            args (mapv second terms)
-            _ (assert (= args (distinct args)) "argument names cannot be reused")
-            {:keys [predicate arithmetic external-query]} (group-by first body)
-            free-vars (->> (map (comp :variable second) (concat arithmetic external-query))
-                           (concat args)
-                           (apply disj (find-vars predicate)))
-            db-sym (gensym 'db)]
-        `(fn ~symbol
-           ([~db-sym] (~symbol ~db-sym [~@(repeat (count terms) ''_)]))
-           ([~db-sym ~args]
-            (let [~@(interleave free-vars (repeat ''_))]
-              (for ~(->> (for [[type literal] body]
-                           (case type
-                             :predicate
-                             (let [{:keys [symbol terms]} literal
-                                   chunk-sym (gensym 'chunk)
-                                   chunk-size internal-chunk-size]
-                               [chunk-sym
-                                `(->> (crux.wcoj/table-filter
-                                       (crux.wcoj/relation-by-name ~db-sym '~symbol)
-                                       ~db-sym ~(mapv second terms))
-                                      (partition-all ~chunk-size))
-                                (vec (for [[type term] terms]
-                                       (if (= :constant type)
-                                         (gensym 'constant)
-                                         term)))
-                                chunk-sym])
+  (let [{:keys [head body]} (s/conform :crux.datalog/rule rule-source)]
+    (let [{:keys [symbol terms]} head
+          args (mapv second terms)
+          _ (assert (= args (distinct args)) "argument names cannot be reused")
+          {:keys [predicate arithmetic external-query]} (group-by first body)
+          free-vars (->> (map (comp :variable second) (concat arithmetic external-query))
+                         (concat args)
+                         (apply disj (find-vars predicate)))
+          db-sym (gensym 'db)]
+      `(fn ~symbol
+         ([~db-sym] (~symbol ~db-sym [~@(repeat (count terms) ''_)]))
+         ([~db-sym ~args]
+          (let [~@(interleave free-vars (repeat ''_))]
+            (for ~(->> (for [[type literal] body]
+                         (case type
+                           :predicate
+                           (let [{:keys [symbol terms]} literal
+                                 chunk-sym (gensym 'chunk)
+                                 chunk-size internal-chunk-size]
+                             [chunk-sym
+                              `(->> (crux.wcoj/table-filter
+                                     (crux.wcoj/relation-by-name ~db-sym '~symbol)
+                                     ~db-sym ~(mapv second terms))
+                                    (partition-all ~chunk-size))
+                              (vec (for [[type term] terms]
+                                     (if (= :constant type)
+                                       (gensym 'constant)
+                                       term)))
+                              chunk-sym])
 
-                             :not
-                             (let [{:keys [symbol terms]} (:predicate literal)]
-                               [:when `(empty? (crux.wcoj/table-filter
-                                                (crux.wcoj/relation-by-name ~db-sym '~symbol)
-                                                ~db-sym ~(mapv second terms)))])
+                           :not
+                           (let [{:keys [symbol terms]} (:predicate literal)]
+                             [:when `(empty? (crux.wcoj/table-filter
+                                              (crux.wcoj/relation-by-name ~db-sym '~symbol)
+                                              ~db-sym ~(mapv second terms)))])
 
-                             :external-query
-                             (let [{:keys [variable symbol terms]} literal]
-                               [:let [variable `(~symbol ~@(mapv second terms))]])
+                           :external-query
+                           (let [{:keys [variable symbol terms]} literal]
+                             [:let [variable `(~symbol ~@(mapv second terms))]])
 
-                             :arithmetic
-                             (let [{:keys [variable lhs op rhs]} literal
-                                   op (get '{% mod} op op)]
-                               [:let [variable `(~op ~@(map second (remove nil? [lhs rhs])))]])
+                           :arithmetic
+                           (let [{:keys [variable lhs op rhs]} literal
+                                 op (get '{% mod} op op)]
+                             [:let [variable `(~op ~@(map second (remove nil? [lhs rhs])))]])
 
-                             :equality-predicate
-                             (let [{:keys [lhs op rhs]} literal
-                                   op (get '{!= not=} op op)]
-                               [:when `(~op ~@(map second [lhs rhs]))])))
-                         (reduce into [(gensym 'loop) [''_]]))
-                ~args))))))))
+                           :equality-predicate
+                           (let [{:keys [lhs op rhs]} literal
+                                 op (get '{!= not=} op op)]
+                             [:when `(~op ~@(map second [lhs rhs]))])))
+                       (reduce into [(gensym 'loop) [''_]]))
+              ~args)))))))
 
 (def ^:private compile-rule (memoize
                              (fn [rule]
@@ -224,35 +221,25 @@
     (fn [db [type statement]]
       (case type
         :query
-        (let [[type literal] (:literal statement)]
-          (case type
-            :predicate
-            (let [{:keys [symbol terms]} literal
-                  args (for [[type term] terms]
-                         (if (= :variable type)
-                           '_
-                           term))]
-              (doseq [tuple (query-datalog db symbol args)]
-                (println (tuple->datalog-str symbol tuple)))
-              db)))
+        (let [{:keys [symbol terms]} (:head statement)
+              args (for [[type term] terms]
+                     (if (= :variable type)
+                       '_
+                       term))]
+          (doseq [tuple (query-datalog db symbol args)]
+            (println (tuple->datalog-str symbol tuple)))
+          db)
 
         (:assertion :retraction)
         (let [op (get {:assertion assertion :retraction retraction} type)
-              [type clause] (:clause statement)]
+              [type clause] (:clause statement)
+              {:keys [symbol terms]} (:head clause)]
           (case type
             :fact
-            (let [[type literal] (:literal clause)]
-              (case type
-                :predicate
-                (let [{:keys [symbol terms]} literal]
-                  (op db symbol (mapv second terms)))))
+            (op db symbol (mapv second terms))
 
             :rule
-            (let [[type literal] (:literal clause)]
-              (case type
-                :predicate
-                (let [{:keys [symbol]} literal]
-                  (op db symbol (vec (s/unform :crux.datalog/rule clause))))))))
+            (op db symbol (vec (s/unform :crux.datalog/rule clause)))))
         db))
     db (s/conform :crux.datalog/program datalog))))
 

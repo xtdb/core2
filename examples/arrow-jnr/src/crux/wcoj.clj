@@ -36,9 +36,7 @@
 
 (defn- interleave-all [colls]
   (lazy-seq
-   (when-let [ss (->> (map seq colls)
-                      (remove empty?)
-                      (seq))]
+   (when-let [ss (seq (remove empty? colls))]
      (concat (map first ss) (interleave-all (map rest ss))))) )
 
 (defrecord RuleRelation [rule-fns]
@@ -124,6 +122,8 @@
                 body)
     @vars))
 
+(def ^:private ^:const internal-chunk-size 128)
+
 (defn compile-datalog
   ([datalog]
    (compile-datalog {} datalog))
@@ -187,14 +187,19 @@
                                       (for ~(->> (for [[literal-type literal] body]
                                                    (case literal-type
                                                      :predicate
-                                                     (let [{:keys [symbol terms]} literal]
-                                                       [(vec (for [[type arg] terms]
+                                                     (let [{:keys [symbol terms]} literal
+                                                           chunk-sym (gensym 'chunk)
+                                                           chunk-size internal-chunk-size]
+                                                       [chunk-sym
+                                                        `(->> (crux.wcoj/table-filter
+                                                               (crux.wcoj/relation-by-name ~db-sym '~symbol)
+                                                               ~db-sym ~(mapv second terms))
+                                                              (partition-all ~chunk-size))
+                                                        (vec (for [[type arg] terms]
                                                                (if (= :constant type)
                                                                  (gensym 'constant)
                                                                  arg)))
-                                                        `(crux.wcoj/table-filter
-                                                          (crux.wcoj/relation-by-name ~db-sym '~symbol)
-                                                          ~db-sym ~(mapv second terms))])
+                                                        chunk-sym])
 
                                                      :external-query
                                                      (let [{:keys [variable external-symbol terms]} literal]

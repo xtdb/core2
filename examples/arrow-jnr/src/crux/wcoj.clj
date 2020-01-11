@@ -194,14 +194,11 @@
   (relation-by-name [this relation-name]
     (get this relation-name)))
 
-(defn- normalize-name [s]
-  (symbol (name s)))
-
 (defn query-datalog
   ([db rule-name]
-   (table-scan (relation-by-name db (normalize-name rule-name)) db))
+   (table-scan (relation-by-name db rule-name) db))
   ([db rule-name args]
-   (table-filter (relation-by-name db (normalize-name rule-name)) db args)))
+   (table-filter (relation-by-name db rule-name) db args)))
 
 (defn tuple->datalog-str [relation-name tuple]
   (str relation-name "(" (str/join ", " tuple) ")."))

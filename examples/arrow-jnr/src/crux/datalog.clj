@@ -30,7 +30,7 @@
                                    :rhs ::term))
 (s/def ::external-query (s/cat :variable ::variable
                                :colon-hypen #{:- 'is}
-                               :external-symbol ::identifier
+                               :symbol ::identifier
                                :terms (s/? (s/coll-of ::term :kind list?))))
 (s/def ::arithmetic (s/cat :variable ::variable
                            :colon-hypen #{:- 'is}

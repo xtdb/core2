@@ -95,8 +95,8 @@
                                                 ~db-sym ~(mapv second terms)))])
 
                              :external-query
-                             (let [{:keys [variable external-symbol terms]} literal]
-                               [:let [variable `(~external-symbol ~@(mapv second terms))]])
+                             (let [{:keys [variable symbol terms]} literal]
+                               [:let [variable `(~symbol ~@(mapv second terms))]])
 
                              :arithmetic
                              (let [{:keys [variable lhs op rhs]} literal

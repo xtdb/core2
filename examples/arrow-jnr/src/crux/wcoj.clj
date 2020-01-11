@@ -34,6 +34,13 @@
 (defn- rule-fn? [f]
   (boolean (and (fn? f) (::clojure-source (meta f)))))
 
+(defn- interleave-all [colls]
+  (lazy-seq
+   (when-let [ss (->> (map seq colls)
+                      (remove empty?)
+                      (seq))]
+     (concat (map first ss) (interleave-all (map rest ss))))) )
+
 (defrecord RuleRelation [rule-fns]
   Relation
   (table-scan [this db]
@@ -47,7 +54,7 @@
                                  var-bindings)]]
                :when (not (contains? (:rule-memo (meta db)) memo-key))]
            (rule (vary-meta db update :rule-memo (fnil conj #{}) memo-key) var-bindings))
-         (apply concat)))
+         (interleave-all)))
 
   (insert [this rule]
     (assert (rule-fn? rule) "a rule needs to be a function")

@@ -34,10 +34,13 @@
 (defn- rule? [f]
   (s/valid? :crux.datalog/rule f))
 
-(defn- interleave-all [colls]
-  (lazy-seq
-   (when-let [ss (seq (remove empty? colls))]
-     (concat (map first ss) (interleave-all (map rest ss))))) )
+(defn- interleave-all
+  ([])
+  ([c1] c1)
+  ([c1 & colls]
+   (lazy-seq
+    (when-let [ss (seq (remove empty? (cons c1 colls)))]
+      (concat (map first ss) (apply interleave-all (map rest ss)))))) )
 
 (def ^:private ^:const internal-chunk-size 128)
 
@@ -123,7 +126,7 @@
                  (doto ((compile-rule rule) db var-bindings)
                    (->> (swap! rule-table assoc memo-key)))
                  memo-value))
-             (interleave-all)))))
+             (apply interleave-all)))))
 
   (insert [this rule]
     (assert (rule? rule) "not a rule")
@@ -154,12 +157,12 @@
 (defrecord CombinedRelation [rules tuples]
   Relation
   (table-scan [this db]
-    (interleave-all [(table-scan tuples db)
-                     (table-scan rules db)]))
+    (interleave-all (table-scan tuples db)
+                    (table-scan rules db)))
 
   (table-filter [this db vars]
-    (interleave-all [(table-filter tuples db vars)
-                     (table-filter rules db vars)]))
+    (interleave-all (table-filter tuples db vars)
+                    (table-filter rules db vars)))
 
   (insert [this value]
     (if (rule? value)

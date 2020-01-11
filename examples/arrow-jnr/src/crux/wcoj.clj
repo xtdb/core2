@@ -2,7 +2,6 @@
   (:require [clojure.spec.alpha :as s]
             [clojure.string :as str]
             [clojure.walk :as w]
-            [clojure.test :as t]
             [crux.datalog])
   (:import [clojure.lang IPersistentCollection IPersistentMap Repeat]))
 

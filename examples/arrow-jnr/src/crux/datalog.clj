@@ -34,11 +34,6 @@
                                :colon-hypen #{:- 'is}
                                :symbol ::identifier
                                :terms (s/? (s/coll-of ::term :kind list?))))
-(s/def ::arithmetic (s/cat :variable ::variable
-                           :colon-hypen #{:- 'is}
-                           :lhs (s/? ::term)
-                           :op '#{+ - * / %}
-                           :rhs ::term))
 (s/def ::not (s/cat :exlamation-mark '#{! not}
                     :predicate ::predicate))
 (s/def ::literal (s/alt :predicate ::predicate

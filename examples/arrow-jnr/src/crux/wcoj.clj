@@ -56,8 +56,8 @@
     (let [{:keys [symbol terms]} head
           args (mapv second terms)
           _ (assert (= args (distinct args)) "argument names cannot be reused")
-          {:keys [predicate arithmetic external-query]} (group-by first body)
-          free-vars (->> (map (comp :variable second) (concat arithmetic external-query))
+          {:keys [predicate external-query]} (group-by first body)
+          free-vars (->> (map (comp :variable second) external-query)
                          (concat args)
                          (apply disj (find-vars predicate)))
           db-sym (gensym 'db)]
@@ -91,11 +91,6 @@
                            :external-query
                            (let [{:keys [variable symbol terms]} literal]
                              [:let [variable `(~symbol ~@(mapv second terms))]])
-
-                           :arithmetic
-                           (let [{:keys [variable lhs op rhs]} literal
-                                 op (get '{% mod} op op)]
-                             [:let [variable `(~op ~@(map second (remove nil? [lhs rhs])))]])
 
                            :equality-predicate
                            (let [{:keys [lhs op rhs]} literal

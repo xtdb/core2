@@ -206,18 +206,21 @@
   (relation-by-name [this relation-name]
     (get this relation-name)))
 
+(defn- normalize-name [s]
+  (symbol (name s)))
+
 (defn query-datalog
-  ([db q]
-   (table-scan (relation-by-name db q) db))
-  ([db q args]
-   (table-filter (relation-by-name db q) db args)))
+  ([db rule-name]
+   (table-scan (relation-by-name db (normalize-name rule-name)) db))
+  ([db rule-name args]
+   (table-filter (relation-by-name db (normalize-name rule-name)) db args)))
 
 (defn tuple->datalog-str [relation-name tuple]
   (str relation-name "(" (str/join ", " tuple) ")."))
 
-(defn compile-datalog
+(defn execute-datalog
   ([datalog]
-   (compile-datalog {} datalog))
+   (execute-datalog {} datalog))
   ([db datalog]
    (s/assert :crux.datalog/program datalog)
    (reduce
@@ -281,7 +284,7 @@
                    s(5, 2).
 
                    q(A, B, C) :- r(A, B), s(B, C), t(A, C).]
-        db (compile-datalog {} triangle)
+        db (execute-datalog triangle)
         result (query-datalog db 'q)]
     (t/is (= #{[1 3 4] [1 3 5] [1 4 6] [1 4 8] [1 4 9] [1 5 2] [3 5 2]}
              (set result)))))
@@ -292,7 +295,7 @@
 
                path(X, Y) :- edge(X, Y).
                path(X, Z) :- path(X, Y), edge(Y, Z).]
-        db (compile-datalog {} edge)
+        db (execute-datalog edge)
         result (query-datalog db 'path)]
     (t/is (= #{[1 2] [2 3] [1 3]} (set result)))))
 
@@ -307,7 +310,7 @@
               fib(N1, F1),
               fib(N2, F2),
               F is F1 + F2 .]
-        db (compile-datalog {} fib)
+        db (execute-datalog fib)
         result (query-datalog db 'fib '[30 F])]
     (t/is (= #{[30 832040]} (set result)))))
 
@@ -324,7 +327,7 @@
                      connection("Amsterdam", "Haarlem").
                      connection("Schiphol", "Leiden").
                      connection("Haarlem", "Leiden").]
-        db (compile-datalog {} connection)
+        db (execute-datalog connection)
         result (query-datalog db 'connection '["Amsterdam" _])]
     (t/is (= #{["Amsterdam" "Haarlem"]
                ["Amsterdam" "Schiphol"]

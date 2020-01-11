@@ -41,6 +41,16 @@
 
 (def ^:private ^:const internal-chunk-size 128)
 
+(defn- find-vars [body]
+  (let [vars (atom #{})]
+    (w/postwalk (fn [x]
+                  (when (and (vector? x)
+                             (= :variable (first x)))
+                    (swap! vars conj (second x)))
+                  x)
+                body)
+    @vars))
+
 (defn- rule->clojure [rule-source]
   (let [[type body] (s/conform :crux.datalog/clause rule-source)
         _ (assert (= :rule type) "clause must be a rule")
@@ -204,16 +214,6 @@
 
 (defn tuple->datalog-str [relation-name tuple]
   (str relation-name "(" (str/join ", " tuple) ")."))
-
-(defn- find-vars [body]
-  (let [vars (atom #{})]
-    (w/postwalk (fn [x]
-                  (when (and (vector? x)
-                             (= :variable (first x)))
-                    (swap! vars conj (second x)))
-                  x)
-                body)
-    @vars))
 
 (defn compile-datalog
   ([datalog]

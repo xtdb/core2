@@ -32,7 +32,7 @@
   (relation-by-name [this relation-name]))
 
 (defn- rule-fn? [f]
-  (s/valid? :crux.datalog/clause f))
+  (s/valid? :crux.datalog/rule f))
 
 (defn- interleave-all [colls]
   (lazy-seq
@@ -52,13 +52,11 @@
     @vars))
 
 (defn- rule->clojure [rule-source]
-  (let [[type body] (s/conform :crux.datalog/clause rule-source)
-        _ (assert (= :rule type) "clause must be a rule")
-        {:keys [literal body]} body
-        [literal-type literal-body] literal]
-    (case literal-type
+  (let [{:keys [literal body]} (s/conform :crux.datalog/rule rule-source)
+        [type literal] literal]
+    (case type
       :predicate
-      (let [{:keys [symbol terms]} literal-body
+      (let [{:keys [symbol terms]} literal
             args (mapv second terms)
             _ (assert (= args (distinct args)) "argument names cannot be reused")
             {:keys [predicate arithmetic external-query]} (group-by first body)
@@ -70,8 +68,8 @@
            ([~db-sym] (~symbol ~db-sym [~@(repeat (count terms) ''_)]))
            ([~db-sym ~args]
             (let [~@(interleave free-vars (repeat ''_))]
-              (for ~(->> (for [[literal-type literal] body]
-                           (case literal-type
+              (for ~(->> (for [[type literal] body]
+                           (case type
                              :predicate
                              (let [{:keys [symbol terms]} literal
                                    chunk-sym (gensym 'chunk)
@@ -81,15 +79,14 @@
                                        (crux.wcoj/relation-by-name ~db-sym '~symbol)
                                        ~db-sym ~(mapv second terms))
                                       (partition-all ~chunk-size))
-                                (vec (for [[type arg] terms]
+                                (vec (for [[type term] terms]
                                        (if (= :constant type)
                                          (gensym 'constant)
-                                         arg)))
+                                         term)))
                                 chunk-sym])
 
                              :not
-                             (let [{:keys [predicate]} literal
-                                   {:keys [symbol terms]} predicate]
+                             (let [{:keys [symbol terms]} (:predicate literal)]
                                [:when `(empty? (crux.wcoj/table-filter
                                                 (crux.wcoj/relation-by-name ~db-sym '~symbol)
                                                 ~db-sym ~(mapv second terms)))])
@@ -224,41 +221,38 @@
   ([db datalog]
    (s/assert :crux.datalog/program datalog)
    (reduce
-    (fn [db [type body :as form]]
+    (fn [db [type statement]]
       (case type
         :query
-        (let [{:keys [literal]} body
-              [type body] literal]
+        (let [[type literal] (:literal statement)]
           (case type
             :predicate
-            (let [{:keys [symbol terms]} body
-                  args (for [[type arg] terms]
+            (let [{:keys [symbol terms]} literal
+                  args (for [[type term] terms]
                          (if (= :variable type)
                            '_
-                           arg))]
+                           term))]
               (doseq [tuple (query-datalog db symbol args)]
                 (println (tuple->datalog-str symbol tuple)))
               db)))
 
         (:assertion :retraction)
         (let [op (get {:assertion assertion :retraction retraction} type)
-              {:keys [clause]} body
-              [type body] clause]
+              [type clause] (:clause statement)]
           (case type
             :fact
-            (let [[type body] body]
+            (let [[type literal] (:literal clause)]
               (case type
                 :predicate
-                (let [{:keys [symbol terms]} body]
+                (let [{:keys [symbol terms]} literal]
                   (op db symbol (mapv second terms)))))
 
             :rule
-            (let [{:keys [literal body]} body
-                  [literal-type literal-body] literal]
-              (case literal-type
+            (let [[type literal] (:literal clause)]
+              (case type
                 :predicate
-                (let [{:keys [symbol terms]} literal-body]
-                  (op db symbol (vec (s/unform :crux.datalog/clause clause))))))))
+                (let [{:keys [symbol]} literal]
+                  (op db symbol (vec (s/unform :crux.datalog/rule clause))))))))
         db))
     db (s/conform :crux.datalog/program datalog))))
 

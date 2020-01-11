@@ -18,10 +18,12 @@
                            :tilde #{'-}))
 (s/def ::query (s/cat :literal ::literal
                       :question-mark #{'?}))
-(s/def ::clause (s/alt :rule (s/cat :literal ::literal
-                                    :colon-hypen #{:-}
-                                    :body ::body)
-                       :fact ::literal))
+(s/def ::rule (s/cat :literal ::literal
+                     :colon-hypen #{:-}
+                     :body ::body))
+(s/def ::fact (s/cat :literal ::literal))
+(s/def ::clause (s/alt :rule ::rule
+                       :fact ::fact))
 (s/def ::body (s/+ ::literal))
 (s/def ::predicate (s/cat :symbol ::identifier
                           :terms (s/? (s/coll-of ::term :kind list?))))

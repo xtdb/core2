@@ -112,7 +112,7 @@
 
 (def ^:private compile-rule (memoize
                              (fn [rule]
-                               (eval (apply list (rule->clojure rule))))))
+                               (eval (rule->clojure rule)))))
 
 (defrecord RuleRelation [rule-fns]
   Relation
@@ -237,18 +237,9 @@
                 (println (tuple->datalog-str symbol tuple)))
               db)))
 
-        :retraction
-        (let [{:keys [clause]} body
-              [type body] clause]
-          (case type
-            :fact (let [[type body] body]
-                    (case type
-                      :predicate
-                      (let [{:keys [symbol terms]} body]
-                        (retraction db symbol (mapv second terms)))))))
-
-        :assertion
-        (let [{:keys [clause]} body
+        (:assertion :retraction)
+        (let [op (get {:assertion assertion :retraction retraction} type)
+              {:keys [clause]} body
               [type body] clause]
           (case type
             :fact
@@ -256,7 +247,7 @@
               (case type
                 :predicate
                 (let [{:keys [symbol terms]} body]
-                  (assertion db symbol (mapv second terms)))))
+                  (op db symbol (mapv second terms)))))
 
             :rule
             (let [{:keys [literal body]} body
@@ -264,7 +255,7 @@
               (case literal-type
                 :predicate
                 (let [{:keys [symbol terms]} literal-body]
-                  (assertion db symbol (vec (s/unform :crux.datalog/clause clause))))))))
+                  (op db symbol (vec (s/unform :crux.datalog/clause clause))))))))
         db))
     db (s/conform :crux.datalog/program datalog))))
 

@@ -11,7 +11,8 @@
 (s/def ::program (s/* ::statement))
 (s/def ::statement (s/alt :assertion ::assertion
                           :retraction ::retraction
-                          :query ::query))
+                          :query ::query
+                          :requirement ::requirement))
 (s/def ::assertion (s/cat :clause ::clause
                           :dot #{'.}))
 (s/def ::retraction (s/cat :clause ::clause
@@ -21,6 +22,8 @@
 (s/def ::rule (s/cat :head ::predicate
                      :colon-hypen #{:-}
                      :body ::body))
+(s/def ::requirement (s/cat :identifier (s/coll-of ::identifier :kind list? :count 1)
+                            :dot #{'.}))
 (s/def ::fact (s/cat :head ::predicate))
 (s/def ::clause (s/alt :rule ::rule
                        :fact ::fact))

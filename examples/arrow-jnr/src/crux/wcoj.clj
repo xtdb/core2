@@ -225,6 +225,10 @@
             (println (tuple->datalog-str symbol tuple)))
           db)
 
+        :requirement
+        (do (require (first (:identifier statement)))
+            db)
+
         (:assertion :retraction)
         (let [op (get {:assertion assertion :retraction retraction} type)
               [type clause] (:clause statement)
@@ -234,6 +238,5 @@
             (op db symbol (mapv second terms))
 
             :rule
-            (op db symbol (vec (s/unform :crux.datalog/rule clause)))))
-        db))
+            (op db symbol (vec (s/unform :crux.datalog/rule clause)))))))
     db (s/conform :crux.datalog/program datalog))))

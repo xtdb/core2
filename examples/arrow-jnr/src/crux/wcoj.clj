@@ -117,11 +117,12 @@
           db (vary-meta db update :rule-recursion-guard (fnil conj #{}) guard-key)]
       (when-not (contains? rule-recursion-guard guard-key)
         (->> (for [rule rules
-                   :let [memo-key [(System/identityHashCode rule) key-var-bindings]]]
-               (if (contains? @rule-table memo-key)
-                 (get @rule-table memo-key)
+                   :let [memo-key [(System/identityHashCode rule) key-var-bindings]
+                         memo-value (get @rule-table memo-key ::not-found)]]
+               (if (= ::not-found memo-value)
                  (doto ((compile-rule rule) db var-bindings)
-                   (->> (swap! rule-table assoc memo-key)))))
+                   (->> (swap! rule-table assoc memo-key)))
+                 memo-value))
              (interleave-all)))))
 
   (insert [this rule]

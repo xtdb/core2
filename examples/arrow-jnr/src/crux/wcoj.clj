@@ -32,7 +32,7 @@
   (relation-by-name [this relation-name]))
 
 (defn- rule-fn? [f]
-  (boolean (::clojure-source (meta f))))
+  (s/valid? :crux.datalog/assertion f))
 
 (defn- interleave-all [colls]
   (lazy-seq
@@ -255,8 +255,7 @@
                                                        [:when `(~op ~@(map second [lhs rhs]))])))
                                                  (reduce into [(gensym 'loop) [''_]]))
                                         ~args))))
-                      rule-fn (with-meta {::datalog-head literal-body
-                                          ::datalog-body body}
+                      rule-fn (with-meta (vec (s/unform :crux.datalog/program [form]))
                                 {::clojure-source fn-source})]
                   (assertion db symbol rule-fn))))))
         db))

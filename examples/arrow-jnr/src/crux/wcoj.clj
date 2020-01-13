@@ -135,7 +135,7 @@
              (apply interleave-all)))))
 
   (insert [this rule]
-    (assert (rule? rule) "not a rule")
+    (s/assert :crux.datalog/rule rule)
     (update this :rules conj rule))
 
   (delete [this rule]

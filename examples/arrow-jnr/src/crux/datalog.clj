@@ -37,7 +37,7 @@
                                :colon-hypen #{:- 'is}
                                :symbol ::identifier
                                :terms (s/? (s/coll-of ::term :kind list?))))
-(s/def ::not-predicate (s/cat :exlamation-mark '#{! not}
+(s/def ::not-predicate (s/cat :exclamation-mark '#{! not}
                               :predicate ::predicate))
 (s/def ::literal (s/alt :predicate ::predicate
                         :equality-predicate ::equality-predicate

@@ -30,10 +30,11 @@
       (cd/prolog-var? x)
       (cd/prolog-var? y)))
 
-(defn assign-vars [x y]
-  (if (cd/prolog-var? x)
-    [y y]
-    [x x]))
+(defn unify [x y]
+  (when (can-unify? x y)
+    (if (cd/prolog-var? x)
+      [y y]
+      [x x])))
 
 (defn- can-unify-tuple? [tuple bindings]
   (->> (map can-unify? tuple bindings)
@@ -99,12 +100,11 @@
                      :equality-predicate
                      (let [{:keys [lhs op rhs]} literal
                            args (mapv second [lhs rhs])
-                           op-fn (get '{!= not=
-                                        = crux.wcoj/can-unify?} op op)]
-                       (concat
-                        `[:when (~op-fn ~@args)]
-                        (when (= '= op)
-                          `[:let [~(term-bindings [lhs rhs]) (crux.wcoj/assign-vars ~@args)]])))
+                           op-fn (get '{!= not=} op op)]
+                       (if (= '= op)
+                         `[:let [[~@(term-bindings [lhs rhs]) :as unified?#] (crux.wcoj/unify ~@args)]
+                           :when unified?#]
+                         `[:when (~op-fn ~@args)]))
 
                      :not-predicate
                      (let [{:keys [symbol terms]} (:predicate literal)]

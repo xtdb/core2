@@ -25,20 +25,20 @@
 (defn- rule? [f]
   (s/valid? :crux.datalog/rule f))
 
-(defn can-unify? [x y]
+(defn- can-unify? [x y]
   (or (= x y)
       (cd/prolog-var? x)
       (cd/prolog-var? y)))
+
+(defn- can-unify-tuple? [tuple bindings]
+  (->> (map can-unify? tuple bindings)
+       (every? true?)))
 
 (defn unify [x y]
   (when (can-unify? x y)
     (if (cd/prolog-var? x)
       [y y]
       [x x])))
-
-(defn- can-unify-tuple? [tuple bindings]
-  (->> (map can-unify? tuple bindings)
-       (every? true?)))
 
 (defn- interleave-all
   ([])
@@ -100,7 +100,7 @@
                      :equality-predicate
                      (let [{:keys [lhs op rhs]} literal
                            args (mapv second [lhs rhs])
-                           op-fn (get '{!= not=} op op)]
+                           op-fn (get '{!= (complement crux.wcoj/unify)} op op)]
                        (if (= '= op)
                          `[:let [[~@(term-bindings [lhs rhs]) :as unified?#] (crux.wcoj/unify ~@args)]
                            :when unified?#]

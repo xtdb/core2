@@ -42,7 +42,7 @@
       (concat (map first ss) (apply interleave-all (map rest ss)))))) )
 
 (defn- find-vars [body]
-  (let [vars (atom #{})]
+  (let [vars (atom [])]
     (w/postwalk (fn [x]
                   (when (and (vector? x)
                              (= :variable (first x)))
@@ -59,7 +59,7 @@
         {:keys [predicate not-predicate external-query]} (group-by first body)
         free-vars (->> (map (comp :variable second) external-query)
                        (concat args)
-                       (apply disj (find-vars predicate)))
+                       (apply disj (set (find-vars predicate))))
         body (concat (remove (set not-predicate) body) not-predicate)]
     {:rule-name symbol
      :args args
@@ -73,7 +73,9 @@
         bindings (for [[type literal] body]
                    (case type
                      :predicate
-                     (let [{:keys [symbol terms]} literal]
+                     (let [{:keys [symbol terms]} literal
+                           arg-vars (find-vars terms)]
+                       (assert (= arg-vars (distinct arg-vars)) "argument variables cannot be reused")
                        `[chunk#
                          (->> (crux.wcoj/table-filter
                                (crux.wcoj/relation-by-name ~db-sym '~symbol)

@@ -10,14 +10,6 @@
 
 ;; generic-join
 
-(defn- can-unify-var? [value bound-var]
-  (or (= '_ bound-var)
-      (= value bound-var)))
-
-(defn- can-unify-tuple? [tuple bindings]
-  (->> (map can-unify-var? tuple bindings)
-       (every? true?)))
-
 (defprotocol Relation
   (table-scan [this db])
   (table-filter [this db var-bindings])
@@ -32,6 +24,14 @@
 
 (defn- rule? [f]
   (s/valid? :crux.datalog/rule f))
+
+(defn- can-unify-var? [value bound-var]
+  (or (= '_ bound-var)
+      (= value bound-var)))
+
+(defn- can-unify-tuple? [tuple bindings]
+  (->> (map can-unify-var? tuple bindings)
+       (every? true?)))
 
 (defn- interleave-all
   ([])

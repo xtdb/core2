@@ -103,7 +103,7 @@
                                         = crux.wcoj/can-unify?} op op)]
                        (concat
                         `[:when (~op-fn ~@args)]
-                        (when (and (= '= op) (every? cd/prolog-var? args))
+                        (when (= '= op)
                           `[:let [~(term-bindings [lhs rhs]) (crux.wcoj/assign-vars ~@args)]])))
 
                      :not-predicate

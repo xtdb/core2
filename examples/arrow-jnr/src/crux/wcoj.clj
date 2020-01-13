@@ -25,9 +25,9 @@
 (defn- rule? [f]
   (s/valid? :crux.datalog/rule f))
 
-(defn- can-unify-var? [value bound-var]
-  (or (cd/prolog-var? bound-var)
-      (= value bound-var)))
+(defn- can-unify-var? [value var]
+  (or (cd/prolog-var? var)
+      (= value var)))
 
 (defn- can-unify-tuple? [tuple bindings]
   (->> (map can-unify-var? tuple bindings)
@@ -210,11 +210,13 @@
   ([db rule-name args]
    (table-filter (relation-by-name db rule-name) db args)))
 
+(defn- query-conformed-datalog [db {{:keys [symbol terms]} :head}]
+  (let [args (mapv second terms)]
+    (query-by-name db symbol args)))
+
 (defn query-datalog [db query]
   (s/assert :crux.datalog/query query)
-  (let [{{:keys [symbol terms]} :head} (s/conform :crux.datalog/query query)
-        args (mapv second terms)]
-    (query-by-name db symbol args)))
+  (query-conformed-datalog db (s/conform :crux.datalog/query query)))
 
 (defn tuple->datalog-str [relation-name tuple]
   (str relation-name "(" (str/join ", " tuple) ")."))
@@ -228,9 +230,10 @@
     (fn [db [type statement]]
       (case type
         :query
-        (do (doseq [tuple (query-datalog db statement)]
-              (println (tuple->datalog-str symbol tuple)))
-            db)
+        (let [{{:keys [symbol]} :head} statement]
+          (doseq [tuple (query-conformed-datalog db statement)]
+            (println (tuple->datalog-str symbol tuple)))
+          db)
 
         :requirement
         (do (require (first (:identifier statement)))

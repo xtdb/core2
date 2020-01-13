@@ -58,12 +58,8 @@
 
 ;; https://www.swi-prolog.org/pldoc/man?section=tabling-non-termination
 (t/deftest connection-recursion-rules
-  (let [connection '[connection(X, Y) :-
-                     connection(X, Z),
-                     connection(Z, Y).
-
-                     connection(X, Y) :-
-                     connection(Y, X).
+  (let [connection '[connection(X, Y) :- connection(X, Z), connection(Z, Y).
+                     connection(X, Y) :- connection(Y, X).
 
                      connection("Amsterdam", "Schiphol").
                      connection("Amsterdam", "Haarlem").

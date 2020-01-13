@@ -99,7 +99,7 @@
                      :equality-predicate
                      (let [{:keys [lhs op rhs]} literal
                            args (mapv second [lhs rhs])
-                           op-fn (get '{!= (complement crux.wcoj/can-unify?)
+                           op-fn (get '{!= not=
                                         = crux.wcoj/can-unify?} op op)]
                        (concat
                         `[:when (~op-fn ~@args)]

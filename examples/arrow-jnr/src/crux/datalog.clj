@@ -4,9 +4,10 @@
 ;; See Racket for the Datalog syntax in EBNF.
 ;; https://docs.racket-lang.org/datalog/datalog.html
 
-(defn- prolog-var? [s]
+(defn prolog-var? [s]
   (and (symbol? s)
-       (Character/isUpperCase (char (first (name s))))))
+       (let [c (char (first (name s)))]
+         (or (= \_ c) (Character/isUpperCase c)))))
 
 (s/def ::program (s/* ::statement))
 (s/def ::statement (s/alt :assertion ::assertion

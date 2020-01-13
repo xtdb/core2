@@ -26,7 +26,7 @@
 
                    q(A, B, C) :- r(A, B), s(B, C), t(A, C).]
         db (wcoj/execute-datalog triangle)
-        result (wcoj/query-datalog db 'q)]
+        result (wcoj/query-datalog db '[q(A, B, C)?])]
     (t/is (= #{[1 3 4] [1 3 5] [1 4 6] [1 4 8] [1 4 9] [1 5 2] [3 5 2]}
              (set result)))))
 
@@ -37,7 +37,7 @@
                path(X, Y) :- edge(X, Y).
                path(X, Z) :- path(X, Y), edge(Y, Z).]
         db (wcoj/execute-datalog edge)
-        result (wcoj/query-datalog db 'path)]
+        result (wcoj/query-datalog db '[path(X, Y)?])]
     (t/is (= #{[1 2] [2 3] [1 3]} (set result)))))
 
 (t/deftest fib-using-interop
@@ -53,7 +53,7 @@
                 fib(N2, F2),
                 F :- +(F1 F2).]
         db (wcoj/execute-datalog fib)
-        result (wcoj/query-datalog db 'fib '[30 F])]
+        result (wcoj/query-datalog db '[fib(30, F)?])]
     (t/is (= #{[30 832040]} (set result)))))
 
 ;; https://www.swi-prolog.org/pldoc/man?section=tabling-non-termination
@@ -66,7 +66,7 @@
                      connection("Schiphol", "Leiden").
                      connection("Haarlem", "Leiden").]
         db (wcoj/execute-datalog connection)
-        result (wcoj/query-datalog db 'connection '["Amsterdam" _])]
+        result (wcoj/query-datalog db '[connection("Amsterdam", X)?])]
     (t/is (= #{["Amsterdam" "Haarlem"]
                ["Amsterdam" "Schiphol"]
                ["Amsterdam" "Amsterdam"]

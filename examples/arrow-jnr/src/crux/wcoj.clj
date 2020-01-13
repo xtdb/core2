@@ -2,7 +2,7 @@
   (:require [clojure.spec.alpha :as s]
             [clojure.string :as str]
             [clojure.walk :as w]
-            [crux.datalog])
+            [crux.datalog :as cd])
   (:import [clojure.lang IPersistentCollection IPersistentMap Repeat]))
 
 (set! *unchecked-math* :warn-on-boxed)
@@ -26,7 +26,7 @@
   (s/valid? :crux.datalog/rule f))
 
 (defn- can-unify-var? [value bound-var]
-  (or (= '_ bound-var)
+  (or (cd/prolog-var? bound-var)
       (= value bound-var)))
 
 (defn- can-unify-tuple? [tuple bindings]
@@ -204,11 +204,17 @@
   (relation-by-name [this relation-name]
     (get this relation-name)))
 
-(defn query-datalog
+(defn query-by-name
   ([db rule-name]
    (table-scan (relation-by-name db rule-name) db))
   ([db rule-name args]
    (table-filter (relation-by-name db rule-name) db args)))
+
+(defn query-datalog [db query]
+  (s/assert :crux.datalog/query query)
+  (let [{{:keys [symbol terms]} :head} (s/conform :crux.datalog/query query)
+        args (mapv second terms)]
+    (query-by-name db symbol args)))
 
 (defn tuple->datalog-str [relation-name tuple]
   (str relation-name "(" (str/join ", " tuple) ")."))
@@ -222,14 +228,9 @@
     (fn [db [type statement]]
       (case type
         :query
-        (let [{:keys [symbol terms]} (:head statement)
-              args (for [[type term] terms]
-                     (if (= :variable type)
-                       '_
-                       term))]
-          (doseq [tuple (query-datalog db symbol args)]
-            (println (tuple->datalog-str symbol tuple)))
-          db)
+        (do (doseq [tuple (query-datalog db statement)]
+              (println (tuple->datalog-str symbol tuple)))
+            db)
 
         :requirement
         (do (require (first (:identifier statement)))

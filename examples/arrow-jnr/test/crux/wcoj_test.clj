@@ -26,7 +26,7 @@
 
                    q(A, B, C) :- r(A, B), s(B, C), t(A, C).]
         db (wcoj/execute-datalog triangle)
-        result (wcoj/query-datalog db '[q(A, B, C)?])]
+        result (wcoj/query-by-name db 'q)]
     (t/is (= #{[1 3 4] [1 3 5] [1 4 6] [1 4 8] [1 4 9] [1 5 2] [3 5 2]}
              (set result)))))
 
@@ -37,7 +37,7 @@
                path(X, Y) :- edge(X, Y).
                path(X, Z) :- path(X, Y), edge(Y, Z).]
         db (wcoj/execute-datalog edge)
-        result (wcoj/query-datalog db '[path(X, Y)?])]
+        result (wcoj/query-by-name db 'path)]
     (t/is (= #{[1 2] [2 3] [1 3]} (set result)))))
 
 (t/deftest fib-using-interop
@@ -66,7 +66,7 @@
                      connection("Schiphol", "Leiden").
                      connection("Haarlem", "Leiden").]
         db (wcoj/execute-datalog connection)
-        result (wcoj/query-datalog db '[connection("Amsterdam", X)?])]
+        result (wcoj/query-by-name db 'connection '["Amsterdam" X])]
     (t/is (= #{["Amsterdam" "Haarlem"]
                ["Amsterdam" "Schiphol"]
                ["Amsterdam" "Amsterdam"]

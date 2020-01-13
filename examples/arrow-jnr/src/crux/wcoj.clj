@@ -41,8 +41,6 @@
     (when-let [ss (seq (remove empty? (cons c1 colls)))]
       (concat (map first ss) (apply interleave-all (map rest ss)))))) )
 
-(def ^:private ^:const internal-chunk-size 128)
-
 (defn- find-vars [body]
   (let [vars (atom #{})]
     (w/postwalk (fn [x]
@@ -67,6 +65,8 @@
      :args args
      :free-vars free-vars
      :body body}))
+
+(def ^:private ^:const internal-chunk-size 128)
 
 (defn- query-plan->clojure [{:keys [rule-name args free-vars body] :as query-plan}]
   (let [db-sym (gensym 'db)

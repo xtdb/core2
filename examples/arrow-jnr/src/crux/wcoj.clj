@@ -53,16 +53,23 @@
                 body)
     @vars))
 
-(defn- rule->clojure [rule-source]
-  (let [{:keys [head body]} (s/conform :crux.datalog/rule rule-source)
+(defn- rule->query-plan [rule]
+  (let [{:keys [head body]} (s/conform :crux.datalog/rule rule)
         {:keys [symbol terms]} head
         args (mapv second terms)
         _ (assert (= args (distinct args)) "argument names cannot be reused")
-        {:keys [predicate external-query]} (group-by first body)
+        {:keys [predicate not-predicate external-query]} (group-by first body)
         free-vars (->> (map (comp :variable second) external-query)
                        (concat args)
                        (apply disj (find-vars predicate)))
-        db-sym (gensym 'db)
+        body (concat (remove (set not-predicate) body) not-predicate)]
+    {:rule-name symbol
+     :args args
+     :free-vars free-vars
+     :body body}))
+
+(defn- query-plan->clojure [{:keys [rule-name args free-vars body] :as query-plan}]
+  (let [db-sym (gensym 'db)
         bindings (for [[type literal] body]
                    (case type
                      :predicate
@@ -78,7 +85,12 @@
                                    term)))
                          chunk#])
 
-                     :not
+                     :equality-predicate
+                     (let [{:keys [lhs op rhs]} literal
+                           op (get '{!= not=} op op)]
+                       [:when `(~op ~@(map second [lhs rhs]))])
+
+                     :not-predicate
                      (let [{:keys [symbol terms]} (:predicate literal)]
                        [:when `(empty? (crux.wcoj/table-filter
                                         (crux.wcoj/relation-by-name ~db-sym '~symbol)
@@ -86,14 +98,9 @@
 
                      :external-query
                      (let [{:keys [variable symbol terms]} literal]
-                       [:let [variable `(~symbol ~@(mapv second terms))]])
-
-                     :equality-predicate
-                     (let [{:keys [lhs op rhs]} literal
-                           op (get '{!= not=} op op)]
-                       [:when `(~op ~@(map second [lhs rhs]))])))]
-    `(fn ~symbol
-       ([~db-sym] (~symbol ~db-sym [~@(repeat (count terms) ''_)]))
+                       [:let [variable `(~symbol ~@(mapv second terms))]])))]
+    `(fn ~rule-name
+       ([~db-sym] (~rule-name ~db-sym [~@(repeat (count args) ''_)]))
        ([~db-sym ~args]
         (for [loop# ['_]
               :let [~@(interleave free-vars (repeat ''_))]
@@ -102,7 +109,7 @@
 
 (def ^:private compile-rule (memoize
                              (fn [rule]
-                               (eval (rule->clojure rule)))))
+                               (eval (query-plan->clojure (rule->query-plan rule))))))
 
 (defrecord RuleRelation [rules]
   Relation

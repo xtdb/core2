@@ -74,6 +74,12 @@
 
 (def ^:private ^:const internal-chunk-size 128)
 
+(defn- term-bindings [terms]
+  (vec (for [[type term] terms]
+         (if (= :constant type)
+           (gensym 'constant)
+           term))))
+
 (defn- query-plan->clojure [{:keys [rule-name args free-vars body] :as query-plan}]
   (let [db-sym (gensym 'db)
         bindings (for [[type literal] body]
@@ -87,10 +93,7 @@
                                (crux.wcoj/relation-by-name ~db-sym '~symbol)
                                ~db-sym ~(mapv second terms))
                               (partition-all ~internal-chunk-size))
-                         ~(vec (for [[type term] terms]
-                                 (if (= :constant type)
-                                   (gensym 'constant)
-                                   term)))
+                         ~(term-bindings terms)
                          chunk#])
 
                      :equality-predicate
@@ -100,8 +103,8 @@
                                         = crux.wcoj/can-unify?} op op)]
                        (concat
                         `[:when (~op-fn ~@args)]
-                        (when (= '= op)
-                          `[:let [~args (crux.wcoj/assign-vars ~@args)]])))
+                        (when (and (= '= op) (every? cd/prolog-var? args))
+                          `[:let [~(term-bindings [lhs rhs]) (crux.wcoj/assign-vars ~@args)]])))
 
                      :not-predicate
                      (let [{:keys [symbol terms]} (:predicate literal)]

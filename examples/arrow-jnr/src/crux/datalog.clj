@@ -42,7 +42,6 @@
 (s/def ::literal (s/alt :predicate ::predicate
                         :equality-predicate ::equality-predicate
                         :external-query ::external-query
-                        :arithmetic ::arithmetic
                         :not ::not))
 (s/def ::term (s/or :variable ::variable
                     :constant ::constant))

@@ -116,24 +116,47 @@
 
 ;; ([4 47 "010100" "101111" (12 13 14 15 36 37 38 39 44 45)])
 
-(defn is-in-i? [^long h ^long m0 ^long m1]
-  (= (bit-and (bit-or h m0) m1) h))
+;; (defn is-in-i? [^long h ^long m0 ^long m1]
+;;   (= (bit-and (bit-or h m0) m1) h))
 
-(defn inc-h ^long [^long h ^long m0 ^long m1]
-  (if (< h m1)
-    (let [h-out (bit-or h (bit-not m1))
-          h-out (inc h-out)]
-      (bit-or (bit-and h-out m1) m0))
-    -1))
+;; (defn inc-h ^long [^long h ^long m0 ^long m1]
+;;   (if (< h m1)
+;;     (let [h-out (bit-or h (bit-not m1))
+;;           h-out (inc h-out)]
+;;       (bit-or (bit-and h-out m1) m0))
+;;     -1))
 
-;; (crux.z-curve/z-seq 12 4 47)
-;; 12 -> 4  ;; m1 - bit is set
-;; 45 -> 47 ;; m2 - bit is not set
-(defn z-seq [^long h ^long m0 ^long m1]
-  (when (<= h m1)
-    (->> (iterate (fn ^long [^long h]
-                    (inc-h h m0 m1)) h)
-         (take-while nat-int?)
-         #_(filter #(is-in-i? % m0 m1))
-         (drop-while (fn [^long x] (< x h)))
-         (take-while (fn [^long x] (<= x m1))))))
+;; ;; (crux.z-curve/z-seq 12 4 47)
+;; ;; 12 -> 4  ;; m1 - bit is set
+;; ;; 45 -> 47 ;; m2 - bit is not set
+;; (defn z-seq [^long h ^long m0 ^long m1]
+;;   (when (<= h m1)
+;;     (->> (iterate (fn ^long [^long h]
+;;                     (inc-h h m0 m1)) h)
+;;          (take-while nat-int?)
+;;          #_(filter #(is-in-i? % m0 m1))
+;;          (drop-while (fn [^long x] (< x h)))
+;;          (take-while (fn [^long x] (<= x m1))))))
+
+;; previous version of this spike:
+
+;; isInI
+(defn in-z-range? [^long start ^long end ^long z]
+  (= (bit-and (bit-or z start) end) z))
+
+;; inc, z has to already be in range.
+(defn next-in-range [^long start ^long end ^long z]
+  (let [next-z (bit-or (bit-and (inc (bit-or z (bit-not end))) end) start)]
+    (if (<= next-z z)
+      -1
+      next-z)))
+
+;; succ, z can be anywhere.
+(defn next-within-range [^long start ^long end ^long z]
+  (let [mask-start (dec (Long/highestOneBit (bit-or (bit-and (bit-not z) start) 1)))
+        end-high-bit (Long/highestOneBit (bit-or (bit-and z (bit-not end)) 1))
+        mask-end (dec end-high-bit)
+        next-z (bit-or z (bit-not end))
+        next-z (bit-and next-z (bit-not (bit-or mask-start mask-end)))
+        next-z (+ next-z (bit-and end-high-bit (bit-not mask-start)))]
+    (bit-or (bit-and next-z end) start)))

@@ -111,6 +111,9 @@
 
 ;; https://github.com/tzaeschke/phtree/blob/master/src/test/java/ch/ethz/globis/phtree/bits/TestIncrementor.java
 
+;; query entry point:
+;; https://github.com/tzaeschke/phtree/blob/master/src/main/java/ch/ethz/globis/phtree/v16/PhIteratorNoGC.java#L97
+
 ;; ([4 47 "010100" "101111" (12 13 14 15 36 37 38 39 44 45)])
 
 (defn is-in-i? [^long h ^long m0 ^long m1]

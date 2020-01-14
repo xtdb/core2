@@ -95,3 +95,44 @@
                   t(0, 2).
 
                   q(A, B, C) :- r(A, B), s(B, C), t(A, C).])]))
+
+;; http://btw2017.informatik.uni-stuttgart.de/slidesandpapers/F8-11-13/paper_web.pdf
+;; https://github.com/tzaeschke/phtree
+
+;; calculate m0 and m1 from range min, max (calcLimits):
+;; src/main/java/ch/ethz/globis/phtree/v16hd/NodeIteratorNoGC.java
+
+;; calculate succ (succSS, inc, checkHcPos):
+;; src/test/java/ch/ethz/globis/phtree/bits/TestIncSuccessor.java
+;; calculate inc:
+;; src/test/java/ch/ethz/globis/phtree/bits/TestIncrementor.java
+
+;; ([4 47 "010100" "101111" (12 13 14 15 36 37 38 39 44 45)])
+
+(defn is-in-i? [^long h ^long m0 ^long m1]
+  (= (bit-and (bit-or h m0) m1) h))
+
+(defn inc-h ^long [^long h ^long m0 ^long m1]
+  (if (< h m1)
+    (let [h-out (bit-or h (bit-not m1))
+          h-out (inc h-out)]
+      (bit-or (bit-and h-out m1) m0))
+    -1))
+
+;; (crux.z-curve/z-seq 12 4 47)
+;; 12 -> 4  ;; m1 - bit is set
+;; 45 -> 47 ;; m2 - bit is not set
+(defn z-seq [^long h ^long m0 ^long m1]
+  (when (<= h m1)
+    (->> (iterate (fn ^long [^long h]
+                    (inc-h h m0 m1)) h)
+         (take-while nat-int?)
+         #_(filter #(is-in-i? % m0 m1))
+         (drop-while (fn [^long x] (< x h)))
+         (take-while (fn [^long x] (<= x m1))))))
+
+(defn z-seq-min-max [^long h ^long min ^long max]
+  (z-seq h
+         (bit-shift-right (Integer/highestOneBit min) 1)
+         (bit-and (dec (bit-shift-left (Integer/highestOneBit max) 1))
+                  (bit-not (bit-shift-right (Integer/highestOneBit max) 1)))))

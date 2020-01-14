@@ -100,12 +100,16 @@
 ;; https://github.com/tzaeschke/phtree
 
 ;; calculate m0 and m1 from range min, max (calcLimits):
-;; src/main/java/ch/ethz/globis/phtree/v16hd/NodeIteratorNoGC.java
+;; https://github.com/tzaeschke/phtree/blob/master/src/main/java/ch/ethz/globis/phtree/v16/NodeIteratorNoGC.java#L106
 
-;; calculate succ (succSS, inc, checkHcPos):
-;; src/test/java/ch/ethz/globis/phtree/bits/TestIncSuccessor.java
-;; calculate inc:
-;; src/test/java/ch/ethz/globis/phtree/bits/TestIncrementor.java
+;; succ
+;; https://github.com/tzaeschke/phtree/blob/master/src/test/java/ch/ethz/globis/phtree/bits/TestIncSuccessor.java#L227
+;; inc
+;; https://github.com/tzaeschke/phtree/blob/master/src/test/java/ch/ethz/globis/phtree/bits/TestIncSuccessor.java#L425
+;; checkHcPos
+;; https://github.com/tzaeschke/phtree/blob/master/src/test/java/ch/ethz/globis/phtree/bits/TestIncSuccessor.java#L440
+
+;; https://github.com/tzaeschke/phtree/blob/master/src/test/java/ch/ethz/globis/phtree/bits/TestIncrementor.java
 
 ;; ([4 47 "010100" "101111" (12 13 14 15 36 37 38 39 44 45)])
 
@@ -130,9 +134,3 @@
          #_(filter #(is-in-i? % m0 m1))
          (drop-while (fn [^long x] (< x h)))
          (take-while (fn [^long x] (<= x m1))))))
-
-(defn z-seq-min-max [^long h ^long min ^long max]
-  (z-seq h
-         (bit-shift-right (Integer/highestOneBit min) 1)
-         (bit-and (dec (bit-shift-left (Integer/highestOneBit max) 1))
-                  (bit-not (bit-shift-right (Integer/highestOneBit max) 1)))))

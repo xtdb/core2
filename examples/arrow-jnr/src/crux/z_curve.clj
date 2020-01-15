@@ -110,12 +110,20 @@
 ;; ([4 47 "010100" "101111" (12 13 14 15 36 37 38 39 44 45)])
 
 ;; 00 11 00 ;; 12
-;; 00 01 00 ;; 4 working min mask
+;; 00 01 00 ;;  4 working min mask
 
 ;; 10 11 01 ;; 45
 ;; 10 11 11 ;; 47 working max mask
 
 ;; 01 00 11 ;; 19
+
+;; min/max masks:
+
+;; For the lower limit, a '1' indicates that the 'lower' half of this
+;; dimension does NOT need to be queried.
+
+;; For the upper limit, a '1' indicates that the 'higher' half DOES
+;; need to be queried.
 
 ;; isInI
 (defn in-z-range? [^long min ^long max ^long z]

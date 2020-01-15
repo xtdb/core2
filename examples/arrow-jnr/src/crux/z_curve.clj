@@ -1,6 +1,5 @@
 (ns crux.z-curve
-  (:require [clojure.string :as str]
-            [crux.datalog]))
+  (:require [clojure.string :as str]))
 
 (set! *unchecked-math* :warn-on-boxed)
 
@@ -88,13 +87,7 @@
           (components result)
           (mapv parse-binary-str))
      find-vars
-     joins
-     (s/conform :crux.datalog/program
-                '[r(0, 1).
-                  s(1, 2).
-                  t(0, 2).
-
-                  q(A, B, C) :- r(A, B), s(B, C), t(A, C).])]))
+     joins]))
 
 ;; http://btw2017.informatik.uni-stuttgart.de/slidesandpapers/F8-11-13/paper_web.pdf
 ;; https://github.com/tzaeschke/phtree
@@ -116,47 +109,42 @@
 
 ;; ([4 47 "010100" "101111" (12 13 14 15 36 37 38 39 44 45)])
 
-;; (defn is-in-i? [^long h ^long m0 ^long m1]
-;;   (= (bit-and (bit-or h m0) m1) h))
+;; 00 11 00 ;; 12
+;; 00 01 00 ;; 4 working min mask
 
-;; (defn inc-h ^long [^long h ^long m0 ^long m1]
-;;   (if (< h m1)
-;;     (let [h-out (bit-or h (bit-not m1))
-;;           h-out (inc h-out)]
-;;       (bit-or (bit-and h-out m1) m0))
-;;     -1))
+;; 10 11 01 ;; 45
+;; 10 11 11 ;; 47 working max mask
 
-;; ;; (crux.z-curve/z-seq 12 4 47)
-;; ;; 12 -> 4  ;; m1 - bit is set
-;; ;; 45 -> 47 ;; m2 - bit is not set
-;; (defn z-seq [^long h ^long m0 ^long m1]
-;;   (when (<= h m1)
-;;     (->> (iterate (fn ^long [^long h]
-;;                     (inc-h h m0 m1)) h)
-;;          (take-while nat-int?)
-;;          #_(filter #(is-in-i? % m0 m1))
-;;          (drop-while (fn [^long x] (< x h)))
-;;          (take-while (fn [^long x] (<= x m1))))))
-
-;; previous version of this spike:
+;; 01 00 11 ;; 19
 
 ;; isInI
-(defn in-z-range? [^long start ^long end ^long z]
-  (= (bit-and (bit-or z start) end) z))
+(defn in-z-range? [^long min ^long max ^long z]
+  (= (bit-and (bit-or z min) max) z))
 
 ;; inc, z has to already be in range.
-(defn next-in-range [^long start ^long end ^long z]
-  (let [next-z (bit-or (bit-and (inc (bit-or z (bit-not end))) end) start)]
+(defn inc-z-in-range ^long [^long min ^long max ^long z]
+  (let [;; first, fill all 'invalid' bits with '1' (bits that can have only one value).
+        next-z (bit-or z (bit-not max))
+        ;; increment. The '1's in the invalid bits will cause bitwise overflow to the next valid bit.
+        next-z (inc next-z)
+        ;; remove invalid bits.
+        next-z (bit-or (bit-and next-z max) min)]
     (if (<= next-z z)
       -1
       next-z)))
 
 ;; succ, z can be anywhere.
-(defn next-within-range [^long start ^long end ^long z]
-  (let [mask-start (dec (Long/highestOneBit (bit-or (bit-and (bit-not z) start) 1)))
-        end-high-bit (Long/highestOneBit (bit-or (bit-and z (bit-not end)) 1))
-        mask-end (dec end-high-bit)
-        next-z (bit-or z (bit-not end))
-        next-z (bit-and next-z (bit-not (bit-or mask-start mask-end)))
-        next-z (+ next-z (bit-and end-high-bit (bit-not mask-start)))]
-    (bit-or (bit-and next-z end) start)))
+(defn successor-z ^long [^long min ^long max ^long z]
+  (let [conflict-min (Long/highestOneBit (bit-or (bit-and (bit-not z) min) 1))
+        conflict-max (Long/highestOneBit (bit-or (bit-and z (bit-not max)) 1))
+        mask-min (dec conflict-min)
+        mask-max (dec conflict-max)
+        ;; first, fill all 'invalid' bits with '1' (bits that can have only one value).
+        next-z (bit-or z (bit-not max))
+        ;; Set trailing bit after possible conflict to '0'
+        next-z (bit-and next-z (bit-not (bit-or mask-min mask-max)))
+        ;; increment. The '1's in the invalid bits will cause bitwise overflow to the next valid bit.
+        ;; maskMin ensures that we don't add anything if the most significant conflict was a min-conflict
+        next-z (+ next-z (bit-and conflict-max (bit-not mask-min)))]
+    ;; remove invalid bits.
+    (bit-or (bit-and next-z max) min)))

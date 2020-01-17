@@ -12,6 +12,10 @@
 ;; https://arxiv.org/abs/1912.12747
 ;; https://brodyf.github.io/thesis.pdf
 
+;; Relation to BDDs?
+;; https://github.com/petablox/petablox/wiki/Datalog-Analysis
+;; https://people.csail.mit.edu/mcarbin/papers/aplas05.pdf
+
 (def ^:dynamic ^{:tag 'long} *binary-str-length* Long/SIZE)
 
 (defn ->binary-str ^String [^long i]
@@ -117,6 +121,8 @@
 
 ;; 01 00 11 ;; 19
 
+;; 10 01 00 ;; 36
+
 ;; min/max masks:
 
 ;; For the lower limit, a '1' indicates that the 'lower' half of this
@@ -126,6 +132,12 @@
 ;; need to be queried.
 
 ;; isInI
+;; min | pos == pos ;; no bits in min cannot be in pos (also max)
+;; max & pos == pos ;; all bits in pos has to be in max
+;; min & ~max == 0  ;; all bits in min has to be in max
+
+;; min mask: any bit that's always set in range
+;; max mask: any bit that's ever set in range
 (defn in-z-range? [^long min ^long max ^long z]
   (= (bit-and (bit-or z min) max) z))
 

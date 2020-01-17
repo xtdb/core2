@@ -71,3 +71,6 @@
                ["Amsterdam" "Schiphol"]
                ["Amsterdam" "Amsterdam"]
                ["Amsterdam" "Leiden"]} (set result)))))
+
+;; Some stress-tests from OCaml Datalog:
+;; https://github.com/c-cube/datalog/tree/master/tests

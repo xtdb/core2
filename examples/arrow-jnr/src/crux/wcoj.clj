@@ -30,15 +30,16 @@
       (cd/prolog-var? x)
       (cd/prolog-var? y)))
 
-(defn can-unify-tuple? [tuple bindings]
-  (->> (map can-unify? tuple bindings)
-       (every? true?)))
-
 (defn unify [x y]
   (when (can-unify? x y)
     (if (cd/prolog-var? x)
       [y y]
       [x x])))
+
+(defn unified-tuple [tuple bindings]
+  (let [result (mapv unify tuple bindings)]
+    (when (every? identity result)
+      (mapv first result))))
 
 (defn- interleave-all
   ([])
@@ -83,7 +84,8 @@
 
 (defn- terms->clojure [terms]
   (vec (for [[type term] terms]
-         (if (= :constant type)
+         (if (and (= :constant type)
+                  (symbol? term))
            (list 'quote term)
            term))))
 
@@ -127,9 +129,10 @@
        ([~db-sym args#]
         (for [loop# ['~'_]
               :let [~args args#
+                    [~@args :as unified?#] (crux.wcoj/unified-tuple
+                                            args# ~(terms->clojure (:terms head)))
                     ~@(interleave free-vars (repeat ''_))]
-              :when (crux.wcoj/can-unify-tuple?
-                     args# ~(terms->clojure (:terms head)))
+              :when unified?#
               ~@(apply concat bindings)]
           ~args)))))
 
@@ -177,7 +180,7 @@
 
   (table-filter [this db vars]
     (for [tuple (table-scan this db)
-          :when (can-unify-tuple? tuple vars)]
+          :when (unified-tuple tuple vars)]
       tuple))
 
   (insert [this tuple]

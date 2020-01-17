@@ -129,7 +129,7 @@ path(d, c).
 path(d, d).
 ")))
 
-#_(t/deftest test-laps
+(t/deftest test-laps
   (t/is (= "permit(rams, store, rams_couch).
 permit(will, fetch, rams_couch).
 "

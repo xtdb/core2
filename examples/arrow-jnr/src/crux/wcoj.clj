@@ -48,7 +48,8 @@
   ([c1 & colls]
    (lazy-seq
     (when-let [ss (seq (remove empty? (cons c1 colls)))]
-      (concat (map first ss) (apply interleave-all (map rest ss)))))) )
+      (concat (distinct (map first ss))
+              (apply interleave-all (map rest ss)))))) )
 
 (defn- find-vars [body]
   (let [vars (atom [])]

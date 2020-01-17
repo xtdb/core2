@@ -139,9 +139,8 @@
                      connection("Schiphol", "Leiden").
                      connection("Haarlem", "Leiden").]
         db (wcoj/execute-datalog connection)
-       ;;_result (wcoj/query-by-name db 'connection '["Amsterdam" X])
-        ]
-    #_(t/is (= #{["Amsterdam" "Haarlem"]
+       result (wcoj/query-by-name db 'connection '["Amsterdam" X])]
+    (t/is (= #{["Amsterdam" "Haarlem"]
                ["Amsterdam" "Schiphol"]
                ["Amsterdam" "Amsterdam"]
                ["Amsterdam" "Leiden"]} (set result)))))

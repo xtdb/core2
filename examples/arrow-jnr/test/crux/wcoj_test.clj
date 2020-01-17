@@ -306,6 +306,25 @@ r(a, c).
                 q(b).  q(c).
                 r(a, Y)?])))))
 
+(t/deftest test-sym
+  (t/is (= "perm(a, b).
+perm(a, c).
+perm(b, a).
+perm(b, c).
+perm(c, a).
+perm(c, b)."
+           (->> (with-out-str
+                  (wcoj/execute-datalog
+                   '[sym(a).
+                     sym(b).
+                     sym(c).
+                     perm(X,Y) :- sym(X), sym(Y), X != Y .
+
+                     perm(X,Y)?]))
+                (str/split-lines)
+                (into (sorted-set))
+                (str/join "\n")))))
+
 (t/deftest test-true
   (t/is (= "true.
 "

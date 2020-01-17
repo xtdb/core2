@@ -62,6 +62,18 @@
         result (wcoj/query-datalog db '[fib(30, F)?])]
     (t/is (= #{[30 832040]} (set result)))))
 
+(t/deftest test-negation-as-failure
+  (let [naf '[smoker(john).
+              smoker(jack).
+
+              jogger(jill).
+              jogger(john).
+
+              healthy(X) :- jogger(X), not smoker(X).]
+        db (wcoj/execute-datalog naf)
+        result (wcoj/query-by-name db 'healthy)]
+    (t/is (= '#{[jill]} (set result)))))
+
 ;; https://www.swi-prolog.org/pldoc/man?section=tabling-non-termination
 (t/deftest test-connection-recursion-rules
   (let [connection '[connection(X, Y) :- connection(X, Z), connection(Z, Y).

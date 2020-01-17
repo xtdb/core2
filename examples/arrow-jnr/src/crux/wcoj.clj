@@ -30,7 +30,7 @@
       (cd/prolog-var? x)
       (cd/prolog-var? y)))
 
-(defn- can-unify-tuple? [tuple bindings]
+(defn can-unify-tuple? [tuple bindings]
   (->> (map can-unify? tuple bindings)
        (every? true?)))
 
@@ -69,13 +69,13 @@
                        (apply disj (set (find-vars predicate))))
         body (concat (remove (set not-predicate) body) not-predicate)]
     {:rule-name symbol
-     :args args
      :free-vars free-vars
+     :head head
      :body body}))
 
 (def ^:private ^:const internal-chunk-size 128)
 
-(defn- term-bindings [terms]
+(defn- terms->bindings [terms]
   (vec (for [[type term] terms]
          (if (= :constant type)
            (gensym 'constant)
@@ -87,7 +87,7 @@
            (list 'quote term)
            term))))
 
-(defn- query-plan->clojure [{:keys [rule-name args free-vars body] :as query-plan}]
+(defn- query-plan->clojure [{:keys [rule-name free-vars head body] :as query-plan}]
   (let [db-sym (gensym 'db)
         bindings (for [[type literal] body]
                    (case type
@@ -100,7 +100,7 @@
                                (crux.wcoj/relation-by-name ~db-sym '~symbol)
                                ~db-sym ~(terms->clojure terms))
                               (partition-all ~internal-chunk-size))
-                         ~(term-bindings terms)
+                         ~(terms->bindings terms)
                          chunk#])
 
                      :equality-predicate
@@ -108,7 +108,7 @@
                            args (terms->clojure [lhs rhs])
                            op-fn (get '{!= (complement crux.wcoj/unify)} op op)]
                        (if (= '= op)
-                         `[:let [[~@(term-bindings [lhs rhs]) :as unified?#] (crux.wcoj/unify ~@args)]
+                         `[:let [[~@(terms->bindings [lhs rhs]) :as unified?#] (crux.wcoj/unify ~@args)]
                            :when unified?#]
                          `[:when (~op-fn ~@args)]))
 
@@ -120,18 +120,22 @@
 
                      :external-query
                      (let [{:keys [variable symbol terms]} literal]
-                       [:let [variable `(~symbol ~@(mapv second terms))]])))]
+                       [:let [variable `(~symbol ~@(terms->clojure terms))]])))
+        args (terms->bindings (:terms head))]
     `(fn ~rule-name
        ([~db-sym] (~rule-name ~db-sym [~@(repeat (count args) ''_)]))
-       ([~db-sym ~args]
-        (for [loop# ['_]
-              :let [~@(interleave free-vars (repeat ''_))]
+       ([~db-sym args#]
+        (for [loop# ['~'_]
+              :let [~args args#
+                    ~@(interleave free-vars (repeat ''_))]
+              :when (crux.wcoj/can-unify-tuple?
+                     args# ~(terms->clojure (:terms head)))
               ~@(apply concat bindings)]
           ~args)))))
 
 (def ^:private compile-rule (memoize
                              (fn [rule]
-                               (eval (query-plan->clojure (rule->query-plan rule))))))
+                               (eval (doto (query-plan->clojure (rule->query-plan rule)) #_clojure.pprint/pprint)))))
 
 (defrecord RuleRelation [rules]
   Relation

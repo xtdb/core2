@@ -3,7 +3,7 @@
             [clojure.test :as t]
             [crux.wcoj :as wcoj]))
 
-(t/deftest triangle-join-query
+(t/deftest test-triangle-join-query
   (let [triangle '[r(1, 3).
                    r(1, 4).
                    r(1, 5).
@@ -30,7 +30,7 @@
     (t/is (= #{[1 3 4] [1 3 5] [1 4 6] [1 4 8] [1 4 9] [1 5 2] [3 5 2]}
              (set result)))))
 
-(t/deftest edge-recursion-rules
+(t/deftest test-edge-recursion-rules
   (let [edge '[edge(1, 2).
                edge(2, 3).
 
@@ -40,14 +40,13 @@
         result (wcoj/query-by-name db 'path)]
     (t/is (= #{[1 2] [2 3] [1 3]} (set result)))))
 
-(t/deftest literal-booleans
-  (let [t '[true .
-            true ?]
+(t/deftest test-literal-booleans
+  (let [t '[true .]
         db (wcoj/execute-datalog t)
         result (wcoj/query-by-name db 'true)]
     (t/is (= #{[]} (set result)))))
 
-(t/deftest fib-using-interop
+(t/deftest test-fib-using-interop
   (let [fib '[fib(0, 0).
               fib(1, 1).
 
@@ -64,7 +63,7 @@
     (t/is (= #{[30 832040]} (set result)))))
 
 ;; https://www.swi-prolog.org/pldoc/man?section=tabling-non-termination
-(t/deftest connection-recursion-rules
+(t/deftest test-connection-recursion-rules
   (let [connection '[connection(X, Y) :- connection(X, Z), connection(Z, Y).
                      connection(X, Y) :- connection(Y, X).
 
@@ -81,3 +80,148 @@
 
 ;; Some stress-tests from OCaml Datalog:
 ;; https://github.com/c-cube/datalog/tree/master/tests
+
+(t/deftest test-ancestor
+  (t/is (= (with-out-str
+             (wcoj/execute-datalog '[ancestor(A, B) :-
+                                     parent(A, B).
+                                     ancestor(A, B) :-
+                                     parent(A, C),
+                                     D = C,
+                                     ancestor(D, B).
+                                     parent(john, douglas).
+                                     parent(bob, john).
+                                     parent(ebbon, bob).
+                                     ancestor(A, B)?]))
+           "ancestor(bob, douglas).
+ancestor(bob, john).
+ancestor(ebbon, douglas).
+ancestor(ebbon, bob).
+ancestor(ebbon, john).
+ancestor(john, douglas).
+")))
+
+;; TODO: broken tests
+
+#_(t/deftest test-bidi-path
+  (t/is (= (with-out-str
+             (wcoj/execute-datalog
+              '[edge(a, b). edge(b, c). edge(c, d). edge(d, a).
+                path(X, Y) :- edge(X, Y).
+                path(X, Y) :- edge(X, Z), path(Z, Y).
+                path(X, Y) :- path(X, Z), edge(Z, Y).
+                path(X, Y)?]))
+           "path(a, a).
+path(a, b).
+path(a, c).
+path(a, d).
+path(b, a).
+path(b, b).
+path(b, c).
+path(b, d).
+path(c, a).
+path(c, b).
+path(c, c).
+path(c, d).
+path(d, a).
+path(d, b).
+path(d, c).
+path(d, d).
+")))
+
+#_(t/deftest test-laps
+  (t/is (= "permit(rams, store, rams_couch).
+permit(will, fetch, rams_couch).
+"
+           (with-out-str
+             (wcoj/execute-datalog
+              '[contains(ca, store, rams_couch, rams).
+                contains(rams, fetch, rams_couch, will).
+                contains(ca, fetch, Name, Watcher) :-
+                contains(ca, store, Name, Owner),
+                contains(Owner, fetch, Name, Watcher).
+                trusted(ca).
+                permit(User, Priv, Name) :-
+                contains(Auth, Priv, Name, User),
+                trusted(Auth).
+                permit(User, Priv, Name)?])))))
+
+#_(t/deftest test-path
+  (t/is (= "path(a, a).
+path(a, b).
+path(a, c).
+path(a, d).
+path(b, a).
+path(b, b).
+path(b, c).
+path(b, d).
+path(c, a).
+path(c, b).
+path(c, c).
+path(c, d).
+path(d, a).
+path(d, b).
+path(d, c).
+path(d, d).
+"
+           (with-out-str
+             (wcoj/execute-datalog
+              '[edge(a, b). edge(b, c). edge(c, d). edge(d, a).
+                path(X, Y) :- edge(X, Y).
+                path(X, Y) :- edge(X, Z), path(Z, Y).
+                path(X, Y)?])))))
+
+(t/deftest test-pq
+  (t/is (= "q(a).
+"
+           (with-out-str
+             (wcoj/execute-datalog
+              '[q(X) :- p(X).
+                q(a).
+                p(X) :- q(X).
+                q(X)?])))))
+
+#_(t/deftest test-rev-path
+  (t/is (= "path(a, a).
+path(a, b).
+path(a, c).
+path(a, d).
+path(b, a).
+path(b, b).
+path(b, c).
+path(b, d).
+path(c, a).
+path(c, b).
+path(c, c).
+path(c, d).
+path(d, a).
+path(d, b).
+path(d, c).
+path(d, d).
+"
+           (with-out-str
+             (wcoj/execute-datalog
+              '[edge(a, b). edge(b, c). edge(c, d). edge(d, a).
+                path(X, Y) :- edge(X, Y).
+                path(X, Y) :- path(X, Z), edge(Z, Y).
+                path(X, Y)?])))))
+
+(t/deftest test-tc
+  (t/is (= "r(a, b).
+r(a, c).
+"
+           (with-out-str
+             (wcoj/execute-datalog
+              '[r(X, Y) :- r(X, Z), r(Z, Y).
+                r(X, Y) :- p(X, Y), q(Y).
+                p(a, b).  p(b, d).  p(b, c).
+                q(b).  q(c).
+                r(a, Y)?])))))
+
+(t/deftest test-true
+  (t/is (= "true.
+"
+           (with-out-str
+             (wcoj/execute-datalog
+              '[true .
+                true ?])))))

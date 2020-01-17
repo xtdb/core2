@@ -81,6 +81,12 @@
            (gensym 'constant)
            term))))
 
+(defn- terms->clojure [terms]
+  (vec (for [[type term] terms]
+         (if (= :constant type)
+           (list 'quote term)
+           term))))
+
 (defn- query-plan->clojure [{:keys [rule-name args free-vars body] :as query-plan}]
   (let [db-sym (gensym 'db)
         bindings (for [[type literal] body]
@@ -92,14 +98,14 @@
                        `[chunk#
                          (->> (crux.wcoj/table-filter
                                (crux.wcoj/relation-by-name ~db-sym '~symbol)
-                               ~db-sym ~(mapv second terms))
+                               ~db-sym ~(terms->clojure terms))
                               (partition-all ~internal-chunk-size))
                          ~(term-bindings terms)
                          chunk#])
 
                      :equality-predicate
                      (let [{:keys [lhs op rhs]} literal
-                           args (mapv second [lhs rhs])
+                           args (terms->clojure [lhs rhs])
                            op-fn (get '{!= (complement crux.wcoj/unify)} op op)]
                        (if (= '= op)
                          `[:let [[~@(term-bindings [lhs rhs]) :as unified?#] (crux.wcoj/unify ~@args)]
@@ -110,7 +116,7 @@
                      (let [{:keys [symbol terms]} (:predicate literal)]
                        [:when `(empty? (crux.wcoj/table-filter
                                         (crux.wcoj/relation-by-name ~db-sym '~symbol)
-                                        ~db-sym ~(mapv second terms)))])
+                                        ~db-sym ~(terms->clojure terms)))])
 
                      :external-query
                      (let [{:keys [variable symbol terms]} literal]
@@ -179,12 +185,14 @@
 (defrecord CombinedRelation [rules tuples]
   Relation
   (table-scan [this db]
-    (interleave-all (table-scan tuples db)
-                    (table-scan rules db)))
+    (->> (interleave-all (table-scan tuples db)
+                         (table-scan rules db))
+         (dedupe)))
 
   (table-filter [this db vars]
-    (interleave-all (table-filter tuples db vars)
-                    (table-filter rules db vars)))
+    (->> (interleave-all (table-filter tuples db vars)
+                         (table-filter rules db vars))
+         (dedupe)))
 
   (insert [this value]
     (if (rule? value)

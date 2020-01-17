@@ -147,21 +147,25 @@
 
   (table-filter [this db var-bindings]
     (let [db (vary-meta db update :rule-table #(or % (atom {})))
-          {:keys [rule-recursion-guard rule-table]} (meta db)
+          db (vary-meta db update :rule-level (fnil inc 1))
+          {:keys [rule-table rule-level]} (meta db)
           key-var-bindings (if (instance? Repeat var-bindings)
                              nil
-                             var-bindings)
-          guard-key [(System/identityHashCode rules) key-var-bindings]
-          db (vary-meta db update :rule-recursion-guard (fnil conj #{}) guard-key)]
-      (when-not (contains? rule-recursion-guard guard-key)
-        (->> (for [rule rules
-                   :let [memo-key [(System/identityHashCode rule) key-var-bindings]
-                         memo-value (get @rule-table memo-key ::not-found)]]
-               (if (= ::not-found memo-value)
-                 (doto ((compile-rule rule) db var-bindings)
-                   (->> (swap! rule-table assoc memo-key)))
-                 memo-value))
-             (apply interleave-all)))))
+                             (for [v var-bindings]
+                               (if (cd/prolog-var? v)
+                                 '_
+                                 v)))
+          memo-key [(System/identityHashCode rules) key-var-bindings (mod (inc (count rules)) rule-level)]
+          memo-value (get @rule-table memo-key ::not-found)]
+      (if (= ::not-found memo-value)
+        ((fn step [[rule & rules]]
+           (lazy-seq
+            (when rule
+              (interleave-all
+               (doto ((compile-rule rule) db var-bindings)
+                 (->> (swap! rule-table update memo-key interleave-all)))
+               (step rules))))) rules)
+        memo-value)))
 
   (insert [this rule]
     (s/assert :crux.datalog/rule rule)

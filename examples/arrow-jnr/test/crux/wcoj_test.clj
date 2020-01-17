@@ -1,5 +1,6 @@
 (ns crux.wcoj-test
   (:require [clojure.spec.alpha :as s]
+            [clojure.string :as str]
             [clojure.test :as t]
             [crux.wcoj :as wcoj]))
 
@@ -82,7 +83,14 @@
 ;; https://github.com/c-cube/datalog/tree/master/tests
 
 (t/deftest test-ancestor
-  (t/is (= (with-out-str
+  (t/is (= "ancestor(bob, douglas).
+ancestor(bob, john).
+ancestor(ebbon, douglas).
+ancestor(ebbon, bob).
+ancestor(ebbon, john).
+ancestor(john, douglas).
+"
+           (with-out-str
              (wcoj/execute-datalog '[ancestor(A, B) :-
                                      parent(A, B).
                                      ancestor(A, B) :-
@@ -92,26 +100,10 @@
                                      parent(john, douglas).
                                      parent(bob, john).
                                      parent(ebbon, bob).
-                                     ancestor(A, B)?]))
-           "ancestor(bob, douglas).
-ancestor(bob, john).
-ancestor(ebbon, douglas).
-ancestor(ebbon, bob).
-ancestor(ebbon, john).
-ancestor(john, douglas).
-")))
+                                     ancestor(A, B)?])))))
 
-;; TODO: broken tests
-
-#_(t/deftest test-bidi-path
-  (t/is (= (with-out-str
-             (wcoj/execute-datalog
-              '[edge(a, b). edge(b, c). edge(c, d). edge(d, a).
-                path(X, Y) :- edge(X, Y).
-                path(X, Y) :- edge(X, Z), path(Z, Y).
-                path(X, Y) :- path(X, Z), edge(Z, Y).
-                path(X, Y)?]))
-           "path(a, a).
+(t/deftest test-bidi-path
+  (t/is (= "path(a, a).
 path(a, b).
 path(a, c).
 path(a, d).
@@ -126,8 +118,17 @@ path(c, d).
 path(d, a).
 path(d, b).
 path(d, c).
-path(d, d).
-")))
+path(d, d)."
+         (->> (with-out-str
+                (wcoj/execute-datalog
+                   '[edge(a, b). edge(b, c). edge(c, d). edge(d, a).
+                     path(X, Y) :- edge(X, Y).
+                     path(X, Y) :- edge(X, Z), path(Z, Y).
+                     path(X, Y) :- path(X, Z), edge(Z, Y).
+                     path(X, Y)?]))
+              (str/split-lines)
+                (into (sorted-set))
+                (str/join "\n")))))
 
 (t/deftest test-laps
   (t/is (= "permit(rams, store, rams_couch).
@@ -146,7 +147,7 @@ permit(will, fetch, rams_couch).
                 trusted(Auth).
                 permit(User, Priv, Name)?])))))
 
-#_(t/deftest test-path
+(t/deftest test-path
   (t/is (= "path(a, a).
 path(a, b).
 path(a, c).
@@ -162,14 +163,16 @@ path(c, d).
 path(d, a).
 path(d, b).
 path(d, c).
-path(d, d).
-"
-           (with-out-str
-             (wcoj/execute-datalog
-              '[edge(a, b). edge(b, c). edge(c, d). edge(d, a).
-                path(X, Y) :- edge(X, Y).
-                path(X, Y) :- edge(X, Z), path(Z, Y).
-                path(X, Y)?])))))
+path(d, d)."
+           (->> (with-out-str
+                  (wcoj/execute-datalog
+                   '[edge(a, b). edge(b, c). edge(c, d). edge(d, a).
+                     path(X, Y) :- edge(X, Y).
+                     path(X, Y) :- edge(X, Z), path(Z, Y).
+                     path(X, Y)?]))
+                (str/split-lines)
+                (into (sorted-set))
+                (str/join "\n")))))
 
 (t/deftest test-pq
   (t/is (= "q(a).
@@ -181,7 +184,7 @@ path(d, d).
                 p(X) :- q(X).
                 q(X)?])))))
 
-#_(t/deftest test-rev-path
+(t/deftest test-rev-path
   (t/is (= "path(a, a).
 path(a, b).
 path(a, c).
@@ -197,14 +200,16 @@ path(c, d).
 path(d, a).
 path(d, b).
 path(d, c).
-path(d, d).
-"
-           (with-out-str
-             (wcoj/execute-datalog
-              '[edge(a, b). edge(b, c). edge(c, d). edge(d, a).
-                path(X, Y) :- edge(X, Y).
-                path(X, Y) :- path(X, Z), edge(Z, Y).
-                path(X, Y)?])))))
+path(d, d)."
+           (->> (with-out-str
+                  (wcoj/execute-datalog
+                   '[edge(a, b). edge(b, c). edge(c, d). edge(d, a).
+                     path(X, Y) :- edge(X, Y).
+                     path(X, Y) :- path(X, Z), edge(Z, Y).
+                     path(X, Y)?]))
+                (str/split-lines)
+                (into (sorted-set))
+                (str/join "\n")))))
 
 (t/deftest test-tc
   (t/is (= "r(a, b).

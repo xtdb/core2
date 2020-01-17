@@ -79,6 +79,21 @@
                ["Amsterdam" "Amsterdam"]
                ["Amsterdam" "Leiden"]} (set result)))))
 
+;; https://www3.cs.stonybrook.edu/~warren/xsbbook/node14.html
+(t/deftest test-xsb-tabling
+  (let [avoids '[avoids(Source,Target) :- owes(Source,Target).
+                 avoids(Source,Target) :-
+                 owes(Source,Intermediate),
+                 avoids(Intermediate,Target).
+
+                 owes(andy,bill).
+                 owes(bill,carl).
+                 owes(carl,bill).]
+        db (wcoj/execute-datalog avoids)
+        result (wcoj/query-by-name db 'avoids '[andy Y])]
+    (t/is (= '#{[andy bill]
+                [andy carl]} (set result)))))
+
 ;; Some stress-tests from OCaml Datalog:
 ;; https://github.com/c-cube/datalog/tree/master/tests
 

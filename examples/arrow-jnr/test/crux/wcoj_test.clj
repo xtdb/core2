@@ -1,6 +1,5 @@
 (ns crux.wcoj-test
-  (:require [clojure.spec.alpha :as s]
-            [clojure.string :as str]
+  (:require [clojure.string :as str]
             [clojure.test :as t]
             [crux.wcoj :as wcoj]))
 

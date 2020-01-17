@@ -62,6 +62,8 @@
         result (wcoj/query-datalog db '[fib(30, F)?])]
     (t/is (= #{[30 832040]} (set result)))))
 
+;; http://www.dlvsystem.com/html/The_DLV_Tutorial.html
+
 (t/deftest test-negation-as-failure
   (let [naf '[smoker(john).
               smoker(jack).
@@ -73,6 +75,24 @@
         db (wcoj/execute-datalog naf)
         result (wcoj/query-by-name db 'healthy)]
     (t/is (= '#{[jill]} (set result)))))
+
+(t/deftest test-employees
+  (let [emp '[emp("Jones",   30000, 35, "Accounting").
+              emp("Miller",  38000, 29, "Marketing").
+              emp("Koch",  2000000, 24, "IT").
+              emp("Nguyen",  35000, 42, "Marketing").
+              emp("Gruber",  32000, 39, "IT").
+
+              dept("IT",         "Atlanta").
+              dept("Marketing",  "New York").
+              dept("Accounting", "Los Angeles").
+
+              q1(Ename, Esalary, Dlocation) :- emp(Ename, Esalary, _, D), dept(D, Dlocation), Esalary > 31000 .]
+        db (wcoj/execute-datalog emp)
+        result (wcoj/query-by-name db 'q1)]
+    (t/is (= #{["Koch" 2000000 "Atlanta"] ["Miller" 38000 "New York"]
+               ["Gruber" 32000 "Atlanta"] ["Nguyen" 35000 "New York"]}
+             (set result)))))
 
 ;; https://www.swi-prolog.org/pldoc/man?section=tabling-non-termination
 (t/deftest test-connection-recursion-rules

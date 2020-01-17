@@ -94,6 +94,23 @@
                ["Gruber" 32000 "Atlanta"] ["Nguyen" 35000 "New York"]}
              (set result)))))
 
+(t/deftest test-disjunction
+  (let [disjunction '[left_arm_broken :- not right_arm_broken .
+                      right_arm_broken :- not left_arm_broken .
+                      can_write :- left_arm_broken .
+                      be_angry :- can_write .]
+        db (wcoj/execute-datalog disjunction)]
+
+    (let [db (wcoj/execute-datalog db '[left_arm_broken .])]
+      (doseq [q '[left_arm_broken can_write be_angry]]
+        (t/is (= '#{[]} (set (wcoj/query-by-name db q)))))
+      (t/is (= '#{} (set (wcoj/query-by-name db 'right_arm_broken)))))
+
+    (let [db (wcoj/execute-datalog db '[right_arm_broken .])]
+      (doseq [q '[left_arm_broken can_write be_angry]]
+        (t/is (= '#{} (set (wcoj/query-by-name db q)))))
+      (t/is (= '#{[]} (set (wcoj/query-by-name db 'right_arm_broken)))))))
+
 ;; https://www.swi-prolog.org/pldoc/man?section=tabling-non-termination
 (t/deftest test-connection-recursion-rules
   (let [connection '[connection(X, Y) :- connection(X, Z), connection(Z, Y).

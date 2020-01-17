@@ -83,7 +83,18 @@
               wounded(john).]
         db (wcoj/execute-datalog naf)
         result (wcoj/query-by-name db 'canfly)]
-    (t/is (= '#{[mary]} (set result)))))
+    (t/is (= '#{[mary]} (set result))))
+
+  (let [naf '[p .
+
+              r :- p, q .
+              s :- p, not q .
+
+              s ?]
+        db (wcoj/execute-datalog naf)]
+    (t/is (= '#{[]} (set (wcoj/query-by-name db 's))))
+    (t/is (= '#{[]} (set (wcoj/query-by-name db 'p))))
+    (t/is (= '#{} (set (wcoj/query-by-name db 'r))))))
 
 (t/deftest test-employees
   (let [emp '[emp("Jones",   30000, 35, "Accounting").

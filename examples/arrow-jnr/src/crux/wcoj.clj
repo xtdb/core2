@@ -185,8 +185,19 @@
 (defn- new-rule-relation []
   (->RuleRelation #{}))
 
-(extend-type IPersistentCollection
-  Relation
+(extend-protocol Relation
+  nil
+  (table-scan [this db])
+
+  (table-filter [this db vars])
+
+  (insert [this tuple]
+    (throw (UnsupportedOperationException.)))
+
+  (delete [this tuple]
+    (throw (UnsupportedOperationException.)))
+
+  IPersistentCollection
   (table-scan [this db]
     (seq this))
 

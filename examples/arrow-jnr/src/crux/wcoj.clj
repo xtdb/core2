@@ -1,5 +1,6 @@
 (ns crux.wcoj
   (:require [clojure.spec.alpha :as s]
+            [clojure.set :as set]
             [clojure.string :as str]
             [clojure.walk :as w]
             [crux.datalog :as cd])
@@ -62,17 +63,20 @@
 (defn- rule->query-plan [rule]
   (let [{:keys [head body]} (s/conform :crux.datalog/rule rule)
         {:keys [symbol terms]} head
-        args (mapv second terms)
-        _ (assert (= args (distinct args)) "argument names cannot be reused")
+        head-vars (find-vars head)
+        _ (assert (= head-vars (distinct head-vars)) "argument names cannot be reused")
         {:keys [predicate not-predicate external-query]} (group-by first body)
         free-vars (->> (map (comp :variable second) external-query)
-                       (concat args)
+                       (concat head-vars)
                        (apply disj (set (find-vars predicate))))
-        body (concat (remove (set not-predicate) body) not-predicate)]
+        body-without-not (remove (set not-predicate) body)]
+    (assert (set/superset? (set (find-vars body-without-not))
+                           (set (find-vars not-predicate)))
+            "rule does not satisfy safety requirement for not clauses")
     {:rule-name symbol
      :free-vars free-vars
      :head head
-     :body body}))
+     :body (vec (concat body-without-not not-predicate))}))
 
 (def ^:private ^:const internal-chunk-size 128)
 

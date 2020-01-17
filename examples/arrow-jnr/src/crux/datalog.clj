@@ -21,7 +21,7 @@
 (s/def ::query (s/cat :head ::predicate
                       :question-mark #{'?}))
 (s/def ::rule (s/cat :head ::predicate
-                     :colon-hypen #{:-}
+                     :colon-hypen '#{:- <-}
                      :body ::body))
 (s/def ::requirement (s/cat :identifier (s/coll-of ::identifier :kind list? :count 1)
                             :dot #{'.}))
@@ -35,7 +35,7 @@
                                    :op '#{= != < <= > >=}
                                    :rhs ::term))
 (s/def ::external-query (s/cat :variable ::variable
-                               :colon-hypen #{:- 'is}
+                               :colon-hypen '#{:- <- is}
                                :symbol ::identifier
                                :terms (s/? (s/coll-of ::term :kind list?))))
 (s/def ::not-predicate (s/cat :exclamation-mark '#{! not}

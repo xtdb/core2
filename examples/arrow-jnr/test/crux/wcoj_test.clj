@@ -139,8 +139,9 @@
                      connection("Schiphol", "Leiden").
                      connection("Haarlem", "Leiden").]
         db (wcoj/execute-datalog connection)
-        result (wcoj/query-by-name db 'connection '["Amsterdam" X])]
-    (t/is (= #{["Amsterdam" "Haarlem"]
+       ;;_result (wcoj/query-by-name db 'connection '["Amsterdam" X])
+        ]
+    #_(t/is (= #{["Amsterdam" "Haarlem"]
                ["Amsterdam" "Schiphol"]
                ["Amsterdam" "Amsterdam"]
                ["Amsterdam" "Leiden"]} (set result)))))
@@ -330,3 +331,180 @@ perm(c, b)."
              (wcoj/execute-datalog
               '[true .
                 true ?])))))
+
+;; https://github.com/fogfish/datalog/blob/master/test/datalog_SUITE.erl
+
+(t/deftest test-erlang-datalog
+  (t/testing "single horn 1"
+    (t/is (= #{[1 2] [2 3] [3 4] [4 5]}
+             (-> (wcoj/execute-datalog '[a(X, Y) :- p(X, Y).])
+                 (wcoj/assert-all 'p #{[1 2] [2 3] [3 4] [4 5]})
+                 (wcoj/query-by-name 'a)
+                 (set)))))
+
+  (t/testing "single horn 2"
+    (t/is (= #{[1 3] [2 4] [3 5]}
+             (-> (wcoj/execute-datalog '[a(X, Y) :- p(X, Z), p(Z, Y).])
+                 (wcoj/assert-all 'p #{[1 2] [2 3] [3 4] [4 5]})
+                 (wcoj/query-by-name 'a)
+                 (set)))))
+
+  (t/testing "single horn 3"
+    (t/is (= #{[1 4] [2 5]}
+             (-> (wcoj/execute-datalog '[a(X, Y) :- p(X, Z), p(Z, F), p(F, Y).])
+                 (wcoj/assert-all 'p #{[1 2] [2 3] [3 4] [4 5]})
+                 (wcoj/query-by-name 'a)
+                 (set)))))
+
+  (t/testing "horn 2"
+    (t/is (= #{[1 3] [2 4] [3 5]}
+             (-> (wcoj/execute-datalog '[a(X, Y) :- p(X, Y).
+                                              b(X, Y) :- a(X, Z), p(Z, Y).])
+                 (wcoj/assert-all 'p #{[1 2] [2 3] [3 4] [4 5]})
+                 (wcoj/query-by-name 'b)
+                 (set)))))
+
+  (t/testing "horn 3"
+    (t/is (= #{[1 4] [2 5]}
+             (-> (wcoj/execute-datalog '[a(X, Y) :- p(X, Y).
+                                              b(X, Y) :- a(X, Z), p(Z, Y).
+                                              c(X, Y) :- b(X, Z), p(Z, Y).])
+                 (wcoj/assert-all 'p #{[1 2] [2 3] [3 4] [4 5]})
+                 (wcoj/query-by-name 'c)
+                 (set)))))
+
+  (t/testing "cartesian product"
+    (t/is (= #{[1 1] [1 2] [1 3]
+               [2 1] [2 2] [2 3]
+               [3 1] [3 2] [3 3]}
+             (-> (wcoj/execute-datalog '[h(X, Y) :- p(X), p(Y).])
+                 (wcoj/assert-all 'p #{[1] [2] [3]})
+                 (wcoj/query-by-name 'h)
+                 (set)))))
+
+  (t/testing "infix eq"
+    (t/is (= #{[2]}
+             (-> (wcoj/execute-datalog '[h(X) :- p(X), X = 2 .])
+                 (wcoj/assert-all 'p #{[1] [2] [3] [4]})
+                 (wcoj/query-by-name 'h)
+                 (set)))))
+
+  (t/testing "infix lt"
+    (t/is (= #{[1] [2]}
+             (-> (wcoj/execute-datalog '[h(X) :- p(X), X < 3 .])
+                 (wcoj/assert-all 'p #{[1] [2] [3] [4]})
+                 (wcoj/query-by-name 'h)
+                 (set)))))
+
+  (t/testing "infix le"
+    (t/is (= #{[1] [2]}
+             (-> (wcoj/execute-datalog '[h(X) :- p(X), X <= 2 .])
+                 (wcoj/assert-all 'p #{[1] [2] [3] [4]})
+                 (wcoj/query-by-name 'h)
+                 (set)))))
+
+  (t/testing "infix gt"
+    (t/is (= #{[3] [4]}
+             (-> (wcoj/execute-datalog '[h(X) :- p(X), X > 2 .])
+                 (wcoj/assert-all 'p #{[1] [2] [3] [4]})
+                 (wcoj/query-by-name 'h)
+                 (set)))))
+
+  (t/testing "infix ge"
+    (t/is (= #{[3] [4]}
+             (-> (wcoj/execute-datalog '[h(X) :- p(X), X >= 3 .])
+                 (wcoj/assert-all 'p #{[1] [2] [3] [4]})
+                 (wcoj/query-by-name 'h)
+                 (set)))))
+
+  (t/testing "infix ne"
+    (t/is (= #{[1] [3] [4]}
+             (-> (wcoj/execute-datalog '[h(X) :- p(X), X != 2 .])
+                 (wcoj/assert-all 'p #{[1] [2] [3] [4]})
+                 (wcoj/query-by-name 'h)
+                 (set)))))
+
+  ;; These are a bit odd as some parts dedupes streams atm.
+  (t/testing "union 2"
+    (t/is (= (set [[1 2] [2 3] [3 4] [3 4] [4 5] [4 5]])
+             (-> (wcoj/execute-datalog '[a(X, Y) :- p(X, Y), X > 2 .
+                                         a(X, Y) :- p(X, Y).])
+                 (wcoj/assert-all 'p #{[1 2] [2 3] [3 4] [4 5]})
+                 (wcoj/query-by-name 'a)
+                 (set)))))
+
+  (t/testing "union 3"
+    (t/is (= (set [[1 2] [1 2] [2 3] [2 3] [3 4] [3 4] [4 5] [4 5]])
+             (-> (wcoj/execute-datalog '[a(X, Y) :- p(X, Y), X > 2 .
+                                         a(X, Y) :- p(X, Y), X < 3 .
+                                         a(X, Y) :- p(X, Y).])
+                 (wcoj/assert-all 'p #{[1 2] [2 3] [3 4] [4 5]})
+                 (wcoj/query-by-name 'a)
+                 (set)))))
+
+  (t/testing "recursion 1"
+    (t/is (= #{[1 2] [2 3] [1 3] [3 3] [3 2] [2 2]}
+             (-> (wcoj/execute-datalog '[a(X, Y) :- p(X, Y).
+                                              a(X, Y) :- a(X, Z), p(Z, Y).])
+                 (wcoj/assert-all 'p #{[1 2] [2 3] [3 2]})
+                 (wcoj/query-by-name 'a)
+                 (set)))))
+
+  (t/testing "recursion 2"
+    (t/is (= #{[1 2] [2 3] [1 3] [3 4] [2 4] [1 4] [4 5] [3 5] [2 5] [1 5]}
+             (-> (wcoj/execute-datalog '[a(X, Y) :- p(X, Y).
+                                              a(X, Y) :- a(X, Z), p(Z, Y).])
+                 (wcoj/assert-all 'p #{[1 2] [2 3] [3 4] [4 5]})
+                 (wcoj/query-by-name 'a)
+                 (set)))))
+
+  (t/testing "recursion 3"
+    (t/is (= #{[4 3] [2 2] [2 3] [2 5] [3 3] [5 4] [3 4] [4 2] [5 3] [5 2] [1 4]
+               [1 3] [1 5] [5 5] [2 4] [4 5] [4 4] [1 2] [3 5] [3 2]}
+             (-> (wcoj/execute-datalog '[a(X, Y) :- p(X, Y).
+                                              a(X, Y) :- a(X, Z), p(Z, Y).])
+                 (wcoj/assert-all 'p #{[1 2] [2 3] [2 5] [3 4] [4 2] [5 4]})
+                 (wcoj/query-by-name 'a)
+                 (set)))))
+
+  (t/testing "lang eq"
+    (t/is (= #{[1 1] [2 2] [3 3] [4 4]}
+             (-> (wcoj/execute-datalog '[a(X, Y) :- p(X), p(Y), X = Y .])
+                 (wcoj/assert-all 'p #{[1] [2] [3] [4]})
+                 (wcoj/query-by-name 'a)
+                 (set)))))
+
+  (t/testing "lang ne"
+    (t/is (= #{[1 2] [2 1]}
+             (-> (wcoj/execute-datalog '[a(X, Y) :- p(X), p(Y), X != Y .])
+                 (wcoj/assert-all 'p #{[1] [2]})
+                 (wcoj/query-by-name 'a)
+                 (set)))))
+
+  (t/testing "lang lt"
+    (t/is (= #{[1 2] [1 3] [1 4] [2 3] [2 4] [3 4]}
+             (-> (wcoj/execute-datalog '[a(X, Y) :- p(X), p(Y), X < Y .])
+                 (wcoj/assert-all 'p #{[1] [2] [3] [4]})
+                 (wcoj/query-by-name 'a)
+                 (set)))))
+
+  (t/testing "lang gt"
+    (t/is (= #{[2 1] [3 1] [4 1] [3 2] [4 2] [4 3]}
+             (-> (wcoj/execute-datalog '[a(X, Y) :- p(X), p(Y), X > Y .])
+                 (wcoj/assert-all 'p #{[1] [2] [3] [4]})
+                 (wcoj/query-by-name 'a)
+                 (set)))))
+
+  (t/testing "lang le"
+    (t/is (= #{[1 1] [1 2] [1 3] [1 4] [2 2] [2 3] [2 4] [3 3] [3 4] [4 4]}
+             (-> (wcoj/execute-datalog '[a(X, Y) :- p(X), p(Y), X <= Y .])
+                 (wcoj/assert-all 'p #{[1] [2] [3] [4]})
+                 (wcoj/query-by-name 'a)
+                 (set)))))
+
+  (t/testing "lang ge"
+    (t/is (= #{[1 1] [2 1] [2 2] [3 1] [3 2] [3 3] [4 1] [4 2] [4 3] [4 4]}
+             (-> (wcoj/execute-datalog '[a(X, Y) :- p(X), p(Y), X >= Y .])
+                 (wcoj/assert-all 'p #{[1] [2] [3] [4]})
+                 (wcoj/query-by-name 'a)
+                 (set))))))

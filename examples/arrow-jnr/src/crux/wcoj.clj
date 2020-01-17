@@ -215,14 +215,12 @@
 (defrecord CombinedRelation [rules tuples]
   Relation
   (table-scan [this db]
-    (->> (interleave-all (table-scan tuples db)
-                         (table-scan rules db))
-         (dedupe)))
+    (interleave-all (table-scan tuples db)
+                    (table-scan rules db)))
 
   (table-filter [this db vars]
-    (->> (interleave-all (table-filter tuples db vars)
-                         (table-filter rules db vars))
-         (dedupe)))
+    (interleave-all (table-filter tuples db vars)
+                    (table-filter rules db vars)))
 
   (insert [this value]
     (if (rule? value)
@@ -272,6 +270,10 @@
   (s/assert :crux.datalog/query query)
   (query-conformed-datalog db (s/conform :crux.datalog/query query)))
 
+(defn assert-all [db relation-name tuples]
+  (reduce (fn [db tuple]
+            (assertion db relation-name tuple)) db tuples))
+
 (defn tuple->datalog-str [relation-name tuple]
   (str relation-name
        (when (seq tuple)
@@ -288,7 +290,7 @@
       (case type
         :query
         (let [{{:keys [symbol]} :head} statement]
-          (doseq [tuple (query-conformed-datalog db statement)]
+          (doseq [tuple (dedupe (query-conformed-datalog db statement))]
             (println (tuple->datalog-str symbol tuple)))
           db)
 

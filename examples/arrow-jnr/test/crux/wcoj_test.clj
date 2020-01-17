@@ -74,7 +74,16 @@
               healthy(X) :- jogger(X), not smoker(X).]
         db (wcoj/execute-datalog naf)
         result (wcoj/query-by-name db 'healthy)]
-    (t/is (= '#{[jill]} (set result)))))
+    (t/is (= '#{[jill]} (set result))))
+
+  (let [naf '[canfly(X) :- bird(X), not abnormal(X).
+              abnormal(X) :-  wounded(X).
+              bird(john).
+              bird(mary).
+              wounded(john).]
+        db (wcoj/execute-datalog naf)
+        result (wcoj/query-by-name db 'canfly)]
+    (t/is (= '#{[mary]} (set result)))))
 
 (t/deftest test-employees
   (let [emp '[emp("Jones",   30000, 35, "Accounting").

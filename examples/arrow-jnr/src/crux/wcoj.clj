@@ -64,14 +64,17 @@
   (let [{:keys [head body]} (s/conform :crux.datalog/rule rule)
         {:keys [symbol terms]} head
         head-vars (find-vars head)
-        _ (assert (= head-vars (distinct head-vars)) "argument names cannot be reused")
         {:keys [predicate not-predicate external-query]} (group-by first body)
         free-vars (->> (map (comp :variable second) external-query)
                        (concat head-vars)
                        (apply disj (set (find-vars predicate))))
-        body-without-not (remove (set not-predicate) body)]
-    (assert (set/superset? (set (find-vars body-without-not))
-                           (set (find-vars not-predicate)))
+        body-without-not (remove (set not-predicate) body)
+        body-vars (set (find-vars body-without-not))]
+    (assert (= (distinct head-vars)
+               (find-vars head)) "argument names cannot be reused")
+    (assert (set/superset? body-vars (set head-vars))
+            "rule does not satisfy safety requirement for head variables")
+    (assert (set/superset? body-vars (set (find-vars not-predicate)))
             "rule does not satisfy safety requirement for not clauses")
     {:rule-name symbol
      :free-vars free-vars

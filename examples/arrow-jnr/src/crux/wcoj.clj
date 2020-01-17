@@ -135,7 +135,7 @@
 
 (def ^:private compile-rule (memoize
                              (fn [rule]
-                               (eval (doto (query-plan->clojure (rule->query-plan rule)) #_clojure.pprint/pprint)))))
+                               (eval (query-plan->clojure (rule->query-plan rule))))))
 
 (defrecord RuleRelation [rules]
   Relation

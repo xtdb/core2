@@ -146,24 +146,25 @@
     (table-filter this db (repeat '_)))
 
   (table-filter [this db var-bindings]
-    (let [db (vary-meta db update :rule-table #(or % (atom {})))
-          db (vary-meta db update :rule-level (fnil inc 1))
-          {:keys [rule-table rule-level]} (meta db)
+    (let [db (vary-meta db update :rule-table-state #(or % (atom {})))
+          {:keys [rule-table-state]} (meta db)
           key-var-bindings (if (instance? Repeat var-bindings)
                              nil
                              (for [v var-bindings]
                                (if (cd/prolog-var? v)
                                  '_
                                  v)))
-          memo-key [(System/identityHashCode rules) key-var-bindings (mod (inc (count rules)) rule-level)]
-          memo-value (get @rule-table memo-key ::not-found)]
+          rule-table @rule-table-state
+          memo-level (mod (count rule-table) (inc (count rules)))
+          memo-key [(System/identityHashCode rules) key-var-bindings memo-level]
+          memo-value (get rule-table memo-key ::not-found)]
       (if (= ::not-found memo-value)
         ((fn step [[rule & rules]]
            (lazy-seq
             (when rule
               (interleave-all
                (doto ((compile-rule rule) db var-bindings)
-                 (->> (swap! rule-table update memo-key interleave-all)))
+                 (->> (swap! rule-table-state update memo-key interleave-all)))
                (step rules))))) rules)
         memo-value)))
 

@@ -40,6 +40,13 @@
         result (wcoj/query-by-name db 'path)]
     (t/is (= #{[1 2] [2 3] [1 3]} (set result)))))
 
+(t/deftest literal-booleans
+  (let [t '[true .
+            true ?]
+        db (wcoj/execute-datalog t)
+        result (wcoj/query-by-name db 'true)]
+    (t/is (= #{[]} (set result)))))
+
 (t/deftest fib-using-interop
   (let [fib '[fib(0, 0).
               fib(1, 1).

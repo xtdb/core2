@@ -235,7 +235,10 @@
   (query-conformed-datalog db (s/conform :crux.datalog/query query)))
 
 (defn tuple->datalog-str [relation-name tuple]
-  (str relation-name "(" (str/join ", " tuple) ")."))
+  (str relation-name
+       (when (seq tuple)
+         (str "(" (str/join ", " tuple) ")"))
+       "."))
 
 (defn execute-datalog
   ([datalog]

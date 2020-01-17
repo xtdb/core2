@@ -88,9 +88,7 @@
   (let [naf '[p .
 
               r :- p, q .
-              s :- p, not q .
-
-              s ?]
+              s :- p, not q .]
         db (wcoj/execute-datalog naf)]
     (t/is (= '#{[]} (set (wcoj/query-by-name db 's))))
     (t/is (= '#{[]} (set (wcoj/query-by-name db 'p))))

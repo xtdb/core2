@@ -21,7 +21,7 @@
 
 (definterface ARTBaseNode
   (^crux.art.ARTNode growNode [])
-  (^crux.art.ARTNode makeNode [^int size ^bytes keys ^"[Ljava.lang.Object;" nodes ^bytes prefix]))
+  (^crux.art.ARTNode makeNode [^long size ^bytes keys ^"[Ljava.lang.Object;" nodes ^bytes prefix]))
 
 (defprotocol ARTKey
   (^bytes ->key-bytes [this]))
@@ -198,29 +198,26 @@
     (throw (UnsupportedOperationException.)))
   (insert [this key-byte value]
     (throw (UnsupportedOperationException.)))
-  (prefix [this] key)
+  (prefix [this]
+    (throw (UnsupportedOperationException.)))
   (minimum [this] value)
   (maximum [this] value))
 
 (defn- leaf-matches-key? [^Leaf leaf ^bytes key-bytes]
-  (zero? (Arrays/compareUnsigned key-bytes (bytes (.key leaf)))))
+  (zero? (Arrays/compareUnsigned key-bytes ^bytes (.key leaf))))
 
 (defn- leaf-matches-prefix-key? [^Leaf leaf ^bytes key-bytes]
-  (let [leaf-key (bytes (.key leaf))
+  (let [leaf-key ^bytes (.key leaf)
         key-length (min (count leaf-key) (count key-bytes))]
     (nat-int? (Arrays/compareUnsigned key-bytes 0 key-length leaf-key 0 key-length))))
 
-(defn- leaf-insert-helper [^Leaf leaf depth ^bytes key-bytes value]
-  (let [prefix-start (long depth)]
-    (loop [depth prefix-start]
-      (let [new-key-byte (aget key-bytes depth)
-            old-key-byte (aget (bytes (.key leaf)) depth)]
-        (if (= new-key-byte old-key-byte)
-          (recur (inc depth))
-          (-> empty-node4
-              (.insert new-key-byte (->Leaf key-bytes value))
-              (.insert old-key-byte leaf)
-              (assoc :prefix (Arrays/copyOfRange key-bytes prefix-start depth))))))))
+(defn- leaf-insert-helper [^Leaf leaf ^long depth ^bytes key-bytes value]
+  (let [leaf-key ^bytes (.key leaf)
+        prefix-end (Arrays/mismatch key-bytes leaf-key)]
+    (-> empty-node4
+        (.insert (aget key-bytes prefix-end) (->Leaf key-bytes value))
+        (.insert (aget leaf-key prefix-end) leaf)
+        (assoc :prefix (Arrays/copyOfRange key-bytes depth prefix-end)))))
 
 (defn- leaf? [node]
   (instance? Leaf node))

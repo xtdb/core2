@@ -265,7 +265,7 @@
                     (.getNano this))))
 
   Object
-  (->xskey-bytes [this]
+  (->key-bytes [this]
     (->key-bytes (str this))))
 
 ;;; Public API

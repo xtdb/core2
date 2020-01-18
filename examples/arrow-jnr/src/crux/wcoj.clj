@@ -164,15 +164,16 @@
                                  '_
                                  v)))
           rule-table @rule-table-state]
-      (->> (for [rule rules
-                 :let [memo-key [(System/identityHashCode rule) key-var-bindings]
-                       memo-value (get rule-table memo-key ::not-found)]]
+      (->> (for [rule rules]
              ;; TODO: Fix this condition
-             (if (or (< (long rule-depth) 4)
-                     (= ::not-found memo-value))
-               (doto ((compile-rule rule) db var-bindings)
-                 (->> (swap! rule-table-state assoc memo-key)))
-               memo-value))
+             (if (<= (long rule-depth) (count rules))
+               ((compile-rule rule) db var-bindings)
+               (let [memo-key [(System/identityHashCode rule) key-var-bindings]
+                     memo-value (get rule-table memo-key ::not-found)]
+                 (if (= ::not-found memo-value)
+                   (doto ((compile-rule rule) db var-bindings)
+                     (->> (swap! rule-table-state assoc memo-key)))
+                   memo-value))))
            (apply interleave-all))))
 
   (insert [this rule]

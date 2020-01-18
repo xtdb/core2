@@ -124,13 +124,13 @@
 
                      :not-predicate
                      (let [{:keys [symbol terms]} (:predicate literal)]
-                       [:when `(empty? (crux.wcoj/table-filter
+                       `[:when (empty? (crux.wcoj/table-filter
                                         (crux.wcoj/relation-by-name ~db-sym '~symbol)
                                         ~db-sym ~(terms->clojure terms)))])
 
                      :external-query
                      (let [{:keys [variable symbol terms]} literal]
-                       [:let [variable `(~symbol ~@(terms->clojure terms))]])))
+                       `[:let [~variable (~symbol ~@(terms->clojure terms))]])))
         args (terms->bindings (:terms head))]
     `(fn ~rule-name
        ([~db-sym] (~rule-name ~db-sym [~@(repeat (count args) ''_)]))

@@ -50,5 +50,5 @@
 (s/def ::constant (complement (some-fn list? logic-var?)))
 (s/def ::identifier (s/and (some-fn symbol? boolean?)
                            (complement (some-fn logic-var? '#{. ? = != ! % not}
-                                                #(contains? #{\. \? \-} (last (str %)))))))
+                                                #(and (not= '- %) (contains? #{\. \? \-} (last (str %))))))))
 (s/def ::variable logic-var?)

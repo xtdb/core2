@@ -14,7 +14,7 @@
 
 (definterface ARTNode
   (^crux.art.ARTNode lookup [^byte key-byte])
-  (^crux.art.ARTNode insert [^byte key-byte value])
+  (^crux.art.ARTNode insert [^byte key-byte ^crux.art.ARTNode value])
   (^bytes prefix [])
   (minimum [])
   (maximum []))
@@ -296,25 +296,28 @@
    (art-insert tree key key))
   ([^ARTNode tree key value]
    (let [key-bytes (->key-bytes key)]
-     ((fn step [^long depth ^ARTNode node]
-        (let [prefix (.prefix node)
-              common-prefix-length (common-prefix-length key-bytes prefix depth)
-              depth (+ depth common-prefix-length)]
-          (if (= common-prefix-length (alength prefix))
-            (let [key-byte (aget key-bytes depth)
-                  child (.lookup node key-byte)
-                  new-child (if (and child (not (leaf? child)))
-                              (step (inc depth) child)
-                              (if (or (nil? child) (leaf-matches-key? child key-bytes))
-                                (->Leaf key-bytes value)
-                                (leaf-insert-helper child (inc depth) key-bytes value)))]
-              (.insert node key-byte new-child))
+     (loop [depth 0
+            ^ARTNode node (or tree (art-make-tree))
+            build-fn identity]
+       (let [prefix (.prefix node)
+             common-prefix-length (common-prefix-length key-bytes prefix depth)
+             depth (+ depth common-prefix-length)]
+         (if (= common-prefix-length (alength prefix))
+           (let [key-byte (aget key-bytes depth)
+                 child (.lookup node key-byte)
+                 build-fn (comp build-fn #(.insert node key-byte %))]
+             (if (and child (not (leaf? child)))
+               (recur (inc depth) child build-fn)
+               (build-fn
+                (if (or (nil? child) (leaf-matches-key? child key-bytes))
+                  (->Leaf key-bytes value)
+                  (leaf-insert-helper child (inc depth) key-bytes value)))))
+           (build-fn
             (-> empty-node4
                 ^ARTNode (assoc :prefix (Arrays/copyOfRange prefix 0 common-prefix-length))
                 (.insert (aget key-bytes depth) (->Leaf key-bytes value))
                 (.insert (aget prefix common-prefix-length)
-                         (assoc node :prefix (Arrays/copyOfRange prefix (inc common-prefix-length) (alength prefix))))))))
-      0 (or tree (art-make-tree))))))
+                         (assoc node :prefix (Arrays/copyOfRange prefix (inc common-prefix-length) (alength prefix))))))))))))
 
 (defn art-minimum [^ARTNode tree]
   (if (leaf? tree)

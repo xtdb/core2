@@ -102,35 +102,36 @@
            (list 'quote term)
            term))))
 
+(defmulti datalog->clojure (fn [[type] query-plan]
+                             type))
+
+(defmethod datalog->clojure :predicate [[_ {:keys [symbol terms]}] {:keys [db-sym] :as query-plan}]
+  `[~(terms->bindings terms)
+    (->> (crux.wcoj/table-filter
+          (crux.wcoj/relation-by-name ~db-sym '~symbol)
+          ~db-sym ~(terms->clojure terms)))])
+
+(defmethod datalog->clojure :equality-predicate [[_ {:keys [lhs op rhs]}] query-plan]
+  (let [args (terms->clojure [lhs rhs])
+        op-fn (get '{!= (complement crux.wcoj/unify)} op op)]
+    (if (= '= op)
+      `[:let [[~@(terms->bindings [lhs rhs]) :as unified?#] (crux.wcoj/unify ~@args)]
+        :when unified?#]
+      `[:when (~op-fn ~@args)])))
+
+(defmethod datalog->clojure :not-predicate [[_ {{:keys [symbol terms]} :predicate}] {:keys [db-sym] :as query-plan}]
+  `[:when (empty? (crux.wcoj/table-filter
+                   (crux.wcoj/relation-by-name ~db-sym '~symbol)
+                   ~db-sym ~(terms->clojure terms)))])
+
+(defmethod datalog->clojure :external-query [[_ {:keys [variable symbol terms]}] query-plan]
+  `[:let [~variable (~symbol ~@(terms->clojure terms))]])
+
 (defn- query-plan->clojure [{:keys [rule-name free-vars head body] :as query-plan}]
   (let [db-sym (gensym 'db)
-        bindings (for [[type literal] body]
-                   (case type
-                     :predicate
-                     (let [{:keys [symbol terms]} literal]
-                       `[~(terms->bindings terms)
-                         (->> (crux.wcoj/table-filter
-                               (crux.wcoj/relation-by-name ~db-sym '~symbol)
-                               ~db-sym ~(terms->clojure terms)))])
-
-                     :equality-predicate
-                     (let [{:keys [lhs op rhs]} literal
-                           args (terms->clojure [lhs rhs])
-                           op-fn (get '{!= (complement crux.wcoj/unify)} op op)]
-                       (if (= '= op)
-                         `[:let [[~@(terms->bindings [lhs rhs]) :as unified?#] (crux.wcoj/unify ~@args)]
-                           :when unified?#]
-                         `[:when (~op-fn ~@args)]))
-
-                     :not-predicate
-                     (let [{:keys [symbol terms]} (:predicate literal)]
-                       `[:when (empty? (crux.wcoj/table-filter
-                                        (crux.wcoj/relation-by-name ~db-sym '~symbol)
-                                        ~db-sym ~(terms->clojure terms)))])
-
-                     :external-query
-                     (let [{:keys [variable symbol terms]} literal]
-                       `[:let [~variable (~symbol ~@(terms->clojure terms))]])))
+        query-plan (assoc query-plan :db-sym db-sym)
+        bindings (for [literal body]
+                   (datalog->clojure literal query-plan))
         args (terms->bindings (:terms head))]
     `(fn ~rule-name
        ([~db-sym] (~rule-name ~db-sym [~@(repeat (count args) ''_)]))

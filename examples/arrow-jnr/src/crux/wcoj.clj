@@ -1,10 +1,15 @@
 (ns crux.wcoj
-  (:require [clojure.spec.alpha :as s]
+  (:require [clojure.edn :as edn]
+            [clojure.java.io :as io]
+            [clojure.tools.logging :as log]
+            [clojure.spec.alpha :as s]
             [clojure.set :as set]
             [clojure.string :as str]
             [clojure.walk :as w]
             [crux.datalog :as cd])
-  (:import [clojure.lang IPersistentCollection IPersistentMap Repeat]))
+  (:import [clojure.lang IPersistentCollection IPersistentMap
+            LineNumberingPushbackReader Repeat]
+           java.io.StringReader))
 
 (set! *unchecked-math* :warn-on-boxed)
 (s/check-asserts true)
@@ -310,3 +315,15 @@
             :rule
             (op db symbol (vec (s/unform :crux.datalog/rule clause)))))))
     db (s/conform :crux.datalog/program datalog))))
+
+(defn parse-datalog [datalog-source]
+  (let [in (LineNumberingPushbackReader.
+            (if (string? datalog-source)
+              (StringReader. ^String datalog-source)
+              (io/reader datalog-source)))]
+    (->> (repeatedly #(edn/read {:eof nil} in))
+         (take-while identity)
+         (s/assert :crux.datalog/program))))
+
+(defn -main [& [f :as args]]
+  (execute-datalog (parse-datalog (io/reader (or f *in*)))))

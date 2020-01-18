@@ -26,25 +26,25 @@
 (defprotocol ARTKey
   (^bytes ->key-bytes [this]))
 
-(defn key-position ^long [^long size ^bytes keys ^long key-byte]
+(defn- key-position ^long [^long size ^bytes keys ^long key-byte]
   (Arrays/binarySearch keys 0 size (byte key-byte)))
 
-(defn lookup-helper [^long size ^objects nodes ^bytes keys ^long key-byte]
+(defn- lookup-helper [^long size ^objects nodes ^bytes keys ^long key-byte]
   (let [pos (key-position size keys key-byte)]
     (when-not (neg? pos)
       (aget nodes pos))))
 
-(defn make-gap [^long size ^long pos src dest]
+(defn- make-gap [^long size ^long pos src dest]
   (System/arraycopy src pos dest (inc pos) (- size pos)))
 
-(defn grow-helper [^long size ^bytes keys ^objects nodes node]
+(defn- grow-helper [^long size ^bytes keys ^objects nodes node]
   (loop [idx 0
          node node]
     (if (< idx size)
       (recur (inc idx) (insert node (aget keys idx) (aget nodes idx)))
       node)))
 
-(defn insert-helper [{:keys [^long size ^bytes keys ^objects nodes prefix] :as node}
+(defn- insert-helper [{:keys [^long size ^bytes keys ^objects nodes prefix] :as node}
                      ^long key-byte value]
   (let [pos (key-position size keys key-byte)
         new-key? (neg? pos)]
@@ -194,15 +194,15 @@
 
 (defrecord Leaf [^bytes key value])
 
-(defn leaf-matches-key? [^Leaf leaf ^bytes key-bytes]
+(defn- leaf-matches-key? [^Leaf leaf ^bytes key-bytes]
   (zero? (Arrays/compareUnsigned key-bytes (bytes (.key leaf)))))
 
-(defn leaf-matches-prefix-key? [^Leaf leaf ^bytes key-bytes]
+(defn- leaf-matches-prefix-key? [^Leaf leaf ^bytes key-bytes]
   (let [leaf-key (bytes (.key leaf))
         key-length (min (count leaf-key) (count key-bytes))]
     (nat-int? (Arrays/compareUnsigned key-bytes 0 key-length leaf-key 0 key-length))))
 
-(defn leaf-insert-helper [^Leaf leaf depth ^bytes key-bytes value]
+(defn- leaf-insert-helper [^Leaf leaf depth ^bytes key-bytes value]
   (let [prefix-start (long depth)]
     (loop [depth prefix-start]
       (let [new-key-byte (aget key-bytes depth)
@@ -214,10 +214,10 @@
               (insert old-key-byte leaf)
               (assoc :prefix (Arrays/copyOfRange key-bytes prefix-start depth))))))))
 
-(defn leaf? [node]
+(defn- leaf? [node]
   (instance? Leaf node))
 
-(defn common-prefix-length ^long [^bytes key-bytes ^bytes prefix ^long depth]
+(defn- common-prefix-length ^long [^bytes key-bytes ^bytes prefix ^long depth]
   (let [max-length (min (- (alength key-bytes) depth) (alength prefix))]
     (loop [idx 0]
       (if (and (< idx max-length)

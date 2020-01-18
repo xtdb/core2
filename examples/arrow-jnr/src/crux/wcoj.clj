@@ -28,9 +28,6 @@
   (ensure-relation [this relation-name relation-factory])
   (relation-by-name [this relation-name]))
 
-(defn- rule? [f]
-  (s/valid? :crux.datalog/rule f))
-
 (defn- can-unify? [x y]
   (or (= x y)
       (cd/prolog-var? x)
@@ -149,9 +146,16 @@
               ~@(apply concat bindings)]
           ~args)))))
 
-(def ^:private compile-rule (memoize
-                             (fn [rule]
-                               (eval (query-plan->clojure (rule->query-plan rule))))))
+(def ^:private compile-rule
+  (memoize
+   (fn [rule]
+     (eval (query-plan->clojure (rule->query-plan rule))))))
+
+(defn- normalize-vars [vars]
+  (for [v vars]
+    (if (cd/prolog-var? v)
+      '_
+      v)))
 
 (defrecord RuleRelation [rules]
   Relation
@@ -159,25 +163,21 @@
     (table-filter this db (repeat '_)))
 
   (table-filter [this db var-bindings]
-    (let [db (vary-meta db update :rule-table-state #(or % (atom {})))
+    (let [db (vary-meta db update :rule-memo-state #(or % (atom {})))
           db (vary-meta db update :rule-depth (fnil inc 0))
-          {:keys [rule-table-state rule-depth]} (meta db)
+          {:keys [rule-memo-state rule-depth]} (meta db)
           key-var-bindings (if (instance? Repeat var-bindings)
                              nil
-                             (for [v var-bindings]
-                               (if (cd/prolog-var? v)
-                                 '_
-                                 v)))
-          rule-table @rule-table-state]
+                             (normalize-vars var-bindings))
+          rule-memo @rule-memo-state]
       (->> (for [rule rules]
-             ;; TODO: Fix this condition
              (if (<= (long rule-depth) (count rules))
                ((compile-rule rule) db var-bindings)
                (let [memo-key [(System/identityHashCode rule) key-var-bindings]
-                     memo-value (get rule-table memo-key ::not-found)]
+                     memo-value (get rule-memo memo-key ::not-found)]
                  (if (= ::not-found memo-value)
                    (doto ((compile-rule rule) db var-bindings)
-                     (->> (swap! rule-table-state assoc memo-key)))
+                     (->> (swap! rule-memo-state assoc memo-key)))
                    memo-value))))
            (apply interleave-all))))
 
@@ -229,12 +229,12 @@
                     (table-filter rules db vars)))
 
   (insert [this value]
-    (if (rule? value)
+    (if (s/valid? :crux.datalog/rule value)
       (update this :rules insert value)
       (update this :tuples insert value)))
 
   (delete [this value]
-    (if (rule? value)
+    (if (s/valid? :crux.datalog/rule value)
       (update this :rules delete value)
       (update this :tuples delete value))))
 

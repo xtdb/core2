@@ -1,6 +1,5 @@
 (ns crux.art
-  (:require [clojure.java.io :as io]
-            [clojure.string :as s])
+  (:require [clojure.string :as s])
   (:import java.util.Arrays
            java.time.Instant
            java.nio.ByteBuffer))
@@ -149,15 +148,17 @@
 
   (minimum [this]
     (loop [idx 0]
-      (if-let [key-byte (aget key-index idx)]
-        (lookup this key-byte)
-        (recur (inc idx)))))
+      (let [key-byte (aget key-index idx)]
+        (if (neg? key-byte)
+          (recur (inc idx))
+          (lookup this key-byte)))))
 
   (maximum [this]
     (loop [idx (dec (alength key-index))]
-      (if-let [key-byte (aget key-index idx)]
-        (lookup this key-byte)
-        (recur (dec idx))))))
+      (let [key-byte (aget key-index idx)]
+        (if (neg? key-byte)
+          (recur (dec idx))
+          (lookup this key-byte))))))
 
 (defrecord Node256 [^long size ^objects nodes ^bytes prefix]
   ARTNode
@@ -224,6 +225,8 @@
         (recur (inc idx))
         idx))))
 
+;; Keys
+
 (defn key-bytes->str ^String [^bytes key]
   (String. key 0 (dec (alength key)) "UTF-8"))
 
@@ -267,11 +270,7 @@
   Instant
   (->key-bytes [this]
     (->key-bytes (+ (* (.getEpochSecond this) 1000000000)
-                    (.getNano this))))
-
-  Object
-  (->key-bytes [this]
-    (->key-bytes (str this))))
+                    (.getNano this)))))
 
 ;;; Public API
 

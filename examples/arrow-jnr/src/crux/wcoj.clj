@@ -79,12 +79,15 @@
             "rule does not satisfy safety requirement for head variables")
     (assert (set/superset? body-vars (set (find-vars not-predicate)))
             "rule does not satisfy safety requirement for not clauses")
+    (doseq [literal predicate
+            :let [{:keys [symbol terms]} literal
+                  arg-vars (find-vars terms)]]
+      (assert (= arg-vars (distinct arg-vars))
+              "predicate argument variables cannot be reused"))
     {:rule-name symbol
      :free-vars free-vars
      :head head
      :body (vec (concat body-without-not not-predicate))}))
-
-(def ^:private ^:const internal-chunk-size 128)
 
 (defn- terms->bindings [terms]
   (vec (for [[type term] terms]
@@ -104,16 +107,11 @@
         bindings (for [[type literal] body]
                    (case type
                      :predicate
-                     (let [{:keys [symbol terms]} literal
-                           arg-vars (find-vars terms)]
-                       (assert (= arg-vars (distinct arg-vars)) "argument variables cannot be reused")
-                       `[chunk#
+                     (let [{:keys [symbol terms]} literal]
+                       `[~(terms->bindings terms)
                          (->> (crux.wcoj/table-filter
                                (crux.wcoj/relation-by-name ~db-sym '~symbol)
-                               ~db-sym ~(terms->clojure terms))
-                              (partition-all ~internal-chunk-size))
-                         ~(terms->bindings terms)
-                         chunk#])
+                               ~db-sym ~(terms->clojure terms)))])
 
                      :equality-predicate
                      (let [{:keys [lhs op rhs]} literal
@@ -138,10 +136,11 @@
        ([~db-sym] (~rule-name ~db-sym [~@(repeat (count args) ''_)]))
        ([~db-sym args#]
         (for [loop# ['~'_]
-              :let [~args args#
-                    [~@args :as unified?#] (crux.wcoj/unified-tuple
-                                            args# ~(terms->clojure (:terms head)))
-                    ~@(interleave free-vars (repeat ''_))]
+              :let [~@(interleave free-vars (repeat ''_))
+                    ~args args#
+                    [~@args :as unified?#]
+                    (crux.wcoj/unified-tuple
+                     args# ~(terms->clojure (:terms head)))]
               :when unified?#
               ~@(apply concat bindings)]
           ~args)))))

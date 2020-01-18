@@ -30,12 +30,12 @@
 
 (defn- can-unify? [x y]
   (or (= x y)
-      (cd/prolog-var? x)
-      (cd/prolog-var? y)))
+      (cd/logic-var? x)
+      (cd/logic-var? y)))
 
 (defn unify [x y]
   (when (can-unify? x y)
-    (if (cd/prolog-var? x)
+    (if (cd/logic-var? x)
       [y y]
       [x x])))
 
@@ -153,7 +153,7 @@
 
 (defn- normalize-vars [vars]
   (for [v vars]
-    (if (cd/prolog-var? v)
+    (if (cd/logic-var? v)
       '_
       v)))
 

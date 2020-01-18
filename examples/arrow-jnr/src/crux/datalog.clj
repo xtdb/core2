@@ -4,7 +4,7 @@
 ;; See Racket for the Datalog syntax in EBNF.
 ;; https://docs.racket-lang.org/datalog/datalog.html
 
-(defn prolog-var? [s]
+(defn logic-var? [s]
   (and (symbol? s)
        (let [c (char (first (name s)))]
          (or (= \_ c) (Character/isUpperCase c)))))
@@ -47,7 +47,7 @@
 (s/def ::term (s/or :variable ::variable
                     :constant ::constant))
 
-(s/def ::constant (complement (some-fn list? prolog-var?)))
+(s/def ::constant (complement (some-fn list? logic-var?)))
 (s/def ::identifier (s/and (some-fn symbol? boolean?)
-                           (complement (some-fn prolog-var? '#{. ? = != ! % not}))))
-(s/def ::variable prolog-var?)
+                           (complement (some-fn logic-var? '#{. ? = != ! % not}))))
+(s/def ::variable logic-var?)

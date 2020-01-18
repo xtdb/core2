@@ -12,16 +12,16 @@
 
 (set! *unchecked-math* :warn-on-boxed)
 
-(defprotocol ARTNode
-  (lookup [this key-byte])
-  (insert [this key-byte value])
-  (^bytes prefix [this])
-  (minimum [this])
-  (maximum [this]))
+(definterface ARTNode
+  (^crux.art.ARTNode lookup [^byte key-byte])
+  (^crux.art.ARTNode insert [^byte key-byte value])
+  (^bytes prefix [])
+  (minimum [])
+  (maximum []))
 
-(defprotocol ARTBaseNode
-  (grow-node [this])
-  (make-node [this size bytes keys prefix]))
+(definterface ARTBaseNode
+  (^crux.art.ARTNode growNode [])
+  (^crux.art.ARTNode makeNode [^int size ^bytes keys ^"[Ljava.lang.Object;" nodes ^bytes prefix]))
 
 (defprotocol ARTKey
   (^bytes ->key-bytes [this]))
@@ -37,19 +37,19 @@
 (defn- make-gap [^long size ^long pos src dest]
   (System/arraycopy src pos dest (inc pos) (- size pos)))
 
-(defn- grow-helper [^long size ^bytes keys ^objects nodes node]
+(defn- grow-helper [^long size ^bytes keys ^objects nodes ^ARTNode node]
   (loop [idx 0
          node node]
     (if (< idx size)
-      (recur (inc idx) (insert node (aget keys idx) (aget nodes idx)))
+      (recur (inc idx) (.insert node (aget keys idx) (aget nodes idx)))
       node)))
 
-(defn- insert-helper [{:keys [^long size ^bytes keys ^objects nodes prefix] :as node}
-                     ^long key-byte value]
+(defn- insert-helper [{:keys [^long size ^bytes keys ^objects nodes prefix] :as ^ARTBaseNode node}
+                      ^long key-byte value]
   (let [pos (key-position size keys key-byte)
         new-key? (neg? pos)]
     (if (and new-key? (= size (alength keys)))
-      (insert (grow-node node) key-byte value)
+      (.insert (.growNode node) key-byte value)
       (let [pos (cond-> pos
                   new-key? (-> (inc) (Math/abs)))
             new-keys (aclone keys)
@@ -57,7 +57,7 @@
         (when new-key?
           (make-gap size pos keys new-keys)
           (make-gap size pos nodes new-nodes))
-        (make-node node
+        (.makeNode node
                    (cond-> size
                      new-key? (inc))
                    (doto new-keys (aset pos (byte key-byte)))
@@ -84,10 +84,10 @@
     (aget nodes (dec size)))
 
   ARTBaseNode
-  (make-node [this size keys nodes prefix]
+  (makeNode [this size keys nodes prefix]
     (->Node4 size keys nodes prefix))
 
-  (grow-node [this]
+  (growNode [this]
     (grow-helper size keys nodes (assoc empty-node16 :prefix prefix))))
 
 (defrecord Node16 [^long size ^bytes keys ^objects nodes ^bytes prefix]
@@ -108,10 +108,10 @@
     (aget nodes (dec size)))
 
   ARTBaseNode
-  (make-node [this size keys nodes prefix]
+  (makeNode [this size keys nodes prefix]
     (->Node16 size keys nodes prefix))
 
-  (grow-node [this]
+  (growNode [this]
     (grow-helper size keys nodes (assoc empty-node48 :prefix prefix))))
 
 (defrecord Node48 [^long size ^bytes key-index ^objects nodes ^bytes prefix]
@@ -136,12 +136,12 @@
                   (doto (aclone nodes) (aset pos value))
                   prefix)
         (loop [key 0
-               node (assoc empty-node256 :prefix prefix)]
+               node ^ARTNode (assoc empty-node256 :prefix prefix)]
           (if (< key (alength key-index))
             (let [pos (aget key-index key)]
               (recur (inc key) (cond-> node
-                                 (not (neg? pos)) (insert key (aget nodes pos)))))
-            (insert node key-byte value))))))
+                                 (not (neg? pos)) (.insert key (aget nodes pos)))))
+            (.insert node key-byte value))))))
 
   (prefix [this]
     prefix)
@@ -151,14 +151,14 @@
       (let [key-byte (aget key-index idx)]
         (if (neg? key-byte)
           (recur (inc idx))
-          (lookup this key-byte)))))
+          (.lookup this key-byte)))))
 
   (maximum [this]
     (loop [idx (dec (alength key-index))]
       (let [key-byte (aget key-index idx)]
         (if (neg? key-byte)
           (recur (dec idx))
-          (lookup this key-byte))))))
+          (.lookup this key-byte))))))
 
 (defrecord Node256 [^long size ^objects nodes ^bytes prefix]
   ARTNode
@@ -184,15 +184,23 @@
     (loop [idx (dec (alength nodes))]
       (or (aget nodes idx) (recur (dec idx))))))
 
-(def empty-node4 (->Node4 0 (byte-array 4 (byte -1)) (object-array 4) (byte-array 0)))
+(def ^ARTNode empty-node4 (->Node4 0 (byte-array 4 (byte -1)) (object-array 4) (byte-array 0)))
 
-(def empty-node16 (->Node16 0 (byte-array 16 (byte -1)) (object-array 16) (byte-array 0)))
+(def ^ARTNode empty-node16 (->Node16 0 (byte-array 16 (byte -1)) (object-array 16) (byte-array 0)))
 
-(def empty-node48 (->Node48 0 (byte-array 256 (byte -1)) (object-array 48) (byte-array 0)))
+(def ^ARTNode empty-node48 (->Node48 0 (byte-array 256 (byte -1)) (object-array 48) (byte-array 0)))
 
-(def empty-node256 (->Node256 0 (object-array 256) (byte-array 0)))
+(def ^ARTNode empty-node256 (->Node256 0 (object-array 256) (byte-array 0)))
 
-(defrecord Leaf [^bytes key value])
+(defrecord Leaf [^bytes key value]
+  ARTNode
+  (lookup [this key-byte]
+    (throw (UnsupportedOperationException.)))
+  (insert [this key-byte value]
+    (throw (UnsupportedOperationException.)))
+  (prefix [this] key)
+  (minimum [this] value)
+  (maximum [this] value))
 
 (defn- leaf-matches-key? [^Leaf leaf ^bytes key-bytes]
   (zero? (Arrays/compareUnsigned key-bytes (bytes (.key leaf)))))
@@ -210,20 +218,15 @@
         (if (= new-key-byte old-key-byte)
           (recur (inc depth))
           (-> empty-node4
-              (insert new-key-byte (->Leaf key-bytes value))
-              (insert old-key-byte leaf)
+              (.insert new-key-byte (->Leaf key-bytes value))
+              (.insert old-key-byte leaf)
               (assoc :prefix (Arrays/copyOfRange key-bytes prefix-start depth))))))))
 
 (defn- leaf? [node]
   (instance? Leaf node))
 
 (defn- common-prefix-length ^long [^bytes key-bytes ^bytes prefix ^long depth]
-  (let [max-length (min (- (alength key-bytes) depth) (alength prefix))]
-    (loop [idx 0]
-      (if (and (< idx max-length)
-               (= (aget key-bytes (+ depth idx)) (aget prefix idx)))
-        (recur (inc idx))
-        idx))))
+  (Arrays/mismatch key-bytes depth (alength key-bytes) prefix 0 (alength prefix)))
 
 ;; Keys
 
@@ -277,7 +280,7 @@
 (defn art-make-tree []
   empty-node4)
 
-(defn art-lookup [tree key]
+(defn art-lookup [^ARTNode tree key]
   (let [key-bytes (->key-bytes key)]
     (loop [depth 0
            node tree]
@@ -285,43 +288,43 @@
         (when (leaf-matches-key? node key-bytes)
           (.value ^Leaf node))
         (when node
-          (let [prefix (prefix node)
+          (let [prefix (.prefix node)
                 common-prefix-length (common-prefix-length key-bytes prefix depth)
                 depth (+ depth common-prefix-length)]
             (when (= common-prefix-length (alength prefix))
-              (recur (inc depth) (lookup node (aget key-bytes depth))))))))))
+              (recur (inc depth) (.lookup node (aget key-bytes depth))))))))))
 
 (defn art-insert
-  ([tree key]
+  ([^ARTNode tree key]
    (art-insert tree key key))
-  ([tree key value]
+  ([^ARTNode tree key value]
    (let [key-bytes (->key-bytes key)]
-     ((fn step [^long depth node]
-        (let [prefix (prefix node)
+     ((fn step [^long depth ^ARTNode node]
+        (let [prefix (.prefix node)
               common-prefix-length (common-prefix-length key-bytes prefix depth)
               depth (+ depth common-prefix-length)]
           (if (= common-prefix-length (alength prefix))
             (let [key-byte (aget key-bytes depth)
-                  child (lookup node key-byte)
+                  child (.lookup node key-byte)
                   new-child (if (and child (not (leaf? child)))
                               (step (inc depth) child)
                               (if (or (nil? child) (leaf-matches-key? child key-bytes))
                                 (->Leaf key-bytes value)
                                 (leaf-insert-helper child (inc depth) key-bytes value)))]
-              (insert node key-byte new-child))
+              (.insert node key-byte new-child))
             (-> empty-node4
-                (assoc :prefix (Arrays/copyOfRange prefix 0 common-prefix-length))
-                (insert (aget key-bytes depth) (->Leaf key-bytes value))
-                (insert (aget prefix common-prefix-length)
-                        (assoc node :prefix (Arrays/copyOfRange prefix (inc common-prefix-length) (alength prefix))))))))
+                ^ARTNode (assoc :prefix (Arrays/copyOfRange prefix 0 common-prefix-length))
+                (.insert (aget key-bytes depth) (->Leaf key-bytes value))
+                (.insert (aget prefix common-prefix-length)
+                         (assoc node :prefix (Arrays/copyOfRange prefix (inc common-prefix-length) (alength prefix))))))))
       0 (or tree (art-make-tree))))))
 
-(defn art-minimum [tree]
+(defn art-minimum [^ARTNode tree]
   (if (leaf? tree)
     (.value ^Leaf tree)
-    (recur (minimum tree))))
+    (recur (.minimum tree))))
 
-(defn art-maximum [tree]
+(defn art-maximum [^ARTNode tree]
   (if (leaf? tree)
     (.value ^Leaf tree)
-    (recur (maximum tree))))
+    (recur (.maximum tree))))

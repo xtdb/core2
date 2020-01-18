@@ -194,7 +194,12 @@
 (defrecord Leaf [^bytes key value])
 
 (defn leaf-matches-key? [^Leaf leaf ^bytes key-bytes]
-  (Arrays/equals key-bytes (bytes (.key leaf))))
+  (zero? (Arrays/compareUnsigned key-bytes (bytes (.key leaf)))))
+
+(defn leaf-matches-prefix-key? [^Leaf leaf ^bytes key-bytes]
+  (let [leaf-key (bytes (.key leaf))
+        key-length (min (count leaf-key) (count key-bytes))]
+    (nat-int? (Arrays/compareUnsigned key-bytes 0 key-length leaf-key 0 key-length))))
 
 (defn leaf-insert-helper [^Leaf leaf depth ^bytes key-bytes value]
   (let [prefix-start (long depth)]

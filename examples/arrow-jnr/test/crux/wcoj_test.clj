@@ -167,8 +167,8 @@
   (t/is (= "ancestor(bob, douglas).
 ancestor(bob, john).
 ancestor(ebbon, douglas).
-ancestor(ebbon, bob).
 ancestor(ebbon, john).
+ancestor(ebbon, bob).
 ancestor(john, douglas).
 "
            (with-out-str
@@ -358,7 +358,7 @@ perm(c, b)."
   (t/testing "horn 2"
     (t/is (= #{[1 3] [2 4] [3 5]}
              (-> (wcoj/execute-datalog '[a(X, Y) :- p(X, Y).
-                                              b(X, Y) :- a(X, Z), p(Z, Y).])
+                                         b(X, Y) :- a(X, Z), p(Z, Y).])
                  (wcoj/assert-all 'p #{[1 2] [2 3] [3 4] [4 5]})
                  (wcoj/query-by-name 'b)
                  (set)))))
@@ -366,8 +366,8 @@ perm(c, b)."
   (t/testing "horn 3"
     (t/is (= #{[1 4] [2 5]}
              (-> (wcoj/execute-datalog '[a(X, Y) :- p(X, Y).
-                                              b(X, Y) :- a(X, Z), p(Z, Y).
-                                              c(X, Y) :- b(X, Z), p(Z, Y).])
+                                         b(X, Y) :- a(X, Z), p(Z, Y).
+                                         c(X, Y) :- b(X, Z), p(Z, Y).])
                  (wcoj/assert-all 'p #{[1 2] [2 3] [3 4] [4 5]})
                  (wcoj/query-by-name 'c)
                  (set)))))
@@ -444,7 +444,7 @@ perm(c, b)."
   (t/testing "recursion 1"
     (t/is (= #{[1 2] [2 3] [1 3] [3 3] [3 2] [2 2]}
              (-> (wcoj/execute-datalog '[a(X, Y) :- p(X, Y).
-                                              a(X, Y) :- a(X, Z), p(Z, Y).])
+                                         a(X, Y) :- a(X, Z), p(Z, Y).])
                  (wcoj/assert-all 'p #{[1 2] [2 3] [3 2]})
                  (wcoj/query-by-name 'a)
                  (set)))))
@@ -452,7 +452,7 @@ perm(c, b)."
   (t/testing "recursion 2"
     (t/is (= #{[1 2] [2 3] [1 3] [3 4] [2 4] [1 4] [4 5] [3 5] [2 5] [1 5]}
              (-> (wcoj/execute-datalog '[a(X, Y) :- p(X, Y).
-                                              a(X, Y) :- a(X, Z), p(Z, Y).])
+                                         a(X, Y) :- p(X, Z), a(Z, Y).])
                  (wcoj/assert-all 'p #{[1 2] [2 3] [3 4] [4 5]})
                  (wcoj/query-by-name 'a)
                  (set)))))
@@ -461,7 +461,7 @@ perm(c, b)."
     (t/is (= #{[4 3] [2 2] [2 3] [2 5] [3 3] [5 4] [3 4] [4 2] [5 3] [5 2] [1 4]
                [1 3] [1 5] [5 5] [2 4] [4 5] [4 4] [1 2] [3 5] [3 2]}
              (-> (wcoj/execute-datalog '[a(X, Y) :- p(X, Y).
-                                              a(X, Y) :- a(X, Z), p(Z, Y).])
+                                         a(X, Y) :- a(X, Z), p(Z, Y).])
                  (wcoj/assert-all 'p #{[1 2] [2 3] [2 5] [3 4] [4 2] [5 4]})
                  (wcoj/query-by-name 'a)
                  (set)))))

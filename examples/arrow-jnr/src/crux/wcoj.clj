@@ -46,10 +46,10 @@
   ([])
   ([c1] c1)
   ([c1 & colls]
-   (lazy-seq
-    (when-let [ss (seq (remove empty? (cons c1 colls)))]
-      (concat (distinct (map first ss))
-              (apply interleave-all (map rest ss)))))) )
+   (when-let [ss (seq (remove empty? (cons c1 colls)))]
+     (distinct
+      (concat (map first ss)
+              (apply concat (map rest ss)))))) )
 
 (defn- find-vars [body]
   (let [vars (atom [])]
@@ -155,26 +155,25 @@
 
   (table-filter [this db var-bindings]
     (let [db (vary-meta db update :rule-table-state #(or % (atom {})))
-          {:keys [rule-table-state]} (meta db)
+          db (vary-meta db update :rule-depth (fnil inc 0))
+          {:keys [rule-table-state rule-depth]} (meta db)
           key-var-bindings (if (instance? Repeat var-bindings)
                              nil
                              (for [v var-bindings]
                                (if (cd/prolog-var? v)
                                  '_
                                  v)))
-          rule-table @rule-table-state
-          memo-level (mod (count rule-table) (inc (count rules)))
-          memo-key [(System/identityHashCode rules) key-var-bindings memo-level]
-          memo-value (get rule-table memo-key ::not-found)]
-      (if (= ::not-found memo-value)
-        ((fn step [[rule & rules]]
-           (lazy-seq
-            (when rule
-              (interleave-all
+          rule-table @rule-table-state]
+      (->> (for [rule rules
+                 :let [memo-key [(System/identityHashCode rule) key-var-bindings]
+                       memo-value (get rule-table memo-key ::not-found)]]
+             ;; TODO: Fix this condition
+             (if (or (< (long rule-depth) 4)
+                     (= ::not-found memo-value))
                (doto ((compile-rule rule) db var-bindings)
-                 (->> (swap! rule-table-state update memo-key interleave-all)))
-               (step rules))))) rules)
-        memo-value)))
+                 (->> (swap! rule-table-state assoc memo-key)))
+               memo-value))
+           (apply interleave-all))))
 
   (insert [this rule]
     (s/assert :crux.datalog/rule rule)

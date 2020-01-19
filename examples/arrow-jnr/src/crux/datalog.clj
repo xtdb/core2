@@ -55,6 +55,7 @@
 
 ;; real parser, not complete.
 ;; requires https://github.com/Engelberg/instaparse
+;; non-trivial example: https://github.com/bodil/BODOL/blob/master/src/bodol/parser.clj
 
 #_(def parser
     (insta/parser

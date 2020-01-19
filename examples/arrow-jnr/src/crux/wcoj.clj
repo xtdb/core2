@@ -7,7 +7,7 @@
             [clojure.walk :as w]
             [crux.datalog :as cd])
   (:import [clojure.lang IPersistentCollection IPersistentMap
-            LineNumberingPushbackReader]
+            LineNumberingPushbackReader Symbol]
            java.io.StringReader))
 
 (set! *unchecked-math* :warn-on-boxed)
@@ -27,25 +27,31 @@
   (ensure-relation [this relation-name relation-factory])
   (relation-by-name [this relation-name]))
 
-(defn- can-unify? [x y]
-  (or (= x y)
-      (cd/logic-var? x)
-      (cd/logic-var? y)))
+(defprotocol Unification
+  (unify [this that]))
 
-(declare unify-tuple)
+(extend-protocol Unification
+  Symbol
+  (unify [this that]
+    (if (cd/logic-var? that)
+      [this this]
+      (if (or (= this that)
+              (cd/logic-var? this))
+        [that that])))
 
-(defn unify [x y]
-  (if (vector? x)
-    (unify-tuple x y)
-    (when (can-unify? x y)
-      (if (cd/logic-var? x)
-        [y y]
-        [x x]))))
+  IPersistentCollection
+  (unify [this that]
+    (if (cd/logic-var? that)
+      (unify that this)
+      (when (coll? that)
+        (mapv unify this that))))
 
-(defn unify-tuple [tuple bindings]
-  (let [result (mapv unify tuple bindings)]
-    (when (every? identity result)
-      result)))
+  Object
+  (unify [this that]
+    (if (cd/logic-var? that)
+      (unify that this)
+      (when (= this that)
+        [this this]))))
 
 (defn- find-vars [body]
   (let [vars (atom [])]
@@ -99,8 +105,8 @@
     (crux.wcoj/relation-by-name ~db-sym '~symbol)
     ~db-sym ~(terms->values terms)))
 
-(defn- unification->clojure [bindings args]
-  `[:let [[~@bindings :as unified?#] (crux.wcoj/unify ~@args)]
+(defn- unification->clojure [bindings x y]
+  `[:let [[~@bindings :as unified?#] (crux.wcoj/unify ~x ~y)]
     :when unified?#])
 
 (defmulti ^:private datalog->clojure (fn [query-plan [type]]
@@ -110,17 +116,18 @@
   [(terms->bindings terms) (predicate->clojure query-plan predicate)])
 
 (defmethod datalog->clojure :equality-predicate [_ [_ {:keys [lhs op rhs]}]]
-  (let [args (terms->values [lhs rhs])
+  (let [bindings (terms->bindings [lhs rhs])
+        [lhs-arg rhs-arg :as args] (terms->values [lhs rhs])
         op-fn (get '{!= (complement crux.wcoj/unify)} op op)]
     (if (= '= op)
-      (unification->clojure (terms->bindings [lhs rhs]) args)
+      (unification->clojure bindings lhs-arg rhs-arg)
       `[:when (~op-fn ~@args)])))
 
 (defmethod datalog->clojure :not-predicate [query-plan [_ {:keys [predicate]}]]
   `[:when (empty? ~(predicate->clojure query-plan predicate))])
 
 (defmethod datalog->clojure :external-query [_ [_ {:keys [variable symbol terms]}]]
-  (unification->clojure [variable] [variable `(~symbol ~@(terms->values terms))]))
+  (unification->clojure [variable] variable `(~symbol ~@(terms->values terms))))
 
 (defn- query-plan->clojure [{:keys [free-vars head body] :as query-plan}]
   (let [{:keys [symbol terms]} head
@@ -136,7 +143,7 @@
               :let [~@(interleave free-vars (repeat ''_))
                     ~args ~args-sym]
               ~@(unification->clojure (map vector args)
-                 [args-sym (terms->values terms)])
+                 args-sym (terms->values terms))
               ~@bindings]
           ~args)))))
 

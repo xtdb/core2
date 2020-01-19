@@ -90,6 +90,6 @@ constant = identifier | string | number | boolean
   (insta/transform
    {:term (fn [[tag value]]
             [tag (edn/read-string value)])
-    :symbol edn/read-string
+    :symbol symbol
     :arguments vector}
    (insta/parse datalog-parser datalog-source)))

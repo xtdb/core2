@@ -75,4 +75,5 @@
                        [:assignment (symbol variable) value])
          :comparison_operator symbol
          :symbol symbol
+         :external_symbol symbol
          :arguments vector})))

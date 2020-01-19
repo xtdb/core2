@@ -18,7 +18,7 @@ body = literal*
 <literal> = predicate | not | equality_predicate | assignment
 predicate = symbol arguments?
 not = <('not'|'!')> predicate
-external_query = symbol arguments?
+external_query = external_symbol arguments?
 equality_predicate = term comparison_operator term
 comparison_operator = '=' | '!=' | '<' | '<=' | '>' | '>='
 assignment = variable <('is'|':-'|'=')> (arithmetic | external_query)
@@ -33,10 +33,11 @@ div = mul_div <'/'> expression_term
 
 symbol = identifier
 arguments = (<'('> term* <')'>)
+external_symbol = #'[\S&&[^(]]+'
 term = constant | variable
 variable = #'[A-Z_]\w*'
 constant = boolean |  identifier | string | number
 <boolean> = 'true' | 'false'
 <string> = #'"([^"\\]|\\.)*"'
 <number> = #'-?\d+(.?\d+)?'
-<identifier> = #'[a-z]\w*'
+<identifier> = #'[a-z][\w/]*'

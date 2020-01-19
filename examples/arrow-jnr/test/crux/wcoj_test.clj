@@ -165,10 +165,10 @@
 
 (t/deftest test-ancestor
   (t/is (= "ancestor(bob, douglas).
-ancestor(ebbon, douglas).
-ancestor(ebbon, john).
 ancestor(bob, john).
 ancestor(ebbon, bob).
+ancestor(ebbon, douglas).
+ancestor(ebbon, john).
 ancestor(john, douglas).
 "
            (with-out-str
@@ -244,16 +244,14 @@ path(c, d).
 path(d, a).
 path(d, b).
 path(d, c).
-path(d, d)."
-           (->> (with-out-str
-                  (wcoj/execute-datalog
-                   '[edge(a, b). edge(b, c). edge(c, d). edge(d, a).
-                     path(X, Y) :- edge(X, Y).
-                     path(X, Y) :- edge(X, Z), path(Z, Y).
-                     path(X, Y)?]))
-                (str/split-lines)
-                (into (sorted-set))
-                (str/join "\n")))))
+path(d, d).
+"
+           (with-out-str
+             (wcoj/execute-datalog
+              '[edge(a, b). edge(b, c). edge(c, d). edge(d, a).
+                path(X, Y) :- edge(X, Y).
+                path(X, Y) :- edge(X, Z), path(Z, Y).
+                path(X, Y)?])))))
 
 (t/deftest test-pq
   (t/is (= "q(a).
@@ -281,16 +279,14 @@ path(c, d).
 path(d, a).
 path(d, b).
 path(d, c).
-path(d, d)."
+path(d, d).
+"
            (->> (with-out-str
                   (wcoj/execute-datalog
                    '[edge(a, b). edge(b, c). edge(c, d). edge(d, a).
                      path(X, Y) :- edge(X, Y).
                      path(X, Y) :- path(X, Z), edge(Z, Y).
-                     path(X, Y)?]))
-                (str/split-lines)
-                (into (sorted-set))
-                (str/join "\n")))))
+                     path(X, Y)?]))))))
 
 (t/deftest test-tc
   (t/is (= "r(a, b).
@@ -310,18 +306,16 @@ perm(a, c).
 perm(b, a).
 perm(b, c).
 perm(c, a).
-perm(c, b)."
-           (->> (with-out-str
-                  (wcoj/execute-datalog
-                   '[sym(a).
-                     sym(b).
-                     sym(c).
-                     perm(X,Y) :- sym(X), sym(Y), X != Y .
+perm(c, b).
+"
+           (with-out-str
+             (wcoj/execute-datalog
+              '[sym(a).
+                sym(b).
+                sym(c).
+                perm(X,Y) :- sym(X), sym(Y), X != Y .
 
-                     perm(X,Y)?]))
-                (str/split-lines)
-                (into (sorted-set))
-                (str/join "\n")))))
+                perm(X,Y)?])))))
 
 (t/deftest test-true
   (t/is (= "true.

@@ -52,3 +52,30 @@
                            (complement (some-fn logic-var? '#{. ? = != ! % not}
                                                 #(and (not= '- %) (contains? #{\. \? \-} (last (str %))))))))
 (s/def ::variable logic-var?)
+
+;; real parser, not complete.
+;; requires https://github.com/Engelberg/instaparse
+
+#_(def parser
+    (insta/parser
+     "
+<program> = statement (whitespace statement)*
+<statement> = assertion | retraction | query | requirement
+assertion = clause <'.'>
+retraction = clause <('~'|'-')>
+requirement = <'('> identifier <')'> <'.'>
+query = predicate <'?'>
+<clause> = rule | predicate
+rule =  head body
+head = predicate whitespace <':-'> whitespace
+body = predicate (whitespace predicate)*
+predicate = identifier arguments?
+arguments = (<'('> (term whitespace)* <')'>)
+<term> = constant | variable
+variable = #'[A-Z_]\\w*'
+<constant> = identifier | string | number | boolean
+boolean = 'true' | 'false'
+string = '\"' #'\\w+' '\"'
+number = #'\\d+'
+identifier = #'[a-z]\\w*'
+<whitespace> = <#'[,\\s]*'>"))

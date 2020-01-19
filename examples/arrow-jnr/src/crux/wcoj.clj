@@ -76,7 +76,7 @@
         {:keys [symbol terms]} head
         head-vars (find-vars head)
         {:keys [predicate not-predicate external-query]} (group-by first body)
-        free-vars (apply disj (set (find-vars predicate)) head-vars)
+        existential-vars (apply disj (set (find-vars predicate)) head-vars)
         body-without-not (remove (set not-predicate) body)
         body-vars (set (find-vars body-without-not))]
     (assert (= (distinct head-vars)
@@ -89,7 +89,7 @@
             :let [arg-vars (find-vars terms)]]
       (assert (= arg-vars (distinct arg-vars))
               "predicate argument variables cannot be reused"))
-    {:free-vars free-vars
+    {:existential-vars existential-vars
      :rule rule
      :head head
      :body (vec (concat body-without-not not-predicate))}))
@@ -137,7 +137,7 @@
 (defmethod datalog->clojure :external-query [_ [_ {:keys [variable symbol terms]}]]
   (unification->clojure [variable] variable `(~symbol ~@(mapv term->value terms))))
 
-(defn- query-plan->clojure [{:keys [free-vars head body] :as query-plan}]
+(defn- query-plan->clojure [{:keys [existential-vars head body] :as query-plan}]
   (let [{:keys [symbol terms]} head
         db-sym (gensym 'db)
         args-sym (gensym 'args)
@@ -148,7 +148,7 @@
        ([~db-sym] (~symbol ~db-sym [~@(repeatedly (count args) #(quote-term (gensym '_)))]))
        ([~db-sym ~args-sym]
         (for [loop# [nil]
-              :let [~@(interleave free-vars (map quote-term free-vars))
+              :let [~@(interleave existential-vars (map quote-term existential-vars))
                     ~args ~args-sym]
               ~@(unification->clojure (map vector args)
                  args-sym (mapv term->value terms))

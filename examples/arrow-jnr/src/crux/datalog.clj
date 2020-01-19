@@ -84,7 +84,10 @@ constant = boolean |  identifier | string | number
 <string> = #'\"([^\"\\\\]|\\\\.)*\"'
 <number> = #'-?\\d+(.?\\d+)?'
 <identifier> = #'[a-z]\\w*'"
-   :auto-whitespace :comma))
+   :auto-whitespace
+   (insta/parser "
+whitespace = #'[,\\s]+' | comment
+comment = whitespace? #'%.+(\n|$)' whitespace?")))
 
 (defn parse-datalog [datalog-source]
   (insta/transform

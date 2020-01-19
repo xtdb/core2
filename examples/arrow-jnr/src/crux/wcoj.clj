@@ -99,10 +99,13 @@
     (gensym 'constant)
     term))
 
+(defn- quote-term [term]
+  (list 'quote term))
+
 (defn- term->value [[type term]]
   (if (and (= :constant type)
            (symbol? term))
-    (list 'quote term)
+    (quote-term term)
     term))
 
 (defn- predicate->clojure [{:keys [db-sym]} {:keys [symbol terms]}]
@@ -142,10 +145,10 @@
         bindings (mapcat (partial datalog->clojure query-plan) body)
         args (mapv term->binding terms)]
     `(fn ~symbol
-       ([~db-sym] (~symbol ~db-sym [~@(repeat (count args) ''_)]))
+       ([~db-sym] (~symbol ~db-sym [~@(repeatedly (count args) #(quote-term (gensym '_)))]))
        ([~db-sym ~args-sym]
         (for [loop# ['~'_]
-              :let [~@(interleave free-vars (repeat ''_))
+              :let [~@(interleave free-vars (map quote-term free-vars))
                     ~args ~args-sym]
               ~@(unification->clojure (map vector args)
                  args-sym (mapv term->value terms))
@@ -221,7 +224,7 @@
 
   (table-filter [this db var-bindings]
     (for [tuple (table-scan this db)
-          :when (unify-tuple tuple var-bindings)]
+          :when (unify tuple var-bindings)]
       tuple))
 
   (insert [this tuple]

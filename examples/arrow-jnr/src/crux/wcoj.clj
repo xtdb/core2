@@ -95,23 +95,21 @@
      :head head
      :body (vec (concat body-without-not not-predicate))}))
 
-(defn- terms->bindings [terms]
-  (vec (for [[type term] terms]
-         (if (= :constant type)
-           (gensym 'constant)
-           term))))
+(defn- term->binding [[type term]]
+  (if (= :constant type)
+    (gensym 'constant)
+    term))
 
-(defn- terms->values [terms]
-  (vec (for [[type term] terms]
-         (if (and (= :constant type)
-                  (symbol? term))
-           (list 'quote term)
-           term))))
+(defn- term->value [[type term]]
+  (if (and (= :constant type)
+           (symbol? term))
+    (list 'quote term)
+    term))
 
 (defn- predicate->clojure [{:keys [db-sym]} {:keys [symbol terms]}]
   `(crux.wcoj/table-filter
     (crux.wcoj/relation-by-name ~db-sym '~symbol)
-    ~db-sym ~(terms->values terms)))
+    ~db-sym ~(mapv term->value terms)))
 
 (defn- unification->clojure [bindings x y]
   `[:let [[~@bindings :as unified?#] (crux.wcoj/unify ~x ~y)]
@@ -121,20 +119,21 @@
                                        type))
 
 (defmethod datalog->clojure :predicate [query-plan [_ {:keys [terms] :as predicate}]]
-  [(terms->bindings terms) (predicate->clojure query-plan predicate)])
+  [(mapv term->binding terms) (predicate->clojure query-plan predicate)])
 
 (defmethod datalog->clojure :equality-predicate [_ [_ {:keys [lhs op rhs]}]]
-  (let [args (terms->values [lhs rhs])
-        op-fn (get '{!= (complement crux.wcoj/unify)} op op)]
+  (let [op-fn (get '{!= (complement crux.wcoj/unify)} op op)]
     (if (= '= op)
-      (unification->clojure (terms->bindings [lhs rhs]) (first args) (second args))
-      `[:when (~op-fn ~@args)])))
+      (unification->clojure
+       [(term->binding lhs) (term->binding rhs)]
+       (term->value lhs) (term->value rhs))
+      `[:when (~op-fn ~(term->value lhs) ~(term->value rhs))])))
 
 (defmethod datalog->clojure :not-predicate [query-plan [_ {:keys [predicate]}]]
   `[:when (empty? ~(predicate->clojure query-plan predicate))])
 
 (defmethod datalog->clojure :external-query [_ [_ {:keys [variable symbol terms]}]]
-  (unification->clojure [variable] variable `(~symbol ~@(terms->values terms))))
+  (unification->clojure [variable] variable `(~symbol ~@(mapv term->value terms))))
 
 (defn- query-plan->clojure [{:keys [free-vars head body] :as query-plan}]
   (let [{:keys [symbol terms]} head
@@ -142,7 +141,7 @@
         args-sym (gensym 'args)
         query-plan (assoc query-plan :db-sym db-sym)
         bindings (mapcat (partial datalog->clojure query-plan) body)
-        args (terms->bindings terms)]
+        args (mapv term->binding terms)]
     `(fn ~symbol
        ([~db-sym] (~symbol ~db-sym [~@(repeat (count args) ''_)]))
        ([~db-sym ~args-sym]
@@ -150,7 +149,7 @@
               :let [~@(interleave free-vars (repeat ''_))
                     ~args ~args-sym]
               ~@(unification->clojure (map vector args)
-                 args-sym (terms->values terms))
+                 args-sym (mapv term->value terms))
               ~@bindings]
           ~args)))))
 

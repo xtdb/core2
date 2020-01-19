@@ -44,7 +44,15 @@
     (if (cd/logic-var? that)
       (unify that this)
       (when (coll? that)
-        (mapv unify this that))))
+        (first
+         (reduce
+          (fn [[acc smap] [x y]]
+            (or (when-let [[xu yu] (unify (get smap x x) (get smap y y))]
+                  [(conj acc [xu yu])
+                   (assoc smap x xu y yu)])
+                (reduced nil)))
+          [[] {}]
+          (mapv vector this that))))))
 
   Object
   (unify [this that]
@@ -116,11 +124,10 @@
   [(terms->bindings terms) (predicate->clojure query-plan predicate)])
 
 (defmethod datalog->clojure :equality-predicate [_ [_ {:keys [lhs op rhs]}]]
-  (let [bindings (terms->bindings [lhs rhs])
-        args (terms->values [lhs rhs])
+  (let [args (terms->values [lhs rhs])
         op-fn (get '{!= (complement crux.wcoj/unify)} op op)]
     (if (= '= op)
-      (unification->clojure bindings (first args) (second args))
+      (unification->clojure (terms->bindings [lhs rhs]) (first args) (second args))
       `[:when (~op-fn ~@args)])))
 
 (defmethod datalog->clojure :not-predicate [query-plan [_ {:keys [predicate]}]]

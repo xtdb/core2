@@ -1,5 +1,6 @@
 (ns crux.datalog
   (:require [clojure.edn :as edn]
+            [clojure.java.io :as  io]
             [clojure.spec.alpha :as s]
             [instaparse.core :as insta]))
 
@@ -62,45 +63,10 @@
 (def ^:private
   datalog-parser
   (insta/parser
-   "
-<program> = statement*
-<statement> = assertion | retraction | query | requirement
-assertion = clause <'.'>
-retraction = clause <('~'|'-')>
-requirement = <'('> symbol <')'> <'.'>
-query = predicate <'?'>
-<clause> = rule | fact
-rule =  head body
-fact = predicate
-head = predicate <':-'>
-body = literal*
-<literal> = predicate | not | equality_predicate | assignment
-predicate = symbol arguments?
-not = <('not'|'!')> predicate
-external_query = symbol arguments?
-equality_predicate = term comparison_operator term
-comparison_operator = '=' | '!=' | '<' | '<=' | '>' | '>='
-assignment = variable <('is'|':-'|'=')> (arithmetic | external_query)
-<arithmetic> = mul_div | add | sub
-add = arithmetic <'+'> mul_div
-sub = arithmetic <'-'> mul_div
-<mul_div> = expression_term | mul | div
-mul = mul_div <'*'> expression_term
-div = mul_div <'/'> expression_term
-<expression_term> = term | <'('> arithmetic <')'>
-symbol = identifier
-arguments = (<'('> term* <')'>)
-term = constant | variable
-variable = #'[A-Z_]\\w*'
-constant = boolean |  identifier | string | number
-<boolean> = 'true' | 'false'
-<string> = #'\"([^\"\\\\]|\\\\.)*\"'
-<number> = #'-?\\d+(.?\\d+)?'
-<identifier> = #'[a-z]\\w*'"
+   (io/resource "crux/datalog.ebnf")
    :auto-whitespace
-   (insta/parser "
-whitespace = #'[,\\s]+' | comment
-comment = whitespace? #'%.+(\n|$)' whitespace?")))
+   (insta/parser
+    "whitespace = #'[,\\s]+' | whitespace? #'%.+(\n|$)' whitespace?")))
 
 (defn parse-datalog [datalog-source]
   (insta/transform

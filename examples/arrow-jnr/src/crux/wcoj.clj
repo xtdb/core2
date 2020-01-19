@@ -32,16 +32,20 @@
       (cd/logic-var? x)
       (cd/logic-var? y)))
 
-(defn unify [x y]
-  (when (can-unify? x y)
-    (if (cd/logic-var? x)
-      [y y]
-      [x x])))
+(declare unify-tuple)
 
-(defn unified-tuple [tuple bindings]
+(defn unify [x y]
+  (if (vector? x)
+    (unify-tuple x y)
+    (when (can-unify? x y)
+      (if (cd/logic-var? x)
+        [y y]
+        [x x]))))
+
+(defn unify-tuple [tuple bindings]
   (let [result (mapv unify tuple bindings)]
     (when (every? identity result)
-      (mapv first result))))
+      result)))
 
 (defn- find-vars [body]
   (let [vars (atom [])]
@@ -58,9 +62,7 @@
         {:keys [symbol terms]} head
         head-vars (find-vars head)
         {:keys [predicate not-predicate external-query]} (group-by first body)
-        free-vars (->> (map (comp :variable second) external-query)
-                       (concat head-vars)
-                       (apply disj (set (find-vars predicate))))
+        free-vars (apply disj (set (find-vars predicate)) head-vars)
         body-without-not (remove (set not-predicate) body)
         body-vars (set (find-vars body-without-not))]
     (assert (= (distinct head-vars)
@@ -97,6 +99,10 @@
     (crux.wcoj/relation-by-name ~db-sym '~symbol)
     ~db-sym ~(terms->values terms)))
 
+(defn- unification->clojure [bindings args]
+  `[:let [[~@bindings :as unified?#] (crux.wcoj/unify ~@args)]
+    :when unified?#])
+
 (defmulti ^:private datalog->clojure (fn [query-plan [type]]
                                        type))
 
@@ -107,32 +113,30 @@
   (let [args (terms->values [lhs rhs])
         op-fn (get '{!= (complement crux.wcoj/unify)} op op)]
     (if (= '= op)
-      `[:let [[~@(terms->bindings [lhs rhs]) :as unified?#] (crux.wcoj/unify ~@args)]
-        :when unified?#]
+      (unification->clojure (terms->bindings [lhs rhs]) args)
       `[:when (~op-fn ~@args)])))
 
 (defmethod datalog->clojure :not-predicate [query-plan [_ {:keys [predicate]}]]
   `[:when (empty? ~(predicate->clojure query-plan predicate))])
 
 (defmethod datalog->clojure :external-query [_ [_ {:keys [variable symbol terms]}]]
-  `[:let [~variable (~symbol ~@(terms->values terms))]])
+  (unification->clojure [variable] [variable `(~symbol ~@(terms->values terms))]))
 
 (defn- query-plan->clojure [{:keys [free-vars head body] :as query-plan}]
   (let [{:keys [symbol terms]} head
         db-sym (gensym 'db)
+        args-sym (gensym 'args)
         query-plan (assoc query-plan :db-sym db-sym)
         bindings (mapcat (partial datalog->clojure query-plan) body)
         args (terms->bindings terms)]
     `(fn ~symbol
        ([~db-sym] (~symbol ~db-sym [~@(repeat (count args) ''_)]))
-       ([~db-sym args#]
+       ([~db-sym ~args-sym]
         (for [loop# ['~'_]
               :let [~@(interleave free-vars (repeat ''_))
-                    ~args args#
-                    [~@args :as unified?#]
-                    (crux.wcoj/unified-tuple
-                     args# ~(terms->values terms))]
-              :when unified?#
+                    ~args ~args-sym]
+              ~@(unification->clojure (map vector args)
+                 [args-sym (terms->values terms)])
               ~@bindings]
           ~args)))))
 
@@ -205,7 +209,7 @@
 
   (table-filter [this db var-bindings]
     (for [tuple (table-scan this db)
-          :when (unified-tuple tuple var-bindings)]
+          :when (unify-tuple tuple var-bindings)]
       tuple))
 
   (insert [this tuple]

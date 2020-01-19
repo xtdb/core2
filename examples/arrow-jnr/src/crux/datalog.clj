@@ -73,8 +73,21 @@ query = predicate <'?'>
 rule =  head body
 fact = predicate
 head = predicate <':-'>
-body = predicate*
+body = literal*
+<literal> = predicate | not | equality_predicate | assignment
 predicate = symbol arguments?
+not = <('not'|'!')> predicate
+external_query = symbol arguments?
+equality_predicate = term comparison_operator term
+comparison_operator = '=' | '!=' | '<' | '<=' | '>' | '>='
+assignment = variable <('is'|':-'|'=')> (arithmetic | external_query)
+<arithmetic> = mul_div | add | sub
+add = arithmetic <'+'> mul_div
+sub = arithmetic <'-'> mul_div
+<mul_div> = expression_term | mul | div
+mul = mul_div <'*'> expression_term
+div = mul_div <'/'> expression_term
+<expression_term> = term | <'('> arithmetic <')'>
 symbol = identifier
 arguments = (<'('> term* <')'>)
 term = constant | variable
@@ -93,6 +106,8 @@ comment = whitespace? #'%.+(\n|$)' whitespace?")))
   (insta/transform
    {:term (fn [[tag value]]
             [tag (edn/read-string value)])
+    :comparison_operator symbol
+    :variable symbol
     :symbol symbol
     :arguments vector}
    (insta/parse datalog-parser datalog-source)))

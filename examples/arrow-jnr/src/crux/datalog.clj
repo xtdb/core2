@@ -69,8 +69,11 @@
 (defn parse-datalog [datalog-source]
   (->> (insta/parse datalog-parser datalog-source)
        (insta/transform
-        {:term (fn [[tag value]]
-                 [tag (edn/read-string value)])
+        {:term (fn [term]
+                 (if (symbol? term)
+                   [:variable term]
+                   (let [[tag value] term]
+                     [tag (edn/read-string value)])))
          :comparison_operator symbol
          :variable symbol
          :symbol symbol

@@ -85,9 +85,8 @@
             "rule does not satisfy safety requirement for head variables")
     (assert (set/superset? body-vars (set (find-vars not-predicate)))
             "rule does not satisfy safety requirement for not clauses")
-    (doseq [literal predicate
-            :let [{:keys [symbol terms]} literal
-                  arg-vars (find-vars terms)]]
+    (doseq [{:keys [terms]}  predicate
+            :let [arg-vars (find-vars terms)]]
       (assert (= arg-vars (distinct arg-vars))
               "predicate argument variables cannot be reused"))
     {:free-vars free-vars

@@ -73,6 +73,8 @@
                  [tag (edn/read-string value)])
          :assignment (fn [[_ variable] value]
                        [:assignment (symbol variable) value])
+         :equality_predicate (fn [x op y]
+                               [:equality_predicate op x y])
          :comparison_operator symbol
          :symbol symbol
          :external_symbol symbol

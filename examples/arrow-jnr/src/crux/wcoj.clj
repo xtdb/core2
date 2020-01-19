@@ -310,7 +310,7 @@
   :hierarchy execution-hierarchy)
 
 (defmethod execute-statement :query [db [type {{:keys [symbol]} :head :as statement}]]
-  (doseq [tuple (dedupe (query-conformed-datalog db statement))]
+  (doseq [tuple (distinct (query-conformed-datalog db statement))]
     (println (tuple->datalog-str symbol tuple)))
   db)
 

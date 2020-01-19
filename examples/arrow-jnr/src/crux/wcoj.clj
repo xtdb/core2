@@ -147,7 +147,7 @@
     `(fn ~symbol
        ([~db-sym] (~symbol ~db-sym [~@(repeatedly (count args) #(quote-term (gensym '_)))]))
        ([~db-sym ~args-sym]
-        (for [loop# ['~'_]
+        (for [loop# [nil]
               :let [~@(interleave free-vars (map quote-term free-vars))
                     ~args ~args-sym]
               ~@(unification->clojure (map vector args)
@@ -164,24 +164,31 @@
 
 (def ^:private compile-rule (memoize compile-rule-no-memo))
 
-(defn- normalize-vars [vars]
-  (for [v vars]
-    (if (cd/logic-var? v)
-      '_
-      v)))
-
 (defn- execute-rules-no-memo [rules db var-bindings]
-  (->> (for [rule rules]
-         (if (empty? var-bindings)
-           ((compile-rule rule) db)
-           ((compile-rule rule) db var-bindings)))
-       (apply concat)
-       (distinct)))
+  (let [result (->> (for [rule rules]
+                      (if (empty? var-bindings)
+                        ((compile-rule rule) db)
+                        ((compile-rule rule) db var-bindings)))
+                    (apply concat)
+                    (distinct))]
+    (if (and (some cd/logic-var? var-bindings)
+             (not= var-bindings (distinct var-bindings)))
+      (filter #(unify var-bindings %) result)
+      result)))
+
+(defn- normalize-memo-binding [binding]
+  (if (cd/logic-var? binding)
+    ::variable
+    binding))
+
+(defn- rule-memo-key [rules var-bindings]
+  [(System/identityHashCode rules)
+   (map normalize-memo-binding var-bindings)])
 
 (defn- execute-rules [rules db var-bindings]
   (let [db (vary-meta db update :rule-memo-state #(or % (atom {})))
         {:keys [rule-memo-state]} (meta db)
-        memo-key [(System/identityHashCode rules) (normalize-vars var-bindings)]
+        memo-key (rule-memo-key rules var-bindings)
         memo-value (get @rule-memo-state memo-key ::not-found)]
     (if (= ::not-found memo-value)
       (doto (execute-rules-no-memo rules db var-bindings)

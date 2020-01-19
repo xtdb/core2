@@ -92,14 +92,16 @@
            (list 'quote term)
            term))))
 
+(defn- predicate->clojure [{:keys [db-sym]} {:keys [symbol terms]}]
+  `(crux.wcoj/table-filter
+    (crux.wcoj/relation-by-name ~db-sym '~symbol)
+    ~db-sym ~(terms->values terms)))
+
 (defmulti ^:private datalog->clojure (fn [query-plan [type]]
                                        type))
 
-(defmethod datalog->clojure :predicate [{:keys [db-sym]} [_ {:keys [symbol terms]}]]
-  `[~(terms->bindings terms)
-    (->> (crux.wcoj/table-filter
-          (crux.wcoj/relation-by-name ~db-sym '~symbol)
-          ~db-sym ~(terms->values terms)))])
+(defmethod datalog->clojure :predicate [query-plan [_ {:keys [terms] :as predicate}]]
+  [(terms->bindings terms) (predicate->clojure query-plan predicate)])
 
 (defmethod datalog->clojure :equality-predicate [_ [_ {:keys [lhs op rhs]}]]
   (let [args (terms->values [lhs rhs])
@@ -109,29 +111,27 @@
         :when unified?#]
       `[:when (~op-fn ~@args)])))
 
-(defmethod datalog->clojure :not-predicate [{:keys [db-sym]} [_ {{:keys [symbol terms]} :predicate}]]
-  `[:when (empty? (crux.wcoj/table-filter
-                   (crux.wcoj/relation-by-name ~db-sym '~symbol)
-                   ~db-sym ~(terms->values terms)))])
+(defmethod datalog->clojure :not-predicate [query-plan [_ {:keys [predicate]}]]
+  `[:when (empty? ~(predicate->clojure query-plan predicate))])
 
 (defmethod datalog->clojure :external-query [_ [_ {:keys [variable symbol terms]}]]
   `[:let [~variable (~symbol ~@(terms->values terms))]])
 
 (defn- query-plan->clojure [{:keys [free-vars head body] :as query-plan}]
-  (let [rule-name (:symbol head)
+  (let [{:keys [symbol terms]} head
         db-sym (gensym 'db)
         query-plan (assoc query-plan :db-sym db-sym)
         bindings (mapcat (partial datalog->clojure query-plan) body)
-        args (terms->bindings (:terms head))]
-    `(fn ~rule-name
-       ([~db-sym] (~rule-name ~db-sym [~@(repeat (count args) ''_)]))
+        args (terms->bindings terms)]
+    `(fn ~symbol
+       ([~db-sym] (~symbol ~db-sym [~@(repeat (count args) ''_)]))
        ([~db-sym args#]
         (for [loop# ['~'_]
               :let [~@(interleave free-vars (repeat ''_))
                     ~args args#
                     [~@args :as unified?#]
                     (crux.wcoj/unified-tuple
-                     args# ~(terms->values (:terms head)))]
+                     args# ~(terms->values terms))]
               :when unified?#
               ~@bindings]
           ~args)))))

@@ -1,5 +1,7 @@
 (ns crux.datalog
-  (:require [clojure.spec.alpha :as s]))
+  (:require [clojure.edn :as edn]
+            [clojure.spec.alpha :as s]
+            [instaparse.core :as insta]))
 
 ;; See Racket for the Datalog syntax in EBNF.
 ;; https://docs.racket-lang.org/datalog/datalog.html
@@ -57,26 +59,36 @@
 ;; requires https://github.com/Engelberg/instaparse
 ;; non-trivial example: https://github.com/bodil/BODOL/blob/master/src/bodol/parser.clj
 
-#_(def parser
-    (insta/parser
-     "
-<program> = statement (whitespace statement)*
+(def ^:private
+  datalog-parser
+  (insta/parser
+   "
+<program> = statement*
 <statement> = assertion | retraction | query | requirement
 assertion = clause <'.'>
 retraction = clause <('~'|'-')>
 requirement = <'('> identifier <')'> <'.'>
 query = predicate <'?'>
-<clause> = rule | predicate
+<clause> = rule | fact
 rule =  head body
-head = predicate whitespace <':-'> whitespace
-body = predicate (whitespace predicate)*
+fact = predicate
+head = predicate <':-'>
+body = predicate*
 predicate = identifier arguments?
-arguments = (<'('> (term whitespace)* <')'>)
-<term> = constant | variable
+arguments = (<'('> term* <')'>)
+term = constant | variable
 variable = #'[A-Z_]\\w*'
-<constant> = identifier | string | number | boolean
-boolean = 'true' | 'false'
-string = '\"' #'\\w+' '\"'
-number = #'\\d+'
-identifier = #'[a-z]\\w*'
-<whitespace> = <#'[,\\s]*'>"))
+constant = identifier | string | number | boolean
+<boolean> = 'true' | 'false'
+<string> = #'\"([^\"\\\\]|\\\\.)*\"'
+<number> = #'-?\\d+(.?\\d+)?'
+identifier = #'[a-z]\\w*'"
+   :auto-whitespace :comma))
+
+(defn parse-datalog [datalog-source]
+  (insta/transform
+   {:term (fn [[tag value]]
+            [tag (edn/read-string value)])
+    :identifier edn/read-string
+    :arguments vector}
+   (insta/parse datalog-parser datalog-source)))

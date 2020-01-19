@@ -92,16 +92,16 @@
            (list 'quote term)
            term))))
 
-(defmulti datalog->clojure (fn [[type] query-plan]
-                             type))
+(defmulti ^:private datalog->clojure (fn [query-plan [type]]
+                                       type))
 
-(defmethod datalog->clojure :predicate [[_ {:keys [symbol terms]}] {:keys [db-sym] :as query-plan}]
+(defmethod datalog->clojure :predicate [{:keys [db-sym]} [_ {:keys [symbol terms]}]]
   `[~(terms->bindings terms)
     (->> (crux.wcoj/table-filter
           (crux.wcoj/relation-by-name ~db-sym '~symbol)
           ~db-sym ~(terms->values terms)))])
 
-(defmethod datalog->clojure :equality-predicate [[_ {:keys [lhs op rhs]}] query-plan]
+(defmethod datalog->clojure :equality-predicate [_ [_ {:keys [lhs op rhs]}]]
   (let [args (terms->values [lhs rhs])
         op-fn (get '{!= (complement crux.wcoj/unify)} op op)]
     (if (= '= op)
@@ -109,20 +109,18 @@
         :when unified?#]
       `[:when (~op-fn ~@args)])))
 
-(defmethod datalog->clojure :not-predicate [[_ {{:keys [symbol terms]} :predicate}] {:keys [db-sym] :as query-plan}]
+(defmethod datalog->clojure :not-predicate [{:keys [db-sym]} [_ {{:keys [symbol terms]} :predicate}]]
   `[:when (empty? (crux.wcoj/table-filter
                    (crux.wcoj/relation-by-name ~db-sym '~symbol)
                    ~db-sym ~(terms->values terms)))])
 
-(defmethod datalog->clojure :external-query [[_ {:keys [variable symbol terms]}] query-plan]
+(defmethod datalog->clojure :external-query [_ [_ {:keys [variable symbol terms]}]]
   `[:let [~variable (~symbol ~@(terms->values terms))]])
 
 (defn- query-plan->clojure [{:keys [free-vars head body] :as query-plan}]
   (let [rule-name (:symbol head)
         db-sym (gensym 'db)
         query-plan (assoc query-plan :db-sym db-sym)
-        bindings (for [literal body]
-                   (datalog->clojure literal query-plan))
         args (terms->bindings (:terms head))]
     `(fn ~rule-name
        ([~db-sym] (~rule-name ~db-sym [~@(repeat (count args) ''_)]))
@@ -134,7 +132,7 @@
                     (crux.wcoj/unified-tuple
                      args# ~(terms->values (:terms head)))]
               :when unified?#
-              ~@(apply concat bindings)]
+              ~@(mapcat (partial datalog->clojure query-plan) body)]
           ~args)))))
 
 (defn- compile-rule-no-memo [rule]
@@ -152,26 +150,32 @@
       '_
       v)))
 
+(defn- execute-rules [rules db var-bindings]
+  (->> (for [rule rules]
+         (if (empty? var-bindings)
+           ((compile-rule rule) db)
+           ((compile-rule rule) db var-bindings)))
+       (apply concat)
+       (distinct)))
+
+(defn- execute-rules-memo [rules db var-bindings]
+  (let [db (vary-meta db update :rule-memo-state #(or % (atom {})))
+        {:keys [rule-memo-state]} (meta db)
+        key-var-bindings (normalize-vars var-bindings)
+        memo-key [(System/identityHashCode rules) key-var-bindings]
+        memo-value (get @rule-memo-state memo-key ::not-found)]
+    (if (= ::not-found memo-value)
+      (doto (execute-rules rules db var-bindings)
+        (->> (swap! rule-memo-state assoc memo-key)))
+      memo-value)))
+
 (defrecord RuleRelation [rules]
   Relation
   (table-scan [this db]
     (table-filter this db nil))
 
   (table-filter [this db var-bindings]
-    (let [db (vary-meta db update :rule-memo-state #(or % (atom {})))
-          {:keys [rule-memo-state]} (meta db)
-          key-var-bindings (normalize-vars var-bindings)
-          memo-key [(System/identityHashCode rules) key-var-bindings]
-          memo-value (get @rule-memo-state memo-key ::not-found)]
-      (if (= ::not-found memo-value)
-        (doto (->> (for [rule rules]
-                     (if (empty? var-bindings)
-                       ((compile-rule rule) db)
-                       ((compile-rule rule) db var-bindings)))
-                   (apply concat)
-                   (distinct))
-          (->> (swap! rule-memo-state assoc memo-key)))
-        memo-value)))
+    (execute-rules-memo rules db var-bindings))
 
   (insert [this rule]
     (s/assert :crux.datalog/rule rule)
@@ -278,35 +282,44 @@
          (str "(" (str/join ", " tuple) ")"))
        "."))
 
+(def ^:private execution-hierarchy
+  (-> (make-hierarchy)
+      (derive :assertion :modification)
+      (derive :retraction :modification)
+      (atom)))
+
+(defmulti ^:private execute-statement
+  (fn [db [type]]
+    type)
+  :hierarchy execution-hierarchy)
+
+(defmethod execute-statement :query [db [type {{:keys [symbol]} :head :as statement}]]
+  (doseq [tuple (dedupe (query-conformed-datalog db statement))]
+    (println (tuple->datalog-str symbol tuple)))
+  db)
+
+(defmethod execute-statement :requirement [db [type {:keys [identifier]}]]
+  (require (first identifier))
+  db)
+
+(defmethod execute-statement :modification [db [type {:keys [clause]}]]
+  (let [op (get {:assertion assertion :retraction retraction} type)
+        [type clause] clause
+        {:keys [symbol terms]} (:head clause)]
+    (case type
+      :fact
+      (op db symbol (mapv second terms))
+
+      :rule
+      (op db symbol (vec (s/unform :crux.datalog/rule clause))))))
+
 (defn execute-datalog
   ([datalog]
    (execute-datalog {} datalog))
   ([db datalog]
    (s/assert :crux.datalog/program datalog)
-   (reduce
-    (fn [db [type statement]]
-      (case type
-        :query
-        (let [{{:keys [symbol]} :head} statement]
-          (doseq [tuple (dedupe (query-conformed-datalog db statement))]
-            (println (tuple->datalog-str symbol tuple)))
-          db)
-
-        :requirement
-        (do (require (first (:identifier statement)))
-            db)
-
-        (:assertion :retraction)
-        (let [op (get {:assertion assertion :retraction retraction} type)
-              [type clause] (:clause statement)
-              {:keys [symbol terms]} (:head clause)]
-          (case type
-            :fact
-            (op db symbol (mapv second terms))
-
-            :rule
-            (op db symbol (vec (s/unform :crux.datalog/rule clause)))))))
-    db (s/conform :crux.datalog/program datalog))))
+   (->> (s/conform :crux.datalog/program datalog)
+        (reduce execute-statement db))))
 
 (defn parse-datalog [datalog-source]
   (let [in (LineNumberingPushbackReader.

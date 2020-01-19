@@ -165,9 +165,9 @@
 
 (t/deftest test-ancestor
   (t/is (= "ancestor(bob, douglas).
-ancestor(bob, john).
 ancestor(ebbon, douglas).
 ancestor(ebbon, john).
+ancestor(bob, john).
 ancestor(ebbon, bob).
 ancestor(john, douglas).
 "

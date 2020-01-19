@@ -44,15 +44,6 @@
     (when (every? identity result)
       (mapv first result))))
 
-(defn- interleave-all
-  ([])
-  ([c1] c1)
-  ([c1 & colls]
-   (when-let [ss (seq (remove empty? (cons c1 colls)))]
-     (distinct
-      (concat (map first ss)
-              (apply concat (map rest ss)))))) )
-
 (defn- find-vars [body]
   (let [vars (atom [])]
     (w/postwalk (fn [x]
@@ -164,22 +155,19 @@
 
   (table-filter [this db var-bindings]
     (let [db (vary-meta db update :rule-memo-state #(or % (atom {})))
-          db (vary-meta db update :rule-depth (fnil inc 0))
-          {:keys [rule-memo-state rule-depth]} (meta db)
+          {:keys [rule-memo-state]} (meta db)
           key-var-bindings (if (instance? Repeat var-bindings)
                              nil
                              (normalize-vars var-bindings))
-          rule-memo @rule-memo-state]
-      (->> (for [rule rules]
-             (if (<= (long rule-depth) (count rules))
-               ((compile-rule rule) db var-bindings)
-               (let [memo-key [(System/identityHashCode rule) key-var-bindings]
-                     memo-value (get rule-memo memo-key ::not-found)]
-                 (if (= ::not-found memo-value)
-                   (doto ((compile-rule rule) db var-bindings)
-                     (->> (swap! rule-memo-state assoc memo-key)))
-                   memo-value))))
-           (apply interleave-all))))
+          memo-key [(System/identityHashCode rules) key-var-bindings]
+          memo-value (get @rule-memo-state memo-key ::not-found)]
+      (if (= ::not-found memo-value)
+        (doto (->> (for [rule rules]
+                     ((compile-rule rule) db var-bindings))
+                   (apply concat)
+                   (distinct))
+          (->> (swap! rule-memo-state assoc memo-key)))
+        memo-value)))
 
   (insert [this rule]
     (s/assert :crux.datalog/rule rule)
@@ -221,12 +209,12 @@
 (defrecord CombinedRelation [rules tuples]
   Relation
   (table-scan [this db]
-    (interleave-all (table-scan tuples db)
-                    (table-scan rules db)))
+    (concat (table-scan tuples db)
+            (table-scan rules db)))
 
   (table-filter [this db vars]
-    (interleave-all (table-filter tuples db vars)
-                    (table-filter rules db vars)))
+    (concat (table-filter tuples db vars)
+            (table-filter rules db vars)))
 
   (insert [this value]
     (if (s/valid? :crux.datalog/rule value)

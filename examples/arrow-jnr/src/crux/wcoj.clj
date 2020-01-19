@@ -191,7 +191,7 @@
   nil
   (table-scan [this db])
 
-  (table-filter [this db vars])
+  (table-filter [this db var-bindings])
 
   (insert [this tuple]
     (throw (UnsupportedOperationException.)))
@@ -203,9 +203,9 @@
   (table-scan [this db]
     (seq this))
 
-  (table-filter [this db vars]
+  (table-filter [this db var-bindings]
     (for [tuple (table-scan this db)
-          :when (unified-tuple tuple vars)]
+          :when (unified-tuple tuple var-bindings)]
       tuple))
 
   (insert [this tuple]
@@ -220,9 +220,9 @@
     (concat (table-scan tuples db)
             (table-scan rules db)))
 
-  (table-filter [this db vars]
-    (concat (table-filter tuples db vars)
-            (table-filter rules db vars)))
+  (table-filter [this db var-bindings]
+    (concat (table-filter tuples db var-bindings)
+            (table-filter rules db var-bindings)))
 
   (insert [this value]
     (if (s/valid? :crux.datalog/rule value)

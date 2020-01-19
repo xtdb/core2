@@ -56,24 +56,22 @@
                                                 #(and (not= '- %) (contains? #{\. \? \-} (last (str %))))))))
 (s/def ::variable logic-var?)
 
-;; real parser, not complete.
-;; requires https://github.com/Engelberg/instaparse
-;; non-trivial example: https://github.com/bodil/BODOL/blob/master/src/bodol/parser.clj
+(def ^:private datalog-whitespace-ebnf
+  "whitespace = #'[,\\s]+' | whitespace? #'%.+(\n|$)' whitespace?")
 
 (def ^:private
   datalog-parser
   (insta/parser
    (io/resource "crux/datalog.ebnf")
    :auto-whitespace
-   (insta/parser
-    "whitespace = #'[,\\s]+' | whitespace? #'%.+(\n|$)' whitespace?")))
+   (insta/parser datalog-whitespace-ebnf)))
 
 (defn parse-datalog [datalog-source]
-  (insta/transform
-   {:term (fn [[tag value]]
-            [tag (edn/read-string value)])
-    :comparison_operator symbol
-    :variable symbol
-    :symbol symbol
-    :arguments vector}
-   (insta/parse datalog-parser datalog-source)))
+  (->> (insta/parse datalog-parser datalog-source)
+       (insta/transform
+        {:term (fn [[tag value]]
+                 [tag (edn/read-string value)])
+         :comparison_operator symbol
+         :variable symbol
+         :symbol symbol
+         :arguments vector})))

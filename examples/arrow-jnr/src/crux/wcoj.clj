@@ -117,10 +117,10 @@
 
 (defmethod datalog->clojure :equality-predicate [_ [_ {:keys [lhs op rhs]}]]
   (let [bindings (terms->bindings [lhs rhs])
-        [lhs-arg rhs-arg :as args] (terms->values [lhs rhs])
+        args (terms->values [lhs rhs])
         op-fn (get '{!= (complement crux.wcoj/unify)} op op)]
     (if (= '= op)
-      (unification->clojure bindings lhs-arg rhs-arg)
+      (unification->clojure bindings (first args) (second args))
       `[:when (~op-fn ~@args)])))
 
 (defmethod datalog->clojure :not-predicate [query-plan [_ {:keys [predicate]}]]

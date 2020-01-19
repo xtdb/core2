@@ -67,14 +67,15 @@
 <statement> = assertion | retraction | query | requirement
 assertion = clause <'.'>
 retraction = clause <('~'|'-')>
-requirement = <'('> identifier <')'> <'.'>
+requirement = <'('> symbol <')'> <'.'>
 query = predicate <'?'>
 <clause> = rule | fact
 rule =  head body
 fact = predicate
 head = predicate <':-'>
 body = predicate*
-predicate = identifier arguments?
+predicate = symbol arguments?
+symbol = identifier
 arguments = (<'('> term* <')'>)
 term = constant | variable
 variable = #'[A-Z_]\\w*'
@@ -82,13 +83,13 @@ constant = identifier | string | number | boolean
 <boolean> = 'true' | 'false'
 <string> = #'\"([^\"\\\\]|\\\\.)*\"'
 <number> = #'-?\\d+(.?\\d+)?'
-identifier = #'[a-z]\\w*'"
+<identifier> = #'[a-z]\\w*'"
    :auto-whitespace :comma))
 
 (defn parse-datalog [datalog-source]
   (insta/transform
    {:term (fn [[tag value]]
             [tag (edn/read-string value)])
-    :identifier edn/read-string
+    :symbol edn/read-string
     :arguments vector}
    (insta/parse datalog-parser datalog-source)))

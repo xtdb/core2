@@ -1,14 +1,13 @@
 (ns crux.wcoj
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
-            [clojure.tools.logging :as log]
             [clojure.spec.alpha :as s]
             [clojure.set :as set]
             [clojure.string :as str]
             [clojure.walk :as w]
             [crux.datalog :as cd])
   (:import [clojure.lang IPersistentCollection IPersistentMap
-            LineNumberingPushbackReader Repeat]
+            LineNumberingPushbackReader]
            java.io.StringReader))
 
 (set! *unchecked-math* :warn-on-boxed)
@@ -75,8 +74,8 @@
                   arg-vars (find-vars terms)]]
       (assert (= arg-vars (distinct arg-vars))
               "predicate argument variables cannot be reused"))
-    {:rule-name symbol
-     :free-vars free-vars
+    {:free-vars free-vars
+     :rule rule
      :head head
      :body (vec (concat body-without-not not-predicate))}))
 
@@ -86,7 +85,7 @@
            (gensym 'constant)
            term))))
 
-(defn- terms->clojure [terms]
+(defn- terms->values [terms]
   (vec (for [[type term] terms]
          (if (and (= :constant type)
                   (symbol? term))
@@ -100,10 +99,10 @@
   `[~(terms->bindings terms)
     (->> (crux.wcoj/table-filter
           (crux.wcoj/relation-by-name ~db-sym '~symbol)
-          ~db-sym ~(terms->clojure terms)))])
+          ~db-sym ~(terms->values terms)))])
 
 (defmethod datalog->clojure :equality-predicate [[_ {:keys [lhs op rhs]}] query-plan]
-  (let [args (terms->clojure [lhs rhs])
+  (let [args (terms->values [lhs rhs])
         op-fn (get '{!= (complement crux.wcoj/unify)} op op)]
     (if (= '= op)
       `[:let [[~@(terms->bindings [lhs rhs]) :as unified?#] (crux.wcoj/unify ~@args)]
@@ -113,13 +112,14 @@
 (defmethod datalog->clojure :not-predicate [[_ {{:keys [symbol terms]} :predicate}] {:keys [db-sym] :as query-plan}]
   `[:when (empty? (crux.wcoj/table-filter
                    (crux.wcoj/relation-by-name ~db-sym '~symbol)
-                   ~db-sym ~(terms->clojure terms)))])
+                   ~db-sym ~(terms->values terms)))])
 
 (defmethod datalog->clojure :external-query [[_ {:keys [variable symbol terms]}] query-plan]
-  `[:let [~variable (~symbol ~@(terms->clojure terms))]])
+  `[:let [~variable (~symbol ~@(terms->values terms))]])
 
-(defn- query-plan->clojure [{:keys [rule-name free-vars head body] :as query-plan}]
-  (let [db-sym (gensym 'db)
+(defn- query-plan->clojure [{:keys [free-vars head body] :as query-plan}]
+  (let [rule-name (:symbol head)
+        db-sym (gensym 'db)
         query-plan (assoc query-plan :db-sym db-sym)
         bindings (for [literal body]
                    (datalog->clojure literal query-plan))
@@ -132,15 +132,19 @@
                     ~args args#
                     [~@args :as unified?#]
                     (crux.wcoj/unified-tuple
-                     args# ~(terms->clojure (:terms head)))]
+                     args# ~(terms->values (:terms head)))]
               :when unified?#
               ~@(apply concat bindings)]
           ~args)))))
 
-(def ^:private compile-rule
-  (memoize
-   (fn [rule]
-     (eval (query-plan->clojure (rule->query-plan rule))))))
+(defn- compile-rule-no-memo [rule]
+  (let [query-plan (rule->query-plan rule)
+        clojure-source (query-plan->clojure query-plan)]
+    (with-meta
+      (eval clojure-source)
+      (assoc query-plan :source clojure-source))))
+
+(def ^:private compile-rule (memoize compile-rule-no-memo))
 
 (defn- normalize-vars [vars]
   (for [v vars]
@@ -151,19 +155,19 @@
 (defrecord RuleRelation [rules]
   Relation
   (table-scan [this db]
-    (table-filter this db (repeat '_)))
+    (table-filter this db nil))
 
   (table-filter [this db var-bindings]
     (let [db (vary-meta db update :rule-memo-state #(or % (atom {})))
           {:keys [rule-memo-state]} (meta db)
-          key-var-bindings (if (instance? Repeat var-bindings)
-                             nil
-                             (normalize-vars var-bindings))
+          key-var-bindings (normalize-vars var-bindings)
           memo-key [(System/identityHashCode rules) key-var-bindings]
           memo-value (get @rule-memo-state memo-key ::not-found)]
       (if (= ::not-found memo-value)
         (doto (->> (for [rule rules]
-                     ((compile-rule rule) db var-bindings))
+                     (if (empty? var-bindings)
+                       ((compile-rule rule) db)
+                       ((compile-rule rule) db var-bindings)))
                    (apply concat)
                    (distinct))
           (->> (swap! rule-memo-state assoc memo-key)))

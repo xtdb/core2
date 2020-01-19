@@ -121,6 +121,7 @@
   (let [rule-name (:symbol head)
         db-sym (gensym 'db)
         query-plan (assoc query-plan :db-sym db-sym)
+        bindings (mapcat (partial datalog->clojure query-plan) body)
         args (terms->bindings (:terms head))]
     `(fn ~rule-name
        ([~db-sym] (~rule-name ~db-sym [~@(repeat (count args) ''_)]))
@@ -132,7 +133,7 @@
                     (crux.wcoj/unified-tuple
                      args# ~(terms->values (:terms head)))]
               :when unified?#
-              ~@(mapcat (partial datalog->clojure query-plan) body)]
+              ~@bindings]
           ~args)))))
 
 (defn- compile-rule-no-memo [rule]
@@ -150,7 +151,7 @@
       '_
       v)))
 
-(defn- execute-rules [rules db var-bindings]
+(defn- execute-rules-no-memo [rules db var-bindings]
   (->> (for [rule rules]
          (if (empty? var-bindings)
            ((compile-rule rule) db)
@@ -158,14 +159,13 @@
        (apply concat)
        (distinct)))
 
-(defn- execute-rules-memo [rules db var-bindings]
+(defn- execute-rules [rules db var-bindings]
   (let [db (vary-meta db update :rule-memo-state #(or % (atom {})))
         {:keys [rule-memo-state]} (meta db)
-        key-var-bindings (normalize-vars var-bindings)
-        memo-key [(System/identityHashCode rules) key-var-bindings]
+        memo-key [(System/identityHashCode rules) (normalize-vars var-bindings)]
         memo-value (get @rule-memo-state memo-key ::not-found)]
     (if (= ::not-found memo-value)
-      (doto (execute-rules rules db var-bindings)
+      (doto (execute-rules-no-memo rules db var-bindings)
         (->> (swap! rule-memo-state assoc memo-key)))
       memo-value)))
 
@@ -175,7 +175,7 @@
     (table-filter this db nil))
 
   (table-filter [this db var-bindings]
-    (execute-rules-memo rules db var-bindings))
+    (execute-rules rules db var-bindings))
 
   (insert [this rule]
     (s/assert :crux.datalog/rule rule)

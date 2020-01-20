@@ -165,16 +165,12 @@
 (def ^:private compile-rule (memoize compile-rule-no-memo))
 
 (defn- execute-rules-no-memo [rules db var-bindings]
-  (let [result (->> (for [rule rules]
-                      (if (empty? var-bindings)
-                        ((compile-rule rule) db)
-                        ((compile-rule rule) db var-bindings)))
-                    (apply concat)
-                    (distinct))]
-    (if (and (some cd/logic-var? var-bindings)
-             (not= var-bindings (distinct var-bindings)))
-      (filter #(unify var-bindings %) result)
-      result)))
+  (->> (for [rule rules]
+         (if (empty? var-bindings)
+           ((compile-rule rule) db)
+           ((compile-rule rule) db var-bindings)))
+       (apply concat)
+       (distinct)))
 
 (defn- normalize-memo-binding [binding]
   (if (cd/logic-var? binding)
@@ -185,15 +181,22 @@
   [(System/identityHashCode rules)
    (map normalize-memo-binding var-bindings)])
 
+(defn- ensure-var-bindings-unify [var-bindings result]
+  (if (and (some cd/logic-var? var-bindings)
+           (not= var-bindings (distinct var-bindings)))
+    (filter #(unify var-bindings %) result)
+    result))
+
 (defn- execute-rules [rules db var-bindings]
   (let [db (vary-meta db update :rule-memo-state #(or % (atom {})))
         {:keys [rule-memo-state]} (meta db)
         memo-key (rule-memo-key rules var-bindings)
         memo-value (get @rule-memo-state memo-key ::not-found)]
-    (if (= ::not-found memo-value)
-      (doto (execute-rules-no-memo rules db var-bindings)
-        (->> (swap! rule-memo-state assoc memo-key)))
-      memo-value)))
+    (->> (if (= ::not-found memo-value)
+           (doto (execute-rules-no-memo rules db var-bindings)
+             (->> (swap! rule-memo-state assoc memo-key)))
+           memo-value)
+         (ensure-var-bindings-unify var-bindings))))
 
 (defrecord RuleRelation [rules]
   Relation

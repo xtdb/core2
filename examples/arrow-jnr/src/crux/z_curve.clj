@@ -168,3 +168,6 @@
         next-z (+ next-z (bit-and conflict-max (bit-not mask-min)))]
     ;; remove invalid bits.
     (bit-or (bit-and next-z max) min)))
+
+;; Should double check example and algorithm 6.5.2 in Lawder on page 127.
+;; http://www.dcs.bbk.ac.uk/~jkl/thesis.pdf

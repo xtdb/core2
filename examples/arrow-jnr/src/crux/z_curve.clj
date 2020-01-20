@@ -181,6 +181,7 @@
                        (range 0 Long/SIZE n))))))
 
 (defn- ^"[J" morton-get-next-address [^long start ^long end ^long dim]
+  ;; if first-differing-big is 0, keep looping in array case as same prefix
   (let [first-differing-bit (Long/numberOfLeadingZeros (bit-xor start end))
         split-dimension (rem first-differing-bit dim)
         dimension-inherit-mask (Long/rotateLeft (aget ^longs dimension-masks dim) split-dimension)
@@ -190,11 +191,15 @@
 
         ;; 1000 -> 1000000
         next-dimension-above (bit-shift-left 1 (dec (- Long/SIZE first-differing-bit)))
+        ;; this implies that lower longs will be:
+        ;; (bit-or dimension-inherit-mask start)
         bigmin (bit-or (bit-and all-common-bits-mask start) next-dimension-above)
 
         ;; 0111 -> 0010101
         next-dimension-below (bit-and (dec next-dimension-above)
                                       (bit-not dimension-inherit-mask))
+        ;; this implies that lower longs will be:
+        ;; (bit-or (bit-and dimension-inherit-mask end) (bit-not dimension-inherit-mask))
         litmax (bit-or (bit-and all-common-bits-mask end) next-dimension-below)]
     (doto (long-array 2)
       (aset 0 litmax)

@@ -181,22 +181,20 @@
   [(System/identityHashCode rules)
    (map normalize-memo-binding var-bindings)])
 
-(defn- ensure-var-bindings-unify [var-bindings result]
-  (if (and (some cd/logic-var? var-bindings)
-           (not= var-bindings (distinct var-bindings)))
-    (filter #(unify var-bindings %) result)
-    result))
-
-(defn- execute-rules [rules db var-bindings]
+(defn- execute-rules-memo [rules db var-bindings]
   (let [db (vary-meta db update :rule-memo-state #(or % (atom {})))
         {:keys [rule-memo-state]} (meta db)
         memo-key (rule-memo-key rules var-bindings)
         memo-value (get @rule-memo-state memo-key ::not-found)]
-    (->> (if (= ::not-found memo-value)
-           (doto (execute-rules-no-memo rules db var-bindings)
-             (->> (swap! rule-memo-state assoc memo-key)))
-           memo-value)
-         (ensure-var-bindings-unify var-bindings))))
+    (if (= ::not-found memo-value)
+      (doto (execute-rules-no-memo rules db var-bindings)
+        (->> (swap! rule-memo-state assoc memo-key)))
+      memo-value)))
+
+(defn- execute-rules [rules db var-bindings]
+  (cond->> (execute-rules-memo rules db var-bindings)
+    (and (some cd/logic-var? var-bindings)
+         (not= var-bindings (distinct var-bindings))) (filter #(unify var-bindings %))))
 
 (defrecord RuleRelation [rules]
   Relation

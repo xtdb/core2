@@ -1,5 +1,6 @@
 (ns crux.z-curve
-  (:require [clojure.string :as str]))
+  (:require [clojure.string :as str])
+  (:import java.util.Arrays))
 
 (set! *unchecked-math* :warn-on-boxed)
 
@@ -201,45 +202,37 @@
       (aset 1 bigmin))))
 
 (defn- morton-get-next-address-arrays [^"[J" start ^"[J" end ^long dim]
-  (let [length (alength start)]
-    (loop [n 0
-           bigmin (long-array length)
-           litmax (long-array length)]
-      (if (= n length)
-        [litmax bigmin]
-        (let [sn (aget start n)
-              en (aget end n)]
-          (if (= sn en)
-            (recur (inc n)
-                   (doto bigmin
-                     (aset n sn))
-                   (doto litmax
-                     (aset n en)))
-            (let [first-differing-bit (Long/numberOfLeadingZeros (bit-xor sn en))
-                  split-dimension (rem first-differing-bit dim)
-                  dimension-inherit-mask (Long/rotateLeft (aget ^longs dimension-masks dim) split-dimension)
+  (let [n (Arrays/mismatch start end)]
+    (if (= -1 n)
+      [start end]
+      (let [length (alength start)
+            bigmin (Arrays/copyOf start length)
+            litmax (Arrays/copyOf end length)
+            start-n (aget start n)
+            end-n (aget end n)]
+        (let [first-differing-bit (Long/numberOfLeadingZeros (bit-xor start-n end-n))
+              split-dimension (rem first-differing-bit dim)
+              dimension-inherit-mask (Long/rotateLeft (aget ^longs dimension-masks dim) split-dimension)
 
-                  common-most-significant-bits-mask (bit-shift-left -1 (- Long/SIZE first-differing-bit))
-                  all-common-bits-mask (bit-or dimension-inherit-mask common-most-significant-bits-mask)
+              common-most-significant-bits-mask (bit-shift-left -1 (dec first-differing-bit))
+              all-common-bits-mask (bit-or dimension-inherit-mask common-most-significant-bits-mask)
 
-                  ;; 1000 -> 1000000
-                  next-dimension-above (bit-shift-left 1 (dec (- Long/SIZE first-differing-bit)))
-                  bigmin (doto bigmin
-                           (aset n (bit-or (bit-and all-common-bits-mask sn) next-dimension-above)))
+              ;; 1000 -> 1000000
+              next-dimension-above (bit-shift-left 1 (dec (- Long/SIZE first-differing-bit)))
+              _ (doto bigmin
+                  (aset n (bit-or (bit-and all-common-bits-mask start-n) next-dimension-above)))
 
-                  ;; 0111 -> 0010101
-                  next-dimension-below (bit-and (dec next-dimension-above)
-                                                (bit-not dimension-inherit-mask))
-                  litmax (doto litmax
-                           (aset n (bit-or (bit-and all-common-bits-mask en) next-dimension-below)))]
-              (loop [n (inc n)
-                     bigmin bigmin
-                     litmax litmax]
-                (if (= n length)
-                  [litmax bigmin]
-                  (recur (inc n)
-                         (doto bigmin
-                           (aset n (bit-or dimension-inherit-mask (aget start n))))
-                         (doto litmax
-                           (aset n (bit-or (bit-and dimension-inherit-mask (aget end n))
-                                           (bit-not dimension-inherit-mask))))))))))))))
+              ;; 0111 -> 0010101
+              other-dimensions-mask (bit-not dimension-inherit-mask)
+              next-dimension-below (bit-and (dec next-dimension-above) other-dimensions-mask)
+              _ (doto litmax
+                  (aset n (bit-or (bit-and all-common-bits-mask end-n) next-dimension-below)))]
+          (loop [n (inc n)]
+            (if (= n length)
+              [litmax bigmin]
+              (do (doto bigmin
+                    (aset n (bit-or dimension-inherit-mask (aget start n))))
+                  (doto litmax
+                    (aset n (bit-or (bit-and dimension-inherit-mask (aget end n))
+                                    other-dimensions-mask)))
+                  (recur (inc n))))))))))

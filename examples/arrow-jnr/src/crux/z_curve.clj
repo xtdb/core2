@@ -118,7 +118,6 @@
 
 ;; 10 11 01 ;; 45
 ;; 10 11 11 ;; 47 working max mask
-
 ;; 01 00 11 ;; 19
 
 ;; 10 01 00 ;; 36
@@ -171,3 +170,32 @@
 
 ;; Should double check example and algorithm 6.5.2 in Lawder on page 127.
 ;; http://www.dcs.bbk.ac.uk/~jkl/thesis.pdf
+
+(def ^:private dimension-masks
+  (long-array (cons 0
+                    (for [n (range 1 Long/SIZE)]
+                      (reduce
+                       (fn [^long acc ^long b]
+                         (bit-or acc (bit-shift-left 1 b)))
+                       0
+                       (range 0 Long/SIZE n))))))
+
+(defn- ^"[J" morton-get-next-address [^long start ^long end ^long dim]
+  (let [first-differing-bit (Long/numberOfLeadingZeros (bit-xor start end))
+        split-dimension (rem first-differing-bit dim)
+        dimension-inherit-mask (Long/rotateLeft (aget ^longs dimension-masks dim) split-dimension)
+
+        common-most-significant-bits-mask (bit-shift-left -1 (- Long/SIZE first-differing-bit))
+        all-common-bits-mask (bit-or dimension-inherit-mask common-most-significant-bits-mask)
+
+        ;; 1000 -> 1000000
+        next-dimension-above (bit-shift-left 1 (dec (- Long/SIZE first-differing-bit)))
+        bigmin (bit-or (bit-and all-common-bits-mask start) next-dimension-above)
+
+        ;; 0111 -> 0010101
+        next-dimension-below (bit-and (dec next-dimension-above)
+                                      (bit-not dimension-inherit-mask))
+        litmax (bit-or (bit-and all-common-bits-mask end) next-dimension-below)]
+    (doto (long-array 2)
+      (aset 0 litmax)
+      (aset 1 bigmin))))

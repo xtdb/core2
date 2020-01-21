@@ -71,8 +71,14 @@
                 body)
     @vars))
 
+(defn- ensure-unique-anonymous-var [var]
+  (if (= '_ var)
+    (gensym '_)
+    var))
+
 (defn- rule->query-plan [rule]
-  (let [{:keys [head body]} (s/conform :crux.datalog/rule rule)
+  (let [rule (w/postwalk ensure-unique-anonymous-var rule)
+        {:keys [head body]} (s/conform :crux.datalog/rule rule)
         {:keys [symbol terms]} head
         head-vars (find-vars head)
         {:keys [predicate not-predicate external-query]} (group-by first body)
@@ -145,7 +151,7 @@
         bindings (mapcat (partial datalog->clojure query-plan) body)
         args (mapv term->binding terms)]
     `(fn ~symbol
-       ([~db-sym] (~symbol ~db-sym [~@(repeatedly (count args) #(quote-term (gensym '_)))]))
+       ([~db-sym] (~symbol ~db-sym [~@(repeatedly (count args) #(quote-term (ensure-unique-anonymous-var '_)))]))
        ([~db-sym ~args-sym]
         (for [loop# [nil]
               :let [~@(interleave existential-vars (map quote-term existential-vars))
@@ -192,9 +198,10 @@
       memo-value)))
 
 (defn- execute-rules [rules db var-bindings]
-  (cond->> (execute-rules-memo rules db var-bindings)
-    (and (some cd/logic-var? var-bindings)
-         (not= var-bindings (distinct var-bindings))) (filter #(unify var-bindings %))))
+  (let [var-bindings (mapv ensure-unique-anonymous-var var-bindings)]
+    (cond->> (execute-rules-memo rules db var-bindings)
+      (and (some cd/logic-var? var-bindings)
+           (not= var-bindings (distinct var-bindings))) (filter #(unify var-bindings %)))))
 
 (defrecord RuleRelation [rules]
   Relation

@@ -280,3 +280,12 @@
 ;; q(E, VTQ, TTQ) :- name(E, "Ivan", VTE, TTE), as_of(E, VTQ, TTQ, VTE, TTE).
 
 ;; q(E, "2020-01-20", "2020-01-20")?
+
+;; % z-curve order joins and storage, example uses bytes instead of
+;; % bits for clarity, 9 bytes per attribute, zero-padded:
+
+;; id("ii22vv00aa22nn00  --  00  11  --  00").
+;; name("iI22vv00aa22nn00  --  00  11  --  00").
+
+;; % join algorithm moves bit-by-bit (byte in example) to narrow down
+;; % all attributes at once, using a single index.

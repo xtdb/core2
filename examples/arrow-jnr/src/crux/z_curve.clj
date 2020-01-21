@@ -254,7 +254,9 @@
 ;; %   :where [[e :name "Ivan"]]}
 
 ;; temporal("ivan", "2020-01-01", "2020-01-01", 1, "ABCD").
-;; eav("name", "ivan", "Ivan", "ABCD").
+;; aev("name", "ivan", "Ivan", "ABCD").
+;; % alternatively:
+;; % name("ivan", "Ivan", "ABCD").
 
 ;; q(E, VTQ, TTQ) :- aev("name", E, "Ivan", CE), as_of(E, CE, VTQ, TTQ, _).
 

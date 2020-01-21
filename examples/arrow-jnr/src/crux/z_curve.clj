@@ -261,3 +261,22 @@
 ;; q(E, VTQ, TTQ) :- aev("name", E, "Ivan", CE), as_of(E, CE, VTQ, TTQ, _).
 
 ;; q(E, "2020-01-20", "2020-01-20")?
+
+
+;; % alternative "new" model:
+
+;; % consolidated fact relations (example), all relations have the
+;; % same four columns:
+
+;; id(E, V, VT TT). % id is unique at any point of time.
+;; name(E, V, VT, TT). % all attributes have time-stamps.
+
+;; % do we need max<TTE> here?
+;; as_of(E, VTQ, TTQ, max<VTE>, TTE) :- id(E, E, VTE, TTE), TTE <= TTQ, VTE <= VTQ.
+
+;; id("ivan", "ivan", "2020-01-01", "2020-01-01").
+;; name("ivan", "Ivan", "2020-01-01", "2020-01-01").
+
+;; q(E, VTQ, TTQ) :- name(E, "Ivan", VTE, TTE), as_of(E, VTQ, TTQ, VTE, TTE).
+
+;; q(E, "2020-01-20", "2020-01-20")?

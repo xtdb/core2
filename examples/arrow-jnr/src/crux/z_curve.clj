@@ -290,7 +290,7 @@
 ;; % join algorithm moves bit-by-bit (byte in example) to narrow down
 ;; % all attributes at once, using a single index.
 
-;; % alternative model, using partial z-curve key (a "column imprint)
+;; % alternative model, using partial z-curve key (a "column imprint")
 ;; % to search and sort, but keep data accessible as normal columns:
 
 ;; name("ivan", "Ivan", "2020-01-01", "2020-01-01", "ii22vv00").

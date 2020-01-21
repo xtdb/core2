@@ -236,3 +236,23 @@
                     (aset n (bit-or (bit-and dimension-inherit-mask (aget end n))
                                     other-dimensions-mask)))
                   (recur (inc n))))))))))
+
+;; % Crux in Datalog:
+
+;; % fact relations:
+
+;; temporal(E, VT, TT, TID, C).
+;; aev(A, E, V, C).
+
+;; % bitemporal rule:
+
+;; as_of(E, C, VTQ, TTQ, max<VTE>) :- temporal(E, VTE, TTE, C), TTE <= TTQ, VTE <= VTQ.
+
+;; % query example:
+
+;; % '{:find [e]
+;; %   :where [[e :name "Ivan"]]}
+
+;; q(E, TTQ, VTQ) :- aev("name", E, "Ivan", CE), as_of(E, CE, VTQ, TTQ, _).
+
+;; q(E, "2020-01-20", "2020-01-20")?

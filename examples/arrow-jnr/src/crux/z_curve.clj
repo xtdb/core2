@@ -288,7 +288,7 @@
 ;; name("iI22vv00aa22nn00  --  00  11  --  00").
 
 ;; % join algorithm moves bit-by-bit (byte in example) to narrow down
-;; % all attributes at once, using a single index.
+;; % all columns at once, using a single index.
 
 ;; % alternative model, using partial z-curve key (a "column imprint")
 ;; % to search and sort, but keep data accessible as normal columns:

@@ -256,6 +256,6 @@
 ;; temporal("ivan", "2020-01-01", "2020-01-01", 1, "ABCD").
 ;; eav("name", "ivan", "Ivan", "ABCD").
 
-;; q(E, TTQ, VTQ) :- aev("name", E, "Ivan", CE), as_of(E, CE, VTQ, TTQ, _).
+;; q(E, VTQ, TTQ) :- aev("name", E, "Ivan", CE), as_of(E, CE, VTQ, TTQ, _).
 
 ;; q(E, "2020-01-20", "2020-01-20")?

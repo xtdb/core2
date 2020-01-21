@@ -282,10 +282,10 @@
 ;; q(E, "2020-01-20", "2020-01-20")?
 
 ;; % z-curve order joins and storage, example uses bytes instead of
-;; % bits for clarity, 9 bytes per attribute, zero-padded:
+;; % bits for clarity, 9 bytes per attribute, (space-padded):
 
-;; id("ii22vv00aa22nn00  --  00  11  --  00").
-;; name("iI22vv00aa22nn00  --  00  11  --  00").
+;; id("ii22vv00aa22nn00  --  00  11  --  00").
+;; name("iI22vv00aa22nn00  --  00  11  --  00").
 
 ;; % join algorithm moves bit-by-bit (byte in example) to narrow down
 ;; % all attributes at once, using a single index.

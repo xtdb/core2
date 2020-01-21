@@ -262,6 +262,13 @@
 
 ;; q(E, "2020-01-20", "2020-01-20")?
 
+;; % valid time range rule:
+
+;; % visible as of start of range:
+;; time_range(E, C, VTQS, VTQE, TTQ) :- as_of(E, C, VTQS, TTQ, _).
+;; % visible within range:
+;; time_range(E, C, VTQS, VTQE, TTQ) :- temporal(E, C, VTE, TTE, _). VTE >= VTQS, VTE < VTQE, TTE <= TTQ.
+
 
 ;; % alternative "new" model:
 

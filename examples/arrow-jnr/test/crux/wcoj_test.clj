@@ -613,7 +613,10 @@ perm(c, b).
 ;; p(X, Y, Z, W) :- r(X, Y), t(Z, W).
 
 ;; Natural Join R T
-;; j(X, Y, Z) :- r(Z, Y), t(Y, Z).
+;; j(X, Y, Z) :- r(X, Y), t(Y, Z).
 
 ;; Theta Join R .R.x >T.yT
 ;; j(X, Y, Z, W) :- r(X, Y), t(Z, W), X > Y. ;; looks wrong?
+
+;; Can take relational algebra tests from here:
+;; http://infolab.stanford.edu/~ullman/fcdb/aut07/slides/ra.pdf

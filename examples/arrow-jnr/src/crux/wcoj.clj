@@ -143,17 +143,27 @@
      :body body}))
 
 (defn- term->binding [[type term]]
-  (if (= :constant type)
-    (gensym 'constant)
+  (case type
+    :constant (gensym 'constant)
+    :aggregate (first (:variable term))
     term))
 
 (defn- quote-term [x]
   (list 'quote x))
 
 (defn- term->value [[type term]]
-  (if (and (= :constant type)
-           (symbol? term))
+  (cond
+    (and (= :constant type)
+         (symbol? term))
     (quote-term term)
+    (= :aggregate type)
+    (first (:variable term))
+    :else
+    term))
+
+(defn- term->signature [[type term]]
+  (if (= :aggregate type)
+    (first (:variable term))
     term))
 
 (defn- predicate->clojure [{:keys [db-sym]} {:keys [symbol terms]}]
@@ -193,7 +203,7 @@
         query-plan (assoc query-plan :db-sym db-sym)
         bindings (mapcat (partial datalog->clojure query-plan) body)
         arg-vars (mapv term->binding terms)
-        args-signature (quote-term (mapv second terms))]
+        args-signature (quote-term (mapv term->signature terms))]
     `(fn ~symbol
        ([~db-sym] (~symbol ~db-sym '~(vec (repeatedly (count arg-vars) #(ensure-unique-anonymous-var '_)))))
        ([~db-sym ~args-sym]

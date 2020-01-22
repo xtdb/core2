@@ -589,3 +589,31 @@ perm(c, b).
                  (wcoj/assert-all 'p #{[1] [2] [3] [4]})
                  (wcoj/query-by-name 'a)
                  (set))))))
+
+;; http://www.cs.toronto.edu/~drosu/csc343-l7-handout6.pdf
+;; From Relational Algebra to Datalog
+
+;; Intersection: R(x, y) ∩ T(x, y)
+;; i(X, Y) :- r(X, Y), t(X, Y).
+
+;; Union: R(x, y) U T(x, y)
+;; u(X, Y) :- r(X, Y)
+;; u(X, Y) :- t(X, Y)
+
+;; Differece: R(x, y) – T(x, y)
+;; d(X, Y) :- r(X, Y), not t(X, Y).
+
+;; Projection: πx(R)
+;; p(X) :- r(X, Y).
+
+;; Selection: σx>10(R)
+;; s(X, Y) :- r(X, Y), X > 10.
+
+;; Product: R X T
+;; p(X, Y, Z, W) :- r(X, Y), t(Z, W).
+
+;; Natural Join R T
+;; j(X, Y, Z) :- r(Z, Y), t(Y, Z).
+
+;; Theta Join R .R.x >T.yT
+;; j(X, Y, Z, W) :- r(X, Y), t(Z, W), X > Y. ;; looks wrong?

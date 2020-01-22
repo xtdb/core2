@@ -196,6 +196,25 @@
 (defmethod datalog->clojure :external-query [_ [_ {:keys [variable symbol terms]}]]
   (unification->clojure [variable] variable `(~symbol ~@(mapv term->value terms))))
 
+(defn aggregate [{:keys [group-idxs aggregate-ops]} tuples]
+  (for [[_ tuples] (group-by #(mapv % group-idxs) tuples)]
+    (reduce
+     (fn [acc tuple]
+       (reduce
+        (fn [acc [idx op]]
+          (update acc idx op (get tuple idx)))
+        acc aggregate-ops))
+     tuples)))
+
+(defn- build-aggregates [terms]
+  (when-let [aggregate-ops (seq (for [[idx [type term]] (map-indexed vector terms)
+                                      :when (= :aggregate type)]
+                                  [idx (get {'min min 'max max} (:op term))]))]
+    {:group-idxs (vec (for [[idx [type term]] (map-indexed vector terms)
+                            :when (not= :aggregate type)]
+                        idx))
+     :aggregate-ops aggregate-ops}))
+
 (defn- query-plan->clojure [{:keys [existential-vars head body] :as query-plan}]
   (let [{:keys [symbol terms]} head
         db-sym (gensym 'db)
@@ -207,11 +226,14 @@
     `(fn ~symbol
        ([~db-sym] (~symbol ~db-sym '~(vec (repeatedly (count arg-vars) #(ensure-unique-anonymous-var '_)))))
        ([~db-sym ~args-sym]
-        (for [loop# [nil]
-              ~@(unification->clojure (map vector arg-vars) args-sym args-signature)
-              :let [~@(interleave existential-vars (map quote-term existential-vars))]
-              ~@bindings]
-          ~arg-vars)))))
+        (->> (for [loop# [nil]
+                   ~@(unification->clojure (map vector arg-vars) args-sym args-signature)
+                   :let [~@(interleave existential-vars (map quote-term existential-vars))]
+                   ~@bindings]
+               ~arg-vars)
+             ~(if-let [aggregates (build-aggregates terms)]
+                `(crux.wcoj/aggregate '~aggregates)
+                `(identity)))))))
 
 (defn- compile-rule-no-memo [rule]
   (let [query-plan (rule->query-plan rule)

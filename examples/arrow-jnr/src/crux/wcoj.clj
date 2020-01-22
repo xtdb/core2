@@ -83,6 +83,30 @@
   (and (some cd/logic-var? var-bindings)
        (not (distinct-vars? var-bindings))))
 
+(def ^:private literal-hierarchy
+  (-> (make-hierarchy)
+      (derive :equality-predicate :predicate)
+      (atom)))
+
+(defmulti ^:private new-bound-vars
+  (fn [known-vars extra-logical-vars [type]]
+    type)
+  :hierarchy literal-hierarchy)
+
+(defmethod new-bound-vars :predicate [known-vars extra-logical-vars [_ literal]]
+  (let [vars (find-vars literal)]
+    (when (set/superset? known-vars (set/intersection vars extra-logical-vars))
+      vars)))
+
+(defmethod new-bound-vars :not-predicate [known-vars _ [_ literal]]
+  (let [vars (find-vars literal)]
+    (when (set/superset? known-vars vars)
+      #{})))
+
+(defmethod new-bound-vars :external-query [known-vars _ [_ {:keys [terms variable]}]]
+  (when (set/superset? known-vars (find-vars terms))
+    #{variable}))
+
 (defn- reorder-body [head body]
   (let [{:keys [external-query] :as literals} (group-by first body)
         extra-logical-vars (set (for [[_ {:keys [variable]}] external-query]
@@ -92,18 +116,7 @@
            known-vars (set/difference (find-vars head) extra-logical-vars)
            circular-check 0]
       (if literal
-        (if-let  [new-vars (case type
-                             (:predicate :equality-predicate)
-                             (let [vars (find-vars literal)]
-                               (when (set/superset? known-vars (set/intersection vars extra-logical-vars))
-                                 vars))
-                             :not-predicate
-                             (when (set/superset? known-vars (find-vars literal))
-                               #{})
-                             :external-query
-                             (let [[_ {:keys [terms variable]}] literal]
-                               (when (set/superset? known-vars (find-vars terms))
-                                 #{variable})))]
+        (if-let  [new-vars (new-bound-vars known-vars extra-logical-vars literal)]
           (recur new-body (conj acc literal) (set/union known-vars new-vars) 0)
           (if (= (count body) circular-check)
             (throw (IllegalArgumentException. "Circular dependency."))

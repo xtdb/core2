@@ -83,20 +83,39 @@
   (and (some cd/logic-var? var-bindings)
        (not (distinct-vars? var-bindings))))
 
-(defn- reorder-body [body]
-  (let [{:keys [not-predicate]} (group-by first body)
-        body-without-not (remove (set not-predicate) body)
-        body-vars (find-vars body-without-not)]
-    (assert (set/superset? body-vars (find-vars not-predicate))
-            "rule does not satisfy safety requirement for not clauses")
-    (vec (concat body-without-not not-predicate))))
+(defn- reorder-body [head body]
+  (let [{:keys [external-query] :as literals} (group-by first body)
+        extra-logical-vars (set (for [[_ {:keys [variable]}] external-query]
+                                  variable))]
+    (loop [[[type :as literal] & new-body :as body] body
+           acc []
+           known-vars (set/difference (find-vars head) extra-logical-vars)
+           circular-check 0]
+      (if literal
+        (if-let  [new-vars (case type
+                             (:predicate :equality-predicate)
+                             (let [vars (find-vars literal)]
+                               (when (set/superset? known-vars (set/intersection vars extra-logical-vars))
+                                 vars))
+                             :not-predicate
+                             (when (set/superset? known-vars (find-vars literal))
+                               #{})
+                             :external-query
+                             (let [[_ {:keys [terms variable]}] literal]
+                               (when (set/superset? known-vars (find-vars terms))
+                                 #{variable})))]
+          (recur new-body (conj acc literal) (set/union known-vars new-vars) 0)
+          (if (= (count body) circular-check)
+            (throw (IllegalArgumentException. "Circular dependency."))
+            (recur (conj (vec new-body) literal) acc known-vars (inc circular-check))))
+        acc))))
 
 (defn- rule->query-plan [rule]
   (let [rule (w/postwalk ensure-unique-anonymous-var rule)
         {:keys [head body]} (s/conform :crux.datalog/rule rule)
         {:keys [symbol terms]} head
         head-vars (find-vars head)
-        body (reorder-body body)
+        body (reorder-body head body)
         body-vars (find-vars body)]
     (assert (set/superset? body-vars head-vars)
             "rule does not satisfy safety requirement for head variables")

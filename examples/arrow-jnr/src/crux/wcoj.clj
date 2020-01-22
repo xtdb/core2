@@ -156,10 +156,6 @@
     (crux.wcoj/relation-by-name ~db-sym '~symbol)
     ~db-sym ~(mapv term->value terms)))
 
-(defn- duplicate-var-unification->clojure [vars]
-  (when (contains-duplicate-vars? vars)
-    `[:when (crux.wcoj/unify ~vars '~vars)]))
-
 (defn- unification->clojure [bindings x y]
   `[:let [[~@bindings :as unified?#] (crux.wcoj/unify ~x ~y)]
     :when unified?#])
@@ -169,9 +165,7 @@
 
 (defmethod datalog->clojure :predicate [query-plan [_ {:keys [terms] :as predicate}]]
   (let [term-vars (mapv term->binding terms)]
-    `[~term-vars
-      ~(predicate->clojure query-plan predicate)
-      ~@(duplicate-var-unification->clojure term-vars)]))
+    [term-vars (predicate->clojure query-plan predicate)]))
 
 (defmethod datalog->clojure :equality-predicate [_ [_ {:keys [lhs op rhs]}]]
   (let [op-fn (get '{!= (complement crux.wcoj/unify)} op op)]
@@ -193,16 +187,19 @@
         args-sym (gensym 'args)
         query-plan (assoc query-plan :db-sym db-sym)
         bindings (mapcat (partial datalog->clojure query-plan) body)
-        arg-vars (mapv term->binding terms)]
+        arg-vars (mapv term->binding terms)
+        args-signature (quote-term (mapv second terms))]
     `(fn ~symbol
-       ([~db-sym] (~symbol ~db-sym '~(vec (repeatedly (count arg-vars) #(ensure-unique-anonymous-var '_)))))
+       ([~db-sym] (~symbol ~db-sym '~(vec (repeat (count arg-vars) '_))))
        ([~db-sym ~args-sym]
         (for [loop# [nil]
               :let [~@(interleave existential-vars (map quote-term existential-vars))
-                    ~arg-vars ~args-sym]
-              ~@(unification->clojure (map vector arg-vars) args-sym (mapv term->value terms))
-              ~@bindings
-              ~@(duplicate-var-unification->clojure arg-vars)]
+                    ~args-sym (for [arg# ~args-sym]
+                                (if (crux.datalog/logic-var? arg#)
+                                  (gensym arg#)
+                                  arg#))]
+              ~@(unification->clojure (map vector arg-vars) args-sym args-signature)
+              ~@bindings]
           ~arg-vars)))))
 
 (defn- compile-rule-no-memo [rule]

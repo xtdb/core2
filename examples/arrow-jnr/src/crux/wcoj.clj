@@ -43,7 +43,8 @@
   (unify [this that]
     (if (cd/logic-var? that)
       (unify that this)
-      (when (coll? that)
+      (when (and (coll? that)
+                 (= (count this) (count that)))
         (first
          (reduce
           (fn [[acc smap] [x y]]
@@ -76,6 +77,13 @@
     (gensym '_)
     var))
 
+(defn- distinct-vars? [vars]
+  (= (distinct vars) vars))
+
+(defn- contains-duplicate-vars? [var-bindings]
+  (and (some cd/logic-var? var-bindings)
+       (not (distinct-vars? var-bindings))))
+
 (defn- rule->query-plan [rule]
   (let [rule (w/postwalk ensure-unique-anonymous-var rule)
         {:keys [head body]} (s/conform :crux.datalog/rule rule)
@@ -85,16 +93,10 @@
         existential-vars (apply disj (set (find-vars predicate)) head-vars)
         body-without-not (remove (set not-predicate) body)
         body-vars (set (find-vars body-without-not))]
-    (assert (= (distinct head-vars)
-               (find-vars head)) "argument names cannot be reused")
     (assert (set/superset? body-vars (set head-vars))
             "rule does not satisfy safety requirement for head variables")
     (assert (set/superset? body-vars (set (find-vars not-predicate)))
             "rule does not satisfy safety requirement for not clauses")
-    (doseq [{:keys [terms]}  predicate
-            :let [arg-vars (find-vars terms)]]
-      (assert (= arg-vars (distinct arg-vars))
-              "predicate argument variables cannot be reused"))
     {:existential-vars existential-vars
      :rule rule
      :head head
@@ -105,8 +107,8 @@
     (gensym 'constant)
     term))
 
-(defn- quote-term [term]
-  (list 'quote term))
+(defn- quote-term [x]
+  (list 'quote x))
 
 (defn- term->value [[type term]]
   (if (and (= :constant type)
@@ -119,6 +121,10 @@
     (crux.wcoj/relation-by-name ~db-sym '~symbol)
     ~db-sym ~(mapv term->value terms)))
 
+(defn- duplicate-var-unification->clojure [vars]
+  (when (contains-duplicate-vars? vars)
+    `[:when (crux.wcoj/unify ~vars '~vars)]))
+
 (defn- unification->clojure [bindings x y]
   `[:let [[~@bindings :as unified?#] (crux.wcoj/unify ~x ~y)]
     :when unified?#])
@@ -127,7 +133,10 @@
                                        type))
 
 (defmethod datalog->clojure :predicate [query-plan [_ {:keys [terms] :as predicate}]]
-  [(mapv term->binding terms) (predicate->clojure query-plan predicate)])
+  (let [term-vars (mapv term->binding terms)]
+    `[~term-vars
+      ~(predicate->clojure query-plan predicate)
+      ~@(duplicate-var-unification->clojure term-vars)]))
 
 (defmethod datalog->clojure :equality-predicate [_ [_ {:keys [lhs op rhs]}]]
   (let [op-fn (get '{!= (complement crux.wcoj/unify)} op op)]
@@ -149,17 +158,17 @@
         args-sym (gensym 'args)
         query-plan (assoc query-plan :db-sym db-sym)
         bindings (mapcat (partial datalog->clojure query-plan) body)
-        args (mapv term->binding terms)]
+        arg-vars (mapv term->binding terms)]
     `(fn ~symbol
-       ([~db-sym] (~symbol ~db-sym [~@(repeatedly (count args) #(quote-term (ensure-unique-anonymous-var '_)))]))
+       ([~db-sym] (~symbol ~db-sym '~(vec (repeatedly (count arg-vars) #(ensure-unique-anonymous-var '_)))))
        ([~db-sym ~args-sym]
         (for [loop# [nil]
               :let [~@(interleave existential-vars (map quote-term existential-vars))
-                    ~args ~args-sym]
-              ~@(unification->clojure (map vector args)
-                 args-sym (mapv term->value terms))
-              ~@bindings]
-          ~args)))))
+                    ~arg-vars ~args-sym]
+              ~@(unification->clojure (map vector arg-vars) arg-vars (mapv term->value terms))
+              ~@bindings
+              ~@(duplicate-var-unification->clojure arg-vars)]
+          ~arg-vars)))))
 
 (defn- compile-rule-no-memo [rule]
   (let [query-plan (rule->query-plan rule)
@@ -199,7 +208,7 @@
   (let [var-bindings (mapv ensure-unique-anonymous-var var-bindings)]
     (cond->> (execute-rules-memo rules db var-bindings)
       (and (some cd/logic-var? var-bindings)
-           (not= var-bindings (distinct var-bindings))) (filter #(unify var-bindings %)))))
+           (not (distinct-vars? var-bindings))) (filter #(unify var-bindings %)))))
 
 (defrecord RuleRelation [rules]
   Relation

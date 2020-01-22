@@ -58,7 +58,12 @@
     (if (cd/logic-var? that)
       (unify that this)
       (when (= this that)
-        [this this]))))
+        [this this])))
+
+  nil
+  (unify [this that]
+    (when (nil? that)
+      [nil nil])))
 
 (defn- find-vars [body]
   (let [vars (atom [])]

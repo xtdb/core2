@@ -79,12 +79,9 @@
     (gensym '_)
     var))
 
-(defn- distinct-vars? [vars]
-  (= (distinct vars) vars))
-
 (defn- contains-duplicate-vars? [var-bindings]
-  (and (some cd/logic-var? var-bindings)
-       (not (distinct-vars? var-bindings))))
+  (let [vars (filter cd/logic-var? var-bindings)]
+    (not= (distinct vars) vars)))
 
 (def ^:private literal-hierarchy
   (-> (make-hierarchy)
@@ -245,8 +242,7 @@
 (defn- execute-rules [rules db var-bindings]
   (let [var-bindings (mapv ensure-unique-anonymous-var var-bindings)]
     (cond->> (execute-rules-memo rules db var-bindings)
-      (and (some cd/logic-var? var-bindings)
-           (not (distinct-vars? var-bindings))) (filter #(unify var-bindings %)))))
+      (contains-duplicate-vars? var-bindings) (filter #(unify var-bindings %)))))
 
 (defrecord RuleRelation [rules]
   Relation

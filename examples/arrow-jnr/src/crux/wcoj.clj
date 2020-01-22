@@ -65,9 +65,8 @@
 (defn- find-vars [body]
   (let [vars (atom [])]
     (w/postwalk (fn [x]
-                  (when (and (vector? x)
-                             (= :variable (first x)))
-                    (swap! vars conj (second x)))
+                  (when (cd/logic-var? x)
+                    (swap! vars conj x))
                   x)
                 body)
     @vars))
@@ -90,7 +89,7 @@
         {:keys [symbol terms]} head
         head-vars (find-vars head)
         {:keys [predicate not-predicate external-query]} (group-by first body)
-        existential-vars (apply disj (set (find-vars predicate)) head-vars)
+        existential-vars (apply disj (set (find-vars body)) head-vars)
         body-without-not (remove (set not-predicate) body)
         body-vars (set (find-vars body-without-not))]
     (assert (set/superset? body-vars (set head-vars))

@@ -25,9 +25,12 @@
                            :tilde #{'-}))
 (s/def ::query (s/cat :head ::predicate
                       :question-mark #{'?}))
-(s/def ::rule (s/cat :head ::predicate
+(s/def ::rule (s/cat :head ::rule-head
                      :colon-hypen #{:-}
                      :body ::body))
+(s/def ::rule-head (s/cat :symbol ::identifier
+                          :terms (s/? (s/spec (s/* ::head-term)))))
+
 (s/def ::requirement (s/cat :identifier (s/coll-of ::identifier :kind list? :count 1)
                             :dot #{'.}))
 (s/def ::fact (s/cat :head ::predicate))
@@ -35,24 +38,29 @@
                        :fact ::fact))
 (s/def ::body (s/+ ::literal))
 (s/def ::predicate (s/cat :symbol ::identifier
-                          :terms (s/? (s/coll-of ::term :kind list?))))
+                          :terms (s/? (s/spec (s/* ::term)))))
 (s/def ::equality-predicate (s/cat :lhs ::term
                                    :op '#{= != < <= > >=}
                                    :rhs ::term))
 (s/def ::external-query (s/cat :variable ::variable
                                :colon-hypen '#{:- is}
                                :symbol ::identifier
-                               :terms (s/? (s/coll-of ::term :kind list?))))
+                               :terms (s/spec (s/* ::term))))
 (s/def ::not-predicate (s/cat :exclamation-mark '#{! not}
                               :predicate ::predicate))
 (s/def ::literal (s/alt :predicate ::predicate
                         :equality-predicate ::equality-predicate
                         :not-predicate ::not-predicate
                         :external-query ::external-query))
-(s/def ::term (s/or :variable ::variable
-                    :constant ::constant))
+(s/def ::term (s/alt :variable ::variable
+                     :constant ::constant))
+(s/def ::head-term (s/alt :aggregate ::aggregate
+                          :variable ::variable
+                          :constant ::constant))
 
-(s/def ::constant (complement (some-fn list? logic-var?)))
+(s/def ::aggregate (s/cat :op '#{min max} :variable (s/coll-of ::variable :kind list? :count 1)))
+
+(s/def ::constant (complement (some-fn list? coll? logic-var?)))
 (s/def ::identifier (s/and (some-fn symbol? boolean?)
                            (complement (some-fn logic-var? '#{. ? = != ! % not}
                                                 #(and (not= '- %) (contains? #{\. \? \-} (last (str %))))))))

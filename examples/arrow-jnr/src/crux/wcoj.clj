@@ -128,16 +128,41 @@
             (recur (conj (vec new-body) literal) acc known-vars (inc circular-check))))
         acc))))
 
+(defn- min-aggregate [x y]
+  ((fnil min x x) x y))
+
+(defn- max-aggregate [x y]
+  ((fnil max x x) x y))
+
+(defn- count-aggregate [x y]
+  ((fnil inc 0) y))
+
+(defn- sum-aggregate [x y]
+  ((fnil + x 0) x y))
+
+(defn- build-aggregates [{:keys [terms] :as head}]
+  (when-let [aggregate-ops (seq (for [[idx [type term]] (map-indexed vector terms)
+                                      :when (= :aggregate type)]
+                                  [idx (get {'min crux.wcoj/min-aggregate
+                                             'max crux.wcoj/max-aggregate
+                                             'count crux.wcoj/count-aggregate
+                                             'sum crux.wcoj/sum-aggregate}
+                                            (:op term))]))]
+    {:group-idxs (vec (for [[idx [type term]] (map-indexed vector terms)
+                            :when (not= :aggregate type)]
+                        idx))
+     :aggregate-ops aggregate-ops}))
+
 (defn- rule->query-plan [rule]
   (let [rule (w/postwalk ensure-unique-anonymous-var rule)
         {:keys [head body]} (s/conform :crux.datalog/rule rule)
-        {:keys [symbol terms]} head
         head-vars (find-vars head)
         body (reorder-body head body)
         body-vars (find-vars body)]
     (assert (set/superset? body-vars head-vars)
             "rule does not satisfy safety requirement for head variables")
     {:existential-vars (set/difference body-vars head-vars)
+     :aggregates (build-aggregates head)
      :rule rule
      :head head
      :body body}))
@@ -226,32 +251,7 @@
     {}
     tuples)))
 
-(defn- min-aggregate [x y]
-  ((fnil min x x) x y))
-
-(defn- max-aggregate [x y]
-  ((fnil max x x) x y))
-
-(defn- count-aggregate [x y]
-  ((fnil inc 0) y))
-
-(defn- sum-aggregate [x y]
-  ((fnil + x 0) x y))
-
-(defn- build-aggregates [terms]
-  (when-let [aggregate-ops (seq (for [[idx [type term]] (map-indexed vector terms)
-                                      :when (= :aggregate type)]
-                                  [idx (get {'min crux.wcoj/min-aggregate
-                                             'max crux.wcoj/max-aggregate
-                                             'count crux.wcoj/count-aggregate
-                                             'sum crux.wcoj/sum-aggregate}
-                                            (:op term))]))]
-    {:group-idxs (vec (for [[idx [type term]] (map-indexed vector terms)
-                            :when (not= :aggregate type)]
-                        idx))
-     :aggregate-ops aggregate-ops}))
-
-(defn- query-plan->clojure [{:keys [existential-vars head body] :as query-plan}]
+(defn- query-plan->clojure [{:keys [existential-vars aggregates head body] :as query-plan}]
   (let [{:keys [symbol terms]} head
         db-sym (gensym 'db)
         args-sym (gensym 'args)
@@ -267,7 +267,7 @@
                    :let [~@(interleave existential-vars (map quote-term existential-vars))]
                    ~@bindings]
                ~arg-vars)
-             ~(if-let [aggregates (build-aggregates terms)]
+             ~(if aggregates
                 `(crux.wcoj/aggregate '~aggregates)
                 `(identity)))))))
 

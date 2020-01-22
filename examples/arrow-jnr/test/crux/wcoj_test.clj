@@ -62,6 +62,36 @@
         result (wcoj/query db '[fib(30, F)?])]
     (t/is (= #{[30 832040]} (set result)))))
 
+(t/deftest test-duplicate-head-variable
+  (t/is (= "q(a, a).
+" (with-out-str (wcoj/execute '[p(a). p(b). q(X, X) :- p(X). q(a a)?]))))
+  (t/is (= "q(a, a).
+" (with-out-str (wcoj/execute '[p(a). p(b). q(X, X) :- p(X). q(a X)?]))))
+  (t/is (= "q(a, a).
+q(b, b).
+" (with-out-str (wcoj/execute '[p(a). p(b). q(X, X) :- p(X). q(X A)?]))))
+  (t/is (= "q(a, a).
+" (with-out-str (wcoj/execute '[p(a). q(X, X) :- p(X). q(X X)?]))))
+  (t/is (= "q(a, a).
+" (with-out-str (wcoj/execute '[p(a). q(X, X) :- p(X). q(X Y)?]))))
+  (t/is (= "" (with-out-str (wcoj/execute '[p(a). p(b).  q(X, X) :- p(X). q(a b)?])))))
+
+(t/deftest test-duplicate-predicate-variable
+  (t/is (= "q(a).
+" (with-out-str (wcoj/execute '[p(a, a). p(a, b). q(X) :- p(X, X). q(a)?]))))
+  (t/is (= "q(a).
+" (with-out-str (wcoj/execute '[p(a, a). p(a, b). q(X) :- p(X, X). q(X)?]))))
+  (t/is (= "q(a).
+" (with-out-str (wcoj/execute '[p(a, a). p(a, b). q(X) :- p(X, a). q(X)?]))))
+  (t/is (= "" (with-out-str (wcoj/execute '[p(a, a). q(X) :- p(X, b). q(X)?]))))
+  (t/is (= "" (with-out-str (wcoj/execute '[p(a, b). p(b, a). q(X) :- p(X, X). q(a)?])))))
+
+(t/deftest test-duplicate-query-variable
+  (t/is (= "q(a, a).
+" (with-out-str (wcoj/execute '[p(a, a). p(a, b). q(X, Y) :- p(X, Y). q(a, a)?]))))
+  (t/is (= "q(a, a).
+" (with-out-str (wcoj/execute '[p(a, a). p(a, b). q(X, Y) :- p(X, Y). q(X, X)?])))))
+
 ;; https://github.com/racket/datalog/blob/master/tests/examples/tutorial.rkt
 
 (t/deftest test-racket-datalog-tutorial

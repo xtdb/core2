@@ -203,7 +203,7 @@
         (for [loop# [nil]
               :let [~@(interleave existential-vars (map quote-term existential-vars))
                     ~arg-vars ~args-sym]
-              ~@(unification->clojure (map vector arg-vars) arg-vars (mapv term->value terms))
+              ~@(unification->clojure (map vector arg-vars) args-sym (mapv term->value terms))
               ~@bindings
               ~@(duplicate-var-unification->clojure arg-vars)]
           ~arg-vars)))))

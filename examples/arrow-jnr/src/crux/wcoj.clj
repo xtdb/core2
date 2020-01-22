@@ -178,14 +178,12 @@
        (apply concat)
        (distinct)))
 
-(defn- normalize-memo-binding [binding]
-  (if (cd/logic-var? binding)
-    ::variable
-    binding))
-
 (defn- rule-memo-key [rules var-bindings]
   [(System/identityHashCode rules)
-   (map normalize-memo-binding var-bindings)])
+   (-> (zipmap (filter cd/logic-var? var-bindings)
+               (for [id (range)]
+                 (keyword (str "crux.wcoj/variable_" id))))
+       (replace var-bindings))])
 
 (defn- execute-rules-memo [rules db var-bindings]
   (let [db (vary-meta db update :rule-memo-state #(or % (atom {})))

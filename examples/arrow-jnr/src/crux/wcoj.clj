@@ -216,8 +216,7 @@
   (->> (for [rule rules]
          (if (empty? var-bindings)
            ((compile-rule rule) db)
-           ((compile-rule rule) db
-            (mapv ensure-unique-logic-var var-bindings))))
+           ((compile-rule rule) db var-bindings)))
        (apply concat)
        (distinct)))
 
@@ -239,9 +238,8 @@
       memo-value)))
 
 (defn- execute-rules [rules db var-bindings]
-  (let [var-bindings (mapv ensure-unique-anonymous-var var-bindings)]
-    (cond->> (execute-rules-memo rules db var-bindings)
-      (contains-duplicate-vars? var-bindings) (filter #(unify var-bindings %)))))
+  (cond->> (execute-rules-memo rules db (mapv ensure-unique-logic-var var-bindings))
+    (contains-duplicate-vars? var-bindings) (filter #(unify var-bindings %))))
 
 (defrecord RuleRelation [rules]
   Relation

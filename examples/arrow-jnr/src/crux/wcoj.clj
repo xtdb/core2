@@ -69,7 +69,7 @@
                     (swap! vars conj x))
                   x)
                 body)
-    @vars))
+    (set @vars)))
 
 (defn- ensure-unique-anonymous-var [var]
   (if (= '_ var)
@@ -83,23 +83,27 @@
   (and (some cd/logic-var? var-bindings)
        (not (distinct-vars? var-bindings))))
 
+(defn- reorder-body [body]
+  (let [{:keys [not-predicate]} (group-by first body)
+        body-without-not (remove (set not-predicate) body)
+        body-vars (find-vars body-without-not)]
+    (assert (set/superset? body-vars (find-vars not-predicate))
+            "rule does not satisfy safety requirement for not clauses")
+    (vec (concat body-without-not not-predicate))))
+
 (defn- rule->query-plan [rule]
   (let [rule (w/postwalk ensure-unique-anonymous-var rule)
         {:keys [head body]} (s/conform :crux.datalog/rule rule)
         {:keys [symbol terms]} head
         head-vars (find-vars head)
-        {:keys [predicate not-predicate external-query]} (group-by first body)
-        existential-vars (apply disj (set (find-vars body)) head-vars)
-        body-without-not (remove (set not-predicate) body)
-        body-vars (set (find-vars body-without-not))]
-    (assert (set/superset? body-vars (set head-vars))
+        body (reorder-body body)
+        body-vars (find-vars body)]
+    (assert (set/superset? body-vars head-vars)
             "rule does not satisfy safety requirement for head variables")
-    (assert (set/superset? body-vars (set (find-vars not-predicate)))
-            "rule does not satisfy safety requirement for not clauses")
-    {:existential-vars existential-vars
+    {:existential-vars (set/difference body-vars head-vars)
      :rule rule
      :head head
-     :body (vec (concat body-without-not not-predicate))}))
+     :body body}))
 
 (defn- term->binding [[type term]]
   (if (= :constant type)

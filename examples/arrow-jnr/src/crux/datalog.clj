@@ -58,7 +58,7 @@
                           :variable ::variable
                           :constant ::constant))
 
-(s/def ::aggregate (s/cat :op '#{min max} :variable (s/coll-of ::variable :kind list? :count 1)))
+(s/def ::aggregate (s/cat :op '#{min max count sum} :variable (s/coll-of ::variable :kind list? :count 1)))
 
 (s/def ::constant (complement (some-fn list? coll? logic-var?)))
 (s/def ::identifier (s/and (some-fn symbol? boolean?)

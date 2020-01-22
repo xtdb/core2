@@ -196,20 +196,39 @@
 (defmethod datalog->clojure :external-query [_ [_ {:keys [variable symbol terms]}]]
   (unification->clojure [variable] variable `(~symbol ~@(mapv term->value terms))))
 
-(defn aggregate [{:keys [group-idxs aggregate-ops]} tuples]
-  (for [[_ tuples] (group-by #(mapv % group-idxs) tuples)]
-    (reduce
-     (fn [acc tuple]
-       (reduce
-        (fn [acc [idx op]]
-          (update acc idx op (get tuple idx)))
-        acc aggregate-ops))
-     tuples)))
+(defn- aggregate [{:keys [group-idxs aggregate-ops]} tuples]
+  (vals
+   (reduce
+    (fn [acc tuple]
+      (update acc (mapv tuple group-idxs)
+              (fn [group-acc]
+                (reduce
+                 (fn [acc [idx op]]
+                   (update acc idx op (get group-acc idx)))
+                 tuple aggregate-ops))))
+    {}
+    tuples)))
+
+(defn- min-aggregate [x y]
+  ((fnil min x x) x y))
+
+(defn- max-aggregate [x y]
+  ((fnil max x x) x y))
+
+(defn- count-aggregate [x y]
+  ((fnil inc 0) y))
+
+(defn- sum-aggregate [x y]
+  ((fnil + x 0) x y))
 
 (defn- build-aggregates [terms]
   (when-let [aggregate-ops (seq (for [[idx [type term]] (map-indexed vector terms)
                                       :when (= :aggregate type)]
-                                  [idx (get {'min min 'max max} (:op term))]))]
+                                  [idx (get {'min crux.wcoj/min-aggregate
+                                             'max crux.wcoj/max-aggregate
+                                             'count crux.wcoj/count-aggregate
+                                             'sum crux.wcoj/sum-aggregate}
+                                            (:op term))]))]
     {:group-idxs (vec (for [[idx [type term]] (map-indexed vector terms)
                             :when (not= :aggregate type)]
                         idx))
@@ -426,4 +445,4 @@
         (reduce execute-statement db))))
 
 (defn -main [& [f :as args]]
-  (execute-datalog (cd/parse-datalog (io/reader (or f *in*)))))
+  (execute (cd/parse-datalog (io/reader (or f *in*)))))

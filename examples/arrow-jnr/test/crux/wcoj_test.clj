@@ -92,16 +92,16 @@ q(b, b).
   (t/is (= "q(a, a).
 " (with-out-str (wcoj/execute '[p(a, a). p(a, b). q(X, Y) :- p(X, Y). q(X, X)?])))))
 
-(t/deftest test-min-max-aggregation
-  (t/is (= "q(a, 2, 1).
-q(b, 5, 3).
+(t/deftest test-aggregation
+  (t/is (= "q(a, 2, 1, 2, 3).
+q(b, 5, 3, 2, 8).
 "
            (with-out-str
              (wcoj/execute
               '[p(a, 1). p(a, 2). p(b, 3). p(b, 5).
 
-                q(Y, max(X), min(X)) :- p(Y, X).
-                q(Y, X, Z)?])))))
+                q(Y, max(X), min(X), count(X), sum(X)) :- p(Y, X).
+                q(A, B, C, D, E)?])))))
 
 ;; https://github.com/racket/datalog/blob/master/tests/examples/tutorial.rkt
 

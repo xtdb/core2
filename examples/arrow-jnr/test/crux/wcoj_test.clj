@@ -590,6 +590,17 @@ perm(c, b).
                  (wcoj/query-by-name 'a)
                  (set))))))
 
+(t/deftest test-relational-algebra
+  (t/testing "selection"
+    (t/is (= #{["Joe's" "Bud" 2.50]
+               ["Joe's" "Miller" 2.75]}
+             (-> (wcoj/assert-all {} 'sells #{["Joe's" "Bud" 2.50]
+                                              ["Joe's" "Miller" 2.75]
+                                              ["Sue's" "Bud" 2.50]
+                                              ["Sue's" "Miller" 3.0]})
+                 (wcoj/query '[sells("Joe's" _ _)?])
+                 (set))))))
+
 ;; http://www.cs.toronto.edu/~drosu/csc343-l7-handout6.pdf
 ;; From Relational Algebra to Datalog
 

@@ -402,7 +402,7 @@
   ([db rule-name]
    (table-scan (relation-by-name db rule-name) db))
   ([db rule-name args]
-   (table-filter (relation-by-name db rule-name) db args)))
+   (table-filter (relation-by-name db rule-name) db (mapv ensure-unique-anonymous-var args))))
 
 (defn- query-conformed-datalog [db {{:keys [symbol terms]} :head}]
   (let [args (mapv second terms)]

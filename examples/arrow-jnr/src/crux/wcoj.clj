@@ -142,29 +142,46 @@
      :head head
      :body body}))
 
-(defn- term->binding [[type term]]
-  (case type
-    :constant (gensym 'constant)
-    :aggregate (first (:variable term))
-    term))
+(defmulti ^:private term->binding
+  (fn [[type term]]
+    type))
+
+(defmethod term->binding :constant [[_ term]]
+  (gensym 'constant))
+
+(defmethod term->binding :aggregate [[_ term]]
+  (first (:variable term)))
+
+(defmethod term->binding :default [[_ term]]
+  term)
 
 (defn- quote-term [x]
   (list 'quote x))
 
-(defn- term->value [[type term]]
-  (cond
-    (and (= :constant type)
-         (symbol? term))
+(defmulti ^:private term->value
+  (fn [[type term]]
+    type))
+
+(defmethod term->value :constant [[_ term]]
+  (if (symbol? term)
     (quote-term term)
-    (= :aggregate type)
-    (first (:variable term))
-    :else
     term))
 
-(defn- term->signature [[type term]]
-  (if (= :aggregate type)
-    (first (:variable term))
-    term))
+(defmethod term->value :aggregate [[_ term]]
+  (first (:variable term)))
+
+(defmethod term->value :default [[_ term]]
+  term)
+
+(defmulti ^:private term->signature
+  (fn [[type term]]
+    type))
+
+(defmethod term->signature :aggregate [[_ term]]
+  (first (:variable term)))
+
+(defmethod term->signature :default [[_ term]]
+  term)
 
 (defn- predicate->clojure [{:keys [db-sym]} {:keys [symbol terms]}]
   `(crux.wcoj/table-filter
@@ -196,7 +213,7 @@
 (defmethod datalog->clojure :external-query [_ [_ {:keys [variable symbol terms]}]]
   (unification->clojure [variable] variable `(~symbol ~@(mapv term->value terms))))
 
-(defn- aggregate [{:keys [group-idxs aggregate-ops]} tuples]
+(defn aggregate [{:keys [group-idxs aggregate-ops]} tuples]
   (vals
    (reduce
     (fn [acc tuple]

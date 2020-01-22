@@ -599,6 +599,18 @@ perm(c, b).
                                               ["Sue's" "Bud" 2.50]
                                               ["Sue's" "Miller" 3.0]})
                  (wcoj/query '[sells("Joe's" _ _)?])
+                 (set)))))
+
+  (t/testing "projection"
+    (t/is (= #{["Bud" 2.50]
+               ["Miller" 2.75]
+               ["Miller" 3.00]}
+             (-> (wcoj/assert-all {} 'sells #{["Joe's" "Bud" 2.50]
+                                              ["Joe's" "Miller" 2.75]
+                                              ["Sue's" "Bud" 2.50]
+                                              ["Sue's" "Miller" 3.0]})
+                 (wcoj/query '[sells(_ Beer Price)?])
+                 (->> (map #(mapv % [1 2])))
                  (set))))))
 
 ;; http://www.cs.toronto.edu/~drosu/csc343-l7-handout6.pdf

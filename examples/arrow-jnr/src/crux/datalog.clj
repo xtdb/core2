@@ -9,6 +9,9 @@
 ;; See Racket for the Datalog syntax in EBNF.
 ;; https://docs.racket-lang.org/datalog/datalog.html
 
+;; See also Mitre Datalog:
+;; https://github.com/TheKnarf/mitre-datalog-fork/blob/master/src/datalog.lua.in
+
 (defn logic-var? [s]
   (and (symbol? s)
        (let [c (char (first (name s)))]

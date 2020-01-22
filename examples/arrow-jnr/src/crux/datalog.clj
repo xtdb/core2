@@ -2,7 +2,9 @@
   (:require [clojure.edn :as edn]
             [clojure.java.io :as  io]
             [clojure.spec.alpha :as s]
-            [instaparse.core :as insta]))
+            [instaparse.core :as insta])
+  (:import clojure.lang.LineNumberingPushbackReader
+           java.io.StringReader))
 
 ;; See Racket for the Datalog syntax in EBNF.
 ;; https://docs.racket-lang.org/datalog/datalog.html
@@ -56,6 +58,15 @@
                                                 #(and (not= '- %) (contains? #{\. \? \-} (last (str %))))))))
 (s/def ::variable logic-var?)
 
+(defn parse-datalog [datalog-source]
+  (let [in (LineNumberingPushbackReader.
+            (if (string? datalog-source)
+              (StringReader. ^String datalog-source)
+              (io/reader datalog-source)))]
+    (->> (repeatedly #(edn/read {:eof nil} in))
+         (take-while identity)
+         (s/assert :crux.datalog/program))))
+
 (def ^:private datalog-whitespace-ebnf
   "whitespace = #'[,\\s]+' | whitespace? #'%.+(\n|$)' whitespace?")
 
@@ -66,7 +77,7 @@
    :auto-whitespace
    (insta/parser datalog-whitespace-ebnf)))
 
-(defn parse-datalog [datalog-source]
+(defn parse-ebnf-datalog [datalog-source]
   (->> (insta/parse datalog-parser datalog-source)
        (insta/transform
         {:term (fn [[tag value]]

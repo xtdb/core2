@@ -6,9 +6,7 @@
             [clojure.string :as str]
             [clojure.walk :as w]
             [crux.datalog :as cd])
-  (:import [clojure.lang IPersistentCollection IPersistentMap
-            LineNumberingPushbackReader Symbol]
-           java.io.StringReader))
+  (:import [clojure.lang IPersistentCollection IPersistentMap Symbol]))
 
 (set! *unchecked-math* :warn-on-boxed)
 (s/check-asserts true)
@@ -344,7 +342,7 @@
   (let [args (mapv second terms)]
     (query-by-name db symbol args)))
 
-(defn query-datalog [db query]
+(defn query [db query]
   (s/assert :crux.datalog/query query)
   (query-conformed-datalog db (s/conform :crux.datalog/query query)))
 
@@ -389,22 +387,13 @@
       :rule
       (op db symbol (vec (s/unform :crux.datalog/rule clause))))))
 
-(defn execute-datalog
+(defn execute
   ([datalog]
-   (execute-datalog {} datalog))
+   (execute {} datalog))
   ([db datalog]
    (s/assert :crux.datalog/program datalog)
    (->> (s/conform :crux.datalog/program datalog)
         (reduce execute-statement db))))
 
-(defn parse-datalog [datalog-source]
-  (let [in (LineNumberingPushbackReader.
-            (if (string? datalog-source)
-              (StringReader. ^String datalog-source)
-              (io/reader datalog-source)))]
-    (->> (repeatedly #(edn/read {:eof nil} in))
-         (take-while identity)
-         (s/assert :crux.datalog/program))))
-
 (defn -main [& [f :as args]]
-  (execute-datalog (parse-datalog (io/reader (or f *in*)))))
+  (execute-datalog (cd/parse-datalog (io/reader (or f *in*)))))

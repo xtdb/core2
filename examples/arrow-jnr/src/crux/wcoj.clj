@@ -74,6 +74,11 @@
                 body)
     (set @vars)))
 
+(defn- ensure-unique-logic-var [var]
+  (if (cd/logic-var? var)
+    (gensym var)
+    var))
+
 (defn- ensure-unique-anonymous-var [var]
   (if (= '_ var)
     (gensym '_)
@@ -190,15 +195,11 @@
         arg-vars (mapv term->binding terms)
         args-signature (quote-term (mapv second terms))]
     `(fn ~symbol
-       ([~db-sym] (~symbol ~db-sym '~(vec (repeat (count arg-vars) '_))))
+       ([~db-sym] (~symbol ~db-sym '~(vec (repeatedly (count arg-vars) #(ensure-unique-anonymous-var '_)))))
        ([~db-sym ~args-sym]
         (for [loop# [nil]
-              :let [~@(interleave existential-vars (map quote-term existential-vars))
-                    ~args-sym (for [arg# ~args-sym]
-                                (if (crux.datalog/logic-var? arg#)
-                                  (gensym arg#)
-                                  arg#))]
               ~@(unification->clojure (map vector arg-vars) args-sym args-signature)
+              :let [~@(interleave existential-vars (map quote-term existential-vars))]
               ~@bindings]
           ~arg-vars)))))
 
@@ -215,7 +216,8 @@
   (->> (for [rule rules]
          (if (empty? var-bindings)
            ((compile-rule rule) db)
-           ((compile-rule rule) db var-bindings)))
+           ((compile-rule rule) db
+            (mapv ensure-unique-logic-var var-bindings))))
        (apply concat)
        (distinct)))
 
@@ -223,7 +225,7 @@
   [(System/identityHashCode rules)
    (-> (zipmap (filter cd/logic-var? var-bindings)
                (for [id (range)]
-                 (keyword (str "crux.wcoj/variable_" id))))
+                 (symbol (str "crux.wcoj/variable_" id))))
        (replace var-bindings))])
 
 (defn- execute-rules-memo [rules db var-bindings]

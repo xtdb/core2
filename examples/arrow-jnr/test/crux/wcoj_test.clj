@@ -590,6 +590,8 @@ perm(c, b).
                  (wcoj/query-by-name 'a)
                  (set))))))
 
+;; http://infolab.stanford.edu/~ullman/fcdb/aut07/slides/ra.pdf
+
 (t/deftest test-relational-algebra
   (t/testing "selection"
     (t/is (= #{["Joe's" "Bud" 2.50]
@@ -611,6 +613,61 @@ perm(c, b).
                                               ["Sue's" "Miller" 3.0]})
                  (wcoj/query '[sells(_ Beer Price)?])
                  (->> (map #(mapv % [1 2])))
+                 (set)))))
+
+  (t/testing "extended projection"
+    (t/is (= #{[3 1 1]
+               [7 3 3]}
+             (-> (wcoj/assert-all {} 'r #{[1 2]
+                                          [3 4]})
+                 (-> (wcoj/execute '[q(C, A, A) :- r(A, B), C :- +(A, B).]))
+                 (wcoj/query '[q(C, A1, A2)?])
+                 (set)))))
+
+  (t/testing "product"
+    (t/is (= #{[1 2 5 6]
+               [1 2 7 8]
+               [1 2 9 10]
+               [3 4 5 6]
+               [3 4 7 8]
+               [3 4 9 10]}
+             (-> (wcoj/assert-all {} 'r1 #{[1 2]
+                                           [3 4]})
+                 (wcoj/assert-all 'r2 #{[5 6]
+                                        [7 8]
+                                        [9 10]})
+                 (-> (wcoj/execute '[q(A, R1A, R2B, C) :- r1(A, R1A), r2(R2B, C) .]))
+                 (wcoj/query '[q(A, R1A, R2B, C)?])
+                 (set)))))
+
+  (t/testing "theta join"
+    (t/is (= #{["Joe's" "Bud" 2.5 "Joe's" "Maple St."]
+               ["Joe's" "Miller" 2.75 "Joe's" "Maple St."]
+               ["Sue's" "Bud" 2.5 "Sue's" "River Rd."]
+               ["Sue's" "Miller" 3.0 "Sue's" "River Rd."]}
+             (-> (wcoj/assert-all {} 'sells #{["Joe's" "Bud" 2.50]
+                                              ["Joe's" "Miller" 2.75]
+                                              ["Sue's" "Bud" 2.50]
+                                              ["Sue's" "Miller" 3.0]})
+                 (wcoj/assert-all 'bars #{["Joe's" "Maple St."]
+                                          ["Sue's" "River Rd."]})
+                 (-> (wcoj/execute '[q(Bar, Beer, Price, Name, Addr) :- sells(Bar, Beer, Price), bars(Name, Addr), Bar = Name .]))
+                 (wcoj/query '[q(Bar, Beer, Price, Name, Addr)?])
+                 (set)))))
+
+  (t/testing "natural join"
+    (t/is (= #{["Joe's" "Bud" 2.5 "Maple St."]
+               ["Joe's" "Miller" 2.75 "Maple St."]
+               ["Sue's" "Bud" 2.5 "River Rd."]
+               ["Sue's" "Coors" 3.0 "River Rd."]}
+             (-> (wcoj/assert-all {} 'sells #{["Joe's" "Bud" 2.50]
+                                              ["Joe's" "Miller" 2.75]
+                                              ["Sue's" "Bud" 2.50]
+                                              ["Sue's" "Coors" 3.0]})
+                 (wcoj/assert-all 'bars #{["Joe's" "Maple St."]
+                                          ["Sue's" "River Rd."]})
+                 (-> (wcoj/execute '[q(Bar, Beer, Price, Addr) :- sells(Bar, Beer, Price), bars(Bar, Addr).]))
+                 (wcoj/query '[q(Bar, Beer, Price, Addr)?])
                  (set))))))
 
 ;; http://www.cs.toronto.edu/~drosu/csc343-l7-handout6.pdf
@@ -640,6 +697,3 @@ perm(c, b).
 
 ;; Theta Join R .R.x >T.yT
 ;; j(X, Y, Z, W) :- r(X, Y), t(Z, W), X > Y. ;; looks wrong?
-
-;; Can take relational algebra tests from here:
-;; http://infolab.stanford.edu/~ullman/fcdb/aut07/slides/ra.pdf

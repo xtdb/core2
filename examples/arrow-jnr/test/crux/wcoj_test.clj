@@ -100,8 +100,9 @@ q(b, 5, 3, 2, 8).
              (wcoj/execute
               '[p(a, 1). p(a, 2). p(b, 3). p(b, 5).
 
-                q(Y, max(X), min(X), count(X), sum(X)) :- p(Y, X).
-                q(A, B, C, D, E)?])))))
+
+                q(X, max(Y), min(Y), count(Y), sum(Y)) :- p(X, Y).
+                q(X, Max, Min, Count, Sum)?])))))
 
 ;; https://github.com/racket/datalog/blob/master/tests/examples/tutorial.rkt
 

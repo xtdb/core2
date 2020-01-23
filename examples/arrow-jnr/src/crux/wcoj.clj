@@ -13,7 +13,8 @@
            org.apache.arrow.vector.complex.StructVector
            org.apache.arrow.vector.types.pojo.FieldType
            org.apache.arrow.vector.types.Types$MinorType
-           org.apache.arrow.vector.util.Text))
+           org.apache.arrow.vector.util.Text
+           java.util.Arrays))
 
 (set! *unchecked-math* :warn-on-boxed)
 (s/check-asserts true)
@@ -36,6 +37,12 @@
   (unify [this that]))
 
 (extend-protocol Unification
+  (class (byte-array 0))
+  (unify [this that]
+    (when (and (bytes? that)
+               (Arrays/equals ^bytes this ^bytes that))
+      [this that]))
+
   Symbol
   (unify [this that]
     (cond
@@ -542,21 +549,55 @@
 (def ^:private ^{:tag 'long} vector-size 128)
 
 (defn- arrow-seq [^StructVector struct var-bindings]
-  (->> (for [start-idx (range 0 (.getValueCount struct) vector-size)
-             :let [start-idx (long start-idx)
-                   limit (min (.getValueCount struct) (+ start-idx vector-size))]]
-         (loop [idx start-idx
-                acc []]
-           (if (< idx limit)
-             (if (.isNull struct idx)
-               (recur (inc idx) acc)
-               (let [tuple (arrow->tuple struct idx)]
-                 (if (or (nil? var-bindings)
-                         (unify tuple var-bindings))
-                   (recur (inc idx) (conj acc tuple))
-                   (recur (inc idx) acc))))
-             acc)))
-       (apply concat)))
+  (let [init-selection-vector (int-array vector-size -1)
+        unify-tuple? (contains-duplicate-vars? var-bindings)]
+    (->> (for [start-idx (range 0 (.getValueCount struct) vector-size)
+               :let [start-idx (long start-idx)
+                     limit (min (.getValueCount struct) (+ start-idx vector-size))]]
+           (loop [n 0
+                  ^ints selection-vector nil]
+             (let [column (.getChildByOrdinal struct n)]
+               (if (and (< n (.size struct)) var-bindings)
+                 (if-let [unifier (get var-bindings n)]
+                   (recur (inc n)
+                          (loop [idx start-idx
+                                 ^ints selection-vector (or selection-vector (doto init-selection-vector
+                                                                               (Arrays/fill -1)))
+                                 selection-offset 0]
+                            (if (< idx limit)
+                              (recur (inc idx)
+                                     (if (or (.isNull struct idx)
+                                             (= -2 (aget selection-vector selection-offset)))
+                                       selection-vector
+                                       (doto selection-vector
+                                         (aset selection-offset
+                                               (if (unify (arrow->clojure (.getObject column idx)) unifier)
+                                                 idx
+                                                 -2))))
+                                     (inc selection-offset))
+                              selection-vector)))
+                   (recur (inc n) selection-vector))
+                 (if selection-vector
+                   (loop [selection-offset 0
+                          acc []]
+                     (if (< selection-offset vector-size)
+                       (let [offset (aget selection-vector selection-offset)]
+                         (recur (inc selection-offset)
+                                (if (nat-int? offset)
+                                  (let [tuple (arrow->tuple struct offset)]
+                                    (if (or (not unify-tuple?)
+                                            (unify tuple var-bindings))
+                                      (conj acc tuple)
+                                      acc))
+                                  acc)))
+                       acc))
+                   (loop [idx start-idx
+                          acc []]
+                     (if (< idx limit)
+                       (recur (inc idx)
+                              (conj acc (arrow->tuple struct idx)))
+                       acc)))))))
+         (apply concat))))
 
 (extend-protocol Relation
   StructVector

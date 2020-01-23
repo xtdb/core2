@@ -6,7 +6,14 @@
             [clojure.string :as str]
             [clojure.walk :as w]
             [crux.datalog :as cd])
-  (:import [clojure.lang IPersistentCollection IPersistentMap Symbol]))
+  (:import [clojure.lang IPersistentCollection IPersistentMap Symbol Keyword]
+           [org.apache.arrow.memory BufferAllocator RootAllocator]
+           [org.apache.arrow.vector BitVector BigIntVector Float4Vector Float8Vector
+            IntVector VarBinaryVector VarCharVector]
+           org.apache.arrow.vector.complex.StructVector
+           org.apache.arrow.vector.types.pojo.FieldType
+           org.apache.arrow.vector.types.Types$MinorType
+           org.apache.arrow.vector.util.Text))
 
 (set! *unchecked-math* :warn-on-boxed)
 (s/check-asserts true)
@@ -31,11 +38,13 @@
 (extend-protocol Unification
   Symbol
   (unify [this that]
-    (if (cd/logic-var? that)
+    (cond
+      (cd/logic-var? that)
       [this this]
-      (if (or (= this that)
-              (cd/logic-var? this))
-        [that that])))
+
+      (or (= this that)
+          (cd/logic-var? this))
+      [that that]))
 
   IPersistentCollection
   (unify [this that]
@@ -46,10 +55,12 @@
         (first
          (reduce
           (fn [[acc smap] [x y]]
-            (or (when-let [[xu yu] (unify (get smap x x) (get smap y y))]
-                  [(conj acc [xu yu])
-                   (assoc smap x xu y yu)])
-                (reduced nil)))
+            (if-let [[xu yu] (unify (get smap x x) (get smap y y))]
+              [(conj acc [xu yu])
+               (cond-> smap
+                 (not= '_ x) (assoc x xu)
+                 (not= '_ y) (assoc y xu))]
+              (reduced nil)))
           [[] {}]
           (mapv vector this that))))))
 
@@ -309,7 +320,7 @@
   (cond->> (execute-rules-memo rules db (mapv ensure-unique-logic-var var-bindings))
     (contains-duplicate-vars? var-bindings) (filter #(unify var-bindings %))))
 
-(defrecord RuleRelation [rules]
+(defrecord RuleRelation [name rules]
   Relation
   (table-scan [this db]
     (table-filter this db nil))
@@ -324,8 +335,8 @@
   (delete [this rule]
     (update this :rules disj rule)))
 
-(defn- new-rule-relation []
-  (->RuleRelation #{}))
+(defn- new-rule-relation [name _]
+  (->RuleRelation name #{}))
 
 (extend-protocol Relation
   nil
@@ -354,7 +365,10 @@
   (delete [this tuple]
     (disj this tuple)))
 
-(defrecord CombinedRelation [rules tuples]
+(defn new-sorted-set-relation [relation-name _]
+  (with-meta (sorted-set) {:name relation-name}))
+
+(defrecord CombinedRelation [name rules tuples]
   Relation
   (table-scan [this db]
     (concat (table-scan tuples db)
@@ -374,13 +388,20 @@
       (update this :rules delete value)
       (update this :tuples delete value))))
 
-(defn- new-combined-relation [_]
-  (->CombinedRelation (new-rule-relation) (sorted-set)))
+(def ^:dynamic *tuple-relation-factory* new-sorted-set-relation)
+
+(defn- new-combined-relation [relation-name template-value]
+  (->CombinedRelation
+   relation-name
+   (new-rule-relation relation-name template-value)
+   (*tuple-relation-factory* relation-name template-value)))
+
+(def ^:dynamic *relation-factory* new-combined-relation)
 
 (extend-type IPersistentMap
   Db
   (assertion [this relation-name value]
-    (update (ensure-relation this relation-name new-combined-relation value)
+    (update (ensure-relation this relation-name *relation-factory* value)
             relation-name
             insert
             value))
@@ -393,7 +414,7 @@
 
   (ensure-relation [this relation-name relation-factory template-value]
     (cond-> this
-      (not (contains? this relation-name)) (assoc relation-name (relation-factory template-value))))
+      (not (contains? this relation-name)) (assoc relation-name (relation-factory relation-name template-value))))
 
   (relation-by-name [this relation-name]
     (get this relation-name)))
@@ -463,3 +484,98 @@
 
 (defn -main [& [f :as args]]
   (execute (cd/parse-datalog (io/reader (or f *in*)))))
+
+;; Arrow
+
+(def ^:private ^BufferAllocator
+  allocator (RootAllocator. Long/MAX_VALUE))
+
+(extend-protocol Relation
+  StructVector
+  (table-scan [this db]
+    (let [col-idxs (range (.size this))]
+      (for [idx (range (.getValueCount this))
+            :when (not (.isNull this idx))]
+        (vec (for [n col-idxs
+                   :let [column (.getChildByOrdinal this n)
+                         value (.getObject column idx)]]
+               (cond
+                 (instance? Text value)
+                 (str value)
+
+                 (bytes? value)
+                 (edn/read-string (String. ^bytes value "UTF-8"))
+
+                 :else
+                 value))))))
+
+  (table-filter [this db var-bindings]
+    (for [tuple (table-scan this db)
+          :when (unify tuple var-bindings)]
+      tuple))
+
+  (insert [this value]
+    (let [idx (.getValueCount this)]
+      (dotimes [n (.size this)]
+        (let [v (get value n)
+              column (.getChildByOrdinal this n)]
+          (cond
+            (instance? IntVector column)
+            (.setSafe ^IntVector column idx (int v))
+
+            (instance? BigIntVector column)
+            (.setSafe ^BigIntVector column idx (long v))
+
+            (instance? Float4Vector column)
+            (.setSafe ^Float4Vector column idx (float v))
+
+            (instance? Float8Vector column)
+            (.setSafe ^Float8Vector column idx (double v))
+
+            (instance? VarCharVector column)
+            (.setSafe ^VarCharVector column idx (Text. ^String v))
+
+            (instance? BitVector column)
+            (.setSafe ^BitVector column idx (if v 1 0))
+
+            (instance? VarBinaryVector column)
+            (.setSafe ^VarBinaryVector column idx (.getBytes (pr-str v) "UTF-8"))
+
+            :else
+            (throw (IllegalArgumentException.)))))
+
+      (doto this
+        (.setIndexDefined idx)
+        (.setValueCount (inc idx)))))
+
+  (delete [this value]
+    (throw (UnsupportedOperationException.))))
+
+(defn- new-arrow-struct-relation
+  ^org.apache.arrow.vector.complex.StructVector [relation-name template-value]
+  (reduce
+   (fn [^StructVector relation [idx column-template]]
+     (let [column-type (.getSimpleName (class column-template))
+           [^FieldType field-type ^Class vector-class]
+           (case (symbol column-type)
+             Integer [(FieldType/nullable (.getType Types$MinorType/INT))
+                      IntVector]
+             Long [(FieldType/nullable (.getType Types$MinorType/BIGINT))
+                   BigIntVector]
+             loat [(FieldType/nullable (.getType Types$MinorType/FLOAT4))
+                   Float4Vector]
+             Double [(FieldType/nullable (.getType Types$MinorType/FLOAT8))
+                     Float8Vector]
+             String [(FieldType/nullable (.getType Types$MinorType/VARCHAR))
+                     VarCharVector]
+             Boolean [(FieldType/nullable (.getType Types$MinorType/BIT))
+                      BitVector]
+             [(FieldType/nullable (.getType Types$MinorType/VARBINARY))
+              VarBinaryVector])]
+       (doto relation
+         (.addOrGet
+          (str idx "_" (str/lower-case column-type))
+          field-type
+          vector-class))))
+   (StructVector/empty (str relation-name) allocator)
+   (map-indexed vector template-value)))

@@ -39,8 +39,12 @@
 (extend-protocol Unification
   (class (byte-array 0))
   (unify [this that]
-    (when (and (bytes? that)
-               (Arrays/equals ^bytes this ^bytes that))
+    (cond
+      (cd/logic-var? that)
+      (unify that this)
+
+      (and (bytes? that)
+           (Arrays/equals ^bytes this ^bytes that))
       [this that]))
 
   Symbol
@@ -546,11 +550,29 @@
         (recur (inc n)
                (conj acc (arrow->clojure value)))))))
 
+(defn- clojure->arrow [value]
+  (cond
+    (string? value)
+    (Text. (.getBytes ^String value "UTF-8"))
+
+    (boolean? value)
+    (if value 1 0)
+
+    (number? value)
+    value
+
+    :else
+    (.getBytes (pr-str value) "UTF-8")))
+
 (def ^:private ^{:tag 'long} vector-size 128)
 
 (defn- arrow-seq [^StructVector struct var-bindings]
   (let [init-selection-vector (int-array vector-size -1)
-        unify-tuple? (contains-duplicate-vars? var-bindings)]
+        unify-tuple? (contains-duplicate-vars? var-bindings)
+        unifiers (vec (for [var var-bindings]
+                        (if (cd/logic-var? var)
+                          var
+                          (clojure->arrow var))))]
     (->> (for [start-idx (range 0 (.getValueCount struct) vector-size)
                :let [start-idx (long start-idx)
                      limit (min (.getValueCount struct) (+ start-idx vector-size))]]
@@ -558,7 +580,7 @@
                   ^ints selection-vector nil]
              (let [column (.getChildByOrdinal struct n)]
                (if (and (< n (.size struct)) var-bindings)
-                 (if-let [unifier (get var-bindings n)]
+                 (if-let [unifier (get unifiers n)]
                    (recur (inc n)
                           (loop [idx start-idx
                                  ^ints selection-vector (or selection-vector (doto init-selection-vector
@@ -571,7 +593,7 @@
                                        selection-vector
                                        (doto selection-vector
                                          (aset selection-offset
-                                               (if (unify (arrow->clojure (.getObject column idx)) unifier)
+                                               (if (unify (.getObject column idx) unifier)
                                                  idx
                                                  -2))))
                                      (inc selection-offset))
@@ -628,13 +650,13 @@
               (.setSafe ^Float8Vector column idx (double v))
 
               (instance? VarCharVector column)
-              (.setSafe ^VarCharVector column idx (Text. ^String v))
+              (.setSafe ^VarCharVector column idx ^Text (clojure->arrow v))
 
               (instance? BitVector column)
-              (.setSafe ^BitVector column idx (if v 1 0))
+              (.setSafe ^BitVector column idx ^long (clojure->arrow v))
 
               (instance? VarBinaryVector column)
-              (.setSafe ^VarBinaryVector column idx (.getBytes (pr-str v) "UTF-8"))
+              (.setSafe ^VarBinaryVector column idx ^bytes (clojure->arrow v))
 
               :else
               (throw (IllegalArgumentException.)))))

@@ -3,6 +3,9 @@
             [clojure.test :as t]
             [crux.wcoj :as wcoj]))
 
+(declare with-each-tuple-factory)
+(t/use-fixtures :each with-each-tuple-factory)
+
 (t/deftest test-triangle-join-query
   (let [triangle '[r(1, 3).
                    r(1, 4).
@@ -110,47 +113,47 @@ q(b, 5, 3, 2, 8).
   (let [db (atom {})]
     (swap! db wcoj/execute '[parent(john,douglas).])
 
-    (t/is (= '[[john douglas]]
-             (wcoj/query @db '[parent(john, douglas)?])))
+    (t/is (= '#{[john douglas]}
+             (set (wcoj/query @db '[parent(john, douglas)?]))))
     (t/is (empty? (wcoj/query @db '[parent(john, ebbon)?])))
 
     (swap! db wcoj/execute '[parent(bob,john).
                              parent(ebbon,bob).])
 
-    (t/is (= '[[bob john]
-               [ebbon bob]
-               [john douglas]]
-             (wcoj/query @db '[parent(A, B)?])))
+    (t/is (= '#{[bob john]
+                [ebbon bob]
+                [john douglas]}
+             (set (wcoj/query @db '[parent(A, B)?]))))
 
-    (t/is (= '[[john douglas]]
-             (wcoj/query @db '[parent(john, B)?])))
+    (t/is (= '#{[john douglas]}
+             (set (wcoj/query @db '[parent(john, B)?]))))
 
     (t/is (empty? (wcoj/query @db '[parent(A, A)?])))
 
     (swap! db wcoj/execute '[ancestor(A,B) :- parent(A,B).
                              ancestor(A,B) :- parent(A,C), ancestor(C, B).])
 
-    (t/is (= '[[bob douglas]
-               [ebbon douglas]
-               [ebbon john]
-               [bob john]
-               [ebbon bob]
-               [john douglas]]
-             (wcoj/query @db '[ancestor(A, B)?])))
+    (t/is (= '#{[bob douglas]
+                [ebbon douglas]
+                [ebbon john]
+                [bob john]
+                [ebbon bob]
+                [john douglas]}
+             (set (wcoj/query @db '[ancestor(A, B)?]))))
 
-    (t/is (= ' [[ebbon john]
-                [bob john]]
-             (wcoj/query @db '[ancestor(X, john)?])))
+    (t/is (= '#{[ebbon john]
+                [bob john]}
+             (set (wcoj/query @db '[ancestor(X, john)?]))))
 
     (swap! db wcoj/execute '[parent(bob,john)-])
 
-    (t/is (= '[[ebbon bob]
-               [john douglas]]
-             (wcoj/query @db '[parent(A, B)?])))
+    (t/is (= '#{[ebbon bob]
+                [john douglas]}
+             (set (wcoj/query @db '[parent(A, B)?]))))
 
-    (t/is (= '[[ebbon bob]
-               [john douglas]]
-             (wcoj/query @db '[ancestor(A, B)?])))))
+    (t/is (= '#{[ebbon bob]
+                [john douglas]}
+             (set (wcoj/query @db '[ancestor(A, B)?]))))))
 
 ;; http://www.dlvsystem.com/html/The_DLV_Tutorial.html
 
@@ -212,8 +215,13 @@ q(b, 5, 3, 2, 8).
     (let [db (wcoj/execute db '[left_arm_broken .])]
       (doseq [q '[left_arm_broken can_write be_angry]]
         (t/is (= '#{[]} (set (wcoj/query-by-name db q)))))
-      (t/is (= '#{} (set (wcoj/query-by-name db 'right_arm_broken)))))
+      (t/is (= '#{} (set (wcoj/query-by-name db 'right_arm_broken))))))
 
+  (let [disjunction '[left_arm_broken :- not right_arm_broken .
+                      right_arm_broken :- not left_arm_broken .
+                      can_write :- left_arm_broken .
+                      be_angry :- can_write .]
+        db (wcoj/execute disjunction)]
     (let [db (wcoj/execute db '[right_arm_broken .])]
       (doseq [q '[left_arm_broken can_write be_angry]]
         (t/is (= '#{} (set (wcoj/query-by-name db q)))))
@@ -680,7 +688,7 @@ perm(c, b).
 ;; u(X, Y) :- r(X, Y)
 ;; u(X, Y) :- t(X, Y)
 
-;; Differece: R(x, y) – T(x, y)
+;; Difference: R(x, y) – T(x, y)
 ;; d(X, Y) :- r(X, Y), not t(X, Y).
 
 ;; Projection: πx(R)
@@ -697,3 +705,9 @@ perm(c, b).
 
 ;; Theta Join R .R.x >T.yT
 ;; j(X, Y, Z, W) :- r(X, Y), t(Z, W), X > Y. ;; looks wrong?
+
+(defn- with-each-tuple-factory [f]
+  (doseq [factory [#'wcoj/new-sorted-set-relation #'wcoj/new-arrow-struct-relation]]
+    (t/testing (:name (meta factory))
+      (binding [wcoj/*tuple-relation-factory* factory]
+        (f)))))

@@ -29,7 +29,7 @@
 (defprotocol Db
   (assertion [this relation-name value])
   (retraction [this relation-name value])
-  (ensure-relation [this relation-name relation-factory template-value])
+  (ensure-relation [this relation-name relation-factory])
   (relation-by-name [this relation-name]))
 
 (defprotocol Unification
@@ -335,7 +335,7 @@
   (delete [this rule]
     (update this :rules disj rule)))
 
-(defn- new-rule-relation [name _]
+(defn- new-rule-relation [name]
   (->RuleRelation name #{}))
 
 (extend-protocol Relation
@@ -365,7 +365,7 @@
   (delete [this tuple]
     (disj this tuple)))
 
-(defn new-sorted-set-relation [relation-name _]
+(defn new-sorted-set-relation [relation-name]
   (with-meta (sorted-set) {:name relation-name}))
 
 (defrecord CombinedRelation [name rules tuples]
@@ -390,18 +390,18 @@
 
 (def ^:dynamic *tuple-relation-factory* new-sorted-set-relation)
 
-(defn- new-combined-relation [relation-name template-value]
+(defn- new-combined-relation [relation-name]
   (->CombinedRelation
    relation-name
-   (new-rule-relation relation-name template-value)
-   (*tuple-relation-factory* relation-name template-value)))
+   (new-rule-relation relation-name)
+   (*tuple-relation-factory* relation-name)))
 
 (def ^:dynamic *relation-factory* new-combined-relation)
 
 (extend-type IPersistentMap
   Db
   (assertion [this relation-name value]
-    (update (ensure-relation this relation-name *relation-factory* value)
+    (update (ensure-relation this relation-name *relation-factory*)
             relation-name
             insert
             value))
@@ -412,9 +412,9 @@
             delete
             value))
 
-  (ensure-relation [this relation-name relation-factory template-value]
+  (ensure-relation [this relation-name relation-factory]
     (cond-> this
-      (not (contains? this relation-name)) (assoc relation-name (relation-factory relation-name template-value))))
+      (not (contains? this relation-name)) (assoc relation-name (relation-factory relation-name))))
 
   (relation-by-name [this relation-name]
     (get this relation-name)))
@@ -490,6 +490,34 @@
 (def ^:private ^BufferAllocator
   allocator (RootAllocator. Long/MAX_VALUE))
 
+(defn- init-struct [^StructVector relation column-template]
+  (reduce
+   (fn [^StructVector relation [idx column-template]]
+     (let [column-type (.getSimpleName (class column-template))
+           [^FieldType field-type ^Class vector-class]
+           (case (symbol column-type)
+             Integer [(FieldType/nullable (.getType Types$MinorType/INT))
+                      IntVector]
+             Long [(FieldType/nullable (.getType Types$MinorType/BIGINT))
+                   BigIntVector]
+             loat [(FieldType/nullable (.getType Types$MinorType/FLOAT4))
+                   Float4Vector]
+             Double [(FieldType/nullable (.getType Types$MinorType/FLOAT8))
+                     Float8Vector]
+             String [(FieldType/nullable (.getType Types$MinorType/VARCHAR))
+                     VarCharVector]
+             Boolean [(FieldType/nullable (.getType Types$MinorType/BIT))
+                      BitVector]
+             [(FieldType/nullable (.getType Types$MinorType/VARBINARY))
+              VarBinaryVector])]
+       (doto relation
+         (.addOrGet
+          (str idx "_" (str/lower-case column-type))
+          field-type
+          vector-class))))
+   relation
+   (map-indexed vector column-template)))
+
 (extend-protocol Relation
   StructVector
   (table-scan [this db]
@@ -515,67 +543,48 @@
       tuple))
 
   (insert [this value]
-    (let [idx (.getValueCount this)]
-      (dotimes [n (.size this)]
-        (let [v (get value n)
-              column (.getChildByOrdinal this n)]
-          (cond
-            (instance? IntVector column)
-            (.setSafe ^IntVector column idx (int v))
+    (if (and (zero? (.size this)) (pos? (count value)))
+      (insert (init-struct this value) value)
+      (let [idx (.getValueCount this)]
+        (dotimes [n (.size this)]
+          (let [v (get value n)
+                column (.getChildByOrdinal this n)]
+            (cond
+              (instance? IntVector column)
+              (.setSafe ^IntVector column idx (int v))
 
-            (instance? BigIntVector column)
-            (.setSafe ^BigIntVector column idx (long v))
+              (instance? BigIntVector column)
+              (.setSafe ^BigIntVector column idx (long v))
 
-            (instance? Float4Vector column)
-            (.setSafe ^Float4Vector column idx (float v))
+              (instance? Float4Vector column)
+              (.setSafe ^Float4Vector column idx (float v))
 
-            (instance? Float8Vector column)
-            (.setSafe ^Float8Vector column idx (double v))
+              (instance? Float8Vector column)
+              (.setSafe ^Float8Vector column idx (double v))
 
-            (instance? VarCharVector column)
-            (.setSafe ^VarCharVector column idx (Text. ^String v))
+              (instance? VarCharVector column)
+              (.setSafe ^VarCharVector column idx (Text. ^String v))
 
-            (instance? BitVector column)
-            (.setSafe ^BitVector column idx (if v 1 0))
+              (instance? BitVector column)
+              (.setSafe ^BitVector column idx (if v 1 0))
 
-            (instance? VarBinaryVector column)
-            (.setSafe ^VarBinaryVector column idx (.getBytes (pr-str v) "UTF-8"))
+              (instance? VarBinaryVector column)
+              (.setSafe ^VarBinaryVector column idx (.getBytes (pr-str v) "UTF-8"))
 
-            :else
-            (throw (IllegalArgumentException.)))))
+              :else
+              (throw (IllegalArgumentException.)))))
 
-      (doto this
-        (.setIndexDefined idx)
-        (.setValueCount (inc idx)))))
+        (doto this
+          (.setIndexDefined idx)
+          (.setValueCount (inc idx))))))
 
   (delete [this value]
-    (throw (UnsupportedOperationException.))))
+    (doseq [[idx to-delete] (map-indexed vector (table-scan this {}))
+            :when (unify value to-delete)]
+      (.setNull this idx))
+    this))
 
-(defn- new-arrow-struct-relation
-  ^org.apache.arrow.vector.complex.StructVector [relation-name template-value]
-  (reduce
-   (fn [^StructVector relation [idx column-template]]
-     (let [column-type (.getSimpleName (class column-template))
-           [^FieldType field-type ^Class vector-class]
-           (case (symbol column-type)
-             Integer [(FieldType/nullable (.getType Types$MinorType/INT))
-                      IntVector]
-             Long [(FieldType/nullable (.getType Types$MinorType/BIGINT))
-                   BigIntVector]
-             loat [(FieldType/nullable (.getType Types$MinorType/FLOAT4))
-                   Float4Vector]
-             Double [(FieldType/nullable (.getType Types$MinorType/FLOAT8))
-                     Float8Vector]
-             String [(FieldType/nullable (.getType Types$MinorType/VARCHAR))
-                     VarCharVector]
-             Boolean [(FieldType/nullable (.getType Types$MinorType/BIT))
-                      BitVector]
-             [(FieldType/nullable (.getType Types$MinorType/VARBINARY))
-              VarBinaryVector])]
-       (doto relation
-         (.addOrGet
-          (str idx "_" (str/lower-case column-type))
-          field-type
-          vector-class))))
-   (StructVector/empty (str relation-name) allocator)
-   (map-indexed vector template-value)))
+(defn new-arrow-struct-relation
+  ^org.apache.arrow.vector.complex.StructVector [relation-name]
+  (doto (StructVector/empty (str relation-name) allocator)
+    (.setInitialCapacity 0)))

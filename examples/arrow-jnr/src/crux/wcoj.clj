@@ -518,28 +518,44 @@
    relation
    (map-indexed vector column-template)))
 
+(defn- arrow->clojure [value]
+  (cond
+    (instance? Text value)
+    (str value)
+
+    (bytes? value)
+    (edn/read-string (String. ^bytes value "UTF-8"))
+
+    :else
+    value))
+
+(defn- arrow->tuple [^StructVector struct ^long idx]
+  (loop [n 0
+         acc []]
+    (if (= n (.size struct))
+      acc
+      (let [column (.getChildByOrdinal struct n)
+            value (.getObject column idx)]
+        (recur (inc n)
+               (conj acc (arrow->clojure value)))))))
+
+(def ^:private ^{:tag 'long} vector-size 128)
+
 (defn- arrow-seq [^StructVector struct pred]
-  (for [idx (range (.getValueCount struct))
-        :when (not (.isNull struct idx))
-        :let [tuple (loop [n 0
-                           acc []]
-                      (if (= n (.size struct))
-                        acc
-                        (let [column (.getChildByOrdinal struct n)
-                              value (.getObject column idx)]
-                          (recur (inc n)
-                                 (conj acc
-                                       (cond
-                                         (instance? Text value)
-                                         (str value)
-
-                                         (bytes? value)
-                                         (edn/read-string (String. ^bytes value "UTF-8"))
-
-                                         :else
-                                         value))))))]
-        :when (pred tuple)]
-    tuple))
+  (->> (for [start-idx (range 0 (.getValueCount struct) vector-size)
+             :let [start-idx (long start-idx)
+                   limit (min (.getValueCount struct) (+ start-idx vector-size))]]
+         (loop [idx start-idx
+                acc []]
+           (if (< idx limit)
+             (if (.isNull struct idx)
+               (recur (inc idx) acc)
+               (let [tuple (arrow->tuple struct idx)]
+                 (if (pred tuple)
+                   (recur (inc idx) (conj acc tuple))
+                   (recur (inc idx) acc))))
+             acc)))
+       (apply concat)))
 
 (extend-protocol Relation
   StructVector

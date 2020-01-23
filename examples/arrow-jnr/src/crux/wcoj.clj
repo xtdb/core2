@@ -22,7 +22,7 @@
 (defprotocol Db
   (assertion [this relation-name value])
   (retraction [this relation-name value])
-  (ensure-relation [this relation-name relation-factory arity])
+  (ensure-relation [this relation-name relation-factory template-value])
   (relation-by-name [this relation-name]))
 
 (defprotocol Unification
@@ -374,13 +374,13 @@
       (update this :rules delete value)
       (update this :tuples delete value))))
 
-(defn- new-combined-relation [arity]
+(defn- new-combined-relation [_]
   (->CombinedRelation (new-rule-relation) (sorted-set)))
 
 (extend-type IPersistentMap
   Db
   (assertion [this relation-name value]
-    (update (ensure-relation this relation-name new-combined-relation (count value))
+    (update (ensure-relation this relation-name new-combined-relation value)
             relation-name
             insert
             value))
@@ -391,9 +391,9 @@
             delete
             value))
 
-  (ensure-relation [this relation-name relation-factory arity]
+  (ensure-relation [this relation-name relation-factory template-value]
     (cond-> this
-      (not (contains? this relation-name)) (assoc relation-name (relation-factory arity))))
+      (not (contains? this relation-name)) (assoc relation-name (relation-factory template-value))))
 
   (relation-by-name [this relation-name]
     (get this relation-name)))

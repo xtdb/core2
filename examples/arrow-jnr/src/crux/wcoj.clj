@@ -518,29 +518,36 @@
    relation
    (map-indexed vector column-template)))
 
+(defn- arrow-seq [^StructVector struct pred]
+  (for [idx (range (.getValueCount struct))
+        :when (not (.isNull struct idx))
+        :let [tuple (loop [n 0
+                           acc []]
+                      (if (= n (.size struct))
+                        acc
+                        (let [column (.getChildByOrdinal struct n)
+                              value (.getObject column idx)]
+                          (recur (inc n)
+                                 (conj acc
+                                       (cond
+                                         (instance? Text value)
+                                         (str value)
+
+                                         (bytes? value)
+                                         (edn/read-string (String. ^bytes value "UTF-8"))
+
+                                         :else
+                                         value))))))]
+        :when (pred tuple)]
+    tuple))
+
 (extend-protocol Relation
   StructVector
   (table-scan [this db]
-    (let [col-idxs (range (.size this))]
-      (for [idx (range (.getValueCount this))
-            :when (not (.isNull this idx))]
-        (vec (for [n col-idxs
-                   :let [column (.getChildByOrdinal this n)
-                         value (.getObject column idx)]]
-               (cond
-                 (instance? Text value)
-                 (str value)
-
-                 (bytes? value)
-                 (edn/read-string (String. ^bytes value "UTF-8"))
-
-                 :else
-                 value))))))
+    (arrow-seq this (constantly true)))
 
   (table-filter [this db var-bindings]
-    (for [tuple (table-scan this db)
-          :when (unify tuple var-bindings)]
-      tuple))
+    (arrow-seq this #(unify % var-bindings)))
 
   (insert [this value]
     (if (and (zero? (.size this)) (pos? (count value)))

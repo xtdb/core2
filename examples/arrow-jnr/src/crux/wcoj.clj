@@ -541,7 +541,7 @@
 
 (def ^:private ^{:tag 'long} vector-size 128)
 
-(defn- arrow-seq [^StructVector struct pred]
+(defn- arrow-seq [^StructVector struct var-bindings]
   (->> (for [start-idx (range 0 (.getValueCount struct) vector-size)
              :let [start-idx (long start-idx)
                    limit (min (.getValueCount struct) (+ start-idx vector-size))]]
@@ -551,7 +551,8 @@
              (if (.isNull struct idx)
                (recur (inc idx) acc)
                (let [tuple (arrow->tuple struct idx)]
-                 (if (pred tuple)
+                 (if (or (nil? var-bindings)
+                         (unify tuple var-bindings))
                    (recur (inc idx) (conj acc tuple))
                    (recur (inc idx) acc))))
              acc)))
@@ -560,10 +561,10 @@
 (extend-protocol Relation
   StructVector
   (table-scan [this db]
-    (arrow-seq this (constantly true)))
+    (arrow-seq this nil))
 
   (table-filter [this db var-bindings]
-    (arrow-seq this #(unify % var-bindings)))
+    (arrow-seq this var-bindings))
 
   (insert [this value]
     (if (and (zero? (.size this)) (pos? (count value)))

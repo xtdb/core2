@@ -615,8 +615,10 @@
 
                           :else
                           (.getObject ^ValueVector unify-column 0))))
-        varchar-holder (NullableVarCharHolder.)
-        varbinary-holder (NullableVarBinaryHolder.)
+        varchar-holder (doto (NullableVarCharHolder.)
+                         (-> (.isSet) (set! 1)))
+        varbinary-holder (doto (NullableVarBinaryHolder.)
+                           (-> (.isSet) (set! 1)))
         column-accessors (vec (for [column struct]
                                 (cond
                                   (instance? VarCharVector column)

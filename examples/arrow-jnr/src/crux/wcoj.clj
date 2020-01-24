@@ -38,27 +38,29 @@
   (unify [this that]))
 
 (defn- execute-constraints [constraints value]
-  (reduce (fn [acc [op arg]]
-            (let [diff (compare value arg)]
-              (if (case op
-                    :lt (neg? diff)
-                    :lte (not (pos? diff))
-                    :gt (pos? diff)
-                    :gte (nat-int? diff)
-                    :eq (zero? diff)
-                    :neq (not (zero? diff)))
-                acc
-                (reduced false))))
-          true
-          constraints))
+  (reduce
+   (fn [value [op arg]]
+     (if-let [diff (compare value arg)]
+       (if (case op
+             :lt (neg? diff)
+             :lte (not (pos? diff))
+             :gt (pos? diff)
+             :gte (nat-int? diff)
+             :eq (zero? diff)
+             :neq (not (zero? diff)))
+         value
+         (reduced nil))))
+   value
+   constraints))
 
 (defn- constrained [this that]
-  (let [constraints (::constraints (meta this))]
+  (if-let [constraints (::constraints (meta this))]
     (if (cd/logic-var? that)
       (let [that (vary-meta that update ::constraints into constraints)]
         [that that])
       (when (execute-constraints constraints that)
-        [that that]))))
+        [that that]))
+    [that that]))
 
 (extend-protocol Unification
   (class (byte-array 0))
@@ -74,14 +76,13 @@
   Symbol
   (unify [this that]
     (cond
-      (identical? this that)
+      (= this that)
       [this this]
 
       (cd/logic-var? that)
       (constrained that this)
 
-      (or (= this that)
-          (cd/logic-var? this))
+      (cd/logic-var? this)
       (constrained this that)))
 
   IPersistentCollection
@@ -111,8 +112,10 @@
 
   nil
   (unify [this that]
-    (when (nil? that)
-      [nil nil])))
+    (if (cd/logic-var? that)
+      (unify that this)
+      (when (nil? that)
+        [this this]))))
 
 (defn- find-vars [body]
   (let [vars (atom [])]

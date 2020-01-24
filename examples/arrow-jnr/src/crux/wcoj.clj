@@ -8,9 +8,10 @@
             [crux.datalog :as cd])
   (:import [clojure.lang IPersistentCollection IPersistentMap Symbol Keyword]
            [org.apache.arrow.memory BufferAllocator RootAllocator]
-           [org.apache.arrow.vector ElementAddressableVector BitVector BigIntVector Float4Vector Float8Vector
-            IntVector ValueVector VarBinaryVector VarCharVector]
+           [org.apache.arrow.vector ElementAddressableVector  BigIntVector Float4Vector Float8Vector
+            IntVector TinyIntVector ValueVector VarBinaryVector VarCharVector]
            org.apache.arrow.vector.complex.StructVector
+           org.apache.arrow.vector.holders.NullableIntHolder
            org.apache.arrow.vector.types.pojo.FieldType
            org.apache.arrow.vector.types.Types$MinorType
            org.apache.arrow.vector.util.Text
@@ -512,14 +513,14 @@
                       IntVector]
              Long [(FieldType/nullable (.getType Types$MinorType/BIGINT))
                    BigIntVector]
-             loat [(FieldType/nullable (.getType Types$MinorType/FLOAT4))
-                   Float4Vector]
+             Float [(FieldType/nullable (.getType Types$MinorType/FLOAT4))
+                    Float4Vector]
              Double [(FieldType/nullable (.getType Types$MinorType/FLOAT8))
                      Float8Vector]
              String [(FieldType/nullable (.getType Types$MinorType/VARCHAR))
                      VarCharVector]
-             Boolean [(FieldType/nullable (.getType Types$MinorType/BIT))
-                      BitVector]
+             Boolean [(FieldType/nullable (.getType Types$MinorType/TINYINT))
+                      TinyIntVector]
              [(FieldType/nullable (.getType Types$MinorType/VARBINARY))
               VarBinaryVector])]
        (doto relation
@@ -565,10 +566,13 @@
     :else
     (.getBytes (pr-str value) "UTF-8")))
 
-(def ^:private ^{:tag 'long} vector-size 128)
+(def ^:private ^{:tag 'long} default-vector-size 128)
 
 (defn- arrow-seq [^StructVector struct var-bindings]
-  (let [init-selection-vector (int-array vector-size -1)
+  (let [vector-size (min default-vector-size (.getValueCount struct))
+        init-selection-vector (doto (IntVector. "" allocator)
+                                (.setValueCount 0)
+                                (.setInitialCapacity vector-size))
         unify-tuple? (contains-duplicate-vars? var-bindings)
         unifier-vector (insert
                         (StructVector/empty nil allocator)
@@ -577,30 +581,32 @@
                         (if (cd/logic-var? var)
                           var
                           (.getDataPointer ^ElementAddressableVector  unify-column 0))))
-        pointer (ArrowBufPointer.)]
+        pointer (ArrowBufPointer.)
+        int-holder (NullableIntHolder.)]
     (->> (for [start-idx (range 0 (.getValueCount struct) vector-size)
                :let [start-idx (long start-idx)
                      limit (min (.getValueCount struct) (+ start-idx vector-size))]]
            (loop [n 0
-                  ^ints selection-vector nil]
+                  ^IntVector selection-vector nil]
              (if (and (< n (.size struct)) var-bindings)
                (if-let [unifier (get unifiers n)]
                  (let [column ^ElementAddressableVector (.getChildByOrdinal struct n)]
                    (recur (inc n)
                           (loop [idx start-idx
-                                 ^ints selection-vector (or selection-vector (doto init-selection-vector
-                                                                               (Arrays/fill -1)))
+                                 selection-vector (or selection-vector init-selection-vector)
                                  selection-offset 0]
                             (if (< idx limit)
                               (recur (inc idx)
                                      (if (or (.isNull struct idx)
-                                             (= -2 (aget selection-vector selection-offset)))
+                                             (and (pos? n)
+                                                  (.isNull selection-vector selection-offset)))
                                        selection-vector
                                        (doto selection-vector
-                                         (aset selection-offset
-                                               (if (unify unifier (.getDataPointer column idx pointer))
-                                                 idx
-                                                 -2))))
+                                         (.setSafe selection-offset
+                                                   (if (unify unifier (.getDataPointer column idx pointer))
+                                                     1
+                                                     0)
+                                                   idx)))
                                      (inc selection-offset))
                               selection-vector))))
                  (recur (inc n) selection-vector))
@@ -608,15 +614,16 @@
                  (loop [selection-offset 0
                         acc []]
                    (if (< selection-offset vector-size)
-                     (let [offset (aget selection-vector selection-offset)]
-                       (recur (inc selection-offset)
-                              (if (nat-int? offset)
-                                (let [tuple (arrow->tuple struct offset)]
+                     (recur (inc selection-offset)
+                            (let [int-holder (doto int-holder
+                                               (->> (.get selection-vector selection-offset)))]
+                              (if (zero? (.isSet int-holder))
+                                acc
+                                (let [tuple (arrow->tuple struct (.value int-holder))]
                                   (if (or (not unify-tuple?)
                                           (unify tuple var-bindings))
                                     (conj acc tuple)
-                                    acc))
-                                acc)))
+                                    acc)))))
                      acc))
                  (loop [idx start-idx
                         acc []]
@@ -657,8 +664,8 @@
               (instance? VarCharVector column)
               (.setSafe ^VarCharVector column idx ^Text (clojure->arrow v))
 
-              (instance? BitVector column)
-              (.setSafe ^BitVector column idx ^long (clojure->arrow v))
+              (instance? TinyIntVector column)
+              (.setSafe ^TinyIntVector column idx ^long (clojure->arrow v))
 
               (instance? VarBinaryVector column)
               (.setSafe ^VarBinaryVector column idx ^bytes (clojure->arrow v))

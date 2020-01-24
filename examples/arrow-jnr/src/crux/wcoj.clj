@@ -37,6 +37,29 @@
 (defprotocol Unification
   (unify [this that]))
 
+(defn- execute-constraints [constraints value]
+  (reduce (fn [acc [op arg]]
+            (let [diff (compare value arg)]
+              (if (case op
+                    :lt (neg? diff)
+                    :lte (not (pos? diff))
+                    :gt (pos? diff)
+                    :gte (nat-int? diff)
+                    :eq (zero? diff)
+                    :neq (not (zero? diff)))
+                acc
+                (reduced false))))
+          true
+          constraints))
+
+(defn- constrained [this that]
+  (let [constraints (::constraints (meta this))]
+    (if (cd/logic-var? that)
+      (let [that (vary-meta that update ::constraints into constraints)]
+        [that that])
+      (when (execute-constraints constraints that)
+        [that that]))))
+
 (extend-protocol Unification
   (class (byte-array 0))
   (unify [this that]
@@ -51,12 +74,15 @@
   Symbol
   (unify [this that]
     (cond
-      (cd/logic-var? that)
+      (identical? this that)
       [this this]
+
+      (cd/logic-var? that)
+      (constrained that this)
 
       (or (= this that)
           (cd/logic-var? this))
-      [that that]))
+      (constrained this that)))
 
   IPersistentCollection
   (unify [this that]

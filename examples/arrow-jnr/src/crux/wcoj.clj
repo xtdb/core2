@@ -8,9 +8,9 @@
             [crux.datalog :as cd])
   (:import [clojure.lang IPersistentCollection IPersistentMap Symbol Keyword]
            [org.apache.arrow.memory BufferAllocator RootAllocator]
-           [org.apache.arrow.vector BitVector BigIntVector Float4Vector Float8Vector
+           [org.apache.arrow.vector BaseFixedWidthVector BitVector BigIntVector Float4Vector Float8Vector
             IntVector ValueVector VarBinaryVector VarCharVector]
-           [org.apache.arrow.vector.holders NullableVarBinaryHolder NullableVarCharHolder]
+           [org.apache.arrow.vector.holders FixedSizeBinaryHolder NullableVarBinaryHolder NullableVarCharHolder]
            org.apache.arrow.vector.complex.StructVector
            org.apache.arrow.vector.types.pojo.FieldType
            org.apache.arrow.vector.types.Types$MinorType
@@ -594,6 +594,15 @@
 
 (def ^:private ^{:tag 'long} vector-size 128)
 
+(defn- set-binary-holder!
+  ^org.apache.arrow.vector.holders.NullableVarBinaryHolder [^BaseFixedWidthVector column ^long idx ^NullableVarBinaryHolder holder]
+  (let [width (.getTypeWidth column)
+        offset (* width idx)]
+    (doto holder
+      (-> (.buffer) (set! (.getDataBuffer column)))
+      (-> (.start) (set! offset))
+      (-> (.end) (set! (+ offset width))))))
+
 (defn- arrow-seq [^StructVector struct var-bindings]
   (let [init-selection-vector (int-array vector-size -1)
         unify-tuple? (contains-duplicate-vars? var-bindings)
@@ -613,8 +622,8 @@
                           (doto (NullableVarBinaryHolder.)
                             (->> (.get ^VarBinaryVector unify-column 0)))
 
-                          :else
-                          (.getObject ^ValueVector unify-column 0))))
+                          (instance? BaseFixedWidthVector unify-column)
+                          (set-binary-holder! unify-column 0 (NullableVarBinaryHolder.)))))
         varchar-holder (doto (NullableVarCharHolder.)
                          (-> (.isSet) (set! 1)))
         varbinary-holder (doto (NullableVarBinaryHolder.)
@@ -631,9 +640,9 @@
                                     (doto varbinary-holder
                                       (->> (.get ^VarBinaryVector column idx))))
 
-                                  :else
+                                  (instance? BaseFixedWidthVector column)
                                   (fn [^long idx]
-                                    (.getObject ^ValueVector column idx)))))]
+                                    (set-binary-holder! column idx varbinary-holder)))))]
     (->> (for [start-idx (range 0 (.getValueCount struct) vector-size)
                :let [start-idx (long start-idx)
                      limit (min (.getValueCount struct) (+ start-idx vector-size))]]

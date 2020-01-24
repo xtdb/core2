@@ -567,7 +567,7 @@
 (defn- arrow-seq [^StructVector struct var-bindings]
   (let [vector-size (min default-vector-size (.getValueCount struct))
         init-selection-vector (doto (BitVector. "" allocator)
-                                (.setValueCount 0)
+                                (.setValueCount vector-size)
                                 (.setInitialCapacity vector-size))
         unify-tuple? (contains-duplicate-vars? var-bindings)
         unifier-vector (insert

@@ -8,8 +8,8 @@
             [crux.datalog :as cd])
   (:import [clojure.lang IPersistentCollection IPersistentMap Symbol Keyword]
            [org.apache.arrow.memory BufferAllocator RootAllocator]
-           [org.apache.arrow.vector ElementAddressableVector BigIntVector BitVector Float4Vector Float8Vector
-            IntVector TinyIntVector ValueVector VarBinaryVector VarCharVector]
+           [org.apache.arrow.vector ElementAddressableVector BigIntVector BitVector Float8Vector
+            TinyIntVector ValueVector VarBinaryVector VarCharVector]
            org.apache.arrow.vector.complex.StructVector
            org.apache.arrow.vector.types.pojo.FieldType
            org.apache.arrow.vector.types.Types$MinorType
@@ -40,14 +40,16 @@
 (defn- execute-constraints [constraints value]
   (reduce
    (fn [value [op arg]]
-     (if-let [diff (compare value arg)]
+     (if-let [diff (if (instance? ArrowBufPointer value)
+                     (.compareTo ^ArrowBufPointer value arg)
+                     (compare value arg))]
        (if (case op
-             :lt (neg? diff)
-             :lte (not (pos? diff))
-             :gt (pos? diff)
-             :gte (nat-int? diff)
-             :eq (zero? diff)
-             :neq (not (zero? diff)))
+             < (neg? diff)
+             <= (not (pos? diff))
+             > (pos? diff)
+             >= (nat-int? diff)
+             = (zero? diff)
+             != (not (zero? diff)))
          value
          (reduced nil))))
    value
@@ -94,7 +96,7 @@
         (first
          (reduce
           (fn [[acc smap] [x y]]
-            (if-let [[xu yu] (unify (get smap x x) (get smap y y))]
+            (if-let [[xu yu] (seq (unify (get smap x x) (get smap y y)))]
               [(conj acc [xu yu])
                (cond-> smap
                  (not= '_ x) (assoc x xu)
@@ -159,11 +161,31 @@
   (when (set/superset? known-vars (find-vars terms))
     #{variable}))
 
+(defn- constraint-predicate? [equality-predicate]
+  (= 1 (count (find-vars equality-predicate))))
+
+(defn- new-constraint [op term value lhs?]
+  [(if-not lhs?
+     (get '{< >=
+            <= >
+            > <=
+            >= <} op op)
+     op)
+   value])
+
+(defn- equality-predicate-to-constraint [[_ {:keys [lhs op rhs]}]]
+  (let [lhs (term->value lhs)
+        rhs (term->value rhs)]
+    (if (cd/logic-var? lhs)
+      {lhs [(new-constraint op lhs rhs true)]}
+      {rhs [(new-constraint op rhs lhs false)]})))
+
 (defn- reorder-body [head body]
-  (let [{:keys [external-query] :as literals} (group-by first body)
+  (let [{:keys [external-query equality-predicate] :as literals} (group-by first body)
         extra-logical-vars (set (for [[_ {:keys [variable]}] external-query]
-                                  variable))]
-    (loop [[[type :as literal] & new-body :as body] body
+                                  variable))
+        constraint-predicates (filter constraint-predicate? equality-predicate)]
+    (loop [[[type :as literal] & new-body :as body] (remove (set constraint-predicates) body)
            acc []
            known-vars (set/difference (find-vars head) extra-logical-vars)
            circular-check 0]
@@ -200,13 +222,23 @@
                         idx))
      :aggregate-ops aggregate-ops}))
 
+(defn- enrich-with-constraints [{:keys [body] :as rule}]
+  (let [{:keys [equality-predicate] :as literals} (group-by first body)
+        constraint-smap (->> (for [[var constraints] (->> (filter constraint-predicate? equality-predicate)
+                                                          (map equality-predicate-to-constraint)
+                                                          (apply merge-with concat))]
+                               [var (vary-meta var assoc ::constraints constraints)])
+                             (into {}))]
+    (w/postwalk-replace constraint-smap rule)))
+
 (defn- rule->query-plan [rule]
-  (let [{:keys [head body]} (s/conform :crux.datalog/rule rule)
+  (let [{:keys [head body] :as conformed-rule} (s/conform :crux.datalog/rule rule)
+        _ (assert (set/superset? (find-vars body) (find-vars head))
+                  "rule does not satisfy safety requirement for head variables")
+        {:keys [head body]} (enrich-with-constraints conformed-rule)
         head-vars (find-vars head)
         body (reorder-body head body)
         body-vars (find-vars body)]
-    (assert (set/superset? body-vars head-vars)
-            "rule does not satisfy safety requirement for head variables")
     {:existential-vars (set/difference body-vars head-vars)
      :aggregates (build-aggregates head)
      :rule rule
@@ -304,7 +336,7 @@
         query-plan (assoc query-plan :db-sym db-sym)
         bindings (mapcat (partial datalog->clojure query-plan) body)
         arg-vars (mapv term->binding terms)
-        args-signature (quote-term (mapv term->signature terms))]
+        args-signature (mapv (comp quote-term term->signature) terms)]
     `(fn ~symbol
        ([~db-sym] (~symbol ~db-sym '~(vec (repeat (count arg-vars) '_))))
        ([~db-sym ~args-sym]
@@ -528,17 +560,17 @@
 (defn- init-struct [^StructVector relation column-template]
   (reduce
    (fn [^StructVector relation [idx column-template]]
-     (let [column-type (.getSimpleName (class column-template))
+     (let [column-template (if-let [[[_ value]] (and (cd/logic-var? column-template)
+                                                     (::constraints (meta column-template)))]
+                             value
+                             column-template)
+           column-type (.getSimpleName (class column-template))
            [^FieldType field-type ^Class vector-class]
            (case (symbol column-type)
-             Integer [(FieldType/nullable (.getType Types$MinorType/INT))
-                      IntVector]
-             Long [(FieldType/nullable (.getType Types$MinorType/BIGINT))
-                   BigIntVector]
-             Float [(FieldType/nullable (.getType Types$MinorType/FLOAT4))
-                    Float4Vector]
-             Double [(FieldType/nullable (.getType Types$MinorType/FLOAT8))
-                     Float8Vector]
+             (Integer Long) [(FieldType/nullable (.getType Types$MinorType/BIGINT))
+                             BigIntVector]
+             (Float Double) [(FieldType/nullable (.getType Types$MinorType/FLOAT8))
+                             Float8Vector]
              String [(FieldType/nullable (.getType Types$MinorType/VARCHAR))
                      VarCharVector]
              Boolean [(FieldType/nullable (.getType Types$MinorType/TINYINT))
@@ -560,6 +592,13 @@
 
     (bytes? value)
     (edn/read-string (String. ^bytes value "UTF-8"))
+
+    (int? value)
+    (bit-xor (Long/reverseBytes (long value)) Long/MIN_VALUE)
+
+    (float? value)
+    (let [x (Double/doubleToLongBits value)]
+      (Double/longBitsToDouble (bit-xor x (bit-or Long/MIN_VALUE (bit-shift-left x (dec Long/SIZE))))))
 
     (instance? Byte value)
     (= 1 value)
@@ -585,11 +624,38 @@
     (boolean? value)
     (if value 1 0)
 
-    (number? value)
-    value
+    (int? value)
+    (Long/reverseBytes (bit-xor (long value) Long/MIN_VALUE))
+
+    (float? value)
+    (let [l (Double/doubleToLongBits value)]
+      (Double/longBitsToDouble (bit-xor l (bit-or (bit-shift-right l (dec Long/SIZE)) Long/MIN_VALUE))))
 
     :else
     (.getBytes (pr-str value) "UTF-8")))
+
+(defn- insert-clojure-value-into-column [^ValueVector column ^long idx v]
+  (if-let [[[_ value]] (and (cd/logic-var? v)
+                            (::constraints (meta v)))]
+    (insert-clojure-value-into-column column idx value)
+    (cond
+      (instance? BigIntVector column)
+      (.setSafe ^BigIntVector column idx ^long (clojure->arrow v))
+
+      (instance? Float8Vector column)
+      (.setSafe ^Float8Vector column idx ^double (clojure->arrow v))
+
+      (instance? VarCharVector column)
+      (.setSafe ^VarCharVector column idx ^Text (clojure->arrow v))
+
+      (instance? TinyIntVector column)
+      (.setSafe ^TinyIntVector column idx ^long (clojure->arrow v))
+
+      (instance? VarBinaryVector column)
+      (.setSafe ^VarBinaryVector column idx ^bytes (clojure->arrow v))
+
+      :else
+      (throw (IllegalArgumentException.)))))
 
 (def ^:private ^{:tag 'long} default-vector-size 128)
 
@@ -602,10 +668,17 @@
         unifier-vector (insert
                         (StructVector/empty nil allocator)
                         var-bindings)
-        unifiers (vec (for [[unify-column var] (map vector unifier-vector var-bindings)]
+        unifiers (vec (for [[^ElementAddressableVector unify-column var] (map vector unifier-vector var-bindings)]
                         (if (cd/logic-var? var)
-                          var
-                          (.getDataPointer ^ElementAddressableVector  unify-column 0))))
+                          (vary-meta var update
+                                     ::constraints
+                                     (fn [constraints]
+                                       (reduce
+                                        (fn [acc [^long idx [op value]]]
+                                          (insert-clojure-value-into-column unify-column (inc idx) value)
+                                          (conj acc [op (.getDataPointer ^ElementAddressableVector unify-column (inc idx))]))
+                                        [] (map-indexed vector constraints))))
+                          (.getDataPointer ^ElementAddressableVector unify-column 0))))
         pointer (ArrowBufPointer.)]
     (->> (for [start-idx (range 0 (.getValueCount struct) vector-size)
                :let [start-idx (long start-idx)
@@ -674,30 +747,7 @@
         (dotimes [n (.size this)]
           (let [v (get value n)
                 column (.getChildByOrdinal this n)]
-            (cond
-              (instance? IntVector column)
-              (.setSafe ^IntVector column idx (int v))
-
-              (instance? BigIntVector column)
-              (.setSafe ^BigIntVector column idx (long v))
-
-              (instance? Float4Vector column)
-              (.setSafe ^Float4Vector column idx (float v))
-
-              (instance? Float8Vector column)
-              (.setSafe ^Float8Vector column idx (double v))
-
-              (instance? VarCharVector column)
-              (.setSafe ^VarCharVector column idx ^Text (clojure->arrow v))
-
-              (instance? TinyIntVector column)
-              (.setSafe ^TinyIntVector column idx ^long (clojure->arrow v))
-
-              (instance? VarBinaryVector column)
-              (.setSafe ^VarBinaryVector column idx ^bytes (clojure->arrow v))
-
-              :else
-              (throw (IllegalArgumentException.)))))
+            (insert-clojure-value-into-column column idx v)))
 
         (doto this
           (.setIndexDefined idx)

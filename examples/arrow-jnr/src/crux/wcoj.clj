@@ -71,7 +71,7 @@
               [(conj acc [xu yu])
                (cond-> smap
                  (not= '_ x) (assoc x xu)
-                 (not= '_ y) (assoc y xu))]
+                 (not= '_ y) (assoc y yu))]
               (reduced nil)))
           [[] {}]
           (mapv vector this that))))))
@@ -100,11 +100,6 @@
 (defn- ensure-unique-logic-var [var]
   (if (cd/logic-var? var)
     (gensym var)
-    var))
-
-(defn- ensure-unique-anonymous-var [var]
-  (if (= '_ var)
-    (gensym '_)
     var))
 
 (defn- contains-duplicate-vars? [var-bindings]
@@ -177,8 +172,7 @@
      :aggregate-ops aggregate-ops}))
 
 (defn- rule->query-plan [rule]
-  (let [rule (w/postwalk ensure-unique-anonymous-var rule)
-        {:keys [head body]} (s/conform :crux.datalog/rule rule)
+  (let [{:keys [head body]} (s/conform :crux.datalog/rule rule)
         head-vars (find-vars head)
         body (reorder-body head body)
         body-vars (find-vars body)]
@@ -283,7 +277,7 @@
         arg-vars (mapv term->binding terms)
         args-signature (quote-term (mapv term->signature terms))]
     `(fn ~symbol
-       ([~db-sym] (~symbol ~db-sym '~(vec (repeatedly (count arg-vars) #(ensure-unique-anonymous-var '_)))))
+       ([~db-sym] (~symbol ~db-sym '~(vec (repeat (count arg-vars) '_))))
        ([~db-sym ~args-sym]
         (->> (for [loop# [nil]
                    ~@(unification->clojure (map vector arg-vars) args-sym args-signature)
@@ -435,7 +429,7 @@
   ([db rule-name]
    (table-scan (relation-by-name db rule-name) db))
   ([db rule-name args]
-   (table-filter (relation-by-name db rule-name) db (mapv ensure-unique-anonymous-var args))))
+   (table-filter (relation-by-name db rule-name) db args)))
 
 (defn- query-conformed-datalog [db {{:keys [symbol terms]} :head}]
   (let [args (mapv second terms)]

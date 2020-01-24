@@ -598,6 +598,46 @@ perm(c, b).
                  (wcoj/query-by-name 'a)
                  (set))))))
 
+;; https://www.informatik.uni-ulm.de/pm/fileadmin/pm/home/fruehwirth/pisa/clp-intro-ecrc-93-05.pdf
+
+(t/deftest test-constraint-logic-programming
+  (t/is (= '#{[radishes beef fruit 8]
+              [radishes sole fruit 5]
+              [pasta sole fruit 10]
+              [radishes sole icecream 9]
+              [radishes pork fruit 10]
+              [radishes tuna fruit 7]}
+           (-> (wcoj/execute '[lightmeal(A, M, D, IJK) :-
+                               appetiser(A, I),
+                               main(M, J),
+                               dessert(D, K),
+                               I > 0,
+                               J > 0,
+                               K > 0,
+                               IJ :- +(I, J),
+                               IJK :- +(IJ, K),
+                               IJK <= 10 .
+
+                               main(M, I) :-
+                               meat(M, I).
+
+                               main(M, I) :-
+                               fish(M, I).
+
+                               appetiser(radishes, 1).
+                               appetiser(pasta, 6).
+
+                               meat(beef, 5).
+                               meat(pork, 7).
+
+                               fish(sole, 2).
+                               fish(tuna, 4).
+
+                               dessert(fruit, 2).
+                               dessert(icecream, 6).])
+               (wcoj/query-by-name 'lightmeal)
+               (set)))))
+
 ;; http://infolab.stanford.edu/~ullman/fcdb/aut07/slides/ra.pdf
 
 (t/deftest test-relational-algebra

@@ -614,8 +614,7 @@ perm(c, b).
                                I > 0,
                                J > 0,
                                K > 0,
-                               IJ :- +(I, J),
-                               IJK :- +(IJ, K),
+                               IJK :- +(I, J, K),
                                IJK <= 10 .
 
                                main(M, I) :-

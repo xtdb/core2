@@ -8,10 +8,9 @@
             [crux.datalog :as cd])
   (:import [clojure.lang IPersistentCollection IPersistentMap Symbol Keyword]
            [org.apache.arrow.memory BufferAllocator RootAllocator]
-           [org.apache.arrow.vector ElementAddressableVector  BigIntVector Float4Vector Float8Vector
+           [org.apache.arrow.vector ElementAddressableVector BigIntVector BitVector Float4Vector Float8Vector
             IntVector TinyIntVector ValueVector VarBinaryVector VarCharVector]
            org.apache.arrow.vector.complex.StructVector
-           org.apache.arrow.vector.holders.NullableIntHolder
            org.apache.arrow.vector.types.pojo.FieldType
            org.apache.arrow.vector.types.Types$MinorType
            org.apache.arrow.vector.util.Text
@@ -539,6 +538,9 @@
     (bytes? value)
     (edn/read-string (String. ^bytes value "UTF-8"))
 
+    (instance? Byte value)
+    (= 1 value)
+
     :else
     value))
 
@@ -570,7 +572,7 @@
 
 (defn- arrow-seq [^StructVector struct var-bindings]
   (let [vector-size (min default-vector-size (.getValueCount struct))
-        init-selection-vector (doto (IntVector. "" allocator)
+        init-selection-vector (doto (BitVector. "" allocator)
                                 (.setValueCount 0)
                                 (.setInitialCapacity vector-size))
         unify-tuple? (contains-duplicate-vars? var-bindings)
@@ -581,13 +583,12 @@
                         (if (cd/logic-var? var)
                           var
                           (.getDataPointer ^ElementAddressableVector  unify-column 0))))
-        pointer (ArrowBufPointer.)
-        int-holder (NullableIntHolder.)]
+        pointer (ArrowBufPointer.)]
     (->> (for [start-idx (range 0 (.getValueCount struct) vector-size)
                :let [start-idx (long start-idx)
                      limit (min (.getValueCount struct) (+ start-idx vector-size))]]
            (loop [n 0
-                  ^IntVector selection-vector nil]
+                  ^BitVector selection-vector nil]
              (if (and (< n (.size struct)) var-bindings)
                (if-let [unifier (get unifiers n)]
                  (let [column ^ElementAddressableVector (.getChildByOrdinal struct n)]
@@ -597,16 +598,20 @@
                                  selection-offset 0]
                             (if (< idx limit)
                               (recur (inc idx)
-                                     (if (or (.isNull struct idx)
-                                             (and (pos? n)
-                                                  (.isNull selection-vector selection-offset)))
-                                       selection-vector
+                                     (cond
+                                       (.isNull struct idx)
                                        (doto selection-vector
-                                         (.setSafe selection-offset
-                                                   (if (unify unifier (.getDataPointer column idx pointer))
-                                                     1
-                                                     0)
-                                                   idx)))
+                                         (.setSafe selection-offset 0))
+
+                                       (and (pos? n)
+                                            (zero? (.get selection-vector selection-offset)))
+                                       selection-vector
+
+                                       :else
+                                       (doto selection-vector
+                                         (.setSafe selection-offset (if (unify unifier (.getDataPointer column idx pointer))
+                                                                      1
+                                                                      0))))
                                      (inc selection-offset))
                               selection-vector))))
                  (recur (inc n) selection-vector))
@@ -615,15 +620,13 @@
                         acc []]
                    (if (< selection-offset vector-size)
                      (recur (inc selection-offset)
-                            (let [int-holder (doto int-holder
-                                               (->> (.get selection-vector selection-offset)))]
-                              (if (zero? (.isSet int-holder))
-                                acc
-                                (let [tuple (arrow->tuple struct (.value int-holder))]
-                                  (if (or (not unify-tuple?)
-                                          (unify tuple var-bindings))
-                                    (conj acc tuple)
-                                    acc)))))
+                            (if (zero? (.get selection-vector selection-offset))
+                              acc
+                              (let [tuple (arrow->tuple struct (+ start-idx selection-offset))]
+                                (if (or (not unify-tuple?)
+                                        (unify tuple var-bindings))
+                                  (conj acc tuple)
+                                  acc))))
                      acc))
                  (loop [idx start-idx
                         acc []]

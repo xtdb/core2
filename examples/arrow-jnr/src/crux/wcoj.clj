@@ -659,6 +659,19 @@
 
 (def ^:private ^{:tag 'long} default-vector-size 128)
 
+(defn- unifiers->arrow [unifier-vector var-bindings]
+  (vec (for [[^ElementAddressableVector unify-column var] (map vector unifier-vector var-bindings)]
+         (if (cd/logic-var? var)
+           (vary-meta var update
+                      ::constraints
+                      (fn [constraints]
+                        (reduce
+                         (fn [acc [^long idx [op value]]]
+                           (insert-clojure-value-into-column unify-column (inc idx) value)
+                           (conj acc [op (.getDataPointer unify-column (inc idx))]))
+                         [] (map-indexed vector constraints))))
+           (.getDataPointer ^ElementAddressableVector unify-column 0)))))
+
 (defn- arrow-seq [^StructVector struct var-bindings]
   (let [vector-size (min default-vector-size (.getValueCount struct))
         init-selection-vector (doto (BitVector. "" allocator)
@@ -668,17 +681,7 @@
         unifier-vector (insert
                         (StructVector/empty nil allocator)
                         var-bindings)
-        unifiers (vec (for [[^ElementAddressableVector unify-column var] (map vector unifier-vector var-bindings)]
-                        (if (cd/logic-var? var)
-                          (vary-meta var update
-                                     ::constraints
-                                     (fn [constraints]
-                                       (reduce
-                                        (fn [acc [^long idx [op value]]]
-                                          (insert-clojure-value-into-column unify-column (inc idx) value)
-                                          (conj acc [op (.getDataPointer ^ElementAddressableVector unify-column (inc idx))]))
-                                        [] (map-indexed vector constraints))))
-                          (.getDataPointer ^ElementAddressableVector unify-column 0))))
+        unifiers (unifiers->arrow unifier-vector var-bindings)
         pointer (ArrowBufPointer.)]
     (->> (for [start-idx (range 0 (.getValueCount struct) vector-size)
                :let [start-idx (long start-idx)

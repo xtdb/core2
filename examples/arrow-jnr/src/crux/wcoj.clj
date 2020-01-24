@@ -8,13 +8,13 @@
             [crux.datalog :as cd])
   (:import [clojure.lang IPersistentCollection IPersistentMap Symbol Keyword]
            [org.apache.arrow.memory BufferAllocator RootAllocator]
-           [org.apache.arrow.vector BaseFixedWidthVector BitVector BigIntVector Float4Vector Float8Vector
+           [org.apache.arrow.vector ElementAddressableVector BitVector BigIntVector Float4Vector Float8Vector
             IntVector ValueVector VarBinaryVector VarCharVector]
-           [org.apache.arrow.vector.holders FixedSizeBinaryHolder NullableVarBinaryHolder NullableVarCharHolder]
            org.apache.arrow.vector.complex.StructVector
            org.apache.arrow.vector.types.pojo.FieldType
            org.apache.arrow.vector.types.Types$MinorType
-           [org.apache.arrow.vector.util Text ByteFunctionHelpers]
+           org.apache.arrow.vector.util.Text
+           org.apache.arrow.memory.util.ArrowBufPointer
            java.util.Arrays))
 
 (set! *unchecked-math* :warn-on-boxed)
@@ -565,43 +565,7 @@
     :else
     (.getBytes (pr-str value) "UTF-8")))
 
-(extend-protocol Unification
-  NullableVarCharHolder
-  (unify [this that]
-    (cond
-      (cd/logic-var? that)
-      (unify that this)
-
-      (and (instance? NullableVarCharHolder that)
-           (let [that ^NullableVarCharHolder that]
-             (= 1 (ByteFunctionHelpers/equal
-                   (.buffer this) (.start this) (.end this)
-                   (.buffer that) (.start that) (.end that)))))
-      [this that]))
-
-  NullableVarBinaryHolder
-  (unify [this that]
-    (cond
-      (cd/logic-var? that)
-      (unify that this)
-
-      (and (instance? NullableVarBinaryHolder that)
-           (let [that ^NullableVarBinaryHolder that]
-             (= 1 (ByteFunctionHelpers/equal
-                   (.buffer this) (.start this) (.end this)
-                   (.buffer that) (.start that) (.end that)))))
-      [this that])))
-
 (def ^:private ^{:tag 'long} vector-size 128)
-
-(defn- set-binary-holder!
-  ^org.apache.arrow.vector.holders.NullableVarBinaryHolder [^BaseFixedWidthVector column ^long idx ^NullableVarBinaryHolder holder]
-  (let [width (.getTypeWidth column)
-        offset (* width idx)]
-    (doto holder
-      (-> (.buffer) (set! (.getDataBuffer column)))
-      (-> (.start) (set! offset))
-      (-> (.end) (set! (+ offset width))))))
 
 (defn- arrow-seq [^StructVector struct var-bindings]
   (let [init-selection-vector (int-array vector-size -1)
@@ -610,39 +574,10 @@
                         (StructVector/empty nil allocator)
                         var-bindings)
         unifiers (vec (for [[unify-column var] (map vector unifier-vector var-bindings)]
-                        (cond
-                          (cd/logic-var? var)
+                        (if (cd/logic-var? var)
                           var
-
-                          (instance? VarCharVector unify-column)
-                          (doto (NullableVarCharHolder.)
-                            (->> (.get ^VarCharVector unify-column 0)))
-
-                          (instance? VarBinaryVector unify-column)
-                          (doto (NullableVarBinaryHolder.)
-                            (->> (.get ^VarBinaryVector unify-column 0)))
-
-                          (instance? BaseFixedWidthVector unify-column)
-                          (set-binary-holder! unify-column 0 (NullableVarBinaryHolder.)))))
-        varchar-holder (doto (NullableVarCharHolder.)
-                         (-> (.isSet) (set! 1)))
-        varbinary-holder (doto (NullableVarBinaryHolder.)
-                           (-> (.isSet) (set! 1)))
-        column-accessors (vec (for [column struct]
-                                (cond
-                                  (instance? VarCharVector column)
-                                  (fn [^long idx]
-                                    (doto varchar-holder
-                                      (->> (.get ^VarCharVector column idx))))
-
-                                  (instance? VarBinaryVector column)
-                                  (fn [^long idx]
-                                    (doto varbinary-holder
-                                      (->> (.get ^VarBinaryVector column idx))))
-
-                                  (instance? BaseFixedWidthVector column)
-                                  (fn [^long idx]
-                                    (set-binary-holder! column idx varbinary-holder)))))]
+                          (.getDataPointer ^ElementAddressableVector  unify-column 0))))
+        pointer (ArrowBufPointer.)]
     (->> (for [start-idx (range 0 (.getValueCount struct) vector-size)
                :let [start-idx (long start-idx)
                      limit (min (.getValueCount struct) (+ start-idx vector-size))]]
@@ -650,7 +585,7 @@
                   ^ints selection-vector nil]
              (if (and (< n (.size struct)) var-bindings)
                (if-let [unifier (get unifiers n)]
-                 (let [column-accessor (get column-accessors n)]
+                 (let [column ^ElementAddressableVector (.getChildByOrdinal struct n)]
                    (recur (inc n)
                           (loop [idx start-idx
                                  ^ints selection-vector (or selection-vector (doto init-selection-vector
@@ -663,7 +598,7 @@
                                        selection-vector
                                        (doto selection-vector
                                          (aset selection-offset
-                                               (if (unify unifier (column-accessor idx))
+                                               (if (unify unifier (.getDataPointer column idx pointer))
                                                  idx
                                                  -2))))
                                      (inc selection-offset))

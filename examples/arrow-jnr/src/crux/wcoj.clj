@@ -613,7 +613,7 @@
   (loop [n 0
          acc []]
     (if (= n (.size struct))
-      acc
+      (with-meta acc {::index idx})
       (let [column (.getChildByOrdinal struct n)
             value (.getObject column idx)]
         (recur (inc n)
@@ -760,8 +760,8 @@
           (.setValueCount (inc idx))))))
 
   (delete [this value]
-    (doseq [[idx to-delete] (map-indexed vector (table-scan this {}))
-            :when (unify value to-delete)]
+    (doseq [to-delete (arrow-seq this value)
+            :let [idx (::index (meta to-delete))]]
       (.setNull this idx))
     this))
 

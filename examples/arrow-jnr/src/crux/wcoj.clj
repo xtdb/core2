@@ -142,6 +142,8 @@
       (derive :equality-predicate :predicate)
       (atom)))
 
+(declare term->value)
+
 (defmulti ^:private new-bound-vars
   (fn [known-vars extra-logical-vars [type]]
     type)

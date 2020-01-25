@@ -137,21 +137,20 @@
   (let [vars (filter cd/logic-var? var-bindings)]
     (not= (distinct vars) vars)))
 
-(def ^:private literal-hierarchy
-  (-> (make-hierarchy)
-      (derive :equality-predicate :predicate)
-      (atom)))
-
 (declare term->value)
 
 (defmulti ^:private new-bound-vars
   (fn [known-vars extra-logical-vars [type]]
-    type)
-  :hierarchy literal-hierarchy)
+    type))
 
 (defmethod new-bound-vars :predicate [known-vars extra-logical-vars [_ literal]]
   (let [vars (find-vars literal)]
     (when (set/superset? known-vars (set/intersection vars extra-logical-vars))
+      vars)))
+
+(defmethod new-bound-vars :equality-predicate [known-vars _ [_ literal]]
+  (let [vars (find-vars literal)]
+    (when-not (empty? (set/intersection vars known-vars))
       vars)))
 
 (defmethod new-bound-vars :not-predicate [known-vars _ [_ literal]]
@@ -171,16 +170,18 @@
         extra-logical-vars (set (for [[_ {:keys [variable]}] external-query]
                                   variable))
         constraint-predicates (filter constraint-predicate? equality-predicate)]
-    (loop [[[type :as literal] & new-body :as body] (remove (set constraint-predicates) body)
+    (loop [[literal & new-body :as body] (remove (set constraint-predicates) body)
            acc []
-           known-vars (set/difference (find-vars head) extra-logical-vars)
-           circular-check 0]
+           known-vars (set/difference (find-vars head) extra-logical-vars)]
       (if literal
-        (if-let  [new-vars (new-bound-vars known-vars extra-logical-vars literal)]
-          (recur new-body (conj acc literal) (set/union known-vars new-vars) 0)
-          (if (= (count body) circular-check)
-            (throw (IllegalArgumentException. "Circular dependency."))
-            (recur (conj (vec new-body) literal) acc known-vars (inc circular-check))))
+        (if-let  [[[literal vars]] (for [literal body
+                                         :let [vars (new-bound-vars known-vars extra-logical-vars literal)]
+                                         :when vars]
+                                     [literal vars])]
+          (recur (vec (remove #{literal} body))
+                 (vec (conj acc literal))
+                 (into known-vars vars))
+          (throw (IllegalArgumentException. "Circular dependency.")))
         acc))))
 
 (defn- min-aggregate [x y]

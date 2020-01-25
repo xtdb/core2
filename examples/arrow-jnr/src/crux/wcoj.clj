@@ -166,22 +166,6 @@
 (defn- constraint-predicate? [equality-predicate]
   (= 1 (count (find-vars equality-predicate))))
 
-(defn- new-constraint [op term value lhs?]
-  [(if-not lhs?
-     (get '{< >=
-            <= >
-            > <=
-            >= <} op op)
-     op)
-   value])
-
-(defn- equality-predicate-to-constraint [[_ {:keys [lhs op rhs]}]]
-  (let [lhs (term->value lhs)
-        rhs (term->value rhs)]
-    (if (cd/logic-var? lhs)
-      {lhs [(new-constraint op lhs rhs true)]}
-      {rhs [(new-constraint op rhs lhs false)]})))
-
 (defn- reorder-body [head body]
   (let [{:keys [external-query equality-predicate] :as literals} (group-by first body)
         extra-logical-vars (set (for [[_ {:keys [variable]}] external-query]
@@ -223,6 +207,22 @@
                             :when (not= :aggregate type)]
                         idx))
      :aggregate-ops aggregate-ops}))
+
+(defn- new-constraint [op term value lhs?]
+  [(if-not lhs?
+     (get '{< >=
+            <= >
+            > <=
+            >= <} op op)
+     op)
+   value])
+
+(defn- equality-predicate-to-constraint [[_ {:keys [lhs op rhs]}]]
+  (let [lhs (term->value lhs)
+        rhs (term->value rhs)]
+    (if (cd/logic-var? lhs)
+      {lhs [(new-constraint op lhs rhs true)]}
+      {rhs [(new-constraint op rhs lhs false)]})))
 
 (defn- enrich-with-constraints [{:keys [body] :as rule}]
   (let [{:keys [equality-predicate] :as literals} (group-by first body)

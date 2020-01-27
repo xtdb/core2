@@ -740,7 +740,8 @@
       acc)))
 
 (defn- arrow-seq [^StructVector struct var-bindings]
-  (let [vector-size (min default-vector-size (.getValueCount struct))
+  (let [struct-batch (VectorSchemaRoot. struct)
+        vector-size (min default-vector-size (.getRowCount struct-batch))
         selection-vector (doto (BitVector. "" allocator)
                            (.setValueCount vector-size)
                            (.setInitialCapacity vector-size))
@@ -750,8 +751,7 @@
                         var-bindings)
         unifiers (unifiers->arrow unifier-vector var-bindings)
         table-scan? (and (every? #{::wildcard} unifiers) (not unify-tuple?))
-        projection (projection var-bindings)
-        struct-batch (VectorSchemaRoot. struct)]
+        projection (projection var-bindings)]
     (if (zero? (count (.getFieldVectors struct-batch)))
       (repeat vector-size (with-meta [] {::index 0}))
       (->> (for [start-idx (range 0 (.getRowCount struct-batch) vector-size)

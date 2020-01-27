@@ -705,10 +705,10 @@
             (recur (inc n)
                    (loop [idx 0
                           selection-vector selection-vector]
-                     (if (< idx (.getRowCount record-batch))
+                     (if (< idx (.getValueCount column))
                        (recur (inc idx)
                               (cond
-                                (.isNull (.getVector record-batch 0) idx)
+                                (.isNull column idx)
                                 (doto selection-vector
                                   (.setSafe idx 0))
 

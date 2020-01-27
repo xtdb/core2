@@ -684,75 +684,87 @@
            :else
            (.getDataPointer ^ElementAddressableVector unify-column 0)))))
 
+(defn- non-null-tuples [^StructVector struct projection ^long start-idx ^long limit]
+  (loop [idx start-idx
+         acc []]
+    (if (< idx limit)
+      (recur (inc idx)
+             (if (.isNull struct idx)
+               acc
+               (conj acc (arrow->tuple struct idx projection))))
+      acc)))
+
+(defn- selected-indexes ^org.apache.arrow.vector.BitVector
+  [^StructVector struct unifiers start-idx limit ^BitVector selection-vector]
+  (let [start-idx (long start-idx)
+        limit (long limit)
+        pointer (ArrowBufPointer.)]
+    (loop [n 0
+           ^BitVector selection-vector selection-vector]
+      (if (< n (.size struct))
+        (if-let [unifier (get unifiers n)]
+          (let [column ^ElementAddressableVector (.getChildByOrdinal struct n)]
+            (recur (inc n)
+                   (loop [idx start-idx
+                          selection-vector selection-vector
+                          selection-offset 0]
+                     (if (< idx limit)
+                       (recur (inc idx)
+                              (cond
+                                (.isNull struct idx)
+                                (doto selection-vector
+                                  (.setSafe selection-offset 0))
+
+                                (and (pos? n)
+                                     (zero? (.get selection-vector selection-offset)))
+                                selection-vector
+
+                                :else
+                                (doto selection-vector
+                                  (.setSafe selection-offset (if (or (= ::wildcard unifier)
+                                                                     (unify unifier
+                                                                            (if (instance? ArrowBufPointer unifier)
+                                                                              (.getDataPointer column idx pointer)
+                                                                              (arrow->clojure (.getObject column idx)))))
+                                                               1
+                                                               0))))
+                              (inc selection-offset))
+                       (doto selection-vector
+                         (.setValueCount selection-offset))))))
+          (recur (inc n) selection-vector))
+        selection-vector))))
+
+(defn- selected-tuples [^StructVector struct projection ^long start-idx ^BitVector selection-vector]
+  (let [limit (.getValueCount selection-vector)]
+    (loop [selection-offset 0
+           acc []]
+      (if (< selection-offset limit)
+        (recur (inc selection-offset)
+               (if (zero? (.get selection-vector selection-offset))
+                 acc
+                 (conj acc (arrow->tuple struct (+ start-idx selection-offset) projection))))
+        acc))))
+
 (defn- arrow-seq [^StructVector struct var-bindings]
   (let [vector-size (min default-vector-size (.getValueCount struct))
-        init-selection-vector (doto (BitVector. "" allocator)
-                                (.setValueCount vector-size)
-                                (.setInitialCapacity vector-size))
+        selection-vector (doto (BitVector. "" allocator)
+                           (.setValueCount vector-size)
+                           (.setInitialCapacity vector-size))
         unify-tuple? (contains-duplicate-vars? var-bindings)
         unifier-vector (insert
                         (StructVector/empty nil allocator)
                         var-bindings)
         unifiers (unifiers->arrow unifier-vector var-bindings)
         projection (projection var-bindings)
-        table-scan? (and (every? #{::wildcard} unifiers) (not unify-tuple?))
-        pointer (ArrowBufPointer.)]
+        table-scan? (and (every? #{::wildcard} unifiers) (not unify-tuple?))]
     (->> (for [start-idx (range 0 (.getValueCount struct) vector-size)
                :let [start-idx (long start-idx)
                      limit (min (.getValueCount struct) (+ start-idx vector-size))]]
            (if table-scan?
-             (loop [idx start-idx
-                    acc []]
-               (if (< idx limit)
-                 (recur (inc idx)
-                        (if (.isNull struct idx)
-                          acc
-                          (conj acc (arrow->tuple struct idx projection))))
-                 acc))
-             (loop [n 0
-                    ^BitVector selection-vector init-selection-vector]
-               (if (< n (.size struct))
-                 (if-let [unifier (get unifiers n)]
-                   (let [column ^ElementAddressableVector (.getChildByOrdinal struct n)]
-                     (recur (inc n)
-                            (loop [idx start-idx
-                                   selection-vector selection-vector
-                                   selection-offset 0]
-                              (if (< idx limit)
-                                (recur (inc idx)
-                                       (cond
-                                         (.isNull struct idx)
-                                         (doto selection-vector
-                                           (.setSafe selection-offset 0))
-
-                                         (and (pos? n)
-                                              (zero? (.get selection-vector selection-offset)))
-                                         selection-vector
-
-                                         :else
-                                         (doto selection-vector
-                                           (.setSafe selection-offset (if (or (= ::wildcard unifier)
-                                                                              (unify unifier
-                                                                                     (if (instance? ArrowBufPointer unifier)
-                                                                                       (.getDataPointer column idx pointer)
-                                                                                       (arrow->clojure (.getObject column idx)))))
-                                                                        1
-                                                                        0))))
-                                       (inc selection-offset))
-                                selection-vector))))
-                   (recur (inc n) selection-vector))
-                 (loop [selection-offset 0
-                        acc []]
-                   (if (< selection-offset vector-size)
-                     (recur (inc selection-offset)
-                            (if (zero? (.get selection-vector selection-offset))
-                              acc
-                              (let [tuple (arrow->tuple struct (+ start-idx selection-offset) projection)]
-                                (if (or (not unify-tuple?)
-                                        (unify tuple var-bindings))
-                                  (conj acc tuple)
-                                  acc))))
-                     acc))))))
+             (non-null-tuples struct projection start-idx limit)
+             (cond->> (selected-indexes struct unifiers start-idx limit selection-vector)
+               true (selected-tuples struct projection start-idx)
+               unify-tuple? (filter (partial unify var-bindings)))))
          (apply concat))))
 
 (extend-protocol Relation

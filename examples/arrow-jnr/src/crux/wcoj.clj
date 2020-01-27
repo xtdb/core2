@@ -8,8 +8,8 @@
             [crux.datalog :as cd])
   (:import [clojure.lang IPersistentCollection IPersistentMap Symbol Keyword]
            [org.apache.arrow.memory BufferAllocator RootAllocator]
-           [org.apache.arrow.vector BigIntVector BitVector ElementAddressableVector
-            Float4Vector Float8Vector IntVector ValueVector VarBinaryVector VarCharVector]
+           [org.apache.arrow.vector BaseFixedWidthVector BaseVariableWidthVector BigIntVector BitVector
+            ElementAddressableVector Float4Vector Float8Vector IntVector ValueVector VarBinaryVector VarCharVector VectorSchemaRoot]
            org.apache.arrow.vector.complex.StructVector
            org.apache.arrow.vector.types.pojo.FieldType
            org.apache.arrow.vector.types.Types$MinorType
@@ -613,14 +613,14 @@
     :else
     value))
 
-(defn- arrow->tuple [^StructVector struct ^long idx projection]
+(defn- arrow->tuple [^VectorSchemaRoot record-batch ^long idx projection]
   (loop [n 0
          acc []]
-    (if (= n (.size struct))
+    (if (= n (count (.getFieldVectors record-batch)))
       (with-meta acc {::index idx})
       (recur (inc n)
              (if (get projection n)
-               (let [column (.getChildByOrdinal struct n)
+               (let [column (.getVector record-batch n)
                      value (.getObject column idx)]
                  (conj acc (arrow->clojure value)))
                (conj acc cd/blank-var))))))
@@ -684,66 +684,60 @@
            :else
            (.getDataPointer ^ElementAddressableVector unify-column 0)))))
 
-(defn- non-null-tuples [^StructVector struct projection ^long start-idx ^long limit]
-  (loop [idx start-idx
+(defn- non-null-tuples [^VectorSchemaRoot record-batch projection ^long base-offset]
+  (loop [idx 0
          acc []]
-    (if (< idx limit)
+    (if (< idx (.getRowCount record-batch))
       (recur (inc idx)
-             (if (.isNull struct idx)
+             (if (.isNull (.getVector record-batch 0) idx)
                acc
-               (conj acc (arrow->tuple struct idx projection))))
+               (conj acc (arrow->tuple record-batch (+ base-offset idx) projection))))
       acc)))
 
 (defn- selected-indexes ^org.apache.arrow.vector.BitVector
-  [^StructVector struct unifiers start-idx limit ^BitVector selection-vector]
-  (let [start-idx (long start-idx)
-        limit (long limit)
-        pointer (ArrowBufPointer.)]
+  [^VectorSchemaRoot record-batch unifiers ^BitVector selection-vector-out]
+  (let [pointer (ArrowBufPointer.)]
     (loop [n 0
-           ^BitVector selection-vector selection-vector]
-      (if (< n (.size struct))
+           selection-vector selection-vector-out]
+      (if (< n (count (.getFieldVectors record-batch)))
         (if-let [unifier (get unifiers n)]
-          (let [column ^ElementAddressableVector (.getChildByOrdinal struct n)]
+          (let [column ^ElementAddressableVector (.getVector record-batch n)]
             (recur (inc n)
-                   (loop [idx start-idx
-                          selection-vector selection-vector
-                          selection-offset 0]
-                     (if (< idx limit)
+                   (loop [idx 0
+                          selection-vector selection-vector]
+                     (if (< idx (.getRowCount record-batch))
                        (recur (inc idx)
                               (cond
-                                (.isNull struct idx)
+                                (.isNull (.getVector record-batch 0) idx)
                                 (doto selection-vector
-                                  (.setSafe selection-offset 0))
+                                  (.setSafe idx 0))
 
                                 (and (pos? n)
-                                     (zero? (.get selection-vector selection-offset)))
+                                     (zero? (.get selection-vector idx)))
                                 selection-vector
 
                                 :else
                                 (doto selection-vector
-                                  (.setSafe selection-offset (if (or (= ::wildcard unifier)
-                                                                     (unify unifier
-                                                                            (if (instance? ArrowBufPointer unifier)
-                                                                              (.getDataPointer column idx pointer)
-                                                                              (arrow->clojure (.getObject column idx)))))
-                                                               1
-                                                               0))))
-                              (inc selection-offset))
-                       (doto selection-vector
-                         (.setValueCount selection-offset))))))
+                                  (.setSafe idx (if (or (= ::wildcard unifier)
+                                                        (unify unifier
+                                                               (if (instance? ArrowBufPointer unifier)
+                                                                 (.getDataPointer column idx pointer)
+                                                                 (arrow->clojure (.getObject column idx)))))
+                                                  1
+                                                  0)))))
+                       selection-vector))))
           (recur (inc n) selection-vector))
         selection-vector))))
 
-(defn- selected-tuples [^StructVector struct projection ^long start-idx ^BitVector selection-vector]
-  (let [limit (.getValueCount selection-vector)]
-    (loop [selection-offset 0
-           acc []]
-      (if (< selection-offset limit)
-        (recur (inc selection-offset)
-               (if (zero? (.get selection-vector selection-offset))
-                 acc
-                 (conj acc (arrow->tuple struct (+ start-idx selection-offset) projection))))
-        acc))))
+(defn- selected-tuples [^VectorSchemaRoot vector-batch projection ^long base-offset ^BitVector selection-vector]
+  (loop [selection-offset 0
+         acc []]
+    (if (< selection-offset (.getRowCount vector-batch))
+      (recur (inc selection-offset)
+             (if (zero? (.get selection-vector selection-offset))
+               acc
+               (conj acc (arrow->tuple vector-batch (+ base-offset selection-offset) projection))))
+      acc)))
 
 (defn- arrow-seq [^StructVector struct var-bindings]
   (let [vector-size (min default-vector-size (.getValueCount struct))
@@ -755,17 +749,22 @@
                         (StructVector/empty nil allocator)
                         var-bindings)
         unifiers (unifiers->arrow unifier-vector var-bindings)
+        table-scan? (and (every? #{::wildcard} unifiers) (not unify-tuple?))
         projection (projection var-bindings)
-        table-scan? (and (every? #{::wildcard} unifiers) (not unify-tuple?))]
-    (->> (for [start-idx (range 0 (.getValueCount struct) vector-size)
-               :let [start-idx (long start-idx)
-                     limit (min (.getValueCount struct) (+ start-idx vector-size))]]
-           (if table-scan?
-             (non-null-tuples struct projection start-idx limit)
-             (cond->> (selected-indexes struct unifiers start-idx limit selection-vector)
-               true (selected-tuples struct projection start-idx)
-               unify-tuple? (filter (partial unify var-bindings)))))
-         (apply concat))))
+        struct-batch (VectorSchemaRoot. struct)]
+    (if (zero? (count (.getFieldVectors struct-batch)))
+      (repeat vector-size (with-meta [] {::index 0}))
+      (->> (for [start-idx (range 0 (.getRowCount struct-batch) vector-size)
+                 :let [start-idx (long start-idx)
+                       record-batch (if (< (.getRowCount struct-batch) (+ start-idx vector-size))
+                                      (.slice struct-batch start-idx)
+                                      (.slice struct-batch start-idx vector-size))]]
+             (if table-scan?
+               (non-null-tuples record-batch projection start-idx)
+               (cond->> (selected-indexes record-batch unifiers selection-vector)
+                 true (selected-tuples record-batch projection start-idx)
+                 unify-tuple? (filter (partial unify var-bindings)))))
+           (apply concat)))))
 
 (extend-protocol Relation
   StructVector
@@ -791,6 +790,12 @@
   (delete [this value]
     (doseq [to-delete (arrow-seq this value)
             :let [idx (::index (meta to-delete))]]
+      (dotimes [n (.size this)]
+        (let [column (.getChildByOrdinal this n)]
+          (when (instance? BaseFixedWidthVector column)
+            (.setNull ^BaseFixedWidthVector column idx))
+          (when (instance? BaseVariableWidthVector column)
+            (.setNull ^BaseVariableWidthVector column idx))))
       (.setNull this idx))
     this))
 

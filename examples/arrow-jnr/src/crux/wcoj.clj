@@ -613,18 +613,6 @@
     :else
     value))
 
-(defn- arrow->tuple [^VectorSchemaRoot record-batch ^long idx projection]
-  (loop [n 0
-         acc []]
-    (if (= n (count (.getFieldVectors record-batch)))
-      (with-meta acc {::index idx})
-      (recur (inc n)
-             (if (get projection n)
-               (let [column (.getVector record-batch n)
-                     value (.getObject column idx)]
-                 (conj acc (arrow->clojure value)))
-               (conj acc cd/blank-var))))))
-
 (defn- clojure->arrow [value]
   (cond
     (string? value)
@@ -684,16 +672,6 @@
            :else
            (.getDataPointer ^ElementAddressableVector unify-column 0)))))
 
-(defn- non-null-tuples [^VectorSchemaRoot record-batch projection ^long base-offset]
-  (loop [idx 0
-         acc []]
-    (if (< idx (.getRowCount record-batch))
-      (recur (inc idx)
-             (if (.isNull (.getVector record-batch 0) idx)
-               acc
-               (conj acc (arrow->tuple record-batch (+ base-offset idx) projection))))
-      acc)))
-
 (defn- selected-indexes ^org.apache.arrow.vector.BitVector
   [^VectorSchemaRoot record-batch unifiers ^BitVector selection-vector-out]
   (let [pointer (ArrowBufPointer.)]
@@ -729,15 +707,32 @@
           (recur (inc n) selection-vector))
         selection-vector))))
 
-(defn- selected-tuples [^VectorSchemaRoot vector-batch projection ^long base-offset ^BitVector selection-vector]
-  (loop [selection-offset 0
+(defn- project-column [^VectorSchemaRoot record-batch ^long idx ^long n projection]
+  (if (get projection n)
+    (let [column (.getVector record-batch n)
+          value (.getObject column idx)]
+      (arrow->clojure value))
+    cd/blank-var))
+
+(defn- selected-tuples [^VectorSchemaRoot record-batch projection ^long base-offset ^BitVector selection-vector]
+  (loop [n 0
          acc []]
-    (if (< selection-offset (.getRowCount vector-batch))
-      (recur (inc selection-offset)
-             (if (zero? (.get selection-vector selection-offset))
-               acc
-               (conj acc (arrow->tuple vector-batch (+ base-offset selection-offset) projection))))
-      acc)))
+    (if (= n (count (.getFieldVectors record-batch)))
+      acc
+      (recur (inc n)
+             (loop [selection-offset 0
+                    acc acc
+                    idx 0]
+               (if (< selection-offset (.getRowCount record-batch))
+                 (if (zero? (.get selection-vector selection-offset))
+                   (recur (inc selection-offset)
+                          acc
+                          idx)
+                   (recur (inc selection-offset)
+                          (update acc idx (fnil conj (with-meta [] {::index (+ base-offset selection-offset)}))
+                                  (project-column record-batch selection-offset n projection))
+                          (inc idx)))
+                 acc))))))
 
 (defn- arrow-seq [^StructVector struct var-bindings]
   (let [struct-batch (VectorSchemaRoot. struct)
@@ -750,7 +745,6 @@
                         (StructVector/empty nil allocator)
                         var-bindings)
         unifiers (unifiers->arrow unifier-vector var-bindings)
-        table-scan? (and (every? #{::wildcard} unifiers) (not unify-tuple?))
         projection (projection var-bindings)]
     (if (zero? (count (.getFieldVectors struct-batch)))
       (repeat vector-size (with-meta [] {::index 0}))
@@ -759,11 +753,9 @@
                        record-batch (if (< (.getRowCount struct-batch) (+ start-idx vector-size))
                                       (.slice struct-batch start-idx)
                                       (.slice struct-batch start-idx vector-size))]]
-             (if table-scan?
-               (non-null-tuples record-batch projection start-idx)
-               (cond->> (selected-indexes record-batch unifiers selection-vector)
-                 true (selected-tuples record-batch projection start-idx)
-                 unify-tuple? (filter (partial unify var-bindings)))))
+             (cond->> (selected-indexes record-batch unifiers selection-vector)
+               true (selected-tuples record-batch projection start-idx)
+               unify-tuple? (filter (partial unify var-bindings))))
            (apply concat)))))
 
 (extend-protocol Relation

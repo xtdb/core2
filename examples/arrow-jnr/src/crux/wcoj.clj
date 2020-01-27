@@ -362,12 +362,13 @@
 (def ^:private compile-rule (memoize compile-rule-no-memo))
 
 (defn- execute-rules-no-memo [rules db var-bindings]
-  (->> (for [rule rules]
-         (if (empty? var-bindings)
-           ((compile-rule rule) db)
-           ((compile-rule rule) db var-bindings)))
-       (apply concat)
-       (distinct)))
+  (let [var-bindings (mapv ensure-unique-logic-var var-bindings)]
+    (->> (for [rule rules]
+           (if (empty? var-bindings)
+             ((compile-rule rule) db)
+             ((compile-rule rule) db var-bindings)))
+         (apply concat)
+         (distinct))))
 
 (defn- rule-memo-key [rules var-bindings]
   [(System/identityHashCode rules)
@@ -390,7 +391,7 @@
       memo-value)))
 
 (defn- execute-rules [rules db var-bindings]
-  (cond->> (execute-rules-memo rules db (mapv ensure-unique-logic-var var-bindings))
+  (cond->> (execute-rules-memo rules db var-bindings)
     (contains-duplicate-vars? var-bindings) (filter #(unify var-bindings %))))
 
 (defrecord RuleRelation [name rules]

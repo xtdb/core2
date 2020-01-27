@@ -8,8 +8,8 @@
             [crux.datalog :as cd])
   (:import [clojure.lang IPersistentCollection IPersistentMap Symbol Keyword]
            [org.apache.arrow.memory BufferAllocator RootAllocator]
-           [org.apache.arrow.vector ElementAddressableVector BigIntVector BitVector Float8Vector
-            TinyIntVector ValueVector VarBinaryVector VarCharVector]
+           [org.apache.arrow.vector BigIntVector BitVector ElementAddressableVector
+            Float4Vector Float8Vector IntVector ValueVector VarBinaryVector VarCharVector]
            org.apache.arrow.vector.complex.StructVector
            org.apache.arrow.vector.types.pojo.FieldType
            org.apache.arrow.vector.types.Types$MinorType
@@ -580,14 +580,18 @@
            column-type (.getSimpleName (class column-template))
            [^FieldType field-type ^Class vector-class]
            (case (symbol column-type)
-             (Integer Long) [(FieldType/nullable (.getType Types$MinorType/BIGINT))
-                             BigIntVector]
-             (Float Double) [(FieldType/nullable (.getType Types$MinorType/FLOAT8))
-                             Float8Vector]
+             Integer [(FieldType/nullable (.getType Types$MinorType/INT))
+                      IntVector]
+             Long [(FieldType/nullable (.getType Types$MinorType/BIGINT))
+                   BigIntVector]
+             Float [(FieldType/nullable (.getType Types$MinorType/FLOAT4))
+                    Float4Vector]
+             Double [(FieldType/nullable (.getType Types$MinorType/FLOAT8))
+                     Float8Vector]
              String [(FieldType/nullable (.getType Types$MinorType/VARCHAR))
                      VarCharVector]
-             Boolean [(FieldType/nullable (.getType Types$MinorType/TINYINT))
-                      TinyIntVector]
+             Boolean [(FieldType/nullable (.getType Types$MinorType/BIT))
+                      BitVector]
              [(FieldType/nullable (.getType Types$MinorType/VARBINARY))
               VarBinaryVector])]
        (doto relation
@@ -605,9 +609,6 @@
 
     (bytes? value)
     (edn/read-string (String. ^bytes value "UTF-8"))
-
-    (instance? Byte value)
-    (= 1 value)
 
     :else
     value))
@@ -643,8 +644,14 @@
                             (::constraints (meta v)))]
     (insert-clojure-value-into-column column idx value)
     (cond
+      (instance? IntVector column)
+      (.setSafe ^IntVector column idx ^int (clojure->arrow v))
+
       (instance? BigIntVector column)
       (.setSafe ^BigIntVector column idx ^long (clojure->arrow v))
+
+      (instance? Float4Vector column)
+      (.setSafe ^Float4Vector column idx ^float (clojure->arrow v))
 
       (instance? Float8Vector column)
       (.setSafe ^Float8Vector column idx ^double (clojure->arrow v))
@@ -652,8 +659,8 @@
       (instance? VarCharVector column)
       (.setSafe ^VarCharVector column idx ^Text (clojure->arrow v))
 
-      (instance? TinyIntVector column)
-      (.setSafe ^TinyIntVector column idx ^long (clojure->arrow v))
+      (instance? BitVector column)
+      (.setSafe ^BitVector column idx ^long (clojure->arrow v))
 
       (instance? VarBinaryVector column)
       (.setSafe ^VarBinaryVector column idx ^bytes (clojure->arrow v))
@@ -664,11 +671,17 @@
 (def ^:private ^{:tag 'long} default-vector-size 128)
 
 (defn- unifiers->arrow [unifier-vector var-bindings]
-  (vec (for [[^ElementAddressableVector unify-column var] (map vector unifier-vector var-bindings)]
-         (if (cd/logic-var? var)
-           (if-let [constraints (::constraints (meta var))]
-             var
+  (vec (for [[^ElementAddressableVector unify-column var-binding] (map vector unifier-vector var-bindings)]
+         (cond
+           (cd/logic-var? var-binding)
+           (if-let [constraints (::constraints (meta var-binding))]
+             var-binding
              ::wildcard)
+
+           (boolean? var-binding)
+           var-binding
+
+           :else
            (.getDataPointer ^ElementAddressableVector unify-column 0)))))
 
 (defn- arrow-seq [^StructVector struct var-bindings]
@@ -719,9 +732,10 @@
                                          :else
                                          (doto selection-vector
                                            (.setSafe selection-offset (if (or (= ::wildcard unifier)
-                                                                              (if (instance? ArrowBufPointer unifier)
-                                                                                (= unifier (.getDataPointer column idx))
-                                                                                (unify unifier (arrow->clojure (.getObject column idx)))))
+                                                                              (unify unifier
+                                                                                     (if (instance? ArrowBufPointer unifier)
+                                                                                       (.getDataPointer column idx pointer)
+                                                                                       (arrow->clojure (.getObject column idx)))))
                                                                         1
                                                                         0))))
                                        (inc selection-offset))

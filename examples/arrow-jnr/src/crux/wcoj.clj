@@ -570,9 +570,9 @@
 (def ^:private ^BufferAllocator
   allocator (RootAllocator. Long/MAX_VALUE))
 
-(defn- init-struct [^StructVector relation column-template]
+(defn- init-struct [^StructVector struct column-template]
   (reduce
-   (fn [^StructVector relation [idx column-template]]
+   (fn [^StructVector struct [idx column-template]]
      (let [column-template (if-let [[[_ value]] (and (cd/logic-var? column-template)
                                                      (::constraints (meta column-template)))]
                              value
@@ -594,12 +594,12 @@
                       BitVector]
              [(FieldType/nullable (.getType Types$MinorType/VARBINARY))
               VarBinaryVector])]
-       (doto relation
+       (doto struct
          (.addOrGet
           (str idx "_" (str/lower-case column-type))
           field-type
           vector-class))))
-   relation
+   struct
    (map-indexed vector column-template)))
 
 (defn- arrow->clojure [value]

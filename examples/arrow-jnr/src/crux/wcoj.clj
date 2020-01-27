@@ -130,7 +130,7 @@
 
 (defn- ensure-unique-logic-var [var]
   (if (cd/logic-var? var)
-    (gensym var)
+    (with-meta (gensym var) (meta var))
     var))
 
 (defn- contains-duplicate-vars? [var-bindings]
@@ -371,10 +371,13 @@
 
 (defn- rule-memo-key [rules var-bindings]
   [(System/identityHashCode rules)
-   (-> (zipmap (filter cd/logic-var? var-bindings)
-               (for [id (range)]
-                 (symbol (str "crux.wcoj/variable_" id))))
-       (replace var-bindings))])
+   (let  [smap (zipmap (filter cd/logic-var? var-bindings)
+                       (for [id (range)]
+                         (symbol (str "crux.wcoj/variable_" id))))
+          smap (->> (for [[var memo-key] smap]
+                      [var [memo-key (::constraints (meta var))]])
+                    (into {}))]
+     (replace smap var-bindings))])
 
 (defn- execute-rules-memo [rules db var-bindings]
   (let [db (vary-meta db update :rule-memo-state #(or % (atom {})))

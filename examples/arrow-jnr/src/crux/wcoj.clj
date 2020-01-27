@@ -140,6 +140,9 @@
   (let [vars (filter cd/logic-var? var-bindings)]
     (not= (distinct vars) vars)))
 
+(defn- projection [var-bindings]
+  (mapv (partial not= '_) var-bindings))
+
 (declare term->value)
 
 (defmulti ^:private new-bound-vars
@@ -429,12 +432,17 @@
 
   IPersistentCollection
   (table-scan [this db]
-    (seq this))
+    (table-filter this db nil))
 
   (table-filter [this db var-bindings]
-    (for [tuple (table-scan this db)
-          :when (unify tuple var-bindings)]
-      tuple))
+    (let [projection (projection var-bindings)]
+      (for [tuple (seq this)
+            :when (or (nil? var-bindings)
+                      (unify tuple var-bindings))]
+        (mapv (fn [v p]
+                (if p
+                  v
+                  '_)) tuple projection))))
 
   (insert [this tuple]
     (conj this tuple))
@@ -695,7 +703,7 @@
                         (StructVector/empty nil allocator)
                         var-bindings)
         unifiers (unifiers->arrow unifier-vector var-bindings)
-        projection (mapv (partial not= '_) var-bindings)
+        projection (projection var-bindings)
         table-scan? (and (every? #{::wildcard} unifiers) (not unify-tuple?))
         pointer (ArrowBufPointer.)]
     (->> (for [start-idx (range 0 (.getValueCount struct) vector-size)
@@ -756,7 +764,7 @@
 (extend-protocol Relation
   StructVector
   (table-scan [this db]
-    (arrow-seq this (unique-vars (.size this))))
+    (arrow-seq this nil))
 
   (table-filter [this db var-bindings]
     (arrow-seq this var-bindings))

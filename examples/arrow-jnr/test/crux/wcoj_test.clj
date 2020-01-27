@@ -651,15 +651,14 @@ perm(c, b).
                  (set)))))
 
   (t/testing "projection"
-    (t/is (= #{["Bud" 2.50]
-               ["Miller" 2.75]
-               ["Miller" 3.00]}
+    (t/is (= '#{[_ "Bud" 2.50]
+                [_ "Miller" 2.75]
+                [_ "Miller" 3.00]}
              (-> (wcoj/assert-all {} 'sells #{["Joe's" "Bud" 2.50]
                                               ["Joe's" "Miller" 2.75]
                                               ["Sue's" "Bud" 2.50]
                                               ["Sue's" "Miller" 3.0]})
                  (wcoj/query '[sells(_ Beer Price)?])
-                 (->> (map #(mapv % [1 2])))
                  (set)))))
 
   (t/testing "extended projection"

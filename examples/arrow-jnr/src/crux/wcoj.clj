@@ -78,14 +78,14 @@
   Symbol
   (unify [this that]
     (cond
-      (= this that)
-      [this this]
-
       (cd/logic-var? that)
       (constrained that this)
 
       (cd/logic-var? this)
-      (constrained this that)))
+      (constrained this that)
+
+      (= this that)
+      [this this]))
 
   IPersistentCollection
   (unify [this that]

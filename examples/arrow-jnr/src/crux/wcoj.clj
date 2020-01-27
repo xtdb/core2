@@ -99,8 +99,8 @@
             (if-let [u (unify (get smap x x) (get smap y y))]
               [(conj acc u)
                (cond-> smap
-                 (not= '_ x) (assoc x u)
-                 (not= '_ y) (assoc y u))]
+                 (not= cd/blank-var x) (assoc x u)
+                 (not= cd/blank-var y) (assoc y u))]
               (reduced nil)))
           [[] {}]
           (mapv vector this that))))))
@@ -133,15 +133,12 @@
     (with-meta (gensym var) (meta var))
     var))
 
-(defn- unique-vars [n]
-  (mapv ensure-unique-logic-var (repeat n '_)))
-
 (defn- contains-duplicate-vars? [var-bindings]
   (let [vars (filter cd/logic-var? var-bindings)]
     (not= (distinct vars) vars)))
 
 (defn- projection [var-bindings]
-  (mapv (partial not= '_) var-bindings))
+  (mapv (partial not= cd/blank-var) var-bindings))
 
 (declare term->value)
 
@@ -344,7 +341,7 @@
         arg-vars (mapv term->binding terms)
         args-signature (mapv (comp quote-term term->signature) terms)]
     `(fn ~symbol
-       ([~db-sym] (~symbol ~db-sym '~(unique-vars (count arg-vars))))
+       ([~db-sym] (~symbol ~db-sym '~(mapv ensure-unique-logic-var (repeat (count arg-vars) cd/blank-var))))
        ([~db-sym ~args-sym]
         (->> (for [loop# [nil]
                    :let [[~@arg-vars :as unified?#] (crux.wcoj/unify ~args-sym ~args-signature)]
@@ -440,7 +437,7 @@
         (mapv (fn [v p]
                 (if p
                   v
-                  '_)) tuple projection))))
+                  cd/blank-var)) tuple projection))))
 
   (insert [this tuple]
     (conj this tuple))
@@ -632,7 +629,7 @@
                (let [column (.getChildByOrdinal struct n)
                      value (.getObject column idx)]
                  (conj acc (arrow->clojure value)))
-               (conj acc '_))))))
+               (conj acc cd/blank-var))))))
 
 (defn- clojure->arrow [value]
   (cond

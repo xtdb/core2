@@ -715,24 +715,28 @@
     cd/blank-var))
 
 (defn- selected-tuples [^VectorSchemaRoot record-batch projection ^long base-offset ^BitVector selection-vector]
-  (loop [n 0
-         acc []]
-    (if (= n (count (.getFieldVectors record-batch)))
-      acc
-      (recur (inc n)
-             (loop [selection-offset 0
-                    acc acc
-                    idx 0]
-               (if (< selection-offset (.getRowCount record-batch))
-                 (if (zero? (.get selection-vector selection-offset))
-                   (recur (inc selection-offset)
-                          acc
-                          idx)
-                   (recur (inc selection-offset)
-                          (update acc idx (fnil conj (with-meta [] {::index (+ base-offset selection-offset)}))
-                                  (project-column record-batch selection-offset n projection))
-                          (inc idx)))
-                 acc))))))
+  (let [row-count (.getRowCount record-batch)
+        column-count (count (.getFieldVectors record-batch))]
+    (loop [n 0
+           acc []]
+      (if (= n column-count)
+        acc
+        (recur (inc n)
+               (loop [selection-offset 0
+                      acc acc
+                      idx 0]
+                 (if (< selection-offset row-count)
+                   (if (zero? (.get selection-vector selection-offset))
+                     (recur (inc selection-offset)
+                            acc
+                            idx)
+                     (recur (inc selection-offset)
+                            (let [value (project-column record-batch selection-offset n projection)]
+                              (if (zero? n)
+                                (conj acc (with-meta [value] {::index (+ base-offset selection-offset)}))
+                                (update acc idx conj value)))
+                            (inc idx)))
+                   acc)))))))
 
 (defn- arrow-seq [^StructVector struct var-bindings]
   (let [struct-batch (VectorSchemaRoot. struct)

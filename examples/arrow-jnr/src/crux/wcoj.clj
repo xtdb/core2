@@ -606,13 +606,6 @@
     (bytes? value)
     (edn/read-string (String. ^bytes value "UTF-8"))
 
-    (int? value)
-    (bit-xor (Long/reverseBytes (long value)) Long/MIN_VALUE)
-
-    (float? value)
-    (let [x (Double/doubleToLongBits value)]
-      (Double/longBitsToDouble (bit-xor x (bit-or Long/MIN_VALUE (bit-shift-left x (dec Long/SIZE))))))
-
     (instance? Byte value)
     (= 1 value)
 
@@ -639,12 +632,8 @@
     (boolean? value)
     (if value 1 0)
 
-    (int? value)
-    (Long/reverseBytes (bit-xor (long value) Long/MIN_VALUE))
-
-    (float? value)
-    (let [l (Double/doubleToLongBits value)]
-      (Double/longBitsToDouble (bit-xor l (bit-or (bit-shift-right l (dec Long/SIZE)) Long/MIN_VALUE))))
+    (number? value)
+    value
 
     :else
     (.getBytes (pr-str value) "UTF-8")))
@@ -678,13 +667,7 @@
   (vec (for [[^ElementAddressableVector unify-column var] (map vector unifier-vector var-bindings)]
          (if (cd/logic-var? var)
            (if-let [constraints (::constraints (meta var))]
-             (vary-meta var assoc
-                        ::constraints
-                        (reduce
-                         (fn [acc [^long idx [op value]]]
-                           (insert-clojure-value-into-column unify-column (inc idx) value)
-                           (conj acc [op (.getDataPointer unify-column (inc idx))]))
-                         [] (map-indexed vector constraints)))
+             var
              ::wildcard)
            (.getDataPointer ^ElementAddressableVector unify-column 0)))))
 
@@ -736,7 +719,9 @@
                                          :else
                                          (doto selection-vector
                                            (.setSafe selection-offset (if (or (= ::wildcard unifier)
-                                                                              (unify unifier (.getDataPointer column idx pointer)))
+                                                                              (if (instance? ArrowBufPointer unifier)
+                                                                                (= unifier (.getDataPointer column idx))
+                                                                                (unify unifier (arrow->clojure (.getObject column idx)))))
                                                                         1
                                                                         0))))
                                        (inc selection-offset))

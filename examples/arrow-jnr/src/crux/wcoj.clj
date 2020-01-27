@@ -59,10 +59,10 @@
   (if-let [constraints (::constraints (meta this))]
     (if (cd/logic-var? that)
       (let [that (vary-meta that update ::constraints into constraints)]
-        [that that])
+        that)
       (when (execute-constraints constraints that)
-        [that that]))
-    [that that]))
+        that))
+    that))
 
 (extend-protocol Unification
   (class (byte-array 0))
@@ -73,7 +73,7 @@
 
       (and (bytes? that)
            (Arrays/equals ^bytes this ^bytes that))
-      [this that]))
+      that))
 
   Symbol
   (unify [this that]
@@ -85,7 +85,7 @@
       (constrained this that)
 
       (= this that)
-      [this this]))
+      this))
 
   IPersistentCollection
   (unify [this that]
@@ -96,11 +96,11 @@
         (first
          (reduce
           (fn [[acc smap] [x y]]
-            (if-let [[xu yu] (seq (unify (get smap x x) (get smap y y)))]
-              [(conj acc [xu yu])
+            (if-let [u (unify (get smap x x) (get smap y y))]
+              [(conj acc u)
                (cond-> smap
-                 (not= '_ x) (assoc x xu)
-                 (not= '_ y) (assoc y yu))]
+                 (not= '_ x) (assoc x u)
+                 (not= '_ y) (assoc y u))]
               (reduced nil)))
           [[] {}]
           (mapv vector this that))))))
@@ -110,14 +110,14 @@
     (if (cd/logic-var? that)
       (unify that this)
       (when (= this that)
-        [this this])))
+        this)))
 
   nil
   (unify [this that]
     (if (cd/logic-var? that)
       (unify that this)
       (when (nil? that)
-        [this this]))))
+        this))))
 
 (defn- find-vars [body]
   (let [vars (atom [])]
@@ -300,10 +300,6 @@
     (crux.wcoj/relation-by-name ~db-sym '~symbol)
     ~db-sym ~(mapv term->value terms)))
 
-(defn- unification->clojure [bindings x y]
-  `[:let [[~@bindings :as unified?#] (crux.wcoj/unify ~x ~y)]
-    :when unified?#])
-
 (defmulti ^:private datalog->clojure (fn [query-plan [type]]
                                        type))
 
@@ -312,18 +308,19 @@
     [term-vars (predicate->clojure query-plan predicate)]))
 
 (defmethod datalog->clojure :equality-predicate [_ [_ {:keys [lhs op rhs]}]]
-  (let [op-fn (get '{!= (complement crux.wcoj/unify)} op op)]
-    (if (= '= op)
-      (unification->clojure
-       [(term->binding lhs) (term->binding rhs)]
-       (term->value lhs) (term->value rhs))
+  (if (= '= op)
+    `[:let [~(term->binding lhs) (crux.wcoj/unify ~(term->value lhs) ~(term->value rhs))]
+      :when (some? ~(term->binding lhs))
+      :let [~(term->binding rhs) ~(term->binding lhs)]]
+    (let [op-fn (get '{!= (complement crux.wcoj/unify)} op op)]
       `[:when (~op-fn ~(term->value lhs) ~(term->value rhs))])))
 
 (defmethod datalog->clojure :not-predicate [query-plan [_ {:keys [predicate]}]]
   `[:when (empty? ~(predicate->clojure query-plan predicate))])
 
 (defmethod datalog->clojure :external-query [_ [_ {:keys [variable symbol terms]}]]
-  (unification->clojure [variable] variable `(~symbol ~@(mapv term->value terms))))
+  `[:let [~variable (crux.wcoj/unify ~variable (~symbol ~@(mapv term->value terms)))]
+    :when (some? ~variable)])
 
 (defn aggregate [{:keys [group-idxs aggregate-ops]} tuples]
   (vals
@@ -350,7 +347,8 @@
        ([~db-sym] (~symbol ~db-sym '~(unique-vars (count arg-vars))))
        ([~db-sym ~args-sym]
         (->> (for [loop# [nil]
-                   ~@(unification->clojure (map vector arg-vars) args-sym args-signature)
+                   :let [[~@arg-vars :as unified?#] (crux.wcoj/unify ~args-sym ~args-signature)]
+                   :when unified?#
                    :let [~@(interleave existential-vars (map quote-term existential-vars))]
                    ~@bindings]
                ~arg-vars)

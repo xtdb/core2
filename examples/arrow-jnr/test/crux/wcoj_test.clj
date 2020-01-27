@@ -4,7 +4,7 @@
             [crux.wcoj :as wcoj]))
 
 (declare with-each-tuple-factory)
-(t/use-fixtures :each with-each-tuple-factory)
+(t/use-fixtures :each #'with-each-tuple-factory)
 
 (t/deftest test-triangle-join-query
   (let [triangle '[r(1, 3).

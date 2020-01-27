@@ -133,6 +133,9 @@
     (with-meta (gensym var) (meta var))
     var))
 
+(defn- unique-vars [n]
+  (mapv ensure-unique-logic-var (repeat n '_)))
+
 (defn- contains-duplicate-vars? [var-bindings]
   (let [vars (filter cd/logic-var? var-bindings)]
     (not= (distinct vars) vars)))
@@ -341,7 +344,7 @@
         arg-vars (mapv term->binding terms)
         args-signature (mapv (comp quote-term term->signature) terms)]
     `(fn ~symbol
-       ([~db-sym] (~symbol ~db-sym '~(vec (repeat (count arg-vars) '_))))
+       ([~db-sym] (~symbol ~db-sym '~(unique-vars (count arg-vars))))
        ([~db-sym ~args-sym]
         (->> (for [loop# [nil]
                    ~@(unification->clojure (map vector arg-vars) args-sym args-signature)
@@ -613,15 +616,17 @@
     :else
     value))
 
-(defn- arrow->tuple [^StructVector struct ^long idx]
+(defn- arrow->tuple [^StructVector struct ^long idx projection]
   (loop [n 0
          acc []]
     (if (= n (.size struct))
       (with-meta acc {::index idx})
-      (let [column (.getChildByOrdinal struct n)
-            value (.getObject column idx)]
-        (recur (inc n)
-               (conj acc (arrow->clojure value)))))))
+      (recur (inc n)
+             (if (get projection n)
+               (let [column (.getChildByOrdinal struct n)
+                     value (.getObject column idx)]
+                 (conj acc (arrow->clojure value)))
+               (conj acc '_))))))
 
 (defn- clojure->arrow [value]
   (cond
@@ -690,6 +695,7 @@
                         (StructVector/empty nil allocator)
                         var-bindings)
         unifiers (unifiers->arrow unifier-vector var-bindings)
+        projection (mapv (partial not= '_) var-bindings)
         table-scan? (and (every? #{::wildcard} unifiers) (not unify-tuple?))
         pointer (ArrowBufPointer.)]
     (->> (for [start-idx (range 0 (.getValueCount struct) vector-size)
@@ -702,7 +708,7 @@
                  (recur (inc idx)
                         (if (.isNull struct idx)
                           acc
-                          (conj acc (arrow->tuple struct idx))))
+                          (conj acc (arrow->tuple struct idx projection))))
                  acc))
              (loop [n 0
                     ^BitVector selection-vector init-selection-vector]
@@ -739,7 +745,7 @@
                      (recur (inc selection-offset)
                             (if (zero? (.get selection-vector selection-offset))
                               acc
-                              (let [tuple (arrow->tuple struct (+ start-idx selection-offset))]
+                              (let [tuple (arrow->tuple struct (+ start-idx selection-offset) projection)]
                                 (if (or (not unify-tuple?)
                                         (unify tuple var-bindings))
                                   (conj acc tuple)
@@ -750,7 +756,7 @@
 (extend-protocol Relation
   StructVector
   (table-scan [this db]
-    (arrow-seq this (vec (repeat (.size this) '_))))
+    (arrow-seq this (unique-vars (.size this))))
 
   (table-filter [this db var-bindings]
     (arrow-seq this var-bindings))

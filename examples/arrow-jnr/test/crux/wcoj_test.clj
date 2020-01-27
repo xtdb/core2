@@ -647,7 +647,7 @@ perm(c, b).
                                               ["Joe's" "Miller" 2.75]
                                               ["Sue's" "Bud" 2.50]
                                               ["Sue's" "Miller" 3.0]})
-                 (wcoj/query '[sells("Joe's" _ _)?])
+                 (wcoj/query '[sells("Joe's" Beer Price)?])
                  (set)))))
 
   (t/testing "projection"

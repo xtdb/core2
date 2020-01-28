@@ -9,13 +9,14 @@
   (:import [clojure.lang IPersistentCollection IPersistentMap Symbol Keyword]
            [org.apache.arrow.memory BufferAllocator RootAllocator]
            [org.apache.arrow.vector BaseFixedWidthVector BaseVariableWidthVector BigIntVector BitVector
-            ElementAddressableVector Float4Vector Float8Vector IntVector ValueVector VarBinaryVector VarCharVector VectorSchemaRoot]
+            ElementAddressableVector Float4Vector Float8Vector IntVector TimeStampNanoVector ValueVector VarBinaryVector VarCharVector VectorSchemaRoot]
            org.apache.arrow.vector.complex.StructVector
            org.apache.arrow.vector.types.pojo.FieldType
            org.apache.arrow.vector.types.Types$MinorType
            org.apache.arrow.vector.util.Text
            org.apache.arrow.memory.util.ArrowBufPointer
-           java.util.Arrays))
+           [java.util Arrays Date]
+           java.time.Instant))
 
 (set! *unchecked-math* :warn-on-boxed)
 (s/check-asserts true)
@@ -592,6 +593,8 @@
                      VarCharVector]
              Boolean [(FieldType/nullable (.getType Types$MinorType/BIT))
                       BitVector]
+             (Date Instant) [(FieldType/nullable (.getType Types$MinorType/TIMESTAMPNANO))
+                             TimeStampNanoVector]
              [(FieldType/nullable (.getType Types$MinorType/VARBINARY))
               VarBinaryVector])]
        (doto struct
@@ -624,6 +627,13 @@
     (number? value)
     value
 
+    (instance? Date value)
+    (clojure->arrow (.toInstant ^Date value))
+
+    (instance? Instant value)
+    (+ (* (.getEpochSecond ^Instant value) 1000000000)
+       (.getNano ^Instant value))
+
     :else
     (.getBytes (pr-str value) "UTF-8")))
 
@@ -649,6 +659,9 @@
 
       (instance? BitVector column)
       (.setSafe ^BitVector column idx ^long (clojure->arrow v))
+
+      (instance? TimeStampNanoVector column)
+      (.setSafe ^TimeStampNanoVector column idx ^long (clojure->arrow v))
 
       (instance? VarBinaryVector column)
       (.setSafe ^VarBinaryVector column idx ^bytes (clojure->arrow v))

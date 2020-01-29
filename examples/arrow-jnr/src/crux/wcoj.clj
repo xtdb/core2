@@ -240,7 +240,7 @@
 
 (defn- rule->query-plan [rule]
   (let [{:keys [head body] :as conformed-rule} (s/conform :crux.datalog/rule rule)
-        _ (assert (set/superset? (find-vars body) (find-vars head))
+        _ (assert (set/superset? (find-vars body) (disj (find-vars head) cd/blank-var))
                   "rule does not satisfy safety requirement for head variables")
         {:keys [head body]} (enrich-with-constraints conformed-rule)
         head-vars (find-vars head)

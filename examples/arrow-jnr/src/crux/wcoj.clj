@@ -691,33 +691,34 @@
     (loop [n 0
            selection-vector selection-vector-out]
       (if (< n (count (.getFieldVectors record-batch)))
-        (if-let [unifier (get unifiers n)]
-          (let [column ^ElementAddressableVector (.getVector record-batch n)]
-            (recur (inc n)
-                   (loop [idx 0
-                          selection-vector selection-vector]
-                     (if (< idx (.getValueCount column))
-                       (recur (inc idx)
-                              (cond
-                                (.isNull column idx)
-                                (doto selection-vector
-                                  (.setSafe idx 0))
+        (let [unifier (get unifiers n)]
+          (if (and (pos? n) (= ::wildcard unifier))
+            (recur (inc n) selection-vector)
+            (let [column ^ElementAddressableVector (.getVector record-batch n)]
+              (recur (inc n)
+                     (loop [idx 0
+                            selection-vector selection-vector]
+                       (if (< idx (.getValueCount column))
+                         (recur (inc idx)
+                                (cond
+                                  (.isNull column idx)
+                                  (doto selection-vector
+                                    (.setSafe idx 0))
 
-                                (and (pos? n)
-                                     (zero? (.get selection-vector idx)))
-                                selection-vector
+                                  (and (pos? n)
+                                       (zero? (.get selection-vector idx)))
+                                  selection-vector
 
-                                :else
-                                (doto selection-vector
-                                  (.setSafe idx (if (or (= ::wildcard unifier)
-                                                        (unify unifier
-                                                               (if (instance? ArrowBufPointer unifier)
-                                                                 (.getDataPointer column idx pointer)
-                                                                 (arrow->clojure (.getObject column idx)))))
-                                                  1
-                                                  0)))))
-                       selection-vector))))
-          (recur (inc n) selection-vector))
+                                  :else
+                                  (doto selection-vector
+                                    (.setSafe idx (if (or (= ::wildcard unifier)
+                                                          (unify unifier
+                                                                 (if (instance? ArrowBufPointer unifier)
+                                                                   (.getDataPointer column idx pointer)
+                                                                   (arrow->clojure (.getObject column idx)))))
+                                                    1
+                                                    0)))))
+                         selection-vector))))))
         selection-vector))))
 
 (defn- project-column [^VectorSchemaRoot record-batch ^long idx ^long n projection]

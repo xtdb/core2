@@ -182,9 +182,10 @@
                                              :let [new-vars (new-bound-vars bound-vars extra-logical-vars literal)]
                                              :when new-vars]
                                          [literal new-vars])]
-          (recur (vec (remove #{literal} body))
-                 (vec (conj acc (with-meta (vec literal) {:bound-vars (into bound-vars new-vars)})))
-                 (into bound-vars new-vars))
+          (let [new-bound-vars (into bound-vars new-vars)]
+            (recur (vec (remove #{literal} body))
+                   (vec (conj acc (with-meta (vec literal) {:bound-vars new-bound-vars})))
+                   new-bound-vars))
           (throw (IllegalArgumentException. "Circular dependency.")))
         acc))))
 

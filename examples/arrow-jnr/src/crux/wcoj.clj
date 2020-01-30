@@ -58,9 +58,9 @@
    constraints))
 
 (defn- constrained [this that]
-  (if-let [constraints (::constraints (meta this))]
+  (if-let [constraints (:constraints (meta this))]
     (if (cd/logic-var? that)
-      (let [that (vary-meta that update ::constraints into constraints)]
+      (let [that (vary-meta that update :constraints into constraints)]
         that)
       (when (execute-constraints constraints that)
         that))
@@ -217,7 +217,7 @@
 (defn new-constraint [var op value lhs?]
   (vary-meta var
              update
-             ::constraints
+             :constraints
              conj
              [(if-not lhs?
                 (get '{< >
@@ -385,7 +385,7 @@
                        (for [id (range)]
                          (symbol (str "crux.wcoj/variable_" id))))
           smap (->> (for [[var memo-key] smap]
-                      [var [memo-key (::constraints (meta var))]])
+                      [var [memo-key (:constraints (meta var))]])
                     (into {}))]
      (replace smap var-bindings))])
 
@@ -582,7 +582,7 @@
   (reduce
    (fn [^StructVector struct [idx column-template]]
      (let [column-template (if-let [[[_ value]] (and (cd/logic-var? column-template)
-                                                     (::constraints (meta column-template)))]
+                                                     (:constraints (meta column-template)))]
                              value
                              column-template)
            column-type (.getSimpleName (class column-template))
@@ -646,7 +646,7 @@
 
 (defn- insert-clojure-value-into-column [^ValueVector column ^long idx v]
   (if-let [[[_ value]] (and (cd/logic-var? v)
-                            (::constraints (meta v)))]
+                            (:constraints (meta v)))]
     (insert-clojure-value-into-column column idx value)
     (cond
       (instance? IntVector column)
@@ -682,7 +682,7 @@
   (vec (for [[^ElementAddressableVector unify-column var-binding] (map vector unifier-vector var-bindings)]
          (cond
            (cd/logic-var? var-binding)
-           (if-let [constraints (::constraints (meta var-binding))]
+           (if-let [constraints (:constraints (meta var-binding))]
              var-binding
              ::wildcard)
 

@@ -44,7 +44,7 @@
       < (neg? diff)
       <= (not (pos? diff))
       > (pos? diff)
-      >= (nat-int? diff)
+      >= (not (neg? diff))
       = (zero? diff)
       != (not (zero? diff)))))
 
@@ -80,11 +80,11 @@
   Symbol
   (unify [this that]
     (cond
-      (cd/logic-var? that)
-      (constrained that this)
-
       (cd/logic-var? this)
       (constrained this that)
+
+      (cd/logic-var? that)
+      (unify that this)
 
       (= this that)
       this))
@@ -155,10 +155,10 @@
 
 (defmethod new-bound-vars :equality-predicate [bound-vars _ [_ {:keys [lhs op rhs] :as literal}]]
   (let [vars (find-vars literal)]
-    (if (and (= '= op)
-             (= 1 (count (set/difference vars bound-vars))))
-      vars
-      (when (set/subset? vars bound-vars)
+    (when (or (= 1 (count (set/intersection vars bound-vars)))
+              (set/subset? vars bound-vars))
+      (if (= '= op)
+        vars
         #{}))))
 
 (defmethod new-bound-vars :not-predicate [bound-vars _ [_ literal]]
@@ -220,10 +220,10 @@
              ::constraints
              conj
              [(if-not lhs?
-                (get '{< >=
-                       <= >
-                       > <=
-                       >= <} op op)
+                (get '{< >
+                       <= >=
+                       > <
+                       >= <=} op op)
                 op)
               value]))
 

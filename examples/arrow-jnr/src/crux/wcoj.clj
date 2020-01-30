@@ -182,10 +182,9 @@
                                              :let [new-vars (new-bound-vars bound-vars extra-logical-vars literal)]
                                              :when new-vars]
                                          [literal new-vars])]
-          (let [new-bound-vars (into bound-vars new-vars)]
-            (recur (vec (remove #{literal} body))
-                   (vec (conj acc (with-meta (vec literal) {:bound-vars new-bound-vars})))
-                   new-bound-vars))
+          (recur (vec (remove #{literal} body))
+                 (vec (conj acc (with-meta (vec literal) {:bound-vars bound-vars})))
+                 (into bound-vars new-vars))
           (throw (IllegalArgumentException. "Circular dependency.")))
         acc))))
 
@@ -307,11 +306,7 @@
       `[:let [~lhs-binding (crux.wcoj/new-constraint ~(term->value lhs) '~op ~(term->value rhs) true)]]
 
       :else
-      (if (= '= op)
-        `[:let [~lhs-binding (crux.wcoj/unify ~(term->value lhs) ~(term->value rhs))]
-          :when (some? ~lhs-binding)
-          :let [~rhs-binding ~lhs-binding]]
-        `[:when (crux.wcoj/constraint-satisfied? ~(term->value lhs) '~op ~(term->value rhs))]))))
+      `[:when (crux.wcoj/constraint-satisfied? ~(term->value lhs) '~op ~(term->value rhs))])))
 
 (defmethod datalog->clojure :not-predicate [query-plan [_ {:keys [predicate]}]]
   `[:when (empty? ~(predicate->clojure query-plan predicate))])

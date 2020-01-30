@@ -38,21 +38,24 @@
 (defprotocol Unification
   (unify [this that]))
 
+(defn- constraint-satisfied? [value op arg]
+  (let [diff (if (instance? ArrowBufPointer value)
+               (.compareTo ^ArrowBufPointer value arg)
+               (compare value arg))]
+    (case op
+      < (neg? diff)
+      <= (not (pos? diff))
+      > (pos? diff)
+      >= (nat-int? diff)
+      = (zero? diff)
+      != (not (zero? diff)))))
+
 (defn- execute-constraints [constraints value]
   (reduce
    (fn [value [op arg]]
-     (if-let [diff (if (instance? ArrowBufPointer value)
-                     (.compareTo ^ArrowBufPointer value arg)
-                     (compare value arg))]
-       (if (case op
-             < (neg? diff)
-             <= (not (pos? diff))
-             > (pos? diff)
-             >= (nat-int? diff)
-             = (zero? diff)
-             != (not (zero? diff)))
-         value
-         (reduced nil))))
+     (if (constraint-satisfied? value op arg)
+       value
+       (reduced nil)))
    value
    constraints))
 

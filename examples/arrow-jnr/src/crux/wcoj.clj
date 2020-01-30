@@ -357,7 +357,10 @@
                 `(identity)))))))
 
 (defn- compile-rule-no-memo [rule bound-head-vars]
-  (let [query-plan (rule->query-plan rule bound-head-vars)
+  (let [bound-head-var-idxs (set (for [[idx bound?] (map-indexed vector bound-head-vars)
+                                       :when bound?]
+                                   idx))
+        query-plan (rule->query-plan rule bound-head-var-idxs)
         clojure-source (query-plan->clojure query-plan)]
     (with-meta
       (eval clojure-source)
@@ -366,10 +369,7 @@
 (def ^:private compile-rule-memo (memoize compile-rule-no-memo))
 
 (defn- compile-rule [rule var-bindings]
-  (let [bound-head-var-idxs (set (for [[idx var-binding] (map-indexed vector var-bindings)
-                                       :when (not (cd/logic-var? var-binding))]
-                                   idx))]
-    (compile-rule-memo rule bound-head-var-idxs)))
+  (compile-rule-memo rule (mapv (complement cd/logic-var?) var-bindings)))
 
 (defn- execute-rules-no-memo [rules db var-bindings]
   (let [var-bindings (mapv ensure-unique-logic-var var-bindings)]

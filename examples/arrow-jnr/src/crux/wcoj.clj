@@ -144,47 +144,46 @@
 (declare term->value)
 
 (defmulti ^:private new-bound-vars
-  (fn [known-vars extra-logical-vars [type]]
+  (fn [bound-vars extra-logical-vars [type]]
     type))
 
-(defmethod new-bound-vars :predicate [known-vars extra-logical-vars [_ literal]]
+(defmethod new-bound-vars :predicate [bound-vars extra-logical-vars [_ literal]]
   (let [vars (find-vars literal)]
-    (when (set/superset? known-vars (set/intersection vars extra-logical-vars))
+    (when (set/superset? bound-vars (set/intersection vars extra-logical-vars))
       vars)))
 
-(defmethod new-bound-vars :equality-predicate [known-vars _ [_ literal]]
+(defmethod new-bound-vars :equality-predicate [bound-vars _ [_ {:keys [lhs op rhs] :as literal}]]
   (let [vars (find-vars literal)]
-    (when-not (empty? (set/intersection vars known-vars))
-      vars)))
+    (if (and (= '= op)
+             (= 1 (count (set/difference vars bound-vars))))
+      vars
+      (when (set/subset? vars bound-vars)
+        #{}))))
 
-(defmethod new-bound-vars :not-predicate [known-vars _ [_ literal]]
+(defmethod new-bound-vars :not-predicate [bound-vars _ [_ literal]]
   (let [vars (find-vars literal)]
-    (when (set/superset? known-vars vars)
+    (when (set/superset? bound-vars vars)
       #{})))
 
-(defmethod new-bound-vars :external-query [known-vars _ [_ {:keys [terms variable]}]]
-  (when (set/superset? known-vars (find-vars terms))
+(defmethod new-bound-vars :external-query [bound-vars _ [_ {:keys [terms variable]}]]
+  (when (set/superset? bound-vars (find-vars terms))
     #{variable}))
 
-(defn- constraint-predicate? [equality-predicate]
-  (= 1 (count (find-vars equality-predicate))))
-
 (defn- reorder-body [head body bound-head-vars]
-  (let [{:keys [external-query equality-predicate] :as literals} (group-by first body)
+  (let [{:keys [external-query equality-predicate predicate not-predicate] :as literals} (group-by first body)
         extra-logical-vars (set (for [[_ {:keys [variable]}] external-query]
-                                  variable))
-        constraint-predicates (filter constraint-predicate? equality-predicate)]
-    (loop [[literal & new-body :as body] (remove (set constraint-predicates) body)
+                                  variable))]
+    (loop [[literal :as body] (concat equality-predicate external-query predicate not-predicate)
            acc []
-           known-vars bound-head-vars]
+           bound-vars bound-head-vars]
       (if literal
-        (if-let  [[[literal vars]] (for [literal body
-                                         :let [vars (new-bound-vars known-vars extra-logical-vars literal)]
-                                         :when vars]
-                                     [literal vars])]
+        (if-let  [[[literal new-vars]] (for [literal body
+                                             :let [new-vars (new-bound-vars bound-vars extra-logical-vars literal)]
+                                             :when new-vars]
+                                         [literal new-vars])]
           (recur (vec (remove #{literal} body))
-                 (vec (conj acc literal))
-                 (into known-vars vars))
+                 (vec (conj acc (with-meta (vec literal) {:bound-vars bound-vars})))
+                 (into bound-vars new-vars))
           (throw (IllegalArgumentException. "Circular dependency.")))
         acc))))
 
@@ -213,30 +212,18 @@
                         idx))
      :aggregate-ops aggregate-ops}))
 
-(defn- new-constraint [op term value lhs?]
-  [(if-not lhs?
-     (get '{< >=
-            <= >
-            > <=
-            >= <} op op)
-     op)
-   value])
-
-(defn- equality-predicate-to-constraint [[_ {:keys [lhs op rhs]}]]
-  (let [lhs (term->value lhs)
-        rhs (term->value rhs)]
-    (if (cd/logic-var? lhs)
-      {lhs [(new-constraint op lhs rhs true)]}
-      {rhs [(new-constraint op rhs lhs false)]})))
-
-(defn- enrich-with-constraints [{:keys [body] :as rule}]
-  (let [{:keys [equality-predicate] :as literals} (group-by first body)
-        constraint-smap (->> (for [[var constraints] (->> (filter constraint-predicate? equality-predicate)
-                                                          (map equality-predicate-to-constraint)
-                                                          (apply merge-with concat))]
-                               [var (vary-meta var assoc ::constraints constraints)])
-                             (into {}))]
-    (w/postwalk-replace constraint-smap rule)))
+(defn new-constraint [var op value lhs?]
+  (vary-meta var
+             update
+             ::constraints
+             conj
+             [(if-not lhs?
+                (get '{< >=
+                       <= >
+                       > <=
+                       >= <} op op)
+                op)
+              value]))
 
 (defmulti ^:private term->binding
   (fn [[type term]]
@@ -283,12 +270,9 @@
   (let [{:keys [head body] :as conformed-rule} (s/conform :crux.datalog/rule rule)
         _ (assert (set/superset? (find-vars body) (disj (find-vars head) cd/blank-var))
                   "rule does not satisfy safety requirement for head variables")
-        {:keys [head body]} (enrich-with-constraints conformed-rule)
-        head-vars (find-vars head)
         bound-head-vars (set (map (mapv term->binding (:terms head)) bound-head-var-idxs))
-        body (reorder-body head body bound-head-vars)
-        body-vars (find-vars body)]
-    {:existential-vars (set/difference body-vars head-vars)
+        body (reorder-body head body bound-head-vars)]
+    {:existential-vars (set/difference (find-vars body) (find-vars head))
      :bound-head-vars bound-head-vars
      :aggregates (build-aggregates head)
      :rule rule
@@ -307,13 +291,26 @@
   (let [term-vars (mapv term->binding terms)]
     [term-vars (predicate->clojure query-plan predicate)]))
 
-(defmethod datalog->clojure :equality-predicate [_ [_ {:keys [lhs op rhs]}]]
-  (if (= '= op)
-    `[:let [~(term->binding lhs) (crux.wcoj/unify ~(term->value lhs) ~(term->value rhs))]
-      :when (some? ~(term->binding lhs))
-      :let [~(term->binding rhs) ~(term->binding lhs)]]
-    (let [op-fn (get '{!= (complement crux.wcoj/unify)} op op)]
-      `[:when (~op-fn ~(term->value lhs) ~(term->value rhs))])))
+(defmethod datalog->clojure :equality-predicate [_ [_ {:keys [lhs op rhs]} :as literal]]
+  (let [bound-vars (:bound-vars (meta literal))
+        lhs-binding (term->binding lhs)
+        rhs-binding (term->binding rhs)]
+    (cond
+      (and (cd/logic-var? rhs-binding)
+           (not (contains? bound-vars rhs-binding)))
+      `[:let [~rhs-binding (crux.wcoj/new-constraint ~(term->value rhs) '~op ~(term->value lhs) false)]]
+
+      (and (cd/logic-var? lhs-binding)
+           (not (contains? bound-vars lhs-binding)))
+      `[:let [~lhs-binding (crux.wcoj/new-constraint ~(term->value lhs) '~op ~(term->value rhs) true)]]
+
+      :else
+      (if (= '= op)
+        `[:let [~lhs-binding (crux.wcoj/unify ~(term->value lhs) ~(term->value rhs))]
+          :when (some? ~lhs-binding)
+          :let [~rhs-binding ~lhs-binding]]
+        (let [op-fn (get '{!= (complement crux.wcoj/unify)} op op)]
+          `[:when (~op-fn ~(term->value lhs) ~(term->value rhs))])))))
 
 (defmethod datalog->clojure :not-predicate [query-plan [_ {:keys [predicate]}]]
   `[:when (empty? ~(predicate->clojure query-plan predicate))])

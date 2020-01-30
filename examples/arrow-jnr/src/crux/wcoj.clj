@@ -39,9 +39,7 @@
   (unify [this that]))
 
 (defn constraint-satisfied? [value op arg]
-  (let [diff (if (instance? ArrowBufPointer value)
-               (.compareTo ^ArrowBufPointer value arg)
-               (compare value arg))]
+  (let [diff (compare value arg)]
     (case op
       < (neg? diff)
       <= (not (pos? diff))

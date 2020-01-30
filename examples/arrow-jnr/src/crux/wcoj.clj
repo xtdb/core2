@@ -38,7 +38,7 @@
 (defprotocol Unification
   (unify [this that]))
 
-(defn- constraint-satisfied? [value op arg]
+(defn constraint-satisfied? [value op arg]
   (let [diff (if (instance? ArrowBufPointer value)
                (.compareTo ^ArrowBufPointer value arg)
                (compare value arg))]
@@ -185,7 +185,7 @@
                                              :when new-vars]
                                          [literal new-vars])]
           (recur (vec (remove #{literal} body))
-                 (vec (conj acc (with-meta (vec literal) {:bound-vars bound-vars})))
+                 (vec (conj acc (with-meta (vec literal) {:bound-vars (into bound-vars new-vars)})))
                  (into bound-vars new-vars))
           (throw (IllegalArgumentException. "Circular dependency.")))
         acc))))
@@ -312,8 +312,7 @@
         `[:let [~lhs-binding (crux.wcoj/unify ~(term->value lhs) ~(term->value rhs))]
           :when (some? ~lhs-binding)
           :let [~rhs-binding ~lhs-binding]]
-        (let [op-fn (get '{!= (complement crux.wcoj/unify)} op op)]
-          `[:when (~op-fn ~(term->value lhs) ~(term->value rhs))])))))
+        `[:when (crux.wcoj/constraint-satisfied? ~(term->value lhs) '~op ~(term->value rhs))]))))
 
 (defmethod datalog->clojure :not-predicate [query-plan [_ {:keys [predicate]}]]
   `[:when (empty? ~(predicate->clojure query-plan predicate))])

@@ -157,9 +157,7 @@
   (let [vars (find-vars literal)]
     (when (or (not-empty (set/intersection vars bound-vars))
               (and (< (count vars) 2) (not= lhs rhs)))
-      (if (= '= op)
-        vars
-        #{}))))
+      #{})))
 
 (defmethod new-bound-vars :not-predicate [bound-vars _ [_ literal]]
   (let [vars (find-vars literal)]

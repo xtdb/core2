@@ -211,18 +211,8 @@
                         idx))
      :aggregate-ops aggregate-ops}))
 
-(defn new-constraint [var op value lhs?]
-  (vary-meta var
-             update
-             :constraints
-             conj
-             [(if-not lhs?
-                (get '{< >
-                       <= >=
-                       > <
-                       >= <=} op op)
-                op)
-              value]))
+(defn new-constraint [var op value]
+  (vary-meta var update :constraints conj [op value]))
 
 (defmulti ^:private term->binding
   (fn [[type term]]
@@ -290,6 +280,12 @@
   (let [term-vars (mapv term->binding terms)]
     [term-vars (predicate->clojure query-plan predicate)]))
 
+(defn- flip-constraint-op [op]
+  (get '{< >
+         <= >=
+         > <
+         >= <=} op op))
+
 (defmethod datalog->clojure :equality-predicate [_ [_ {:keys [lhs op rhs]} :as literal]]
   (let [bound-vars (:bound-vars (meta literal))
         lhs-binding (term->binding lhs)
@@ -297,11 +293,11 @@
     (cond
       (and (cd/logic-var? rhs-binding)
            (not (contains? bound-vars rhs-binding)))
-      `[:let [~rhs-binding (crux.wcoj/new-constraint ~(term->value rhs) '~op ~(term->value lhs) false)]]
+      `[:let [~rhs-binding (crux.wcoj/new-constraint ~(term->value rhs) '~(flip-constraint-op op) ~(term->value lhs))]]
 
       (and (cd/logic-var? lhs-binding)
            (not (contains? bound-vars lhs-binding)))
-      `[:let [~lhs-binding (crux.wcoj/new-constraint ~(term->value lhs) '~op ~(term->value rhs) true)]]
+      `[:let [~lhs-binding (crux.wcoj/new-constraint ~(term->value lhs) '~op ~(term->value rhs))]]
 
       :else
       `[:when (crux.wcoj/constraint-satisfied? ~(term->value lhs) '~op ~(term->value rhs))])))

@@ -155,8 +155,8 @@
 
 (defmethod new-bound-vars :equality-predicate [bound-vars _ [_ {:keys [lhs op rhs] :as literal}]]
   (let [vars (find-vars literal)]
-    (when (or (= 1 (count (set/intersection vars bound-vars)))
-              (set/subset? vars bound-vars))
+    (when (or (not-empty (set/intersection vars bound-vars))
+              (and (< (count vars) 2) (not= lhs rhs)))
       (if (= '= op)
         vars
         #{}))))

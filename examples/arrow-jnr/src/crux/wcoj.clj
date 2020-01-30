@@ -339,19 +339,19 @@
         query-plan (assoc query-plan :db-sym db-sym)
         bindings (mapcat (partial datalog->clojure query-plan) body)
         arg-vars (mapv term->binding terms)
-        args-signature (mapv (comp quote-term term->signature) terms)]
+        args-signature (mapv (comp quote-term term->signature) terms)
+        query-loop `(for [loop# [nil]
+                          :let [[~@arg-vars :as unified?#] (crux.wcoj/unify ~args-sym ~args-signature)]
+                          :when unified?#
+                          :let [~@(interleave existential-vars (map quote-term existential-vars))]
+                          ~@bindings]
+                      ~arg-vars)]
     `(fn ~symbol
        ([~db-sym] (~symbol ~db-sym '~(mapv ensure-unique-logic-var (repeat (count arg-vars) cd/blank-var))))
        ([~db-sym ~args-sym]
-        (->> (for [loop# [nil]
-                   :let [[~@arg-vars :as unified?#] (crux.wcoj/unify ~args-sym ~args-signature)]
-                   :when unified?#
-                   :let [~@(interleave existential-vars (map quote-term existential-vars))]
-                   ~@bindings]
-               ~arg-vars)
-             ~(if aggregates
-                `(crux.wcoj/aggregate '~aggregates)
-                `(identity)))))))
+        ~(if aggregates
+           `(->> ~query-loop (crux.wcoj/aggregate '~aggregates))
+           query-loop)))))
 
 (defn- compile-rule-no-memo [rule bound-head-vars]
   (let [bound-head-var-idxs (set (for [[idx bound?] (map-indexed vector bound-head-vars)

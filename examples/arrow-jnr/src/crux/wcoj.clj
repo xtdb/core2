@@ -169,14 +169,14 @@
 (defn- constraint-predicate? [equality-predicate]
   (= 1 (count (find-vars equality-predicate))))
 
-(defn- reorder-body [head body]
+(defn- reorder-body [head body bound-head-vars]
   (let [{:keys [external-query equality-predicate] :as literals} (group-by first body)
         extra-logical-vars (set (for [[_ {:keys [variable]}] external-query]
                                   variable))
         constraint-predicates (filter constraint-predicate? equality-predicate)]
     (loop [[literal & new-body :as body] (remove (set constraint-predicates) body)
            acc []
-           known-vars (set/difference (find-vars head) extra-logical-vars)]
+           known-vars bound-head-vars]
       (if literal
         (if-let  [[[literal vars]] (for [literal body
                                          :let [vars (new-bound-vars known-vars extra-logical-vars literal)]
@@ -238,20 +238,6 @@
                              (into {}))]
     (w/postwalk-replace constraint-smap rule)))
 
-(defn- rule->query-plan [rule]
-  (let [{:keys [head body] :as conformed-rule} (s/conform :crux.datalog/rule rule)
-        _ (assert (set/superset? (find-vars body) (disj (find-vars head) cd/blank-var))
-                  "rule does not satisfy safety requirement for head variables")
-        {:keys [head body]} (enrich-with-constraints conformed-rule)
-        head-vars (find-vars head)
-        body (reorder-body head body)
-        body-vars (find-vars body)]
-    {:existential-vars (set/difference body-vars head-vars)
-     :aggregates (build-aggregates head)
-     :rule rule
-     :head head
-     :body body}))
-
 (defmulti ^:private term->binding
   (fn [[type term]]
     type))
@@ -292,6 +278,22 @@
 
 (defmethod term->signature :default [[_ term]]
   term)
+
+(defn- rule->query-plan [rule bound-head-var-idxs]
+  (let [{:keys [head body] :as conformed-rule} (s/conform :crux.datalog/rule rule)
+        _ (assert (set/superset? (find-vars body) (disj (find-vars head) cd/blank-var))
+                  "rule does not satisfy safety requirement for head variables")
+        {:keys [head body]} (enrich-with-constraints conformed-rule)
+        head-vars (find-vars head)
+        bound-head-vars (set (map (mapv term->binding (:terms head)) bound-head-var-idxs))
+        body (reorder-body head body bound-head-vars)
+        body-vars (find-vars body)]
+    {:existential-vars (set/difference body-vars head-vars)
+     :bound-head-vars bound-head-vars
+     :aggregates (build-aggregates head)
+     :rule rule
+     :head head
+     :body body}))
 
 (defn- predicate->clojure [{:keys [db-sym]} {:keys [symbol terms]}]
   `(crux.wcoj/table-filter
@@ -354,21 +356,28 @@
                 `(crux.wcoj/aggregate '~aggregates)
                 `(identity)))))))
 
-(defn- compile-rule-no-memo [rule]
-  (let [query-plan (rule->query-plan rule)
+(defn- compile-rule-no-memo [rule bound-head-vars]
+  (let [query-plan (rule->query-plan rule bound-head-vars)
         clojure-source (query-plan->clojure query-plan)]
     (with-meta
       (eval clojure-source)
       (assoc query-plan :source clojure-source))))
 
-(def ^:private compile-rule (memoize compile-rule-no-memo))
+(def ^:private compile-rule-memo (memoize compile-rule-no-memo))
+
+(defn- compile-rule [rule var-bindings]
+  (let [bound-head-var-idxs (set (for [[idx var-binding] (map-indexed vector var-bindings)
+                                       :when (not (cd/logic-var? var-binding))]
+                                   idx))]
+    (compile-rule-memo rule bound-head-var-idxs)))
 
 (defn- execute-rules-no-memo [rules db var-bindings]
   (let [var-bindings (mapv ensure-unique-logic-var var-bindings)]
-    (->> (for [rule rules]
+    (->> (for [rule rules
+               :let [compiled-rule (compile-rule rule var-bindings)]]
            (if (empty? var-bindings)
-             ((compile-rule rule) db)
-             ((compile-rule rule) db var-bindings)))
+             (compiled-rule db)
+             (compiled-rule db var-bindings)))
          (apply concat)
          (distinct))))
 

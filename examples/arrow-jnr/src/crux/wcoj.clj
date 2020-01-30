@@ -273,18 +273,18 @@
     (crux.wcoj/relation-by-name ~db-sym '~symbol)
     ~db-sym ~(mapv term->value terms)))
 
+(defn- flip-constraint-op [op]
+  (get '{< >
+         <= >=
+         > <
+         >= <=} op op))
+
 (defmulti ^:private datalog->clojure (fn [query-plan [type]]
                                        type))
 
 (defmethod datalog->clojure :predicate [query-plan [_ {:keys [terms] :as predicate}]]
   (let [term-vars (mapv term->binding terms)]
     [term-vars (predicate->clojure query-plan predicate)]))
-
-(defn- flip-constraint-op [op]
-  (get '{< >
-         <= >=
-         > <
-         >= <=} op op))
 
 (defmethod datalog->clojure :equality-predicate [_ [_ {:keys [lhs op rhs]} :as literal]]
   (let [bound-vars (:bound-vars (meta literal))

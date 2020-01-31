@@ -293,11 +293,17 @@
     (cond
       (and (cd/logic-var? rhs-binding)
            (not (contains? bound-vars rhs-binding)))
-      `[:let [~rhs-binding (crux.wcoj/new-constraint ~(term->value rhs) '~(flip-constraint-op op) ~(term->value lhs))]]
+      (if (= '= op)
+        `[:let [~rhs-binding (crux.wcoj/unify ~(term->value rhs) ~(term->value lhs))]
+          :when (some? ~rhs-binding)]
+        `[:let [~rhs-binding (crux.wcoj/new-constraint ~(term->value rhs) '~(flip-constraint-op op) ~(term->value lhs))]])
 
       (and (cd/logic-var? lhs-binding)
            (not (contains? bound-vars lhs-binding)))
-      `[:let [~lhs-binding (crux.wcoj/new-constraint ~(term->value lhs) '~op ~(term->value rhs))]]
+      (if (= '= op)
+        `[:let [~lhs-binding (crux.wcoj/unify ~(term->value lhs) ~(term->value rhs))]
+          :when (some? ~lhs-binding)]
+        `[:let [~lhs-binding (crux.wcoj/new-constraint ~(term->value lhs) '~op ~(term->value rhs))]])
 
       :else
       `[:when (crux.wcoj/constraint-satisfied? ~(term->value lhs) '~op ~(term->value rhs))])))

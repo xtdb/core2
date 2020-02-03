@@ -231,11 +231,13 @@
   (String. key 0 (dec (alength key)) "UTF-8"))
 
 (defn key-bytes->long ^long [^bytes key]
-  (bit-xor (.getLong (ByteBuffer/wrap key)) Long/MIN_VALUE))
+  (bit-xor (-> (ByteBuffer/wrap key)
+               (.getLong)) Long/MIN_VALUE))
 
 (defn key-bytes->double ^double [^bytes key]
-  (let [x (.getLong (ByteBuffer/wrap key))]
-    (Double/longBitsToDouble (bit-xor (inc x) (bit-or Long/MIN_VALUE (bit-shift-left x (dec Long/SIZE)))))))
+  (let [x (-> (ByteBuffer/wrap key)
+              (.getLong))]
+    (Double/longBitsToDouble (bit-xor x (bit-or (bit-shift-right (bit-xor x Long/MIN_VALUE) (dec Long/SIZE)) Long/MIN_VALUE)))))
 
 (defn key-bytes->instant ^java.time.Instant [^bytes key]
   (Instant/ofEpochSecond 0 (key-bytes->long key)))
@@ -262,7 +264,7 @@
   Double
   (->key-bytes [this]
     (let [l (Double/doubleToLongBits this)
-          l (inc (bit-xor l (bit-or (bit-shift-right l (dec Long/SIZE)) Long/MIN_VALUE)))]
+          l (bit-xor l (bit-or (bit-shift-right l (dec Long/SIZE)) Long/MIN_VALUE))]
       (-> (ByteBuffer/allocate Long/BYTES)
           (.putLong l)
           (.array))))

@@ -301,3 +301,28 @@
 ;; % to search and sort, but keep data accessible as normal columns:
 
 ;; name("ivan", "Ivan", "2020-01-01", "2020-01-01", "ii22vv00").
+
+(defn bit-interleave ^bytes [^clojure.lang.Indexed bs]
+  (let [dims (count bs)
+        max-len (long (loop [acc 0
+                             idx 0]
+                        (if (= dims idx)
+                          acc
+                          (recur (max acc (alength ^bytes (.nth bs idx)))
+                                 (inc idx)))))
+        z (byte-array (* dims max-len))]
+    (dotimes [n (bit-shift-left max-len 3)]
+      (dotimes [d dims]
+        (let [byte-idx (bit-shift-right n 3)
+              dim-bytes ^bytes (.nth bs d)]
+          (when (< byte-idx (alength dim-bytes))
+            (let [b (aget dim-bytes byte-idx)
+                  bit-idx (bit-and n 7)
+                  bit (byte (bit-shift-left 1 bit-idx))]
+              (when-not (zero? (bit-and b bit))
+                (let [n (+ (* n dims) d)
+                      z-byte-idx (bit-shift-right n 3)
+                      z-bit-idx (bit-and n 7)
+                      z-bit (bit-shift-left 1 z-bit-idx)]
+                  (aset z z-byte-idx (byte (bit-or (aget z z-byte-idx) z-bit))))))))))
+    z))

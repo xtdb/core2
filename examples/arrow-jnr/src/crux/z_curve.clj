@@ -318,10 +318,10 @@
             (when-not (zero? b)
               (let [byte-bit-idx (bit-shift-left byte-idx 3)]
                 (dotimes [bit-idx Byte/SIZE]
-                  (when-not (zero? (bit-and b (bit-shift-left 1 bit-idx)))
+                  (when-not (zero? (bit-and b (bit-shift-left 1 (- (dec Byte/SIZE) bit-idx))))
                     (let [n (+ (* (+ byte-bit-idx bit-idx) dims) d)
                           z-byte-idx (bit-shift-right n 3)
                           z-bit-idx (bit-and n (dec Byte/SIZE))
-                          z-bit (bit-shift-left 1 z-bit-idx)]
+                          z-bit (bit-shift-left 1 (- (dec Byte/SIZE) z-bit-idx))]
                       (aset z z-byte-idx (byte (bit-or (aget z z-byte-idx) z-bit))))))))))))
     z))

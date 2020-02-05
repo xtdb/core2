@@ -55,7 +55,7 @@
         first-long (bit-or header (bit-and (dec (bit-shift-left 1 (- Long/SIZE header-size)))
                                            (if (zero? pad-bytes)
                                              (bit-shift-right l header-size)
-                                             (bit-shift-left l (- (* Byte/SIZE pad-bytes) header-size)))))
+                                             (bit-shift-left l (- (bit-shift-left pad-bytes 3) header-size)))))
         long-bytes (-> (ByteBuffer/allocate Long/BYTES)
                        (.putLong first-long)
                        (.array))

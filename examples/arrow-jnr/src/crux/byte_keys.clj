@@ -36,6 +36,30 @@
 (defn byte-key->date ^java.util.Date [^bytes key]
   (Date/from (byte-key->instant key)))
 
+;; Experimental var-int encoder. Idea is to respect lexiographic sort
+;; as well as moving interesting bits to the front. First byte is
+;; sign bit + number of bytes (4 bits) used for positive numbers or
+;; skipped for negative, followed by the actual used bytes.
+(defn long->var-int-byte-key ^bytes [^long l]
+  (let [positive? (nat-int? l)
+        pad-bytes (if (= -1 l)
+                    (dec Long/BYTES)
+                    (bit-shift-right (if positive?
+                                       (Long/numberOfLeadingZeros l)
+                                       (Long/numberOfLeadingZeros (bit-not l)))
+                                     3))
+        used-bytes (- Long/BYTES pad-bytes)
+        header-byte (if positive?
+                      (bit-or (bit-shift-left Long/BYTES 1) used-bytes)
+                      pad-bytes)
+        long-bytes (-> (ByteBuffer/allocate Long/BYTES)
+                       (.putLong l)
+                       (.array))]
+    (-> (ByteBuffer/allocate (inc used-bytes))
+        (.put (byte header-byte))
+        (.put long-bytes pad-bytes used-bytes)
+        (.array))))
+
 (extend-protocol ByteKey
   (class (byte-array 0))
   (->byte-key [this]

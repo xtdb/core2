@@ -181,7 +181,7 @@
                        0
                        (range 0 Long/SIZE n))))))
 
-(defn- ^"[J" morton-get-next-address [^long start ^long end ^long dim]
+(defn ^"[J" morton-get-next-address [^long start ^long end ^long dim]
   (let [first-differing-bit (Long/numberOfLeadingZeros (bit-xor start end))
         split-dimension (rem first-differing-bit dim)
         dimension-inherit-mask (Long/rotateLeft (aget ^longs dimension-masks dim) split-dimension)
@@ -201,7 +201,7 @@
       (aset 0 litmax)
       (aset 1 bigmin))))
 
-(defn- morton-get-next-address-arrays [^"[J" start ^"[J" end ^long dim]
+(defn morton-get-next-address-arrays [^"[J" start ^"[J" end ^long dim]
   (let [n (Arrays/mismatch start end)]
     (if (= -1 n)
       [start end]
@@ -301,6 +301,10 @@
 ;; % to search and sort, but keep data accessible as normal columns:
 
 ;; name("ivan", "Ivan", "2020-01-01", "2020-01-01", "ii22vv00").
+
+;; Interleave alternatives:
+;; LUT: https://github.com/kevinhartman/morton-nd
+;; Magic bits: https://github.com/LLNL/rubik/blob/master/rubik/zorder.py
 
 (defn bit-interleave ^bytes [bs]
   (let [dims (count bs)

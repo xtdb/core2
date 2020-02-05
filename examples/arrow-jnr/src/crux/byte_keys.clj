@@ -41,8 +41,8 @@
 ;; sign bit + number of bytes (4 bits) used for positive numbers or
 ;; skipped for negative, followed by the actual used bytes.
 (defn long->var-int-byte-key ^bytes [^long l]
-  (let [header-size 5
-        pad-bytes (if (= -1 l)
+  (let [header-size 4
+        pad-bytes (if (or (= -1 l) (zero? l))
                     (dec Long/BYTES)
                     (bit-shift-right (if (nat-int? l)
                                        (Long/numberOfLeadingZeros l)
@@ -50,7 +50,7 @@
                                      3))
         used-bytes (- Long/BYTES pad-bytes)
         header (if (nat-int? l)
-                 (bit-or Long/MIN_VALUE (bit-shift-left used-bytes (- Long/SIZE header-size)))
+                 (bit-or Long/MIN_VALUE (bit-shift-left (dec used-bytes) (- Long/SIZE header-size)))
                  (bit-shift-left pad-bytes (- Long/SIZE header-size)))
         first-long (bit-or header (bit-and (dec (bit-shift-left 1 (- Long/SIZE header-size)))
                                            (if (zero? pad-bytes)

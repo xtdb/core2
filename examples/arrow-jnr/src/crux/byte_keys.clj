@@ -41,24 +41,29 @@
 ;; sign bit + number of bytes (4 bits) used for positive numbers or
 ;; skipped for negative, followed by the actual used bytes.
 (defn long->var-int-byte-key ^bytes [^long l]
-  (let [positive? (nat-int? l)
+  (let [header-size 5
         pad-bytes (if (= -1 l)
                     (dec Long/BYTES)
-                    (bit-shift-right (if positive?
+                    (bit-shift-right (if (nat-int? l)
                                        (Long/numberOfLeadingZeros l)
                                        (Long/numberOfLeadingZeros (bit-not l)))
                                      3))
         used-bytes (- Long/BYTES pad-bytes)
-        header-byte (if positive?
-                      (bit-or (bit-shift-left Long/BYTES 1) used-bytes)
-                      pad-bytes)
+        header (if (nat-int? l)
+                 (bit-or Long/MIN_VALUE (bit-shift-left used-bytes (- Long/SIZE header-size)))
+                 (bit-shift-left pad-bytes (- Long/SIZE 5)))
+        first-long (bit-or header (bit-and (dec (bit-shift-left 1 (- Long/SIZE header-size)))
+                                           (if (zero? pad-bytes)
+                                             (bit-shift-right l header-size)
+                                             (bit-shift-left l (- (* Byte/SIZE pad-bytes) header-size)))))
         long-bytes (-> (ByteBuffer/allocate Long/BYTES)
-                       (.putLong l)
-                       (.array))]
-    (-> (ByteBuffer/allocate (inc used-bytes))
-        (.put (byte header-byte))
-        (.put long-bytes pad-bytes used-bytes)
-        (.array))))
+                       (.putLong first-long)
+                       (.array))
+        output-bytes (inc used-bytes)]
+    (cond-> (ByteBuffer/allocate output-bytes)
+      true (.put long-bytes 0 (min Long/BYTES output-bytes))
+      (> output-bytes Long/BYTES) (.put (unchecked-byte (bit-and -1 (bit-shift-left l (- Byte/SIZE header-size)))))
+      true (.array))))
 
 (extend-protocol ByteKey
   (class (byte-array 0))

@@ -1,9 +1,7 @@
 (ns crux.art
   (:require [clojure.string :as s]
             [crux.byte-keys :as bk])
-  (:import [java.util Arrays Date]
-           java.time.Instant
-           java.nio.ByteBuffer))
+  (:import java.util.Arrays))
 
 ;;; Persistent Adaptive Radix Tree
 ;; http://www3.informatik.tu-muenchen.de/~leis/papers/ART.pdf

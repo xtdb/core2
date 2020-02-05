@@ -6,9 +6,8 @@
             [clojure.string :as str]
             [clojure.walk :as w]
             [crux.datalog :as cd])
-  (:import [clojure.lang IPersistentCollection IPersistentMap Symbol Keyword]
-           [java.util Arrays Date]
-           java.time.Instant))
+  (:import [clojure.lang IPersistentCollection IPersistentMap Symbol]
+           java.util.Arrays))
 
 (set! *unchecked-math* :warn-on-boxed)
 (s/check-asserts true)

@@ -1,5 +1,6 @@
 (ns crux.art
-  (:require [clojure.string :as s])
+  (:require [clojure.string :as s]
+            [crux.byte-keys :as bk])
   (:import [java.util Arrays Date]
            java.time.Instant
            java.nio.ByteBuffer))
@@ -22,9 +23,6 @@
 (definterface ARTBaseNode
   (^crux.art.ARTNode growNode [])
   (^crux.art.ARTNode makeNode [^long size ^bytes keys ^"[Ljava.lang.Object;" nodes ^bytes prefix]))
-
-(defprotocol ARTKey
-  (^bytes ->key-bytes [this]))
 
 (defn- key-position ^long [^long size ^bytes keys ^long key-byte]
   (Arrays/binarySearch keys 0 size (byte key-byte)))
@@ -225,98 +223,13 @@
 (defn- common-prefix-length ^long [^bytes key-bytes ^bytes prefix ^long depth]
   (Arrays/mismatch key-bytes depth (alength key-bytes) prefix 0 (alength prefix)))
 
-;; Keys
-
-(defn key-bytes->str ^String [^bytes key]
-  (String. key 0 (dec (alength key)) "UTF-8"))
-
-(defn key-bytes->int ^long [^bytes key]
-  (bit-xor (-> (ByteBuffer/wrap key)
-               (.getInt)) Integer/MIN_VALUE))
-
-(defn key-bytes->long ^long [^bytes key]
-  (bit-xor (-> (ByteBuffer/wrap key)
-               (.getLong)) Long/MIN_VALUE))
-
-(defn key-bytes->float [^bytes key]
-  (let [x (-> (ByteBuffer/wrap key)
-              (.getInt))]
-    (Float/intBitsToFloat (bit-xor x (bit-or (bit-shift-right (bit-xor x Integer/MIN_VALUE) (dec Integer/SIZE)) Integer/MIN_VALUE)))))
-
-(defn key-bytes->double ^double [^bytes key]
-  (let [x (-> (ByteBuffer/wrap key)
-              (.getLong))]
-    (Double/longBitsToDouble (bit-xor x (bit-or (bit-shift-right (bit-xor x Long/MIN_VALUE) (dec Long/SIZE)) Long/MIN_VALUE)))))
-
-(defn key-bytes->instant ^java.time.Instant [^bytes key]
-  (Instant/ofEpochSecond 0 (key-bytes->long key)))
-
-(defn key-bytes->date ^java.util.Date [^bytes key]
-  (Date/from (key-bytes->instant key)))
-
-(extend-protocol ARTKey
-  (class (byte-array 0))
-  (->key-bytes [this]
-    this)
-
-  Boolean
-  (->key-bytes [this]
-    (if this
-      (byte -1)
-      (byte 0)))
-
-  ;; Strings needs to be 0 terminated, see IV. CONSTRUCTING BINARY-COMPARABLE KEYS
-  ;; Should work for UTF-8, all non ASCII bytes have the highest bit set.
-  ;; http://stackoverflow.com/a/6907327
-  String
-  (->key-bytes [this]
-    (let [bytes (.getBytes this "UTF-8") ]
-      (Arrays/copyOf bytes (inc (alength bytes)))))
-
-  Integer
-  (->key-bytes [this]
-    (-> (ByteBuffer/allocate Integer/BYTES)
-        (.putInt (bit-xor ^long this Integer/MIN_VALUE))
-        (.array)))
-
-  Long
-  (->key-bytes [this]
-    (-> (ByteBuffer/allocate Long/BYTES)
-        (.putLong (bit-xor ^long this Long/MIN_VALUE))
-        (.array)))
-
-  Float
-  (->key-bytes [this]
-    (let [l (Float/floatToIntBits this)
-          l (bit-xor l (bit-or (bit-shift-right l (dec Integer/SIZE)) Integer/MIN_VALUE))]
-      (-> (ByteBuffer/allocate Integer/BYTES)
-          (.putInt l)
-          (.array))))
-
-  Double
-  (->key-bytes [this]
-    (let [l (Double/doubleToLongBits this)
-          l (bit-xor l (bit-or (bit-shift-right l (dec Long/SIZE)) Long/MIN_VALUE))]
-      (-> (ByteBuffer/allocate Long/BYTES)
-          (.putLong l)
-          (.array))))
-
-  Date
-  (->key-bytes [this]
-    (->key-bytes (.toInstant this)))
-
-  Instant
-  (->key-bytes [this]
-    (->key-bytes (+ (* (.getEpochSecond this) 1000000000)
-                    (.getNano this)))))
-
 ;;; Public API
 
 (defn art-make-tree []
   empty-node4)
 
 (defn art-lookup [^ARTNode tree key]
-  (let [key-bytes (->key-bytes key)]
+  (let [key-bytes (bk/->byte-key key)]
     (loop [depth 0
            node tree]
       (if (leaf? node)
@@ -333,7 +246,7 @@
   ([^ARTNode tree key]
    (art-insert tree key key))
   ([^ARTNode tree key value]
-   (let [key-bytes (->key-bytes key)]
+   (let [key-bytes (bk/->byte-key key)]
      (loop [depth 0
             ^ARTNode node (or tree (art-make-tree))
             build-fn identity]

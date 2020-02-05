@@ -65,6 +65,8 @@
       (> output-bytes Long/BYTES) (.put (unchecked-byte (bit-and -1 (bit-shift-left l (- Byte/SIZE header-size)))))
       true (.array))))
 
+(def ^:dynamic *use-var-ints? false)
+
 (extend-protocol ByteKey
   (class (byte-array 0))
   (->byte-key [this]
@@ -86,15 +88,19 @@
 
   Integer
   (->byte-key [this]
-    (-> (ByteBuffer/allocate Integer/BYTES)
-        (.putInt (bit-xor ^long this Integer/MIN_VALUE))
-        (.array)))
+    (if *use-var-ints?
+      (long->var-int-byte-key this)
+      (-> (ByteBuffer/allocate Integer/BYTES)
+          (.putInt (bit-xor ^long this Integer/MIN_VALUE))
+          (.array))))
 
   Long
   (->byte-key [this]
-    (-> (ByteBuffer/allocate Long/BYTES)
-        (.putLong (bit-xor ^long this Long/MIN_VALUE))
-        (.array)))
+    (if *use-var-ints?
+      (long->var-int-byte-key this)
+      (-> (ByteBuffer/allocate Long/BYTES)
+          (.putLong (bit-xor ^long this Long/MIN_VALUE))
+          (.array))))
 
   Float
   (->byte-key [this]

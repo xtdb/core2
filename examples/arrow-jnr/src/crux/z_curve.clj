@@ -156,7 +156,7 @@
                           acc
                           (recur (max acc (alength ^bytes (nth bs idx)))
                                  (inc idx)))))
-        z (byte-array (* dims max-len))]
+        z (byte-array (max Long/BYTES (* dims max-len)))]
     (dotimes [d dims]
       (let [dim-bytes ^bytes (nth bs d)]
         (dotimes [byte-idx (min max-len (alength dim-bytes))]

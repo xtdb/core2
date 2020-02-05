@@ -4,9 +4,6 @@
 
 (set! *unchecked-math* :warn-on-boxed)
 
-;; Simplistic spike using binary strings for z-order to
-;; explore the algorithms described in the papers:
-
 ;; Optimal Joins using Compact Data Structures
 ;; https://arxiv.org/abs/1908.01812
 ;; Worst-Case Optimal Radix Triejoin
@@ -16,83 +13,6 @@
 ;; Relation to BDDs?
 ;; https://github.com/petablox/petablox/wiki/Datalog-Analysis
 ;; https://people.csail.mit.edu/mcarbin/papers/aplas05.pdf
-
-(def ^:dynamic ^{:tag 'long} *binary-str-length* Long/SIZE)
-
-(defn ->binary-str ^String [^long i]
-  (str/replace
-   (format (str "%" *binary-str-length* "s") (Long/toUnsignedString i 2))
-   \space \0))
-
-(defn parse-binary-str ^Number [^String b]
-  (if (> (count b) Long/SIZE)
-    (BigInteger. b 2)
-    (Long/parseUnsignedLong b 2)))
-
-(defn dimension ^long [^String b]
-  (quot (count b) *binary-str-length*))
-
-(defn interleave-bits ^String [bs]
-  (->> (for [b bs]
-         (cond-> b
-           (int? b) (->binary-str)))
-       (apply interleave)
-       (str/join)))
-
-(defn as-path
-  ([^String b]
-   (as-path b (dimension b)))
-  ([^String b ^long d]
-   (map str/join (partition d b))))
-
-(defn select-in-path [p idxs]
-  (for [p p]
-    (str/join (map (vec p) idxs))))
-
-(defn component [^String b ^long idx]
-  (str/join (take-nth (dimension b) (drop idx b))))
-
-(defn components [^String b idxs]
-  (for [i idxs]
-    (component b i)))
-
-;; An example database for this query on domain {0, 1, 2} is R(A, B) =
-;; {(0, 1)}, S(B,C) = {(1, 2)}, T(A, C) = {(0, 2)} and a possible
-;; Booleanisation of the relations could be R(2) (A0, A1, B0, B1) =
-;; {(0, 0, 0, 1)}, S(2) (B0, B1 , C0, C1) = {(0, 1, 1, 0)}, T(2)(A0,
-;; A1, C0, C1) = {(0, 0, 1, 0)}
-
-(comment
-  ;; bits
-  (let [r (interleave-bits [0 1])
-        s (interleave-bits [1 2])
-        t (interleave-bits [0 2])
-        expected-q (interleave-bits [0 1 2])
-
-        find-vars '[A B C]
-        joins [['A [[r 0]
-                    [t 0]]]
-               ['B [[r 1]
-                    [s 0]]]
-               ['C [[s 1]
-                    [t 1]]]]
-
-        result-tuple (for [[_ join] joins
-                           :let [vs (for [[rel col] join]
-                                      (component rel col))]
-                           :while (apply = vs)]
-                       (first vs))
-        result (when (= (count find-vars)
-                        (count result-tuple))
-                 (interleave-bits result-tuple))]
-    [expected-q
-     result
-     (= expected-q result)
-     (->> (range (count find-vars))
-          (components result)
-          (mapv parse-binary-str))
-     find-vars
-     joins]))
 
 ;; http://btw2017.informatik.uni-stuttgart.de/slidesandpapers/F8-11-13/paper_web.pdf
 ;; https://github.com/tzaeschke/phtree
@@ -111,19 +31,6 @@
 
 ;; query entry point:
 ;; https://github.com/tzaeschke/phtree/blob/master/src/main/java/ch/ethz/globis/phtree/v16/PhIteratorNoGC.java#L97
-
-;; ([4 47 "010100" "101111" (12 13 14 15 36 37 38 39 44 45)])
-
-;; 00 11 00 ;; 12
-;; 00 01 00 ;;  4 working min mask
-
-;; 10 11 01 ;; 45
-;; 10 11 11 ;; 47 working max mask
-;; 01 00 11 ;; 19
-
-;; 10 01 00 ;; 36
-
-;; min/max masks:
 
 ;; For the lower limit, a '1' indicates that the 'lower' half of this
 ;; dimension does NOT need to be queried.
@@ -236,71 +143,6 @@
                     (aset n (bit-or (bit-and dimension-inherit-mask (aget end n))
                                     other-dimensions-mask)))
                   (recur (inc n))))))))))
-
-;; % Crux in Datalog:
-
-;; % fact relations:
-
-;; temporal(E, VT, TT, TID, C).
-;; aev(A, E, V, C).
-
-;; % bitemporal rule:
-
-;; as_of(E, C, VTQ, TTQ, max<VTE>) :- temporal(E, VTE, TTE, C), TTE <= TTQ, VTE <= VTQ.
-
-;; % query example:
-
-;; % '{:find [e]
-;; %   :where [[e :name "Ivan"]]}
-
-;; temporal("ivan", "2020-01-01", "2020-01-01", 1, "ABCD").
-;; aev("name", "ivan", "Ivan", "ABCD").
-;; % alternatively:
-;; % name("ivan", "Ivan", "ABCD").
-
-;; q(E, VTQ, TTQ) :- aev("name", E, "Ivan", CE), as_of(E, CE, VTQ, TTQ, _).
-
-;; q(E, "2020-01-20", "2020-01-20")?
-
-;; % valid time range rule:
-
-;; % visible as of start of range:
-;; time_range(E, C, VTQS, VTQE, TTQ) :- as_of(E, C, VTQS, TTQ, _).
-;; % visible within range:
-;; time_range(E, C, VTQS, VTQE, TTQ) :- temporal(E, C, VTE, TTE, _). VTE >= VTQS, VTE < VTQE, TTE <= TTQ.
-
-
-;; % alternative "new" model:
-
-;; % consolidated fact relations (example), all relations have the
-;; % same four columns:
-
-;; id(E, V, VT TT). % id is unique at any point of time.
-;; name(E, V, VT, TT). % all attributes have time-stamps.
-
-;; % do we need max<TTE> here?
-;; as_of(E, VTQ, TTQ, max<VTE>, TTE) :- id(E, E, VTE, TTE), TTE <= TTQ, VTE <= VTQ.
-
-;; id("ivan", "ivan", "2020-01-01", "2020-01-01").
-;; name("ivan", "Ivan", "2020-01-01", "2020-01-01").
-
-;; q(E, VTQ, TTQ) :- name(E, "Ivan", VTE, TTE), as_of(E, VTQ, TTQ, VTE, TTE).
-
-;; q(E, "2020-01-20", "2020-01-20")?
-
-;; % z-curve order joins and storage, example uses bytes instead of
-;; % bits for clarity, 9 bytes per attribute, (space-padded):
-
-;; id("ii22vv00aa22nn00  --  00  11  --  00").
-;; name("iI22vv00aa22nn00  --  00  11  --  00").
-
-;; % join algorithm moves bit-by-bit (byte in example) to narrow down
-;; % all columns at once, using a single index.
-
-;; % alternative model, using partial z-curve key (a "column imprint")
-;; % to search and sort, but keep data accessible as normal columns:
-
-;; name("ivan", "Ivan", "2020-01-01", "2020-01-01", "ii22vv00").
 
 ;; Interleave alternatives:
 ;; LUT: https://github.com/kevinhartman/morton-nd

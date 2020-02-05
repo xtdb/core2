@@ -1,7 +1,8 @@
 (ns crux.wcoj-test
   (:require [clojure.string :as str]
             [clojure.test :as t]
-            [crux.wcoj :as wcoj]))
+            [crux.wcoj :as wcoj]
+            [crux.wcoj.arrow :as wcoj-arrow]))
 
 (declare with-each-tuple-factory)
 (t/use-fixtures :each #'with-each-tuple-factory)
@@ -745,7 +746,8 @@ perm(c, b).
 ;; j(X, Y, Z, W) :- r(X, Y), t(Z, W), X > Y. ;; looks wrong?
 
 (defn- with-each-tuple-factory [f]
-  (doseq [factory [#'wcoj/new-sorted-set-relation #'wcoj/new-arrow-struct-relation]]
+  (doseq [factory [#'wcoj/new-sorted-set-relation
+                   #'wcoj-arrow/new-arrow-struct-relation]]
     (t/testing (:name (meta factory))
       (binding [wcoj/*tuple-relation-factory* factory]
         (f)))))

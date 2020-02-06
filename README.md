@@ -22,6 +22,8 @@ It's lower-level than Crux, but could become useful on its own. Parts
 might later be ported to Rust. Crux bitemporal semantics will be
 possible to implement on top of it.
 
+Work currently happens here: [examples/arrow-jnr/]
+
 
 *Earlier brief, still somewhat true:* The plan of attack using
 Rust+Arrow to build a bitemporal Datalog engine based on columnar

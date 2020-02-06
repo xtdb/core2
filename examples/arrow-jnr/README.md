@@ -11,4 +11,4 @@ lein run
 
 The MIT License (MIT)
 
-Copyright © 2019 JUXT LTD.
+Copyright © 2019-2020 JUXT LTD.

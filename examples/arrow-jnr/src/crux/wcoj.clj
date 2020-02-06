@@ -131,7 +131,12 @@
     (not= (distinct vars) vars)))
 
 (defn projection [var-bindings]
-  (mapv (partial not= cd/blank-var) var-bindings))
+  (vec (for [var var-bindings]
+         (cond
+           (= cd/blank-var var) ::blank-var
+           (cd/logic-var? var) ::logic-var
+           :else
+           var))))
 
 (declare term->value)
 
@@ -429,9 +434,10 @@
             :when (or (nil? var-bindings)
                       (unify tuple var-bindings))]
         (mapv (fn [v p]
-                (if p
-                  v
-                  cd/blank-var)) tuple projection))))
+                (case p
+                  ::blank-var cd/blank-var
+                  ::logic-var v
+                  p)) tuple projection))))
 
   (insert [this tuple]
     (conj this tuple))

@@ -169,11 +169,13 @@
         selection-vector))))
 
 (defn- project-column [^VectorSchemaRoot record-batch ^long idx ^long n projection]
-  (if (get projection n)
-    (let [column (.getVector record-batch n)
-          value (.getObject column idx)]
-      (arrow->clojure value))
-    cd/blank-var))
+  (let [p (get projection n)]
+    (case p
+      :crux.wcoj/blank-var cd/blank-var
+      :crux.wcoj/logic-var (let [column (.getVector record-batch n)
+                                 value (.getObject column idx)]
+                             (arrow->clojure value))
+      p)))
 
 (defn- selected-tuples [^VectorSchemaRoot record-batch projection ^long base-offset ^BitVector selection-vector]
   (let [row-count (.getRowCount record-batch)

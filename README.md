@@ -6,13 +6,27 @@ Parts of Crux re-imagined in Rust (nightly).
 
 See https://github.com/juxt/crux
 
-[Plan for Q1 2020](plan.md)
+[Earlier, now outdated plan for Q1 2020](plan.md)
 
 ## Scope
 
-The plan of attack using Rust+Arrow to build a bitemporal Datalog
-engine based on columnar formats using a set of primitives somewhat
-inspired by KDB to implement the engine itself.
+*Update, Feb 2020:* I'm now building a Datalog engine with
+Prolog-syntax. It's written in Clojure and based on Apache
+Arrow. Joins will be supported using a single, multi-dimensional,
+index. Storage will be distributed.
+
+While its scope is smaller, the ambition is that it will do the things
+it does with speed and economy.
+
+It's lower-level than Crux, but could become useful on its own. Parts
+might later be ported to Rust. Crux bitemporal semantics will be
+possible to implement on top of it.
+
+
+*Earlier brief, still somewhat true:* The plan of attack using
+Rust+Arrow to build a bitemporal Datalog engine based on columnar
+formats using a set of primitives somewhat inspired by KDB to
+implement the engine itself.
 
 ### Goals
 

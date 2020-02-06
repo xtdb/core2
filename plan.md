@@ -1,5 +1,8 @@
 # Plan for Q1 2020
 
+*Note: this was the original, now outdated plan. Many ideas here are
+still valid, but it's not what I'm currently building.*
+
 ## Data model
 
 The document id has to be a string. It's either provided when storing

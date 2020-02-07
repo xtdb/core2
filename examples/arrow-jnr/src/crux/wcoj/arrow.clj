@@ -164,11 +164,12 @@
       (let [column-filter-fn (get column-filter-fns n)]
         (if (and (pos? n) (= wildcard-column-filter column-filter-fn))
           (recur (inc n) selection-vector)
-          (let [column ^ElementAddressableVector (.getVector record-batch n)]
+          (let [column ^ElementAddressableVector (.getVector record-batch n)
+                value-count (.getValueCount column)]
             (recur (inc n)
                    (loop [idx 0
                           selection-vector selection-vector]
-                     (if (< idx (.getValueCount column))
+                     (if (< idx value-count)
                        (recur (inc idx)
                               (cond
                                 (.isNull column idx)

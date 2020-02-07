@@ -274,7 +274,17 @@
     (int? x) 'long))
 
 (defn- constraint->clojure [op x y]
-  `(~(normalize-op op) ~x ~y))
+  (if (number? y)
+    `(~(get '{!= not=} op op) ~x ~y)
+    (let [diff-sym (gensym 'diff)]
+      `(let [~diff-sym (compare ~x ~y)]
+         ~(case op
+            < `(neg? ~diff-sym)
+            <= `(not (pos? ~diff-sym))
+            > `(pos? ~diff-sym)
+            >= `(not (neg? ~diff-sym))
+            = `(zero? ~diff-sym)
+            != `(not (zero? ~diff-sym)))))))
 
 (defmulti ^:private datalog->clojure (fn [query-plan [type]]
                                        type))
@@ -531,7 +541,7 @@
 (defn tuple->datalog-str [relation-name tuple]
   (str relation-name
        (when (seq tuple)
-         (str "(" (str/join ", " tuple) ")"))
+         (str "(" (str/join ", " (map pr-str tuple)) ")"))
        "."))
 
 (def ^:private execution-hierarchy

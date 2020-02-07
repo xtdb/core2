@@ -96,6 +96,50 @@ q(b, b).
   (t/is (= "q(a, a).
 " (with-out-str (wcoj/execute '[p(a, a). p(a, b). q(X, Y) :- p(X, Y). q(X, X)?])))))
 
+
+(t/deftest test-range-constraints
+  (t/testing "longs"
+    (t/is (= "q(1).
+q(2).
+" (with-out-str (wcoj/execute '[p(1). p(2). p(3). q(X) :- p(X), X < 3 . q(X)?]))))
+    (t/is (= "q(1).
+q(2).
+q(3).
+" (with-out-str (wcoj/execute '[p(1). p(2). p(3). q(X) :- p(X), X <= 3 . q(X)?]))))
+    (t/is (= "q(3).
+" (with-out-str (wcoj/execute '[p(1). p(2). p(3). q(X) :- p(X), X > 2 . q(X)?]))))
+    (t/is (= "q(2).
+q(3).
+" (with-out-str (wcoj/execute '[p(1). p(2). p(3). q(X) :- p(X), X >= 2 . q(X)?])))))
+
+  (t/testing "doubles"
+    (t/is (= "q(1.0).
+q(2.0).
+" (with-out-str (wcoj/execute '[p(1.0). p(2.0). p(3.0). q(X) :- p(X), X < 3.0 . q(X)?]))))
+    (t/is (= "q(1.0).
+q(2.0).
+q(3.0).
+" (with-out-str (wcoj/execute '[p(1.0). p(2.0). p(3.0). q(X) :- p(X), X <= 3.0 . q(X)?]))))
+    (t/is (= "q(3.0).
+" (with-out-str (wcoj/execute '[p(1.0). p(2.0). p(3.0). q(X) :- p(X), X > 2.0 . q(X)?]))))
+    (t/is (= "q(2.0).
+q(3.0).
+" (with-out-str (wcoj/execute '[p(1.0). p(2.0). p(3.0). q(X) :- p(X), X >= 2.0 . q(X)?])))))
+
+  (t/testing "comparables"
+    (t/is (= "q(\"a\").
+q(\"b\").
+" (with-out-str (wcoj/execute '[p("a"). p("b"). p("c"). q(X) :- p(X), X < "c". q(X)?]))))
+    (t/is (= "q(\"a\").
+q(\"b\").
+q(\"c\").
+" (with-out-str (wcoj/execute '[p("a"). p("b"). p("c"). q(X) :- p(X), X <= "c". q(X)?]))))
+    (t/is (= "q(\"c\").
+" (with-out-str (wcoj/execute '[p("a"). p("b"). p("c"). q(X) :- p(X), X > "b". q(X)?]))))
+    (t/is (= "q(\"b\").
+q(\"c\").
+" (with-out-str (wcoj/execute '[p("a"). p("b"). p("c"). q(X) :- p(X), X >= "b". q(X)?]))))))
+
 (t/deftest test-aggregation
   (t/is (= "q(a, 2, 1, 2, 3).
 q(b, 5, 3, 2, 8).

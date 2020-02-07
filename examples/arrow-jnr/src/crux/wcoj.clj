@@ -31,7 +31,7 @@
 
 (defn- execute-constraints [constraints value]
   (reduce
-   (fn [value [constraint-fn _ _]]
+   (fn [value constraint-fn]
      (if (constraint-fn value)
        value
        (reduced nil)))
@@ -198,7 +198,7 @@
      :aggregate-ops aggregate-ops}))
 
 (defn new-constraint [var constraint-fn op value]
-  (vary-meta var update :constraints conj [constraint-fn op value]))
+  (vary-meta var update :constraints conj (with-meta constraint-fn {:op op :value value})))
 
 (defmulti ^:private term->binding
   (fn [[type term]]

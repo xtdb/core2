@@ -3,9 +3,11 @@
             [clojure.string :as str]
             [clojure.edn :as edn]
             [crux.wcoj :as wcoj])
-  (:import [org.apache.arrow.memory BufferAllocator RootAllocator]
-           [org.apache.arrow.vector BaseFixedWidthVector BaseVariableWidthVector BigIntVector BitVector
-            ElementAddressableVector Float4Vector Float8Vector IntVector TimeStampNanoVector ValueVector VarBinaryVector VarCharVector VectorSchemaRoot]
+  (:import [clojure.lang IFn$DO IFn$LO IFn$OLO]
+           [org.apache.arrow.memory BufferAllocator RootAllocator]
+           [org.apache.arrow.vector BaseFixedWidthVector BaseIntVector BaseVariableWidthVector BigIntVector BitVector
+            ElementAddressableVector Float4Vector Float8Vector FloatingPointVector IntVector TimeStampNanoVector
+            ValueVector VarBinaryVector VarCharVector VectorSchemaRoot]
            org.apache.arrow.vector.complex.StructVector
            org.apache.arrow.vector.types.pojo.FieldType
            org.apache.arrow.vector.types.Types$MinorType
@@ -119,55 +121,71 @@
 
 (def ^:private ^{:tag 'long} default-vector-size 128)
 
-(defn- unifiers->arrow [unifier-vector var-bindings]
+(defn- wildcard-column-filter [column ^long idx]
+  true)
+
+(defn- unifiers->column-filters [unifier-vector var-bindings]
   (vec (for [[^ElementAddressableVector unify-column var-binding] (map vector unifier-vector var-bindings)]
          (cond
            (cd/logic-var? var-binding)
-           (if-let [constraints (:constraints (meta var-binding))]
-             var-binding
-             ::wildcard)
+           (if-let [constraint-fn (:constraint-fn (meta var-binding))]
+             (cond
+               (and (instance? BaseIntVector unify-column)
+                    (instance? IFn$LO constraint-fn))
+               (fn [^BaseIntVector column ^long idx]
+                 (.invokePrim ^IFn$LO constraint-fn (.getValueAsLong column idx)))
 
-           (boolean? var-binding)
-           var-binding
+               (and (instance? FloatingPointVector unify-column)
+                    (instance? IFn$DO constraint-fn))
+               (fn [^FloatingPointVector column ^long idx]
+                 (.invokePrim ^IFn$DO constraint-fn (.getValueAsDouble column idx)))
+
+               :else
+               (fn [^ElementAddressableVector column ^long idx]
+                 (constraint-fn (arrow->clojure (.getObject column idx)))))
+             wildcard-filter)
+
+           (instance? BitVector unify-column)
+           (let [constant (clojure->arrow var-binding)]
+             (fn [^BitVector column ^long idx]
+               (= constant (.get column idx))))
 
            :else
-           (.getDataPointer ^ElementAddressableVector unify-column 0)))))
+           (let [constant (.getDataPointer ^ElementAddressableVector unify-column 0)
+                 pointer (ArrowBufPointer.)]
+             (fn [^ElementAddressableVector column ^long idx]
+               (= constant (.getDataPointer column idx pointer))))))))
 
 (defn- selected-indexes ^org.apache.arrow.vector.BitVector
-  [^VectorSchemaRoot record-batch unifiers ^BitVector selection-vector-out]
-  (let [pointer (ArrowBufPointer.)]
-    (loop [n 0
-           selection-vector selection-vector-out]
-      (if (< n (count (.getFieldVectors record-batch)))
-        (let [unifier (get unifiers n)]
-          (if (and (pos? n) (= ::wildcard unifier))
-            (recur (inc n) selection-vector)
-            (let [column ^ElementAddressableVector (.getVector record-batch n)]
-              (recur (inc n)
-                     (loop [idx 0
-                            selection-vector selection-vector]
-                       (if (< idx (.getValueCount column))
-                         (recur (inc idx)
-                                (cond
-                                  (.isNull column idx)
-                                  (doto selection-vector
-                                    (.setSafe idx 0))
+  [^VectorSchemaRoot record-batch column-filter-fns ^BitVector selection-vector-out]
+  (loop [n 0
+         selection-vector selection-vector-out]
+    (if (< n (count (.getFieldVectors record-batch)))
+      (let [column-filter-fn (get column-filter-fns n)]
+        (if (and (pos? n) (= wildcard-column-filter column-filter-fn))
+          (recur (inc n) selection-vector)
+          (let [column ^ElementAddressableVector (.getVector record-batch n)]
+            (recur (inc n)
+                   (loop [idx 0
+                          selection-vector selection-vector]
+                     (if (< idx (.getValueCount column))
+                       (recur (inc idx)
+                              (cond
+                                (.isNull column idx)
+                                (doto selection-vector
+                                  (.setSafe idx 0))
 
-                                  (and (pos? n)
-                                       (zero? (.get selection-vector idx)))
-                                  selection-vector
+                                (and (pos? n)
+                                     (zero? (.get selection-vector idx)))
+                                selection-vector
 
-                                  :else
-                                  (doto selection-vector
-                                    (.setSafe idx (if (or (= ::wildcard unifier)
-                                                          (wcoj/unify unifier
-                                                                      (if (instance? ArrowBufPointer unifier)
-                                                                        (.getDataPointer column idx pointer)
-                                                                        (arrow->clojure (.getObject column idx)))))
-                                                    1
-                                                    0)))))
-                         selection-vector))))))
-        selection-vector))))
+                                :else
+                                (doto selection-vector
+                                  (.setSafe idx (if (.invokePrim ^IFn$OLO column-filter-fn column idx)
+                                                  1
+                                                  0)))))
+                       selection-vector))))))
+      selection-vector)))
 
 (defn- project-column [^VectorSchemaRoot record-batch ^long idx ^long n projection]
   (let [p (get projection n)]
@@ -212,7 +230,7 @@
         unifier-vector (wcoj/insert
                         (StructVector/empty nil allocator)
                         var-bindings)
-        unifiers (unifiers->arrow unifier-vector var-bindings)
+        column-filter-fns (unifiers->column-filters unifier-vector var-bindings)
         projection (wcoj/projection var-bindings)]
     (if (zero? (count (.getFieldVectors struct-batch)))
       (repeat vector-size (with-meta [] {::index 0}))
@@ -221,7 +239,7 @@
                        record-batch (if (< (.getRowCount struct-batch) (+ start-idx vector-size))
                                       (.slice struct-batch start-idx)
                                       (.slice struct-batch start-idx vector-size))]]
-             (cond->> (selected-indexes record-batch unifiers selection-vector)
+             (cond->> (selected-indexes record-batch column-filter-fns selection-vector)
                true (selected-tuples record-batch projection start-idx)
                unify-tuple? (filter (partial wcoj/unify var-bindings))))
            (apply concat)))))

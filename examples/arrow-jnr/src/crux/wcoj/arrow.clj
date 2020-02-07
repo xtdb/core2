@@ -305,15 +305,17 @@
 ;; Python implementation:
 ;; https://github.com/karimbahgat/Pyqtree/blob/master/pyqtree.py
 
-(declare insert-into-leaf)
-
 (defn- try-close [c]
   (when (instance? AutoCloseable c)
     (.close ^AutoCloseable c)))
 
 (def ^:private ^{:tag 'long} default-leaf-size (* 1024 1024))
+(def ^:private ^{:tag 'long} root-leaf-idx 0)
+(def ^:private ^{:tag 'long} root-parent-node-idx 0)
 
 (def ^:dynamic *internal-leaf-tuple-relation-factory* new-arrow-struct-relation)
+
+(declare insert-tuple)
 
 (deftype HyperQuadTree [^:volatile-mutable ^long dims
                         ^:volatile-mutable ^FixedSizeListVector nodes
@@ -341,7 +343,7 @@
                                (.setInitialCapacity 0)
                                (.setValueCount 0)
                                (.addOrGetVector (FieldType/nullable (.getType Types$MinorType/INT)))))))
-    (do (insert-into-leaf this dims nodes value)
+    (do (insert-tuple this dims nodes value)
         this))
 
   (delete [this value]
@@ -365,23 +367,36 @@
 (defn- tuple->z-address ^long [value]
   (.getLong (ByteBuffer/wrap (cz/bit-interleave (map cbk/->byte-key value)))))
 
-(defn- insert-into-leaf [^HyperQuadTree tree ^long dims ^FixedSizeListVector nodes value]
+(declare insert-tuple)
+
+(defn- split-leaf [^HyperQuadTree tree dims ^FixedSizeListVector nodes raw-parent-node-idx leaf-idx]
+  (let [leaves ^List (.leaves tree)
+        leaf (.get leaves leaf-idx)]
+    (try
+      (let [new-node-idx (.startNewValue nodes (inc (.getValueCount nodes)))]
+        (when (neg? raw-parent-node-idx)
+          (.setSafe ^IntVector (.getDataVector nodes)
+                    (int (dec (- raw-parent-node-idx)))
+                    (int new-node-idx)))
+        (.set leaves leaf-idx nil)
+        (doseq [tuple (wcoj/table-scan nil leaf)]
+          (insert-tuple tree dims nodes tuple)))
+      (finally
+        (try-close leaf)))))
+
+(defn- insert-into-leaf [^HyperQuadTree tree dims ^FixedSizeListVector nodes raw-parent-node-idx leaf-idx value]
+  (let [leaves ^List (.leaves tree)
+        leaf (.get leaves leaf-idx)]
+    (if (< (wcoj/cardinality leaf) default-leaf-size)
+      (wcoj/insert leaf value)
+      (doto tree
+        (split-leaf dims nodes raw-parent-node-idx leaf-idx)
+        (insert-tuple dims nodes value)))))
+
+(defn- insert-tuple [^HyperQuadTree tree ^long dims ^FixedSizeListVector nodes value]
   (let [leaves ^List (.leaves tree)]
     (if (zero? (.getValueCount nodes))
       (do (when (empty? leaves)
-            (.add leaves (*internal-leaf-tuple-relation-factory* (.name tree))))
-          (let [leaf-idx 0
-                leaf (.get leaves leaf-idx)]
-            (if (< (wcoj/cardinality leaf) default-leaf-size)
-              (wcoj/insert leaf value)
-              (try
-                (let [new-node-idx (inc (.getValueCount nodes))]
-                  (.startNewValue nodes new-node-idx)
-                  (.set leaves leaf-idx nil)
-
-                  (doseq [tuple (wcoj/table-scan nil leaf)]
-                    (insert-into-leaf tree dims nodes tuple))
-                  (insert-into-leaf tree dims nodes value))
-                (finally
-                  (try-close leaf))))))
+            (.add leaves root-leaf-idx (*internal-leaf-tuple-relation-factory* (.name tree))))
+          (insert-into-leaf tree dims nodes root-parent-node-idx root-leaf-idx value))
       (throw (UnsupportedOperationException.)))))

@@ -268,10 +268,13 @@
 (defn- normalize-op [op]
   (get '{!= not=} op op))
 
-(defn- tag-meta [x]
+(defn- maybe-primitive-tag [x]
   (cond
-    (float? x) {:tag 'double}
-    (int? x) {:tag 'long}))
+    (float? x) 'double
+    (int? x) 'long))
+
+(defn- constraint->clojure [op x y]
+  `(~(normalize-op op) ~x ~y))
 
 (defmulti ^:private datalog->clojure (fn [query-plan [type]]
                                        type))
@@ -293,8 +296,8 @@
           :when (some? ~rhs-binding)]
         (let [op (flip-constraint-op op)]
           `[:let [~rhs-binding (crux.wcoj/new-constraint ~(term->value rhs)
-                                                         (fn [~(with-meta arg-sym (tag-meta (term->value lhs)))]
-                                                           (~(normalize-op op) ~arg-sym ~(term->value lhs)))
+                                                         (fn [~(with-meta arg-sym {:tag (maybe-primitive-tag (term->value lhs))})]
+                                                           ~(constraint->clojure op arg-sym (term->value lhs)))
                                                          '~op
                                                          ~(term->value lhs))]]))
 
@@ -304,13 +307,13 @@
         `[:let [~lhs-binding (crux.wcoj/unify ~(term->value lhs) ~(term->value rhs))]
           :when (some? ~lhs-binding)]
         `[:let [~lhs-binding (crux.wcoj/new-constraint ~(term->value lhs)
-                                                       (fn [~(with-meta arg-sym (tag-meta (term->value rhs)))]
-                                                         (~(normalize-op op) ~arg-sym ~(term->value rhs)))
+                                                       (fn [~(with-meta arg-sym {:tag (maybe-primitive-tag (term->value rhs))})]
+                                                         ~(constraint->clojure op arg-sym (term->value rhs)))
                                                        '~op
                                                        ~(term->value rhs))]])
 
       :else
-      `[:when (~(normalize-op op) ~(term->value lhs) ~(term->value rhs))])))
+      `[:when ~(constraint->clojure op (term->value lhs) (term->value rhs))])))
 
 (defmethod datalog->clojure :not-predicate [query-plan [_ {:keys [predicate]}]]
   `[:when (empty? ~(predicate->clojure query-plan predicate))])

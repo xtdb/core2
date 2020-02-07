@@ -297,12 +297,14 @@
   (doto (StructVector/empty (str relation-name) allocator)
     (.setInitialCapacity 0)))
 
-(declare maybe-create-quad-tree-leaf)
+(declare maybe-create-hyper-quad-tree-leaf)
 
-(deftype QuadTree [^:volatile-mutable ^long dims
-                   ^:volatile-mutable ^FixedSizeListVector nodes
-                   ^String name
-                   ^List leaves]
+(def ^:dynamic *internal-leaf-tuple-relation-factory* new-arrow-struct-relation)
+
+(deftype HyperQuadTree [^:volatile-mutable ^long dims
+                        ^:volatile-mutable ^FixedSizeListVector nodes
+                        ^String name
+                        ^List leaves]
   wcoj/Relation
   (table-scan [this db]
     (when (nat-int? dims)
@@ -325,7 +327,7 @@
                               (.setInitialCapacity 0)
                               (.setValueCount 0)
                               (.addOrGetVector (FieldType/nullable (.getType Types$MinorType/INT)))))))
-    (do (maybe-create-quad-tree-leaf this dims nodes value)
+    (do (maybe-create-hyper-quad-tree-leaf this dims nodes value)
         this))
 
   (delete [this value]
@@ -342,16 +344,16 @@
     (doseq [leaf leaves]
       (.close ^AutoCloseable leaf))))
 
-(defn new-quad-tree-relation ^crux.wcoj.arrow.QuadTree [relation-name]
-  (->QuadTree -1 nil relation-name (ArrayList.)))
+(defn new-hyper-quad-tree-relation ^crux.wcoj.arrow.HyperQuadTree [relation-name]
+  (->HyperQuadTree -1 nil relation-name (ArrayList.)))
 
 (defn- tuple->z-address ^long [value]
   (.getLong (ByteBuffer/wrap (cz/bit-interleave (map cbk/->byte-key value)))))
 
-(defn- maybe-create-quad-tree-leaf [^QuadTree quad-tree ^long dims ^FixedSizeListVector nodes value]
-  (let [leaves ^List (.leaves quad-tree)]
+(defn- maybe-create-hyper-quad-tree-leaf [^HyperQuadTree tree ^long dims ^FixedSizeListVector nodes value]
+  (let [leaves ^List (.leaves tree)]
     (if (zero? (.getValueCount nodes))
       (do (when (empty? leaves)
-            (.add leaves (new-arrow-struct-relation (.name quad-tree))))
+            (.add leaves (*internal-leaf-tuple-relation-factory* (.name tree))))
           (wcoj/insert (first leaves) value))
       (throw (UnsupportedOperationException.)))))

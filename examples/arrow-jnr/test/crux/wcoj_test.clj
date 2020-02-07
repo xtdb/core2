@@ -792,7 +792,7 @@ perm(c, b).
 (defn- with-each-tuple-factory [f]
   (doseq [factory [#'wcoj/new-sorted-set-relation
                    #'wcoj-arrow/new-arrow-struct-relation
-                   #'wcoj-arrow/new-quad-tree-relation]]
+                   #'wcoj-arrow/new-hyper-quad-tree-relation]]
     (t/testing (:name (meta factory))
       (binding [wcoj/*tuple-relation-factory* factory]
         (f)))))

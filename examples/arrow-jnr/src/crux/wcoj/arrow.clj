@@ -290,14 +290,24 @@
           (when (instance? BaseVariableWidthVector column)
             (.setNull ^BaseVariableWidthVector column idx))))
       (.setNull this idx))
-    this))
+    this)
+
+  (cardinality [this]
+    (.getValueCount this)))
 
 (defn new-arrow-struct-relation
   ^org.apache.arrow.vector.complex.StructVector [relation-name]
   (doto (StructVector/empty (str relation-name) allocator)
     (.setInitialCapacity 0)))
 
+;; Simple N-dimensional quad tree in Rust:
+;; https://github.com/reem/rust-n-tree/blob/master/src/lib.rs
+;; Python implementation:
+;; https://github.com/karimbahgat/Pyqtree/blob/master/pyqtree.py
+
 (declare maybe-create-hyper-quad-tree-leaf)
+
+(def ^:private ^{:tag 'long} default-leaf-size (* 1024 1024))
 
 (def ^:dynamic *internal-leaf-tuple-relation-factory* new-arrow-struct-relation)
 
@@ -337,6 +347,9 @@
         (throw (UnsupportedOperationException.)))
       this))
 
+  (cardinality [this]
+    (reduce + (map wcoj/cardinality leaves)))
+
   AutoCloseable
   (close [_]
     (when nodes
@@ -355,5 +368,8 @@
     (if (zero? (.getValueCount nodes))
       (do (when (empty? leaves)
             (.add leaves (*internal-leaf-tuple-relation-factory* (.name tree))))
-          (wcoj/insert (first leaves) value))
+          (let [leaf (first leaves)]
+            (if (< (wcoj/cardinality leaf) default-leaf-size)
+              (wcoj/insert (first leaves) value)
+              (throw (UnsupportedOperationException.)))))
       (throw (UnsupportedOperationException.)))))

@@ -19,7 +19,8 @@
   (table-scan [this db])
   (table-filter [this db var-bindings])
   (insert [this value])
-  (delete [this value]))
+  (delete [this value])
+  (cardinality [this]))
 
 (defprotocol Db
   (assertion [this relation-name value])
@@ -452,7 +453,10 @@
     (update this :rules conj rule))
 
   (delete [this rule]
-    (update this :rules disj rule)))
+    (update this :rules disj rule))
+
+  (cardinality [this]
+    (count rules)))
 
 (defn- new-rule-relation [name]
   (->RuleRelation name #{}))
@@ -468,6 +472,9 @@
 
   (delete [this tuple]
     (throw (UnsupportedOperationException.)))
+
+  (cardinality [this]
+    0)
 
   IPersistentCollection
   (table-scan [this db]
@@ -488,7 +495,10 @@
     (conj this tuple))
 
   (delete [this tuple]
-    (disj this tuple)))
+    (disj this tuple))
+
+  (cardinality [this]
+    (count this)))
 
 (defn new-sorted-set-relation [relation-name]
   (with-meta (sorted-set) {:name relation-name}))
@@ -511,7 +521,11 @@
   (delete [this value]
     (if (s/valid? :crux.datalog/rule value)
       (update this :rules delete value)
-      (update this :tuples delete value))))
+      (update this :tuples delete value)))
+
+  (cardinality [this]
+    (+ (long (cardinality rules))
+       (long (cardinality tuples)))))
 
 (def ^:dynamic *tuple-relation-factory* new-sorted-set-relation)
 

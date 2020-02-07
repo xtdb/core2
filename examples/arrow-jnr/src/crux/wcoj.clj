@@ -268,6 +268,11 @@
 (defn- normalize-op [op]
   (get '{!= not=} op op))
 
+(defn- tag-meta [x]
+  (cond
+    (float? x) {:tag 'double}
+    (int? x) {:tag 'long}))
+
 (defmulti ^:private datalog->clojure (fn [query-plan [type]]
                                        type))
 
@@ -278,7 +283,8 @@
 (defmethod datalog->clojure :equality-predicate [_ [_ {:keys [lhs op rhs]} :as literal]]
   (let [bound-vars (:bound-vars (meta literal))
         lhs-binding (term->binding lhs)
-        rhs-binding (term->binding rhs)]
+        rhs-binding (term->binding rhs)
+        arg-sym (gensym 'arg)]
     (cond
       (and (cd/logic-var? rhs-binding)
            (not (contains? bound-vars rhs-binding)))
@@ -287,8 +293,8 @@
           :when (some? ~rhs-binding)]
         (let [op (flip-constraint-op op)]
           `[:let [~rhs-binding (crux.wcoj/new-constraint ~(term->value rhs)
-                                                         (fn [x#]
-                                                           (~(normalize-op op) x# ~(term->value lhs)))
+                                                         (fn [~(with-meta arg-sym (tag-meta (term->value lhs)))]
+                                                           (~(normalize-op op) ~arg-sym ~(term->value lhs)))
                                                          '~op
                                                          ~(term->value lhs))]]))
 
@@ -298,8 +304,8 @@
         `[:let [~lhs-binding (crux.wcoj/unify ~(term->value lhs) ~(term->value rhs))]
           :when (some? ~lhs-binding)]
         `[:let [~lhs-binding (crux.wcoj/new-constraint ~(term->value lhs)
-                                                       (fn [x#]
-                                                         (~(normalize-op op) x# ~(term->value rhs)))
+                                                       (fn [~(with-meta arg-sym (tag-meta (term->value rhs)))]
+                                                         (~(normalize-op op) ~arg-sym ~(term->value rhs)))
                                                        '~op
                                                        ~(term->value rhs))]])
 

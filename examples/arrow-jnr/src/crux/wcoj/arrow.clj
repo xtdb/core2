@@ -123,7 +123,7 @@
       :else
       (throw (IllegalArgumentException.)))))
 
-(def ^:private ^{:tag 'long} default-vector-size 128)
+(def ^:dynamic ^{:tag 'long} *vector-size* 128)
 
 (definterface ColumnFilter
   (^boolean test [^org.apache.arrow.vector.ValueVector column ^int idx]))
@@ -237,7 +237,7 @@
 
 (defn- arrow-seq [^StructVector struct var-bindings]
   (let [struct-batch (VectorSchemaRoot. struct)
-        vector-size (min default-vector-size (.getRowCount struct-batch))
+        vector-size (min *vector-size* (.getRowCount struct-batch))
         selection-vector (doto (BitVector. "" allocator)
                            (.setValueCount vector-size)
                            (.setInitialCapacity vector-size))
@@ -309,7 +309,7 @@
   (when (instance? AutoCloseable c)
     (.close ^AutoCloseable c)))
 
-(def ^:private ^{:tag 'long} default-leaf-size (* 1024 1024))
+(def ^:dynamic ^{:tag 'long} *leaf-size* (* 1024 1024))
 (def ^:private ^{:tag 'long} root-leaf-idx 0)
 (def ^:private ^{:tag 'long} root-parent-node-idx 0)
 
@@ -398,7 +398,7 @@
 (defn- insert-into-leaf [^HyperQuadTree tree dims ^FixedSizeListVector nodes raw-parent-node-idx leaf-idx value]
   (let [leaves ^List (.leaves tree)
         leaf (.get leaves leaf-idx)]
-    (if (< (wcoj/cardinality leaf) default-leaf-size)
+    (if (< (wcoj/cardinality leaf) *leaf-size*)
       (wcoj/insert leaf value)
       (doto tree
         (split-leaf dims nodes raw-parent-node-idx leaf-idx)

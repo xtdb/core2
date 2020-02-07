@@ -29,20 +29,10 @@
 (defprotocol Unification
   (unify [this that]))
 
-(defn constraint-satisfied? [value op arg]
-  (let [diff (compare value arg)]
-    (case op
-      < (neg? diff)
-      <= (not (pos? diff))
-      > (pos? diff)
-      >= (not (neg? diff))
-      = (zero? diff)
-      != (not (zero? diff)))))
-
 (defn- execute-constraints [constraints value]
   (reduce
-   (fn [value [op arg]]
-     (if (constraint-satisfied? value op arg)
+   (fn [value [constraint-fn _ _]]
+     (if (constraint-fn value)
        value
        (reduced nil)))
    value
@@ -207,8 +197,8 @@
                         idx))
      :aggregate-ops aggregate-ops}))
 
-(defn new-constraint [var op value]
-  (vary-meta var update :constraints conj [op value]))
+(defn new-constraint [var constraint-fn op value]
+  (vary-meta var update :constraints conj [constraint-fn op value]))
 
 (defmulti ^:private term->binding
   (fn [[type term]]
@@ -275,6 +265,9 @@
          > <
          >= <=} op op))
 
+(defn- normalize-op [op]
+  (get '{!= not=} op op))
+
 (defmulti ^:private datalog->clojure (fn [query-plan [type]]
                                        type))
 
@@ -292,17 +285,26 @@
       (if (= '= op)
         `[:let [~rhs-binding (crux.wcoj/unify ~(term->value rhs) ~(term->value lhs))]
           :when (some? ~rhs-binding)]
-        `[:let [~rhs-binding (crux.wcoj/new-constraint ~(term->value rhs) '~(flip-constraint-op op) ~(term->value lhs))]])
+        (let [op (flip-constraint-op op)]
+          `[:let [~rhs-binding (crux.wcoj/new-constraint ~(term->value rhs)
+                                                         (fn [x#]
+                                                           (~(normalize-op op) x# ~(term->value lhs)))
+                                                         '~op
+                                                         ~(term->value lhs))]]))
 
       (and (cd/logic-var? lhs-binding)
            (not (contains? bound-vars lhs-binding)))
       (if (= '= op)
         `[:let [~lhs-binding (crux.wcoj/unify ~(term->value lhs) ~(term->value rhs))]
           :when (some? ~lhs-binding)]
-        `[:let [~lhs-binding (crux.wcoj/new-constraint ~(term->value lhs) '~op ~(term->value rhs))]])
+        `[:let [~lhs-binding (crux.wcoj/new-constraint ~(term->value lhs)
+                                                       (fn [x#]
+                                                         (~(normalize-op op) x# ~(term->value rhs)))
+                                                       '~op
+                                                       ~(term->value rhs))]])
 
       :else
-      `[:when (crux.wcoj/constraint-satisfied? ~(term->value lhs) '~op ~(term->value rhs))])))
+      `[:when (~(normalize-op op) ~(term->value lhs) ~(term->value rhs))])))
 
 (defmethod datalog->clojure :not-predicate [query-plan [_ {:keys [predicate]}]]
   `[:when (empty? ~(predicate->clojure query-plan predicate))])

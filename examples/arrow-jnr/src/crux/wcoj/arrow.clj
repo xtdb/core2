@@ -2,19 +2,23 @@
   (:require [crux.datalog :as cd]
             [clojure.string :as str]
             [clojure.edn :as edn]
-            [crux.wcoj :as wcoj])
+            [crux.wcoj :as wcoj]
+            [crux.z-curve :as cz]
+            [crux.byte-keys :as cbk])
   (:import [org.apache.arrow.memory BufferAllocator RootAllocator]
            [org.apache.arrow.vector BaseFixedWidthVector BaseIntVector BaseVariableWidthVector BigIntVector BitVector
             ElementAddressableVector Float4Vector Float8Vector FloatingPointVector IntVector TimeStampNanoVector
             ValueVector VarBinaryVector VarCharVector VectorSchemaRoot]
-           org.apache.arrow.vector.complex.StructVector
+           [org.apache.arrow.vector.complex FixedSizeListVector StructVector]
            org.apache.arrow.vector.types.pojo.FieldType
            org.apache.arrow.vector.types.Types$MinorType
            org.apache.arrow.vector.util.Text
            org.apache.arrow.memory.util.ArrowBufPointer
-           [java.util Arrays Date]
+           [java.util Arrays ArrayList Date List]
            [java.util.function Predicate LongPredicate DoublePredicate]
-           java.time.Instant))
+           java.time.Instant
+           java.lang.AutoCloseable
+           java.nio.ByteBuffer))
 
 
 (def ^:private ^BufferAllocator
@@ -292,3 +296,62 @@
   ^org.apache.arrow.vector.complex.StructVector [relation-name]
   (doto (StructVector/empty (str relation-name) allocator)
     (.setInitialCapacity 0)))
+
+(declare maybe-create-quad-tree-leaf)
+
+(deftype QuadTree [^:volatile-mutable ^long dims
+                   ^:volatile-mutable ^FixedSizeListVector nodes
+                   ^String name
+                   ^List leaves]
+  wcoj/Relation
+  (table-scan [this db]
+    (when (nat-int? dims)
+      (if (zero? (.getValueCount nodes))
+        (wcoj/table-scan (first leaves) db)
+        (throw (UnsupportedOperationException.)))))
+
+  (table-filter [this db var-bindings]
+    (when (nat-int? dims)
+      (if (zero? (.getValueCount nodes))
+        (wcoj/table-filter (first leaves) db var-bindings)
+        (throw (UnsupportedOperationException.)))))
+
+  (insert [this value]
+    (when-not (nat-int? dims)
+      (let [dims (count value)
+            hyper-quads (long (Math/pow 2 dims))]
+        (set! (.-dims this) dims)
+        (set! (.nodes this) (doto (FixedSizeListVector/empty "" hyper-quads allocator)
+                              (.setInitialCapacity 0)
+                              (.setValueCount 0)
+                              (.addOrGetVector (FieldType/nullable (.getType Types$MinorType/INT)))))))
+    (do (maybe-create-quad-tree-leaf this dims nodes value)
+        this))
+
+  (delete [this value]
+    (when (nat-int? dims)
+      (if (zero? (.getValueCount nodes))
+        (wcoj/delete (first leaves) value)
+        (throw (UnsupportedOperationException.)))
+      this))
+
+  AutoCloseable
+  (close [_]
+    (when nodes
+      (.close ^AutoCloseable nodes))
+    (doseq [leaf leaves]
+      (.close ^AutoCloseable leaf))))
+
+(defn new-quad-tree-relation ^crux.wcoj.arrow.QuadTree [relation-name]
+  (->QuadTree -1 nil relation-name (ArrayList.)))
+
+(defn- tuple->z-address ^long [value]
+  (.getLong (ByteBuffer/wrap (cz/bit-interleave (map cbk/->byte-key value)))))
+
+(defn- maybe-create-quad-tree-leaf [^QuadTree quad-tree ^long dims ^FixedSizeListVector nodes value]
+  (let [leaves ^List (.leaves quad-tree)]
+    (if (zero? (.getValueCount nodes))
+      (do (when (empty? leaves)
+            (.add leaves (new-arrow-struct-relation (.name quad-tree))))
+          (wcoj/insert (first leaves) value))
+      (throw (UnsupportedOperationException.)))))

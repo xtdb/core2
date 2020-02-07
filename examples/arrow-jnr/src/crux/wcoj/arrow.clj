@@ -3,8 +3,7 @@
             [clojure.string :as str]
             [clojure.edn :as edn]
             [crux.wcoj :as wcoj])
-  (:import [clojure.lang IFn$DO IFn$LO IFn$OLO]
-           [org.apache.arrow.memory BufferAllocator RootAllocator]
+  (:import [org.apache.arrow.memory BufferAllocator RootAllocator]
            [org.apache.arrow.vector BaseFixedWidthVector BaseIntVector BaseVariableWidthVector BigIntVector BitVector
             ElementAddressableVector Float4Vector Float8Vector FloatingPointVector IntVector TimeStampNanoVector
             ValueVector VarBinaryVector VarCharVector VectorSchemaRoot]
@@ -14,6 +13,7 @@
            org.apache.arrow.vector.util.Text
            org.apache.arrow.memory.util.ArrowBufPointer
            [java.util Arrays Date]
+           [java.util.function Predicate LongPredicate DoublePredicate]
            java.time.Instant))
 
 
@@ -136,21 +136,21 @@
            (if-let [constraint-fn (:constraint-fn (meta var-binding))]
              (cond
                (and (instance? BaseIntVector unify-column)
-                    (instance? IFn$LO constraint-fn))
+                    (instance? LongPredicate constraint-fn))
                (reify ColumnFilter
                  (test [_ column idx]
-                   (.invokePrim ^IFn$LO constraint-fn (.getValueAsLong ^BaseIntVector column idx))))
+                   (.test ^LongPredicate constraint-fn (.getValueAsLong ^BaseIntVector column idx))))
 
                (and (instance? FloatingPointVector unify-column)
-                    (instance? IFn$DO constraint-fn))
+                    (instance? DoublePredicate constraint-fn))
                (reify ColumnFilter
                  (test [_ column idx]
-                   (.invokePrim ^IFn$DO constraint-fn (.getValueAsDouble ^FloatingPointVector column idx))))
+                   (.test ^DoublePredicate constraint-fn (.getValueAsDouble ^FloatingPointVector column idx))))
 
                :else
                (reify ColumnFilter
                  (test [_ column idx]
-                   (constraint-fn (arrow->clojure (.getObject ^ElementAddressableVector column idx))))))
+                   (.test ^Predicate constraint-fn (arrow->clojure (.getObject ^ElementAddressableVector column idx))))))
              wildcard-column-filter)
 
            (instance? BitVector unify-column)

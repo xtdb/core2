@@ -6,9 +6,9 @@
             [clojure.string :as str]
             [clojure.walk :as w]
             [crux.datalog :as cd])
-  (:import [clojure.lang IFn$DO IFn$LO
-            IPersistentCollection IPersistentMap Symbol]
-           java.util.Arrays))
+  (:import [clojure.lang IPersistentCollection IPersistentMap Symbol]
+           java.util.Arrays
+           [java.util.function Predicate LongPredicate DoublePredicate]))
 
 (set! *unchecked-math* :warn-on-boxed)
 (s/check-asserts true)
@@ -35,17 +35,14 @@
     (nil? c1)
     c2
 
-    (instance? IFn$DO c1)
-    (fn [^double x]
-      (and (.invokePrim ^IFn$DO c1 x)
-           (.invokePrim ^IFn$DO c2 x)))
-    (instance? IFn$LO c1)
-    (fn [^long x]
-      (and (.invokePrim ^IFn$LO c1 x)
-           (.invokePrim ^IFn$LO c2 x)))
+    (instance? DoublePredicate c1)
+    (.and ^DoublePredicate c1 c2)
+
+    (instance? LongPredicate c1)
+    (.and ^LongPredicate c1 c2)
+
     :else
-    (fn [x]
-      (and (c1 x) (c2 x)))))
+    (.and ^Predicate c1 c2)))
 
 (defn- constrained [this that]
   (let [{:keys [constraints constraint-fn]} (meta this)]
@@ -56,9 +53,9 @@
                        (vary-meta update :constraint-fn and-constraint constraint-fn))]
           that)
         (when (cond
-                (instance? IFn$LO constraint-fn) (.invokePrim ^IFn$LO constraint-fn (long that))
-                (instance? IFn$DO constraint-fn) (.invokePrim ^IFn$DO constraint-fn (double that))
-                :else (constraint-fn that))
+                (instance? LongPredicate constraint-fn) (.test ^LongPredicate constraint-fn (long that))
+                (instance? DoublePredicate constraint-fn) (.test ^DoublePredicate constraint-fn (double that))
+                :else (.test ^Predicate constraint-fn that))
           that))
       that)))
 
@@ -303,6 +300,18 @@
             = `(zero? ~diff-sym)
             != `(not (zero? ~diff-sym)))))))
 
+(defn- constraint->java-predicate [op arg-sym value]
+  (case (maybe-primitive-tag value)
+    long `(reify LongPredicate
+            (test [_ ~arg-sym]
+              ~(constraint->clojure op arg-sym value)))
+    double `(reify DoublePredicate
+              (test [_ ~arg-sym]
+                ~(constraint->clojure op arg-sym value)))
+    `(reify Predicate
+       (test [_ ~arg-sym]
+         ~(constraint->clojure op arg-sym value)))))
+
 (defmulti ^:private datalog->clojure (fn [query-plan [type]]
                                        type))
 
@@ -323,8 +332,7 @@
           :when (some? ~rhs-binding)]
         (let [op (flip-constraint-op op)]
           `[:let [~rhs-binding (crux.wcoj/new-constraint ~(term->value rhs)
-                                                         (fn [~(with-meta arg-sym {:tag (maybe-primitive-tag (term->value lhs))})]
-                                                           ~(constraint->clojure op arg-sym (term->value lhs)))
+                                                         ~(constraint->java-predicate op arg-sym (term->value lhs))
                                                          '~op
                                                          ~(term->value lhs))]]))
 
@@ -334,8 +342,7 @@
         `[:let [~lhs-binding (crux.wcoj/unify ~(term->value lhs) ~(term->value rhs))]
           :when (some? ~lhs-binding)]
         `[:let [~lhs-binding (crux.wcoj/new-constraint ~(term->value lhs)
-                                                       (fn [~(with-meta arg-sym {:tag (maybe-primitive-tag (term->value rhs))})]
-                                                         ~(constraint->clojure op arg-sym (term->value rhs)))
+                                                       ~(constraint->java-predicate op arg-sym (term->value rhs))
                                                        '~op
                                                        ~(term->value rhs))]])
 

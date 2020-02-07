@@ -370,6 +370,6 @@
             (.add leaves (*internal-leaf-tuple-relation-factory* (.name tree))))
           (let [leaf (first leaves)]
             (if (< (wcoj/cardinality leaf) default-leaf-size)
-              (wcoj/insert (first leaves) value)
+              (wcoj/insert leaf value)
               (throw (UnsupportedOperationException.)))))
       (throw (UnsupportedOperationException.)))))

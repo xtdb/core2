@@ -174,7 +174,7 @@
                               (cond
                                 (.isNull column idx)
                                 (doto selection-vector
-                                  (.setSafe idx 0))
+                                  (.set idx 0))
 
                                 (and (pos? n)
                                      (zero? (.get selection-vector idx)))
@@ -182,9 +182,9 @@
 
                                 :else
                                 (doto selection-vector
-                                  (.setSafe idx (if (.invokePrim ^IFn$OLO column-filter-fn column idx)
-                                                  1
-                                                  0)))))
+                                  (.set idx (if (.invokePrim ^IFn$OLO column-filter-fn column idx)
+                                              1
+                                              0)))))
                        selection-vector))))))
       selection-vector)))
 

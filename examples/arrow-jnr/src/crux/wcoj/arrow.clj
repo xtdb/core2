@@ -305,7 +305,11 @@
 ;; Python implementation:
 ;; https://github.com/karimbahgat/Pyqtree/blob/master/pyqtree.py
 
-(declare maybe-create-hyper-quad-tree-leaf)
+(declare insert-into-leaf)
+
+(defn- try-close [c]
+  (when (instance? AutoCloseable c)
+    (.close ^AutoCloseable c)))
 
 (def ^:private ^{:tag 'long} default-leaf-size (* 1024 1024))
 
@@ -317,45 +321,43 @@
                         ^List leaves]
   wcoj/Relation
   (table-scan [this db]
-    (when (nat-int? dims)
-      (if (zero? (.getValueCount nodes))
-        (wcoj/table-scan (first leaves) db)
-        (throw (UnsupportedOperationException.)))))
+    (->> (for [leaf leaves
+               :when (some? leaf)]
+           (wcoj/table-scan leaf db))
+         (apply concat)))
 
   (table-filter [this db var-bindings]
-    (when (nat-int? dims)
-      (if (zero? (.getValueCount nodes))
-        (wcoj/table-filter (first leaves) db var-bindings)
-        (throw (UnsupportedOperationException.)))))
+    (->> (for [leaf leaves
+               :when (some? leaf)]
+           (wcoj/table-filter leaf db var-bindings))
+         (apply concat)))
 
   (insert [this value]
     (when-not (nat-int? dims)
       (let [dims (count value)
             hyper-quads (long (Math/pow 2 dims))]
         (set! (.-dims this) dims)
-        (set! (.nodes this) (doto (FixedSizeListVector/empty "" hyper-quads allocator)
-                              (.setInitialCapacity 0)
-                              (.setValueCount 0)
-                              (.addOrGetVector (FieldType/nullable (.getType Types$MinorType/INT)))))))
-    (do (maybe-create-hyper-quad-tree-leaf this dims nodes value)
+        (set! (.-nodes this) (doto (FixedSizeListVector/empty "" hyper-quads allocator)
+                               (.setInitialCapacity 0)
+                               (.setValueCount 0)
+                               (.addOrGetVector (FieldType/nullable (.getType Types$MinorType/INT)))))))
+    (do (insert-into-leaf this dims nodes value)
         this))
 
   (delete [this value]
-    (when (nat-int? dims)
-      (if (zero? (.getValueCount nodes))
-        (wcoj/delete (first leaves) value)
-        (throw (UnsupportedOperationException.)))
-      this))
+    (doseq [leaf leaves
+            :when (some? leaf)]
+      (wcoj/delete leaf value))
+    this)
 
   (cardinality [this]
     (reduce + (map wcoj/cardinality leaves)))
 
   AutoCloseable
   (close [_]
-    (when nodes
-      (.close ^AutoCloseable nodes))
+    (try-close nodes)
     (doseq [leaf leaves]
-      (.close ^AutoCloseable leaf))))
+      (try-close leaf))))
 
 (defn new-hyper-quad-tree-relation ^crux.wcoj.arrow.HyperQuadTree [relation-name]
   (->HyperQuadTree -1 nil relation-name (ArrayList.)))
@@ -363,13 +365,23 @@
 (defn- tuple->z-address ^long [value]
   (.getLong (ByteBuffer/wrap (cz/bit-interleave (map cbk/->byte-key value)))))
 
-(defn- maybe-create-hyper-quad-tree-leaf [^HyperQuadTree tree ^long dims ^FixedSizeListVector nodes value]
+(defn- insert-into-leaf [^HyperQuadTree tree ^long dims ^FixedSizeListVector nodes value]
   (let [leaves ^List (.leaves tree)]
     (if (zero? (.getValueCount nodes))
       (do (when (empty? leaves)
             (.add leaves (*internal-leaf-tuple-relation-factory* (.name tree))))
-          (let [leaf (first leaves)]
+          (let [leaf-idx 0
+                leaf (.get leaves leaf-idx)]
             (if (< (wcoj/cardinality leaf) default-leaf-size)
               (wcoj/insert leaf value)
-              (throw (UnsupportedOperationException.)))))
+              (try
+                (let [new-node-idx (inc (.getValueCount nodes))]
+                  (.startNewValue nodes new-node-idx)
+                  (.set leaves leaf-idx nil)
+
+                  (doseq [tuple (wcoj/table-scan nil leaf)]
+                    (insert-into-leaf tree dims nodes tuple))
+                  (insert-into-leaf tree dims nodes value))
+                (finally
+                  (try-close leaf))))))
       (throw (UnsupportedOperationException.)))))

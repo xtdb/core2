@@ -21,10 +21,11 @@
 (defn- init-struct [^StructVector struct column-template]
   (reduce
    (fn [^StructVector struct [idx column-template]]
-     (let [column-template (if-let [[constraint-fn] (and (cd/logic-var? column-template)
-                                                         (:constraints (meta column-template)))]
-                             (:value (meta constraint-fn))
+     (let [column-template (if-let [[[_ value]] (and (cd/logic-var? column-template)
+                                                     (:constraints (meta column-template)))]
+                             value
                              column-template)
+
            column-type (.getSimpleName (class column-template))
            [^FieldType field-type ^Class vector-class]
            (case (symbol column-type)
@@ -85,9 +86,9 @@
     (.getBytes (pr-str value) "UTF-8")))
 
 (defn- insert-clojure-value-into-column [^ValueVector column ^long idx v]
-  (if-let [[constraint-fn] (and (cd/logic-var? v)
-                              (:constraints (meta v)))]
-    (insert-clojure-value-into-column column idx (:value (meta constraint-fn)))
+  (if-let [[[_ value]] (and (cd/logic-var? v)
+                            (:constraints (meta v)))]
+    (insert-clojure-value-into-column column idx value)
     (cond
       (instance? IntVector column)
       (.setSafe ^IntVector column idx ^int (clojure->arrow v))

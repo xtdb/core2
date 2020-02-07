@@ -6,7 +6,8 @@
             [clojure.string :as str]
             [clojure.walk :as w]
             [crux.datalog :as cd])
-  (:import [clojure.lang IPersistentCollection IPersistentMap Symbol]
+  (:import [clojure.lang IFn$DO IFn$LO
+            IPersistentCollection IPersistentMap Symbol]
            java.util.Arrays))
 
 (set! *unchecked-math* :warn-on-boxed)
@@ -29,23 +30,37 @@
 (defprotocol Unification
   (unify [this that]))
 
-(defn- execute-constraints [constraints value]
-  (reduce
-   (fn [value constraint-fn]
-     (if (constraint-fn value)
-       value
-       (reduced nil)))
-   value
-   constraints))
+(defn- and-constraint [c1 c2]
+  (cond
+    (nil? c1)
+    c2
+
+    (instance? IFn$DO c1)
+    (fn [^double x]
+      (and (.invokePrim ^IFn$DO c1 x)
+           (.invokePrim ^IFn$DO c2 x)))
+    (instance? IFn$LO c1)
+    (fn [^long x]
+      (and (.invokePrim ^IFn$LO c1 x)
+           (.invokePrim ^IFn$LO c2 x)))
+    :else
+    (fn [x]
+      (and (c1 x) (c2 x)))))
 
 (defn- constrained [this that]
-  (if-let [constraints (:constraints (meta this))]
-    (if (cd/logic-var? that)
-      (let [that (vary-meta that update :constraints into constraints)]
-        that)
-      (when (execute-constraints constraints that)
-        that))
-    that))
+  (let [{:keys [constraints constraint-fn]} (meta this)]
+    (if constraints
+      (if (cd/logic-var? that)
+        (let [that (-> that
+                       (vary-meta update :constraints into constraints)
+                       (vary-meta update :constraint-fn and-constraint constraint-fn))]
+          that)
+        (when (cond
+                (instance? IFn$LO constraint-fn) (.invokePrim ^IFn$LO constraint-fn (long that))
+                (instance? IFn$DO constraint-fn) (.invokePrim ^IFn$DO constraint-fn (double that))
+                :else (constraint-fn that))
+          that))
+      that)))
 
 (extend-protocol Unification
   (class (byte-array 0))
@@ -198,7 +213,9 @@
      :aggregate-ops aggregate-ops}))
 
 (defn new-constraint [var constraint-fn op value]
-  (vary-meta var update :constraints conj (with-meta constraint-fn {:op op :value value})))
+  (-> var
+      (vary-meta update :constraints conj [op value])
+      (vary-meta update :constraint-fn and-constraint constraint-fn)))
 
 (defmulti ^:private term->binding
   (fn [[type term]]

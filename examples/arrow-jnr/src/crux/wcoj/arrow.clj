@@ -370,7 +370,7 @@
 (defn- decode-h-at-level [^long z-address ^long hyper-quads ^long level]
   (let [shift (- Long/SIZE (* (inc level) hyper-quads))]
     (assert (pos? shift))
-    (bit-and (unsigned-bit-shift-right z-address shift) (dec hyper-quads))))
+    (bit-and (unsigned-bit-shift-right z-address shift) (dec (bit-shift-left 1 hyper-quads)))))
 
 (declare insert-tuple)
 
@@ -384,13 +384,18 @@
   (let [leaves ^List (.leaves tree)
         leaf (.get leaves leaf-idx)]
     (try
-      (let [new-node-idx (.startNewValue nodes (inc (.getValueCount nodes)))]
+      (let [new-node-idx (.startNewValue nodes (.getValueCount nodes))
+            node-vector ^IntVector (.getDataVector nodes)]
+        (dotimes [n (.getListSize nodes)]
+          (.setNull node-vector (+ new-node-idx n)))
+        (.setValueCount node-vector (+ new-node-idx (.getListSize nodes)))
+        (.setValueCount nodes (inc (.getValueCount nodes)))
         (when (neg? raw-parent-node-idx)
           (.setSafe ^IntVector (.getDataVector nodes)
                     (int (decode-node-idx raw-parent-node-idx))
                     (int (encode-node-idx new-node-idx))))
         (.set leaves leaf-idx nil)
-        (doseq [tuple (wcoj/table-scan nil leaf)]
+        (doseq [tuple (wcoj/table-scan leaf nil)]
           (insert-tuple tree dims nodes tuple)))
       (finally
         (try-close leaf)))))
@@ -423,7 +428,9 @@
                     leaf-idx (if (= -1 leaf-idx)
                                (.size leaves)
                                leaf-idx)]
-                (.add leaves leaf-idx (*internal-leaf-tuple-relation-factory* (.name tree)))
+                (if (= leaf-idx (.size leaves))
+                  (.add leaves (*internal-leaf-tuple-relation-factory* (.name tree)))
+                  (.set leaves leaf-idx (*internal-leaf-tuple-relation-factory* (.name tree))))
                 (.setSafe node-vector (int node-idx) leaf-idx)
                 (insert-into-leaf tree dims nodes raw-node-idx leaf-idx value))
               (let [child-idx (.get node-vector node-idx)]

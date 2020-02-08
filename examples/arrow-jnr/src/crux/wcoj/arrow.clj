@@ -314,7 +314,7 @@
 
 (def ^:dynamic *internal-leaf-tuple-relation-factory* new-arrow-struct-relation)
 
-(declare insert-tuple)
+(declare insert-tuple walk-tree)
 
 (defn- dims->hyper-quads ^long [^long dims]
   (max (bit-shift-left 2 (dec dims)) 1))
@@ -326,16 +326,12 @@
                         ^List leaves]
   wcoj/Relation
   (table-scan [this db]
-    (->> (for [leaf leaves
-               :when (some? leaf)]
-           (wcoj/table-scan leaf db))
-         (apply concat)))
+    (walk-tree this dims nodes (fn [leaf]
+                                 (wcoj/table-scan leaf db))))
 
   (table-filter [this db var-bindings]
-    (->> (for [leaf leaves
-               :when (some? leaf)]
-           (wcoj/table-filter leaf db var-bindings))
-         (apply concat)))
+    (walk-tree this dims nodes (fn [leaf]
+                                 (wcoj/table-filter leaf db var-bindings))))
 
   (insert [this value]
     (when-not (nat-int? dims)
@@ -364,6 +360,12 @@
     (try-close nodes)
     (doseq [leaf leaves]
       (try-close leaf))))
+
+(defn- walk-tree [^HyperQuadTree tree ^long dims nodes leaf-fn]
+  (->> (for [leaf (.leaves tree)
+             :when (some? leaf)]
+         (leaf-fn leaf))
+       (apply concat)))
 
 (defn new-hyper-quad-tree-relation ^crux.wcoj.arrow.HyperQuadTree [relation-name]
   (->HyperQuadTree -1 -1 nil relation-name (ArrayList.)))

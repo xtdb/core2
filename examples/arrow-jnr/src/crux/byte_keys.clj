@@ -1,4 +1,5 @@
 (ns crux.byte-keys
+  (:require [clojure.edn :as edn])
   (:import [java.util Arrays Date]
            java.time.Instant
            java.nio.ByteBuffer))
@@ -35,6 +36,9 @@
 
 (defn byte-key->date ^java.util.Date [^bytes key]
   (Date/from (byte-key->instant key)))
+
+(defn byte-key->clojure [^bytes key]
+  (edn/read-string (String. key "UTF-8")))
 
 ;; Experimental var-int encoder. Idea is to respect lexiographic sort
 ;; as well as moving interesting bits to the front. First byte is
@@ -125,4 +129,8 @@
   Instant
   (->byte-key [this]
     (->byte-key (+ (* (.getEpochSecond this) 1000000000)
-                   (.getNano this)))))
+                   (.getNano this))))
+
+  Object
+  (->byte-key [this]
+    (->byte-key (pr-str this))))

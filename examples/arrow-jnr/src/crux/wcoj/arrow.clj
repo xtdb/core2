@@ -372,7 +372,7 @@
 (defn- tuple->z-address ^long [value]
   (.getLong (ByteBuffer/wrap (cz/bit-interleave (map cbk/->byte-key value)))))
 
-(defn- decode-h-at-level [^long z-address ^long hyper-quads ^long level]
+(defn- decode-h-at-level ^long [^long z-address ^long hyper-quads ^long level]
   (let [shift (- Long/SIZE (* (inc level) hyper-quads))]
     (assert (pos? shift))
     (bit-and (unsigned-bit-shift-right z-address shift) (dec (bit-shift-left 1 hyper-quads)))))

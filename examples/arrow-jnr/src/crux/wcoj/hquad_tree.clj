@@ -110,7 +110,7 @@
       :else
       (let [hyper-quads (dims->hyper-quads dims)
             node-vector ^IntVector (.getDataVector nodes)]
-        ((fn step [level parent-node-idx z-prefix]
+        ((fn step [^long level ^long parent-node-idx ^long z-prefix]
            (lazy-seq
             (loop [h 0
                    acc nil]
@@ -172,7 +172,8 @@
   (let [leaves ^List (.leaves tree)]
     (if (root-only-tree? nodes)
       (do (when (empty? leaves)
-            (assert (= root-idx (new-leaf tree))))
+            (let [new-leaf-idx (new-leaf tree)]
+              (assert (= root-idx new-leaf-idx))))
           (insert-into-leaf tree dims nodes nil root-idx value))
       (let [z-address (tuple->z-address value)
             hyper-quads (dims->hyper-quads dims)
@@ -186,7 +187,7 @@
                 (.setSafe node-vector (int node-idx) (encode-leaf-idx leaf-idx))
                 (insert-into-leaf tree dims nodes node-idx leaf-idx value))
               (let [child-idx (.get node-vector node-idx)]
-                (assert (not (zero? child-idx)))
+                (assert (not= root-idx child-idx))
                 (if (leaf-idx? child-idx)
                   (insert-into-leaf tree dims nodes node-idx (decode-leaf-idx child-idx) value)
                   (recur (inc level) child-idx))))))))))

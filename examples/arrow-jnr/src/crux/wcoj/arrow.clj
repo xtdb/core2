@@ -311,14 +311,13 @@
 
 (def ^:dynamic ^{:tag 'long} *leaf-size* (* 1024 1024))
 (def ^:private ^{:tag 'long} root-leaf-idx 0)
-(def ^:private ^{:tag 'long} root-parent-node-idx 0)
 
 (def ^:dynamic *internal-leaf-tuple-relation-factory* new-arrow-struct-relation)
 
 (declare insert-tuple)
 
 (defn- dims->hyper-quads ^long [^long dims]
-  (bit-shift-left 2 (dec dims)))
+  (max (bit-shift-left 2 (dec dims)) 1))
 
 (deftype HyperQuadTree [^:volatile-mutable ^long dims
                         ^:volatile-mutable ^long hyper-quads
@@ -398,7 +397,7 @@
           (.setNull node-vector (+ new-node-idx n)))
         (.setValueCount node-vector (+ new-node-idx (.getListSize nodes)))
         (.setValueCount nodes (inc (.getValueCount nodes)))
-        (when (pos? parent-node-idx)
+        (when parent-node-idx
           (.setSafe ^IntVector (.getDataVector nodes)
                     (int parent-node-idx)
                     (int new-node-idx)))
@@ -417,12 +416,23 @@
         (split-leaf dims nodes parent-node-idx leaf-idx)
         (insert-tuple dims nodes value)))))
 
+(defn- new-leaf ^long [^HyperQuadTree tree]
+  (let [leaves ^List (.leaves tree)
+        free-leaf-idx (.indexOf leaves nil)
+        leaf-idx (if (= -1 free-leaf-idx)
+                   (.size leaves)
+                   free-leaf-idx)]
+    (if (= -1 free-leaf-idx)
+      (.add leaves (*internal-leaf-tuple-relation-factory* (.name tree)))
+      (.set leaves leaf-idx (*internal-leaf-tuple-relation-factory* (.name tree))))
+    leaf-idx))
+
 (defn- insert-tuple [^HyperQuadTree tree ^long dims ^FixedSizeListVector nodes value]
   (let [leaves ^List (.leaves tree)]
     (if (zero? (.getValueCount nodes))
       (do (when (empty? leaves)
-            (.add leaves root-leaf-idx (*internal-leaf-tuple-relation-factory* (.name tree))))
-          (insert-into-leaf tree dims nodes root-parent-node-idx root-leaf-idx value))
+            (assert (= root-leaf-idx (new-leaf tree))))
+          (insert-into-leaf tree dims nodes nil root-leaf-idx value))
       (let [z-address (tuple->z-address value)
             hyper-quads (dims->hyper-quads dims)
             node-vector ^IntVector (.getDataVector nodes)]
@@ -431,13 +441,7 @@
           (let [h (decode-h-at-level z-address hyper-quads level)
                 node-idx (+ parent-node-idx h)]
             (if (.isNull node-vector node-idx)
-              (let [free-leaf-idx (.indexOf leaves nil)
-                    leaf-idx (if (= -1 free-leaf-idx)
-                               (.size leaves)
-                               free-leaf-idx)]
-                (if (= -1 free-leaf-idx)
-                  (.add leaves (*internal-leaf-tuple-relation-factory* (.name tree)))
-                  (.set leaves leaf-idx (*internal-leaf-tuple-relation-factory* (.name tree))))
+              (let [leaf-idx (new-leaf tree)]
                 (.setSafe node-vector (int node-idx) (encode-leaf-idx leaf-idx))
                 (insert-into-leaf tree dims nodes node-idx leaf-idx value))
               (let [child-idx (.get node-vector node-idx)]

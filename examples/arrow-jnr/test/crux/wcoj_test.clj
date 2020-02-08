@@ -3,6 +3,7 @@
             [clojure.test :as t]
             [crux.wcoj :as wcoj]
             [crux.wcoj.arrow :as wcoj-arrow]
+            [crux.wcoj.hquad-tree :as wcoj-hqaud]
             [crux.byte-keys :as cbk]))
 
 (declare with-each-tuple-factory)
@@ -793,9 +794,10 @@ perm(c, b).
 (defn- with-each-tuple-factory [f]
   (doseq [factory [#'wcoj/new-sorted-set-relation
                    #'wcoj-arrow/new-arrow-struct-relation
-                   #'wcoj-arrow/new-hyper-quad-tree-relation]]
+                   #'wcoj-hqaud/new-hyper-quad-tree-relation]]
     (t/testing (:name (meta factory))
       (binding [wcoj/*tuple-relation-factory* factory
-                wcoj-arrow/*leaf-size* 4
+                wcoj-hqaud/*leaf-size* 4
+                wcoj-hqaud/*internal-leaf-tuple-relation-factory* wcoj-arrow/new-arrow-struct-relation
                 cbk/*use-var-ints? true]
         (f)))))

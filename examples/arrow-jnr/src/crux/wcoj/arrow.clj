@@ -310,7 +310,7 @@
     (.close ^AutoCloseable c)))
 
 (def ^:dynamic ^{:tag 'long} *leaf-size* (* 128 1024))
-(def ^:private ^{:tag 'long} root-leaf-idx 0)
+(def ^:private ^{:tag 'long} root-idx 0)
 
 (def ^:dynamic *internal-leaf-tuple-relation-factory* new-arrow-struct-relation)
 
@@ -319,6 +319,9 @@
 (defn- dims->hyper-quads ^long [^long dims]
   (max (bit-shift-left 2 (dec dims)) 1))
 
+(defn- root-only-tree? [^FixedSizeListVector nodes]
+  (zero? (.getValueCount nodes)))
+
 (deftype HyperQuadTree [^:volatile-mutable ^long dims
                         ^:volatile-mutable ^long hyper-quads
                         ^:volatile-mutable ^FixedSizeListVector nodes
@@ -326,12 +329,10 @@
                         ^List leaves]
   wcoj/Relation
   (table-scan [this db]
-    (walk-tree this dims nodes (fn [leaf]
-                                 (wcoj/table-scan leaf db))))
+    (walk-tree this dims nodes #(wcoj/table-scan % db)))
 
   (table-filter [this db var-bindings]
-    (walk-tree this dims nodes (fn [leaf]
-                                 (wcoj/table-filter leaf db var-bindings))))
+    (walk-tree this dims nodes #(wcoj/table-filter % db var-bindings)))
 
   (insert [this value]
     (when-not (nat-int? dims)
@@ -361,15 +362,6 @@
     (doseq [leaf leaves]
       (try-close leaf))))
 
-(defn- walk-tree [^HyperQuadTree tree ^long dims nodes leaf-fn]
-  (->> (for [leaf (.leaves tree)
-             :when (some? leaf)]
-         (leaf-fn leaf))
-       (apply concat)))
-
-(defn new-hyper-quad-tree-relation ^crux.wcoj.arrow.HyperQuadTree [relation-name]
-  (->HyperQuadTree -1 -1 nil relation-name (ArrayList.)))
-
 (defn- tuple->z-address ^long [value]
   (.getLong (ByteBuffer/wrap (cz/bit-interleave (map cbk/->byte-key value)))))
 
@@ -377,6 +369,44 @@
   (let [shift (- Long/SIZE (* (inc level) hyper-quads))]
     (assert (nat-int? shift))
     (bit-and (unsigned-bit-shift-right z-address shift) (dec hyper-quads))))
+
+(defn- encode-z-prefix-level ^long [^long z-prefix ^long hyper-quads ^long level ^long h]
+  (let [shift (- Long/SIZE (* (inc level) hyper-quads))]
+    (assert (nat-int? shift))
+    (bit-or z-prefix (bit-shift-left h shift))))
+
+(defn- walk-tree [^HyperQuadTree tree ^long dims ^FixedSizeListVector nodes leaf-fn]
+  (let [leaves ^List (.leaves tree)]
+    (cond
+      (empty? (.leaves tree))
+      nil
+
+      (root-only-tree? nodes)
+      (leaf-fn (.get leaves root-idx))
+
+      :else
+      (let [hyper-quads (dims->hyper-quads dims)
+            node-vector ^IntVector (.getDataVector nodes)]
+        ((fn step [level parent-node-idx z-prefix]
+           (lazy-seq
+            (loop [h 0
+                   acc nil]
+              (if (< h hyper-quads)
+                (let [node-idx (+ parent-node-idx h)]
+                  (recur (inc h)
+                         (if (.isNull node-vector node-idx)
+                           acc
+                           (let [child-idx (.get node-vector node-idx)
+                                 child-z-prefix (encode-z-prefix-level z-prefix hyper-quads level h)]
+                             (concat acc
+                                     (if (leaf-idx? child-idx)
+                                       (leaf-fn (.get leaves (decode-leaf-idx child-idx)))
+                                       (step (inc level) child-idx child-z-prefix)))))))
+                acc))))
+         0 root-idx 0)))))
+
+(defn new-hyper-quad-tree-relation ^crux.wcoj.arrow.HyperQuadTree [relation-name]
+  (->HyperQuadTree -1 -1 nil relation-name (ArrayList.)))
 
 (declare insert-tuple)
 
@@ -426,10 +456,10 @@
 
 (defn- insert-tuple [^HyperQuadTree tree ^long dims ^FixedSizeListVector nodes value]
   (let [leaves ^List (.leaves tree)]
-    (if (zero? (.getValueCount nodes))
+    (if (root-only-tree? nodes)
       (do (when (empty? leaves)
-            (assert (= root-leaf-idx (new-leaf tree))))
-          (insert-into-leaf tree dims nodes nil root-leaf-idx value))
+            (assert (= root-idx (new-leaf tree))))
+          (insert-into-leaf tree dims nodes nil root-idx value))
       (let [z-address (tuple->z-address value)
             hyper-quads (dims->hyper-quads dims)
             node-vector ^IntVector (.getDataVector nodes)]

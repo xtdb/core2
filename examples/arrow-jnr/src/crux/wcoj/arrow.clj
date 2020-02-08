@@ -317,7 +317,11 @@
 
 (declare insert-tuple)
 
+(defn- dims->hyper-quads ^long [^long dims]
+  (bit-shift-left 2 (dec dims)))
+
 (deftype HyperQuadTree [^:volatile-mutable ^long dims
+                        ^:volatile-mutable ^long hyper-quads
                         ^:volatile-mutable ^FixedSizeListVector nodes
                         ^String name
                         ^List leaves]
@@ -337,8 +341,9 @@
   (insert [this value]
     (when-not (nat-int? dims)
       (let [dims (count value)
-            hyper-quads (long (Math/pow 2 dims))]
+            hyper-quads (dims->hyper-quads dims)]
         (set! (.-dims this) dims)
+        (set! (.-hyper-quads this) hyper-quads)
         (set! (.-nodes this) (doto (FixedSizeListVector/empty "" hyper-quads allocator)
                                (.setInitialCapacity 0)
                                (.setValueCount 0)
@@ -362,7 +367,7 @@
       (try-close leaf))))
 
 (defn new-hyper-quad-tree-relation ^crux.wcoj.arrow.HyperQuadTree [relation-name]
-  (->HyperQuadTree -1 nil relation-name (ArrayList.)))
+  (->HyperQuadTree -1 -1 nil relation-name (ArrayList.)))
 
 (defn- tuple->z-address ^long [value]
   (.getLong (ByteBuffer/wrap (cz/bit-interleave (map cbk/->byte-key value)))))
@@ -374,13 +379,16 @@
 
 (declare insert-tuple)
 
-(defn- decode-node-idx [raw-node-idx]
-  (dec (- raw-node-idx)))
+(defn- leaf-idx? [^long idx]
+  (neg? idx))
 
-(defn- encode-node-idx [node-idx]
-  (- (inc node-idx)))
+(defn- decode-leaf-idx ^long [^long raw-idx]
+  (dec (- raw-idx)))
 
-(defn- split-leaf [^HyperQuadTree tree dims ^FixedSizeListVector nodes raw-parent-node-idx leaf-idx]
+(defn- encode-leaf-idx ^long [^long idx]
+  (- (inc idx)))
+
+(defn- split-leaf [^HyperQuadTree tree dims ^FixedSizeListVector nodes parent-node-idx leaf-idx]
   (let [leaves ^List (.leaves tree)
         leaf (.get leaves leaf-idx)]
     (try
@@ -390,23 +398,23 @@
           (.setNull node-vector (+ new-node-idx n)))
         (.setValueCount node-vector (+ new-node-idx (.getListSize nodes)))
         (.setValueCount nodes (inc (.getValueCount nodes)))
-        (when (neg? raw-parent-node-idx)
+        (when (pos? parent-node-idx)
           (.setSafe ^IntVector (.getDataVector nodes)
-                    (int (decode-node-idx raw-parent-node-idx))
-                    (int (encode-node-idx new-node-idx))))
+                    (int parent-node-idx)
+                    (int new-node-idx)))
         (.set leaves leaf-idx nil)
         (doseq [tuple (wcoj/table-scan leaf nil)]
           (insert-tuple tree dims nodes tuple)))
       (finally
         (try-close leaf)))))
 
-(defn- insert-into-leaf [^HyperQuadTree tree dims ^FixedSizeListVector nodes raw-parent-node-idx leaf-idx value]
+(defn- insert-into-leaf [^HyperQuadTree tree dims ^FixedSizeListVector nodes parent-node-idx leaf-idx value]
   (let [leaves ^List (.leaves tree)
         leaf (.get leaves leaf-idx)]
     (if (< (wcoj/cardinality leaf) *leaf-size*)
       (wcoj/insert leaf value)
       (doto tree
-        (split-leaf dims nodes raw-parent-node-idx leaf-idx)
+        (split-leaf dims nodes parent-node-idx leaf-idx)
         (insert-tuple dims nodes value)))))
 
 (defn- insert-tuple [^HyperQuadTree tree ^long dims ^FixedSizeListVector nodes value]
@@ -416,30 +424,24 @@
             (.add leaves root-leaf-idx (*internal-leaf-tuple-relation-factory* (.name tree))))
           (insert-into-leaf tree dims nodes root-parent-node-idx root-leaf-idx value))
       (let [z-address (tuple->z-address value)
-            hyper-quads (long (Math/pow 2 dims))
+            hyper-quads (dims->hyper-quads dims)
             node-vector ^IntVector (.getDataVector nodes)]
         (loop [level 0
-               raw-node-idx -1]
+               parent-node-idx 0]
           (let [h (decode-h-at-level z-address hyper-quads level)
-                parent-node-idx (decode-node-idx raw-node-idx)
                 node-idx (+ parent-node-idx h)]
             (if (.isNull node-vector node-idx)
-              (let [leaf-idx (.indexOf leaves nil)
-                    leaf-idx (if (= -1 leaf-idx)
+              (let [free-leaf-idx (.indexOf leaves nil)
+                    leaf-idx (if (= -1 free-leaf-idx)
                                (.size leaves)
-                               leaf-idx)]
-                (if (= leaf-idx (.size leaves))
+                               free-leaf-idx)]
+                (if (= -1 free-leaf-idx)
                   (.add leaves (*internal-leaf-tuple-relation-factory* (.name tree)))
                   (.set leaves leaf-idx (*internal-leaf-tuple-relation-factory* (.name tree))))
-                (.setSafe node-vector (int node-idx) leaf-idx)
-                (insert-into-leaf tree dims nodes raw-node-idx leaf-idx value))
+                (.setSafe node-vector (int node-idx) (encode-leaf-idx leaf-idx))
+                (insert-into-leaf tree dims nodes node-idx leaf-idx value))
               (let [child-idx (.get node-vector node-idx)]
-                (cond
-                  (nat-int? child-idx)
-                  (insert-into-leaf tree dims nodes raw-node-idx child-idx value)
-
-                  (neg? child-idx)
-                  (recur (inc level) child-idx)
-
-                  :else
-                  (throw (IllegalStateException.)))))))))))
+                (assert (not (zero? child-idx)))
+                (if (leaf-idx? child-idx)
+                  (insert-into-leaf tree dims nodes node-idx (decode-leaf-idx child-idx) value)
+                  (recur (inc level) child-idx))))))))))

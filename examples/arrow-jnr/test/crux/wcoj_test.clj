@@ -2,7 +2,8 @@
   (:require [clojure.string :as str]
             [clojure.test :as t]
             [crux.wcoj :as wcoj]
-            [crux.wcoj.arrow :as wcoj-arrow]))
+            [crux.wcoj.arrow :as wcoj-arrow]
+            [crux.byte-keys :as cbk]))
 
 (declare with-each-tuple-factory)
 (t/use-fixtures :each #'with-each-tuple-factory)
@@ -794,5 +795,7 @@ perm(c, b).
                    #'wcoj-arrow/new-arrow-struct-relation
                    #'wcoj-arrow/new-hyper-quad-tree-relation]]
     (t/testing (:name (meta factory))
-      (binding [wcoj/*tuple-relation-factory* factory]
+      (binding [wcoj/*tuple-relation-factory* factory
+                wcoj-arrow/*leaf-size* 4
+                cbk/*use-var-ints? true]
         (f)))))

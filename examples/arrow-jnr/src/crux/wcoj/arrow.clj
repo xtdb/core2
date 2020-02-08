@@ -262,7 +262,7 @@
 (extend-protocol wcoj/Relation
   StructVector
   (table-scan [this db]
-    (arrow-seq this nil))
+    (arrow-seq this (mapv wcoj/ensure-unique-logic-var (repeat (.size this) cd/blank-var))))
 
   (table-filter [this db var-bindings]
     (arrow-seq this var-bindings))
@@ -309,7 +309,7 @@
   (when (instance? AutoCloseable c)
     (.close ^AutoCloseable c)))
 
-(def ^:dynamic ^{:tag 'long} *leaf-size* (* 1024 1024))
+(def ^:dynamic ^{:tag 'long} *leaf-size* (* 128 1024))
 (def ^:private ^{:tag 'long} root-leaf-idx 0)
 
 (def ^:dynamic *internal-leaf-tuple-relation-factory* new-arrow-struct-relation)
@@ -373,8 +373,8 @@
 
 (defn- decode-h-at-level ^long [^long z-address ^long hyper-quads ^long level]
   (let [shift (- Long/SIZE (* (inc level) hyper-quads))]
-    (assert (pos? shift))
-    (bit-and (unsigned-bit-shift-right z-address shift) (dec (bit-shift-left 1 hyper-quads)))))
+    (assert (nat-int? shift))
+    (bit-and (unsigned-bit-shift-right z-address shift) (dec hyper-quads))))
 
 (declare insert-tuple)
 
@@ -393,14 +393,9 @@
     (try
       (let [new-node-idx (.startNewValue nodes (.getValueCount nodes))
             node-vector ^IntVector (.getDataVector nodes)]
-        (dotimes [n (.getListSize nodes)]
-          (.setNull node-vector (+ new-node-idx n)))
-        (.setValueCount node-vector (+ new-node-idx (.getListSize nodes)))
         (.setValueCount nodes (inc (.getValueCount nodes)))
         (when parent-node-idx
-          (.setSafe ^IntVector (.getDataVector nodes)
-                    (int parent-node-idx)
-                    (int new-node-idx)))
+          (.setSafe node-vector (int parent-node-idx) new-node-idx))
         (.set leaves leaf-idx nil)
         (doseq [tuple (wcoj/table-scan leaf nil)]
           (insert-tuple tree dims nodes tuple)))

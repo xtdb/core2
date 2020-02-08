@@ -124,7 +124,7 @@
                 body)
     (set @vars)))
 
-(defn- ensure-unique-logic-var [var]
+(defn ensure-unique-logic-var [var]
   (if (cd/logic-var? var)
     (with-meta (gensym var) (meta var))
     var))

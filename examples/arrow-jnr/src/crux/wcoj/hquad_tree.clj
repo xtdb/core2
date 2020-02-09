@@ -25,7 +25,7 @@
 
 (def ^:dynamic *leaf-tuple-relation-factory* wcoj/new-sorted-set-relation)
 
-(declare insert-tuple walk-tree)
+(declare insert-tuple insert-into-node walk-tree)
 
 (defn- root-only-tree? [^FixedSizeListVector nodes]
   (zero? (.getValueCount nodes)))
@@ -154,29 +154,34 @@
                                                (cz/propagate-max-h-mask h max-h max-h-mask)))))))))))))
          0 root-idx h-mask 0)))))
 
-(defn- split-leaf [^HyperQuadTree tree ^FixedSizeListVector nodes parent-node-idx ^long leaf-idx]
+(defn- split-leaf [^HyperQuadTree tree ^FixedSizeListVector nodes level parent-node-idx leaf-idx]
   (let [leaves ^List (.leaves tree)
         leaf (.get leaves leaf-idx)]
     (try
       (let [new-node-idx (.startNewValue nodes (.getValueCount nodes))
+            root? (= root-idx new-node-idx)
+            new-level (if root?
+                        level
+                        (inc level))
             node-vector ^IntVector (.getDataVector nodes)]
         (.setValueCount nodes (inc (.getValueCount nodes)))
-        (when parent-node-idx
+        (when-not root?
           (.setSafe node-vector (int parent-node-idx) new-node-idx))
         (.set leaves leaf-idx nil)
         (doseq [tuple (wcoj/table-scan leaf nil)]
-          (insert-tuple tree nodes tuple)))
+          (insert-into-node tree nodes new-level new-node-idx tuple))
+        [new-level new-node-idx])
       (finally
         (wcoj/try-close leaf)))))
 
-(defn- insert-into-leaf [^HyperQuadTree tree ^FixedSizeListVector nodes parent-node-idx leaf-idx value]
+(defn- insert-into-leaf [^HyperQuadTree tree ^FixedSizeListVector nodes level parent-node-idx leaf-idx value]
   (let [leaves ^List (.leaves tree)
         leaf (.get leaves leaf-idx)]
     (if (< (wcoj/cardinality leaf) *leaf-size*)
       (wcoj/insert leaf value)
-      (doto tree
-        (split-leaf nodes parent-node-idx leaf-idx)
-        (insert-tuple nodes value)))))
+      (let [[new-level new-node-idx] (split-leaf tree nodes level parent-node-idx leaf-idx)]
+        (insert-into-node tree nodes new-level new-node-idx value)))
+    tree))
 
 (defn- new-leaf ^long [^HyperQuadTree tree ^String leaf-name]
   (let [leaves ^List (.leaves tree)
@@ -195,26 +200,29 @@
   ([^HyperQuadTree tree ^long dims ^long prefix-z]
    (str (leaf-name tree dims) "_" (Long/toHexString prefix-z))))
 
+(defn- insert-into-node [^HyperQuadTree tree ^FixedSizeListVector nodes level parent-node-idx value]
+  (let [leaves ^List (.leaves tree)
+        z-address (tuple->z-address value)
+        dims (cz/hyper-quads->dims (.getListSize nodes))
+        node-vector ^IntVector (.getDataVector nodes)]
+    (loop [level level
+           parent-node-idx parent-node-idx]
+      (let [h (cz/decode-h-at-level z-address dims level)
+            node-idx (+ parent-node-idx h)]
+        (if (.isNull node-vector node-idx)
+          (let [leaf-idx (new-leaf tree (leaf-name tree dims (cz/prefix-z-at-level z-address dims level)))]
+            (.setSafe node-vector (int node-idx) (encode-leaf-idx leaf-idx))
+            (insert-into-leaf tree nodes level node-idx leaf-idx value))
+          (let [child-idx (.get node-vector node-idx)]
+            (assert (not= root-idx child-idx))
+            (if (leaf-idx? child-idx)
+              (insert-into-leaf tree nodes level node-idx (decode-leaf-idx child-idx) value)
+              (recur (inc level) child-idx))))))))
+
 (defn- insert-tuple [^HyperQuadTree tree ^FixedSizeListVector nodes value]
-  (let [leaves ^List (.leaves tree)]
-    (if (root-only-tree? nodes)
-      (do (when (empty? leaves)
-            (let [new-leaf-idx (new-leaf tree (leaf-name tree (count value)))]
-              (assert (= root-idx new-leaf-idx))))
-          (insert-into-leaf tree nodes nil root-idx value))
-      (let [z-address (tuple->z-address value)
-            dims (cz/hyper-quads->dims (.getListSize nodes))
-            node-vector ^IntVector (.getDataVector nodes)]
-        (loop [level 0
-               parent-node-idx 0]
-          (let [h (cz/decode-h-at-level z-address dims level)
-                node-idx (+ parent-node-idx h)]
-            (if (.isNull node-vector node-idx)
-              (let [leaf-idx (new-leaf tree (leaf-name tree dims (cz/prefix-z-at-level z-address dims level)))]
-                (.setSafe node-vector (int node-idx) (encode-leaf-idx leaf-idx))
-                (insert-into-leaf tree nodes node-idx leaf-idx value))
-              (let [child-idx (.get node-vector node-idx)]
-                (assert (not= root-idx child-idx))
-                (if (leaf-idx? child-idx)
-                  (insert-into-leaf tree nodes node-idx (decode-leaf-idx child-idx) value)
-                  (recur (inc level) child-idx))))))))))
+  (if (root-only-tree? nodes)
+    (do (when (empty? (.leaves tree))
+          (let [new-leaf-idx (new-leaf tree (leaf-name tree (count value)))]
+            (assert (= root-idx new-leaf-idx))))
+        (insert-into-leaf tree nodes 0 nil root-idx value))
+    (insert-into-node tree nodes 0 root-idx value)))

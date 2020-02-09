@@ -2,13 +2,16 @@
   (:require [clojure.edn :as edn])
   (:import [java.util Arrays Date]
            java.time.Instant
-           java.nio.ByteBuffer))
+           java.nio.ByteBuffer
+           java.nio.charset.Charset))
+
+(def ^:private ^Charset utf-8 (Charset/forName "UTF-8"))
 
 (defprotocol ByteKey
   (^bytes ->byte-key [this]))
 
 (defn byte-key->str ^String [^bytes key]
-  (String. key 0 (dec (alength key)) "UTF-8"))
+  (String. key 0 (dec (alength key)) utf-8))
 
 (defn byte-key->boolean ^Boolean [^bytes key]
   (= -1 (aget key 0)))
@@ -38,7 +41,7 @@
   (Date/from (byte-key->instant key)))
 
 (defn byte-key->clojure [^bytes key]
-  (edn/read-string (String. key "UTF-8")))
+  (edn/read-string (String. key utf-8)))
 
 ;; Experimental var-int encoder. Idea is to respect lexiographic sort
 ;; as well as moving interesting bits to the front. First byte is
@@ -87,7 +90,7 @@
   ;; http://stackoverflow.com/a/6907327
   String
   (->byte-key [this]
-    (let [bytes (.getBytes this "UTF-8") ]
+    (let [bytes (.getBytes this utf-8) ]
       (Arrays/copyOf bytes (inc (alength bytes)))))
 
   Integer

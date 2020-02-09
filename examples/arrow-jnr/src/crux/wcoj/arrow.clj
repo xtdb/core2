@@ -14,7 +14,8 @@
            org.apache.arrow.memory.util.ArrowBufPointer
            [java.util Arrays Date]
            [java.util.function Predicate LongPredicate DoublePredicate]
-           java.time.Instant))
+           java.time.Instant
+           java.nio.charset.Charset))
 
 (def ^:private ^BufferAllocator
   allocator (RootAllocator. Long/MAX_VALUE))
@@ -58,13 +59,15 @@
    struct
    (map-indexed vector column-template)))
 
+(def ^:private ^Charset utf-8 (Charset/forName "UTF-8"))
+
 (defprotocol ArrowToClojure
   (arrow->clojure [this]))
 
 (extend-protocol ArrowToClojure
   (class (byte-array 0))
   (arrow->clojure [this]
-    (edn/read-string (String. ^bytes this "UTF-8")))
+    (edn/read-string (String. ^bytes this utf-8)))
 
   Text
   (arrow->clojure [this]
@@ -80,7 +83,7 @@
 (extend-protocol ClojureToArrow
   String
   (clojure->arrow [this]
-    (Text. (.getBytes this "UTF-8")))
+    (Text. (.getBytes this utf-8)))
 
   Boolean
   (clojure->arrow [this]
@@ -101,7 +104,7 @@
 
   Object
   (clojure->arrow [this]
-    (.getBytes (pr-str this) "UTF-8")))
+    (.getBytes (pr-str this) utf-8)))
 
 (defprotocol ArrowVectorSetter
   (set-column-value [this idx v]))

@@ -22,6 +22,7 @@
 
 (def ^:dynamic ^{:tag 'long} *leaf-size* (* 128 1024))
 (def ^:private ^{:tag 'long} root-idx 0)
+(def ^:private ^{:tag 'long} root-level -1)
 
 (def ^:dynamic *leaf-tuple-relation-factory* wcoj/new-sorted-set-relation)
 
@@ -157,9 +158,7 @@
         leaf (.get leaves leaf-idx)
         root? (root-only-tree? nodes)]
     (let [new-node-idx (.startNewValue nodes (.getValueCount nodes))
-          new-level (if root?
-                      level
-                      (inc level))
+          new-level (inc level)
           node-vector ^IntVector (.getDataVector nodes)]
       (.setValueCount nodes (inc (.getValueCount nodes)))
       (when-not root?
@@ -182,10 +181,11 @@
 (defn- new-leaf ^long [^HyperQuadTree tree ^String leaf-name]
   (let [leaves ^List (.leaves tree)
         free-leaf-idx (.indexOf leaves nil)
-        leaf-idx (if (= -1 free-leaf-idx)
+        new-leaf? (= -1 free-leaf-idx)
+        leaf-idx (if new-leaf?
                    (.size leaves)
                    free-leaf-idx)]
-    (if (= -1 free-leaf-idx)
+    (if new-leaf?
       (.add leaves (*leaf-tuple-relation-factory* leaf-name))
       (.set leaves leaf-idx (*leaf-tuple-relation-factory* leaf-name)))
     leaf-idx))
@@ -220,5 +220,5 @@
     (do (when (empty? (.leaves tree))
           (let [new-leaf-idx (new-leaf tree (leaf-name tree (count value)))]
             (assert (= root-idx new-leaf-idx))))
-        (insert-into-leaf tree nodes 0 nil root-idx value))
+        (insert-into-leaf tree nodes root-level nil root-idx value))
     (insert-into-node tree nodes 0 root-idx value)))

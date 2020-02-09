@@ -19,6 +19,27 @@
 (def ^:private ^BufferAllocator
   allocator (RootAllocator. Long/MAX_VALUE))
 
+(def ^:private type->arrow-vector-spec
+  {Integer
+   [(FieldType/nullable (.getType Types$MinorType/INT)) IntVector]
+   Long
+   [(FieldType/nullable (.getType Types$MinorType/BIGINT)) BigIntVector]
+   Float
+   [(FieldType/nullable (.getType Types$MinorType/FLOAT4)) Float4Vector]
+   Double
+   [(FieldType/nullable (.getType Types$MinorType/FLOAT8)) Float8Vector]
+   String
+   [(FieldType/nullable (.getType Types$MinorType/VARCHAR)) VarCharVector]
+   Boolean
+   [(FieldType/nullable (.getType Types$MinorType/BIT)) BitVector]
+   Date
+   [(FieldType/nullable (.getType Types$MinorType/TIMESTAMPNANO)) TimeStampNanoVector]
+   Instant
+   [(FieldType/nullable (.getType Types$MinorType/TIMESTAMPNANO)) TimeStampNanoVector]})
+
+(def ^:private default-vector-spec
+  [(FieldType/nullable (.getType Types$MinorType/VARBINARY)) VarBinaryVector])
+
 (defn- init-struct [^StructVector struct column-template]
   (reduce
    (fn [^StructVector struct [idx column-template]]
@@ -26,29 +47,12 @@
                                                      (:constraints (meta column-template)))]
                              value
                              column-template)
-
-           column-type (.getSimpleName (class column-template))
+           column-type (class column-template)
            [^FieldType field-type ^Class vector-class]
-           (case (symbol column-type)
-             Integer [(FieldType/nullable (.getType Types$MinorType/INT))
-                      IntVector]
-             Long [(FieldType/nullable (.getType Types$MinorType/BIGINT))
-                   BigIntVector]
-             Float [(FieldType/nullable (.getType Types$MinorType/FLOAT4))
-                    Float4Vector]
-             Double [(FieldType/nullable (.getType Types$MinorType/FLOAT8))
-                     Float8Vector]
-             String [(FieldType/nullable (.getType Types$MinorType/VARCHAR))
-                     VarCharVector]
-             Boolean [(FieldType/nullable (.getType Types$MinorType/BIT))
-                      BitVector]
-             (Date Instant) [(FieldType/nullable (.getType Types$MinorType/TIMESTAMPNANO))
-                             TimeStampNanoVector]
-             [(FieldType/nullable (.getType Types$MinorType/VARBINARY))
-              VarBinaryVector])]
+           (get type->arrow-vector-spec column-type default-vector-spec)]
        (doto struct
          (.addOrGet
-          (str idx "_" (str/lower-case column-type))
+          (str idx "_" (str/lower-case (.getSimpleName column-type)))
           field-type
           vector-class))))
    struct

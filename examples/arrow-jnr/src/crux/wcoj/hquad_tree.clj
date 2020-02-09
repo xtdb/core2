@@ -101,9 +101,7 @@
         this))
 
   (delete [this value]
-    (doseq [leaf leaves
-            :when (some? leaf)]
-      (wcoj/delete leaf value))
+    (walk-tree this nodes #(do (wcoj/delete % value) nil) (var-bindings->z-range value))
     this)
 
   (cardinality [this]

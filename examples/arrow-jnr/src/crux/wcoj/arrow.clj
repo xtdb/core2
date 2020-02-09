@@ -54,37 +54,50 @@
    struct
    (map-indexed vector column-template)))
 
-(defn- arrow->clojure [value]
-  (cond
-    (instance? Text value)
-    (str value)
+(defprotocol ArrowToClojure
+  (arrow->clojure [this]))
 
-    (bytes? value)
-    (edn/read-string (String. ^bytes value "UTF-8"))
+(extend-protocol ArrowToClojure
+  (class (byte-array 0))
+  (arrow->clojure [this]
+    (edn/read-string (String. ^bytes this "UTF-8")))
 
-    :else
-    value))
+  Text
+  (arrow->clojure [this]
+    (str this))
 
-(defn- clojure->arrow [value]
-  (cond
-    (string? value)
-    (Text. (.getBytes ^String value "UTF-8"))
+  Object
+  (arrow->clojure [this]
+    this))
 
-    (boolean? value)
-    (if value 1 0)
+(defprotocol ClojureToArrow
+  (clojure->arrow [this]))
 
-    (number? value)
-    value
+(extend-protocol ClojureToArrow
+  String
+  (clojure->arrow [this]
+    (Text. (.getBytes this "UTF-8")))
 
-    (instance? Date value)
-    (clojure->arrow (.toInstant ^Date value))
+  Boolean
+  (clojure->arrow [this]
+    (if this 1 0))
 
-    (instance? Instant value)
-    (+ (* (.getEpochSecond ^Instant value) 1000000000)
-       (.getNano ^Instant value))
+  Number
+  (clojure->arrow [this]
+    this)
 
-    :else
-    (.getBytes (pr-str value) "UTF-8")))
+  Date
+  (clojure->arrow [this]
+    (clojure->arrow (.toInstant this)))
+
+  Instant
+  (clojure->arrow [this]
+    (+ (* (.getEpochSecond this) 1000000000)
+       (.getNano this)))
+
+  Object
+  (clojure->arrow [this]
+    (.getBytes (pr-str this) "UTF-8")))
 
 (defn- insert-clojure-value-into-column [^ValueVector column ^long idx v]
   (if-let [[[_ value]] (and (cd/logic-var? v)
@@ -149,7 +162,7 @@
                :else
                (reify ColumnFilter
                  (test [_ column idx]
-                   (.test ^Predicate constraint-fn (arrow->clojure (.getObject ^ElementAddressableVector column idx))))))
+                   (.test ^Predicate constraint-fn (arrow->clojure (.getObject ^ValueVector column idx))))))
              wildcard-column-filter)
 
            (instance? BitVector unify-column)

@@ -15,7 +15,7 @@
            [java.util Arrays Date]
            [java.util.function Predicate LongPredicate DoublePredicate]
            java.time.Instant
-           java.nio.charset.Charset))
+           java.nio.charset.StandardCharsets))
 
 (def ^:private ^BufferAllocator
   allocator (RootAllocator. Long/MAX_VALUE))
@@ -59,15 +59,13 @@
    struct
    (map-indexed vector column-template)))
 
-(def ^:private ^Charset utf-8 (Charset/forName "UTF-8"))
-
 (defprotocol ArrowToClojure
   (arrow->clojure [this]))
 
 (extend-protocol ArrowToClojure
   (class (byte-array 0))
   (arrow->clojure [this]
-    (edn/read-string (String. ^bytes this utf-8)))
+    (edn/read-string (String. ^bytes this StandardCharsets/UTF_8)))
 
   Text
   (arrow->clojure [this]
@@ -83,7 +81,7 @@
 (extend-protocol ClojureToArrow
   String
   (clojure->arrow [this]
-    (Text. (.getBytes this utf-8)))
+    (Text. (.getBytes this StandardCharsets/UTF_8)))
 
   Boolean
   (clojure->arrow [this]
@@ -104,7 +102,7 @@
 
   Object
   (clojure->arrow [this]
-    (.getBytes (pr-str this) utf-8)))
+    (.getBytes (pr-str this) StandardCharsets/UTF_8)))
 
 (defprotocol ArrowVectorSetter
   (set-column-value [this idx v]))

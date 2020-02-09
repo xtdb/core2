@@ -14,4 +14,5 @@
                  [org.agrona/agrona "1.1.0"]
                  [org.roaringbitmap/RoaringBitmap "0.8.12"]]
   :java-source-paths ["src"]
+  :jvm-opts ["-Xmx2G" "-XX:MaxDirectMemorySize=2G"]
   :global-vars {*warn-on-reflection* true})

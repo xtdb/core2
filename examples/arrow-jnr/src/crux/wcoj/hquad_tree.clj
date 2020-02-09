@@ -158,21 +158,19 @@
   (let [leaves ^List (.leaves tree)
         leaf (.get leaves leaf-idx)
         root? (root-only-tree? nodes)]
-    (try
-      (let [new-node-idx (.startNewValue nodes (.getValueCount nodes))
-            new-level (if root?
-                        level
-                        (inc level))
-            node-vector ^IntVector (.getDataVector nodes)]
-        (.setValueCount nodes (inc (.getValueCount nodes)))
-        (when-not root?
-          (.setSafe node-vector (int parent-node-idx) new-node-idx))
-        (.set leaves leaf-idx nil)
-        (doseq [tuple (wcoj/table-scan leaf nil)]
-          (insert-into-node tree nodes new-level new-node-idx tuple))
-        [new-level new-node-idx])
-      (finally
-        (wcoj/try-close leaf)))))
+    (let [new-node-idx (.startNewValue nodes (.getValueCount nodes))
+          new-level (if root?
+                      level
+                      (inc level))
+          node-vector ^IntVector (.getDataVector nodes)]
+      (.setValueCount nodes (inc (.getValueCount nodes)))
+      (when-not root?
+        (.setSafe node-vector (int parent-node-idx) new-node-idx))
+      (doseq [tuple (wcoj/table-scan leaf nil)]
+        (insert-into-node tree nodes new-level new-node-idx tuple))
+      (.set leaves leaf-idx nil)
+      (wcoj/try-close leaf)
+      [new-level new-node-idx])))
 
 (defn- insert-into-leaf [^HyperQuadTree tree ^FixedSizeListVector nodes level parent-node-idx leaf-idx value]
   (let [leaves ^List (.leaves tree)

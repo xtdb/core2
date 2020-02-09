@@ -47,8 +47,9 @@
   (- (inc idx)))
 
 (def ^:private z-wildcard-range [0 -1])
-(def ^:private z-wildcard-range-bytes [(byte-array Long/BYTES (byte 0))
-                                       (byte-array Long/BYTES (byte -1))])
+(def ^:private z-wildcard-min-bytes (byte-array Long/BYTES (byte 0)))
+(def ^:private z-wildcard-max-bytes (byte-array Long/BYTES (byte -1)))
+(def ^:private z-wildcard-range-bytes [z-wildcard-min-bytes z-wildcard-max-bytes])
 
 (defn- tuple->z-address ^long [value]
   (.getLong (ByteBuffer/wrap (cz/bit-interleave (map cbk/->byte-key value)))))
@@ -56,32 +57,52 @@
 (defn- var-bindings->z-range [var-bindings]
   (let [min+max (for [var-binding var-bindings]
                   (if (cd/logic-var? var-binding)
-                     ;; TODO: actually calculate range
                     (if-let [constraints (:constraints (meta var-binding))]
-                      z-wildcard-range-bytes
+                      (let [[min-z max-z] (reduce
+                                           (fn [[min-z max-z] [op value]]
+                                             [(case op
+                                                (>= >) (if min-z
+                                                         (let [diff (compare value min-z)]
+                                                           (if (pos? diff)
+                                                             value
+                                                             min-z))
+                                                         value)
+                                                = value
+                                                min-z)
+                                              (case op
+                                                (<= <) (if max-z
+                                                         (let [diff (compare value max-z)]
+                                                           (if (pos? diff)
+                                                             max-z
+                                                             value))
+                                                         value)
+                                                = value
+                                                max-z)])
+                                           [nil nil]
+                                           constraints)]
+                        [(or min-z z-wildcard-min-bytes)
+                         (or max-z z-wildcard-max-bytes)])
                       z-wildcard-range-bytes)
                     [var-binding var-binding]))]
     [(tuple->z-address (map first min+max))
      (tuple->z-address (map second min+max))]))
 
 (deftype HyperQuadTree [^:volatile-mutable ^long dims
-                        ^:volatile-mutable ^long hyper-quads
                         ^:volatile-mutable ^FixedSizeListVector nodes
                         ^String name
                         ^List leaves]
   wcoj/Relation
   (table-scan [this db]
-    (walk-tree this hyper-quads nodes #(wcoj/table-scan % db) z-wildcard-range))
+    (walk-tree this dims nodes #(wcoj/table-scan % db) z-wildcard-range))
 
   (table-filter [this db var-bindings]
-    (walk-tree this hyper-quads nodes #(wcoj/table-filter % db var-bindings) (var-bindings->z-range var-bindings)))
+    (walk-tree this dims nodes #(wcoj/table-filter % db var-bindings) (var-bindings->z-range var-bindings)))
 
   (insert [this value]
     (when (neg? dims)
       (let [dims (count value)
             hyper-quads (dims->hyper-quads dims)]
         (set! (.-dims this) dims)
-        (set! (.-hyper-quads this) hyper-quads)
         (set! (.-nodes this) (doto (FixedSizeListVector/empty "" hyper-quads allocator)
                                (.setInitialCapacity 0)
                                (.setValueCount 0)
@@ -105,15 +126,17 @@
       (try-close leaf))))
 
 (defn new-hyper-quad-tree-relation ^crux.wcoj.hquad_tree.HyperQuadTree [relation-name]
-  (->HyperQuadTree -1 -1 nil relation-name (ArrayList.)))
+  (->HyperQuadTree -1 nil relation-name (ArrayList.)))
 
-(defn- decode-h-at-level ^long [^long z-address ^long hyper-quads ^long level]
-  (let [shift (- Long/SIZE (* (inc level) hyper-quads))]
-    (assert (not (neg? shift)))
-    (bit-and (unsigned-bit-shift-right z-address shift) (dec hyper-quads))))
+(defn- decode-h-at-level ^long [^long z-address ^long dims ^long level]
+  (let [shift (- Long/SIZE (* (inc level) dims))]
+    (when (neg? shift)
+      (throw (IllegalArgumentException. (str "Tree to deep, " (inc level) " levels with " dims " dimensions does not fit in " Long/SIZE " bits."))))
+    (bit-and (unsigned-bit-shift-right z-address shift) (dec (dims->hyper-quads dims)))))
 
-(defn- walk-tree [^HyperQuadTree tree hyper-quads ^FixedSizeListVector nodes leaf-fn [^long min-z ^long max-z :as z-range]]
-  (let [leaves ^List (.leaves tree)]
+(defn- walk-tree [^HyperQuadTree tree dims ^FixedSizeListVector nodes leaf-fn [^long min-z ^long max-z :as z-range]]
+  (let [leaves ^List (.leaves tree)
+        h-mask (dec (dims->hyper-quads dims))]
     (cond
       (empty? (.leaves tree))
       nil
@@ -123,25 +146,27 @@
 
       :else
       (let [node-vector ^IntVector (.getDataVector nodes)]
-        ((fn step [^long level ^long parent-node-idx]
+        ((fn step [^long level ^long parent-node-idx ^long min-mask ^long max-mask]
            (lazy-seq
-            ;; TODO: I think these need to become [0, -1] when descending?
-            (let [min-z (decode-h-at-level min-z hyper-quads level)
-                  max-z (decode-h-at-level max-z hyper-quads level)]
-              (loop [h min-z
+            (let [min-h (bit-and (decode-h-at-level min-z dims level) min-mask)
+                  max-h (bit-or (decode-h-at-level max-z dims level) max-mask)]
+              (loop [h min-h
                      acc nil]
                 (if (not= -1 h)
                   (let [node-idx (+ parent-node-idx h)]
-                    (recur (cz/inc-z-in-range min-z max-z h)
+                    (recur (cz/inc-z-in-range min-h max-h h)
                            (if (.isNull node-vector node-idx)
                              acc
                              (let [child-idx (.get node-vector node-idx)]
                                (concat acc
                                        (if (leaf-idx? child-idx)
                                          (leaf-fn (.get leaves (decode-leaf-idx child-idx)))
-                                         (step (inc level) child-idx)))))))
+                                         (step (inc level)
+                                               child-idx
+                                               (bit-and (bit-not (bit-xor h min-h)) min-mask)
+                                               (bit-or (bit-xor h max-h) max-mask))))))))
                   acc)))))
-         0 root-idx)))))
+         0 root-idx h-mask 0)))))
 
 (declare insert-tuple)
 
@@ -188,11 +213,10 @@
               (assert (= root-idx new-leaf-idx))))
           (insert-into-leaf tree dims nodes nil root-idx value))
       (let [z-address (tuple->z-address value)
-            hyper-quads (dims->hyper-quads dims)
             node-vector ^IntVector (.getDataVector nodes)]
         (loop [level 0
                parent-node-idx 0]
-          (let [h (decode-h-at-level z-address hyper-quads level)
+          (let [h (decode-h-at-level z-address dims level)
                 node-idx (+ parent-node-idx h)]
             (if (.isNull node-vector node-idx)
               (let [leaf-idx (new-leaf tree)]

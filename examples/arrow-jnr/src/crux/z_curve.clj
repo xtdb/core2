@@ -82,11 +82,15 @@
 (defn hyper-quads->dims ^long [^long hyper-quads]
   (Long/numberOfTrailingZeros hyper-quads))
 
-(defn decode-h-at-level ^long [^long z-address ^long dims ^long level]
+(defn prefix-z-at-level ^long [^long z-address ^long dims ^long level]
   (let [shift (- Long/SIZE (* (inc level) dims))]
     (when (neg? shift)
       (throw (IllegalArgumentException. (str "Tree to deep, " (inc level) " levels with " dims " dimensions does not fit in " Long/SIZE " bits."))))
-    (bit-and (unsigned-bit-shift-right z-address shift) (dec (dims->hyper-quads dims)))))
+    (unsigned-bit-shift-right z-address shift)))
+
+(defn decode-h-at-level ^long [^long z-address ^long dims ^long level]
+  (bit-and (prefix-z-at-level z-address dims level)
+           (dec (dims->hyper-quads dims))))
 
 (defn propagate-min-h-mask ^long [^long h ^long min ^long min-mask]
   (bit-and (bit-not (bit-xor h min)) min-mask))

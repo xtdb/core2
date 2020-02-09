@@ -180,22 +180,28 @@
         (split-leaf nodes parent-node-idx leaf-idx)
         (insert-tuple nodes value)))))
 
-(defn- new-leaf ^long [^HyperQuadTree tree]
+(defn- new-leaf ^long [^HyperQuadTree tree ^String leaf-name]
   (let [leaves ^List (.leaves tree)
         free-leaf-idx (.indexOf leaves nil)
         leaf-idx (if (= -1 free-leaf-idx)
                    (.size leaves)
                    free-leaf-idx)]
     (if (= -1 free-leaf-idx)
-      (.add leaves (*leaf-tuple-relation-factory* (.name tree)))
-      (.set leaves leaf-idx (*leaf-tuple-relation-factory* (.name tree))))
+      (.add leaves (*leaf-tuple-relation-factory* leaf-name))
+      (.set leaves leaf-idx (*leaf-tuple-relation-factory* leaf-name)))
     leaf-idx))
+
+(defn- leaf-name
+  ([^HyperQuadTree tree ^long dims]
+   (str (.name tree) "_" dims))
+  ([^HyperQuadTree tree ^long dims ^long prefix-z]
+   (str (leaf-name tree dims) "_" (Long/toHexString prefix-z))))
 
 (defn- insert-tuple [^HyperQuadTree tree ^FixedSizeListVector nodes value]
   (let [leaves ^List (.leaves tree)]
     (if (root-only-tree? nodes)
       (do (when (empty? leaves)
-            (let [new-leaf-idx (new-leaf tree)]
+            (let [new-leaf-idx (new-leaf tree (leaf-name tree (count value)))]
               (assert (= root-idx new-leaf-idx))))
           (insert-into-leaf tree nodes nil root-idx value))
       (let [z-address (tuple->z-address value)
@@ -206,7 +212,7 @@
           (let [h (cz/decode-h-at-level z-address dims level)
                 node-idx (+ parent-node-idx h)]
             (if (.isNull node-vector node-idx)
-              (let [leaf-idx (new-leaf tree)]
+              (let [leaf-idx (new-leaf tree (leaf-name tree dims (cz/prefix-z-at-level z-address dims level)))]
                 (.setSafe node-vector (int node-idx) (encode-leaf-idx leaf-idx))
                 (insert-into-leaf tree nodes node-idx leaf-idx value))
               (let [child-idx (.get node-vector node-idx)]

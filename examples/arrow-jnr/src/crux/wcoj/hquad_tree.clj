@@ -23,7 +23,7 @@
 (def ^:dynamic ^{:tag 'long} *leaf-size* (* 128 1024))
 (def ^:private ^{:tag 'long} root-idx 0)
 
-(def ^:dynamic *internal-leaf-tuple-relation-factory* wcoj/new-sorted-set-relation)
+(def ^:dynamic *leaf-tuple-relation-factory* wcoj/new-sorted-set-relation)
 
 (declare insert-tuple walk-tree)
 
@@ -156,7 +156,7 @@
 
 (declare insert-tuple)
 
-(defn- split-leaf [^HyperQuadTree tree ^FixedSizeListVector nodes parent-node-idx leaf-idx]
+(defn- split-leaf [^HyperQuadTree tree ^FixedSizeListVector nodes parent-node-idx ^long leaf-idx]
   (let [leaves ^List (.leaves tree)
         leaf (.get leaves leaf-idx)]
     (try
@@ -187,8 +187,8 @@
                    (.size leaves)
                    free-leaf-idx)]
     (if (= -1 free-leaf-idx)
-      (.add leaves (*internal-leaf-tuple-relation-factory* (.name tree)))
-      (.set leaves leaf-idx (*internal-leaf-tuple-relation-factory* (.name tree))))
+      (.add leaves (*leaf-tuple-relation-factory* (.name tree)))
+      (.set leaves leaf-idx (*leaf-tuple-relation-factory* (.name tree))))
     leaf-idx))
 
 (defn- insert-tuple [^HyperQuadTree tree ^FixedSizeListVector nodes value]

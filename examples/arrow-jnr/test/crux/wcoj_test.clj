@@ -798,6 +798,6 @@ perm(c, b).
     (t/testing (:name (meta factory))
       (binding [wcoj/*tuple-relation-factory* factory
                 wcoj-hqaud/*leaf-size* 4
-                wcoj-hqaud/*internal-leaf-tuple-relation-factory* wcoj-arrow/new-arrow-struct-relation
+                wcoj-hqaud/*leaf-tuple-relation-factory* wcoj-arrow/new-arrow-struct-relation
                 cbk/*use-var-ints? true]
         (f)))))

@@ -143,7 +143,8 @@
                   max-h (bit-or (cz/decode-h-at-level max-z dims level) max-h-mask)]
               (loop [h min-h
                      acc nil]
-                (if (not= -1 h)
+                (if (= -1 h)
+                  acc
                   (let [node-idx (+ parent-node-idx h)]
                     (recur (cz/inc-h-in-range min-h max-h h)
                            (if (.isNull node-vector node-idx)
@@ -155,8 +156,7 @@
                                          (step (inc level)
                                                child-idx
                                                (cz/propagate-min-h-mask h min-h min-h-mask)
-                                               (cz/propagate-max-h-mask h max-h max-h-mask))))))))
-                  acc)))))
+                                               (cz/propagate-max-h-mask h max-h max-h-mask)))))))))))))
          0 root-idx h-mask 0)))))
 
 (declare insert-tuple)

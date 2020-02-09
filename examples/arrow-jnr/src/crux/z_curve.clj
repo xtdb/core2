@@ -76,6 +76,15 @@
     ;; remove invalid bits.
     (bit-or (bit-and next-z max) min)))
 
+(defn dims->hyper-quads ^long [^long dims]
+  (max (bit-shift-left 2 (dec dims)) 1))
+
+(defn decode-h-at-level ^long [^long z-address ^long dims ^long level]
+  (let [shift (- Long/SIZE (* (inc level) dims))]
+    (when (neg? shift)
+      (throw (IllegalArgumentException. (str "Tree to deep, " (inc level) " levels with " dims " dimensions does not fit in " Long/SIZE " bits."))))
+    (bit-and (unsigned-bit-shift-right z-address shift) (dec (dims->hyper-quads dims)))))
+
 ;; Should double check example and algorithm 6.5.2 in Lawder on page 127.
 ;; http://www.dcs.bbk.ac.uk/~jkl/thesis.pdf
 

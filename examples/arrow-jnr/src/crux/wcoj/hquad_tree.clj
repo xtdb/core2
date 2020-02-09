@@ -31,9 +31,6 @@
 
 (declare insert-tuple walk-tree)
 
-(defn- dims->hyper-quads ^long [^long dims]
-  (max (bit-shift-left 2 (dec dims)) 1))
-
 (defn- root-only-tree? [^FixedSizeListVector nodes]
   (zero? (.getValueCount nodes)))
 
@@ -101,7 +98,7 @@
   (insert [this value]
     (when (neg? dims)
       (let [dims (count value)
-            hyper-quads (dims->hyper-quads dims)]
+            hyper-quads (cz/dims->hyper-quads dims)]
         (set! (.-dims this) dims)
         (set! (.-nodes this) (doto (FixedSizeListVector/empty "" hyper-quads allocator)
                                (.setInitialCapacity 0)
@@ -128,15 +125,9 @@
 (defn new-hyper-quad-tree-relation ^crux.wcoj.hquad_tree.HyperQuadTree [relation-name]
   (->HyperQuadTree -1 nil relation-name (ArrayList.)))
 
-(defn- decode-h-at-level ^long [^long z-address ^long dims ^long level]
-  (let [shift (- Long/SIZE (* (inc level) dims))]
-    (when (neg? shift)
-      (throw (IllegalArgumentException. (str "Tree to deep, " (inc level) " levels with " dims " dimensions does not fit in " Long/SIZE " bits."))))
-    (bit-and (unsigned-bit-shift-right z-address shift) (dec (dims->hyper-quads dims)))))
-
 (defn- walk-tree [^HyperQuadTree tree dims ^FixedSizeListVector nodes leaf-fn [^long min-z ^long max-z :as z-range]]
   (let [leaves ^List (.leaves tree)
-        h-mask (dec (dims->hyper-quads dims))]
+        h-mask (dec (cz/dims->hyper-quads dims))]
     (cond
       (empty? (.leaves tree))
       nil
@@ -148,8 +139,8 @@
       (let [node-vector ^IntVector (.getDataVector nodes)]
         ((fn step [^long level ^long parent-node-idx ^long min-mask ^long max-mask]
            (lazy-seq
-            (let [min-h (bit-and (decode-h-at-level min-z dims level) min-mask)
-                  max-h (bit-or (decode-h-at-level max-z dims level) max-mask)]
+            (let [min-h (bit-and (cz/decode-h-at-level min-z dims level) min-mask)
+                  max-h (bit-or (cz/decode-h-at-level max-z dims level) max-mask)]
               (loop [h min-h
                      acc nil]
                 (if (not= -1 h)
@@ -216,7 +207,7 @@
             node-vector ^IntVector (.getDataVector nodes)]
         (loop [level 0
                parent-node-idx 0]
-          (let [h (decode-h-at-level z-address dims level)
+          (let [h (cz/decode-h-at-level z-address dims level)
                 node-idx (+ parent-node-idx h)]
             (if (.isNull node-vector node-idx)
               (let [leaf-idx (new-leaf tree)]

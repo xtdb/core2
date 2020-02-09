@@ -103,37 +103,47 @@
   (clojure->arrow [this]
     (.getBytes (pr-str this) "UTF-8")))
 
+(defprotocol ArrowVectorSetter
+  (set-column-value [this idx v]))
+
+(extend-protocol ArrowVectorSetter
+  IntVector
+  (set-column-value [this ^long idx v]
+    (.setSafe this idx ^int v))
+
+  BigIntVector
+  (set-column-value [this ^long idx v]
+    (.setSafe this idx ^long v))
+
+  Float4Vector
+  (set-column-value [this ^long idx v]
+    (.setSafe this idx ^float v))
+
+  Float8Vector
+  (set-column-value [this ^long idx v]
+    (.setSafe this idx ^double v))
+
+  VarCharVector
+  (set-column-value [this ^long idx v]
+    (.setSafe this idx ^Text v))
+
+  BitVector
+  (set-column-value [this ^long idx v]
+    (.setSafe this idx ^int v))
+
+  TimeStampNanoVector
+  (set-column-value [this ^long idx v]
+    (.setSafe this idx ^long v))
+
+  VarBinaryVector
+  (set-column-value [this ^long idx v]
+    (.setSafe this idx ^bytes v)))
+
 (defn- insert-clojure-value-into-column [^ValueVector column ^long idx v]
-  (if-let [[[_ value]] (and (cd/logic-var? v)
-                            (:constraints (meta v)))]
-    (insert-clojure-value-into-column column idx value)
-    (cond
-      (instance? IntVector column)
-      (.setSafe ^IntVector column idx ^int (clojure->arrow v))
-
-      (instance? BigIntVector column)
-      (.setSafe ^BigIntVector column idx ^long (clojure->arrow v))
-
-      (instance? Float4Vector column)
-      (.setSafe ^Float4Vector column idx ^float (clojure->arrow v))
-
-      (instance? Float8Vector column)
-      (.setSafe ^Float8Vector column idx ^double (clojure->arrow v))
-
-      (instance? VarCharVector column)
-      (.setSafe ^VarCharVector column idx ^Text (clojure->arrow v))
-
-      (instance? BitVector column)
-      (.setSafe ^BitVector column idx ^long (clojure->arrow v))
-
-      (instance? TimeStampNanoVector column)
-      (.setSafe ^TimeStampNanoVector column idx ^long (clojure->arrow v))
-
-      (instance? VarBinaryVector column)
-      (.setSafe ^VarBinaryVector column idx ^bytes (clojure->arrow v))
-
-      :else
-      (throw (IllegalArgumentException.)))))
+  (if-let [[[_ v]] (and (cd/logic-var? v)
+                        (:constraints (meta v)))]
+    (set-column-value column idx (clojure->arrow v))
+    (set-column-value column idx (clojure->arrow v))))
 
 (def ^:dynamic ^{:tag 'long} *vector-size* 128)
 

@@ -156,10 +156,10 @@
 
 (defn- split-leaf [^HyperQuadTree tree ^FixedSizeListVector nodes level parent-node-idx leaf-idx]
   (let [leaves ^List (.leaves tree)
-        leaf (.get leaves leaf-idx)]
+        leaf (.get leaves leaf-idx)
+        root? (root-only-tree? nodes)]
     (try
       (let [new-node-idx (.startNewValue nodes (.getValueCount nodes))
-            root? (= root-idx new-node-idx)
             new-level (if root?
                         level
                         (inc level))

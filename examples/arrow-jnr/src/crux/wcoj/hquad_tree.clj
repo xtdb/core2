@@ -137,15 +137,15 @@
 
       :else
       (let [node-vector ^IntVector (.getDataVector nodes)]
-        ((fn step [^long level ^long parent-node-idx ^long min-mask ^long max-mask]
+        ((fn step [^long level ^long parent-node-idx ^long min-h-mask ^long max-h-mask]
            (lazy-seq
-            (let [min-h (bit-and (cz/decode-h-at-level min-z dims level) min-mask)
-                  max-h (bit-or (cz/decode-h-at-level max-z dims level) max-mask)]
+            (let [min-h (bit-and (cz/decode-h-at-level min-z dims level) min-h-mask)
+                  max-h (bit-or (cz/decode-h-at-level max-z dims level) max-h-mask)]
               (loop [h min-h
                      acc nil]
                 (if (not= -1 h)
                   (let [node-idx (+ parent-node-idx h)]
-                    (recur (cz/inc-z-in-range min-h max-h h)
+                    (recur (cz/inc-h-in-range min-h max-h h)
                            (if (.isNull node-vector node-idx)
                              acc
                              (let [child-idx (.get node-vector node-idx)]
@@ -154,8 +154,8 @@
                                          (leaf-fn (.get leaves (decode-leaf-idx child-idx)))
                                          (step (inc level)
                                                child-idx
-                                               (bit-and (bit-not (bit-xor h min-h)) min-mask)
-                                               (bit-or (bit-xor h max-h) max-mask))))))))
+                                               (cz/propagate-min-h-mask h min-h min-h-mask)
+                                               (cz/propagate-max-h-mask h max-h max-h-mask))))))))
                   acc)))))
          0 root-idx h-mask 0)))))
 

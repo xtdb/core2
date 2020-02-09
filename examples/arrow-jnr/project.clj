@@ -8,11 +8,9 @@
                  [org.clojure/tools.logging "0.5.0"]
                  [org.clojure/spec.alpha "0.2.176"]
                  [instaparse "1.4.10"]
-                 [com.github.jnr/jnr-ffi "2.1.9"]
+                 [com.github.jnr/jnr-ffi "2.1.11"]
                  [ch.qos.logback/logback-classic "1.2.3"]
-                 [org.apache.arrow/arrow-vector "0.15.1"]
-                 [org.agrona/agrona "1.1.0"]
-                 [org.roaringbitmap/RoaringBitmap "0.8.12"]]
+                 [org.apache.arrow/arrow-vector "0.16.0"]]
   :java-source-paths ["src"]
   :jvm-opts ["-Xmx2G" "-XX:MaxDirectMemorySize=2G"]
   :global-vars {*warn-on-reflection* true})

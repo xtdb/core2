@@ -46,7 +46,6 @@
 (def ^:private z-wildcard-range [0 -1])
 (def ^:private z-wildcard-min-bytes (byte-array Long/BYTES (byte 0)))
 (def ^:private z-wildcard-max-bytes (byte-array Long/BYTES (byte -1)))
-(def ^:private z-wildcard-range-bytes [z-wildcard-min-bytes z-wildcard-max-bytes])
 
 (defn- tuple->z-address ^long [value]
   (.getLong (ByteBuffer/wrap (cz/bit-interleave (map cbk/->byte-key value)))))
@@ -79,7 +78,7 @@
                                            constraints)]
                         [(or min-z z-wildcard-min-bytes)
                          (or max-z z-wildcard-max-bytes)])
-                      z-wildcard-range-bytes)
+                      [z-wildcard-min-bytes z-wildcard-max-bytes])
                     [var-binding var-binding]))]
     [(tuple->z-address (map first min+max))
      (tuple->z-address (map second min+max))]))

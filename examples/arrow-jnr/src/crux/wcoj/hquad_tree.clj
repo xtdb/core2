@@ -154,8 +154,6 @@
                                                (cz/propagate-max-h-mask h max-h max-h-mask)))))))))))))
          0 root-idx h-mask 0)))))
 
-(declare insert-tuple)
-
 (defn- split-leaf [^HyperQuadTree tree ^FixedSizeListVector nodes parent-node-idx ^long leaf-idx]
   (let [leaves ^List (.leaves tree)
         leaf (.get leaves leaf-idx)]

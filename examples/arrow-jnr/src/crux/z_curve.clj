@@ -79,6 +79,9 @@
 (defn dims->hyper-quads ^long [^long dims]
   (max (bit-shift-left 2 (dec dims)) 1))
 
+(defn hyper-quads->dims ^long [^long hyper-quads]
+  (Long/numberOfTrailingZeros hyper-quads))
+
 (defn decode-h-at-level ^long [^long z-address ^long dims ^long level]
   (let [shift (- Long/SIZE (* (inc level) dims))]
     (when (neg? shift)

@@ -1,5 +1,6 @@
 (ns crux.wcoj.hquad-tree
-  (:require [crux.z-curve :as cz]
+  (:require [crux.datalog :as cd]
+            [crux.z-curve :as cz]
             [crux.byte-keys :as cbk]
             [crux.wcoj :as wcoj])
   (:import [org.apache.arrow.memory BufferAllocator RootAllocator]
@@ -46,12 +47,25 @@
   (- (inc idx)))
 
 (def ^:private z-wildcard-range [0 -1])
+(def ^:private z-wildcard-range-bytes [(byte-array Long/BYTES (byte 0))
+                                       (byte-array Long/BYTES (byte -1))])
 
 (defn- tuple->z-address ^long [value]
   (.getLong (ByteBuffer/wrap (cz/bit-interleave (map cbk/->byte-key value)))))
 
 (defn- var-bindings->z-range [var-bindings]
-  z-wildcard-range)
+  (let [min+max (for [var-binding var-bindings]
+                  (if (cd/logic-var? var-binding)
+                     ;; TODO: actually calculate range
+                    (if-let [constraints (:constraints (meta var-binding))]
+                      z-wildcard-range-bytes
+                      z-wildcard-range-bytes)
+                    [var-binding var-binding]))]
+    [(tuple->z-address (map first min+max))
+     (tuple->z-address (map second min+max))]
+
+    ;; TODO: return real min/max and prune tree.
+    z-wildcard-range))
 
 (deftype HyperQuadTree [^:volatile-mutable ^long dims
                         ^:volatile-mutable ^long hyper-quads
@@ -106,9 +120,13 @@
     (assert (not (neg? shift)))
     (bit-or z-prefix (bit-shift-left h shift))))
 
-(defn- in-z-range? [z-prefix hyper-quads [min-z max-z]]
-  (and (not (neg? (Long/compareUnsigned z-prefix min-z)))
-       (not (neg? (Long/compareUnsigned max-z z-prefix)))))
+(defn- in-z-range? [^long z-prefix ^long hyper-quads ^long level [min-z max-z]]
+  (let [mask (bit-not (dec (bit-shift-left 1 (- Long/SIZE (* (inc level) hyper-quads)))))
+        z-prefix (bit-and mask z-prefix)
+        min-z (bit-and mask min-z)
+        max-z (bit-and mask max-z)]
+    (and (not (neg? (Long/compareUnsigned z-prefix min-z)))
+         (not (neg? (Long/compareUnsigned max-z z-prefix))))))
 
 (defn- walk-tree [^HyperQuadTree tree hyper-quads ^FixedSizeListVector nodes leaf-fn z-range]
   (let [leaves ^List (.leaves tree)]
@@ -126,13 +144,13 @@
             (loop [h 0
                    acc nil]
               (if (< h hyper-quads)
-                (let [node-idx (+ parent-node-idx h)]
+                (let [node-idx (+ parent-node-idx h)
+                      child-z-prefix (encode-z-prefix-level z-prefix hyper-quads level h)]
                   (recur (inc h)
                          (if (or (.isNull node-vector node-idx)
-                                 (not (in-z-range? z-prefix hyper-quads z-range)))
+                                 (not (in-z-range? child-z-prefix hyper-quads level z-range)))
                            acc
-                           (let [child-idx (.get node-vector node-idx)
-                                 child-z-prefix (encode-z-prefix-level z-prefix hyper-quads level h)]
+                           (let [child-idx (.get node-vector node-idx)]
                              (concat acc
                                      (if (leaf-idx? child-idx)
                                        (leaf-fn (.get leaves (decode-leaf-idx child-idx)))

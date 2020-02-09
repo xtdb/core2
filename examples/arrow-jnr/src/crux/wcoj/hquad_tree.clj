@@ -20,10 +20,6 @@
 (def ^:private ^BufferAllocator
   allocator (RootAllocator. Long/MAX_VALUE))
 
-(defn- try-close [c]
-  (when (instance? AutoCloseable c)
-    (.close ^AutoCloseable c)))
-
 (def ^:dynamic ^{:tag 'long} *leaf-size* (* 128 1024))
 (def ^:private ^{:tag 'long} root-idx 0)
 
@@ -117,9 +113,9 @@
 
   AutoCloseable
   (close [_]
-    (try-close nodes)
+    (wcoj/try-close nodes)
     (doseq [leaf leaves]
-      (try-close leaf))))
+      (wcoj/try-close leaf))))
 
 (defn new-hyper-quad-tree-relation ^crux.wcoj.hquad_tree.HyperQuadTree [relation-name]
   (->HyperQuadTree -1 nil relation-name (ArrayList.)))
@@ -173,7 +169,7 @@
         (doseq [tuple (wcoj/table-scan leaf nil)]
           (insert-tuple tree dims nodes tuple)))
       (finally
-        (try-close leaf)))))
+        (wcoj/try-close leaf)))))
 
 (defn- insert-into-leaf [^HyperQuadTree tree dims ^FixedSizeListVector nodes parent-node-idx leaf-idx value]
   (let [leaves ^List (.leaves tree)

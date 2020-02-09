@@ -8,7 +8,8 @@
             [crux.datalog :as cd])
   (:import [clojure.lang IPersistentCollection IPersistentMap Symbol]
            java.util.Arrays
-           [java.util.function Predicate LongPredicate DoublePredicate]))
+           [java.util.function Predicate LongPredicate DoublePredicate]
+           java.lang.AutoCloseable))
 
 (set! *unchecked-math* :warn-on-boxed)
 (s/check-asserts true)
@@ -26,7 +27,8 @@
   (assertion [this relation-name value])
   (retraction [this relation-name value])
   (ensure-relation [this relation-name relation-factory])
-  (relation-by-name [this relation-name]))
+  (relation-by-name [this relation-name])
+  (relations [this]))
 
 (defprotocol Unification
   (unify [this that]))
@@ -114,6 +116,10 @@
       (unify that this)
       (when (nil? that)
         this))))
+
+(defn try-close [c]
+  (when (instance? AutoCloseable c)
+    (.close ^AutoCloseable c)))
 
 (defn- find-vars [body]
   (let [vars (atom [])]
@@ -525,7 +531,12 @@
 
   (cardinality [this]
     (+ (long (cardinality rules))
-       (long (cardinality tuples)))))
+       (long (cardinality tuples))))
+
+  AutoCloseable
+  (close [this]
+    (try-close rules)
+    (try-close tuples)))
 
 (def ^:dynamic *tuple-relation-factory* new-sorted-set-relation)
 
@@ -556,7 +567,10 @@
       (not (contains? this relation-name)) (assoc relation-name (relation-factory relation-name))))
 
   (relation-by-name [this relation-name]
-    (get this relation-name)))
+    (get this relation-name))
+
+  (relations [this]
+    (vals this)))
 
 (defn query-by-name
   ([db rule-name]
@@ -575,6 +589,11 @@
 (defn assert-all [db relation-name tuples]
   (reduce (fn [db tuple]
             (assertion db relation-name tuple)) db tuples))
+
+(defn close-db [db]
+  (doseq [relation (relations db)]
+    (try-close relation))
+  (try-close db))
 
 (defn tuple->datalog-str [relation-name tuple]
   (str relation-name

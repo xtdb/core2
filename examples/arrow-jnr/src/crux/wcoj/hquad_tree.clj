@@ -45,6 +45,14 @@
 (defn- encode-leaf-idx ^long [^long idx]
   (- (inc idx)))
 
+(def ^:private z-wildcard-range [0 -1])
+
+(defn- tuple->z-address ^long [value]
+  (.getLong (ByteBuffer/wrap (cz/bit-interleave (map cbk/->byte-key value)))))
+
+(defn- var-bindings->z-range [var-bindings]
+  z-wildcard-range)
+
 (deftype HyperQuadTree [^:volatile-mutable ^long dims
                         ^:volatile-mutable ^long hyper-quads
                         ^:volatile-mutable ^FixedSizeListVector nodes
@@ -52,13 +60,13 @@
                         ^List leaves]
   wcoj/Relation
   (table-scan [this db]
-    (walk-tree this dims nodes #(wcoj/table-scan % db)))
+    (walk-tree this hyper-quads nodes #(wcoj/table-scan % db) z-wildcard-range))
 
   (table-filter [this db var-bindings]
-    (walk-tree this dims nodes #(wcoj/table-filter % db var-bindings)))
+    (walk-tree this hyper-quads nodes #(wcoj/table-filter % db var-bindings) (var-bindings->z-range var-bindings)))
 
   (insert [this value]
-    (when-not (nat-int? dims)
+    (when (neg? dims)
       (let [dims (count value)
             hyper-quads (dims->hyper-quads dims)]
         (set! (.-dims this) dims)
@@ -85,20 +93,24 @@
     (doseq [leaf leaves]
       (try-close leaf))))
 
-(defn- tuple->z-address ^long [value]
-  (.getLong (ByteBuffer/wrap (cz/bit-interleave (map cbk/->byte-key value)))))
+(defn new-hyper-quad-tree-relation ^crux.wcoj.hquad_tree.HyperQuadTree [relation-name]
+  (->HyperQuadTree -1 -1 nil relation-name (ArrayList.)))
 
 (defn- decode-h-at-level ^long [^long z-address ^long hyper-quads ^long level]
   (let [shift (- Long/SIZE (* (inc level) hyper-quads))]
-    (assert (nat-int? shift))
+    (assert (not (neg? shift)))
     (bit-and (unsigned-bit-shift-right z-address shift) (dec hyper-quads))))
 
 (defn- encode-z-prefix-level ^long [^long z-prefix ^long hyper-quads ^long level ^long h]
   (let [shift (- Long/SIZE (* (inc level) hyper-quads))]
-    (assert (nat-int? shift))
+    (assert (not (neg? shift)))
     (bit-or z-prefix (bit-shift-left h shift))))
 
-(defn- walk-tree [^HyperQuadTree tree ^long dims ^FixedSizeListVector nodes leaf-fn]
+(defn- in-z-range? [z-prefix hyper-quads [min-z max-z]]
+  (and (not (neg? (Long/compareUnsigned z-prefix min-z)))
+       (not (neg? (Long/compareUnsigned max-z z-prefix)))))
+
+(defn- walk-tree [^HyperQuadTree tree hyper-quads ^FixedSizeListVector nodes leaf-fn z-range]
   (let [leaves ^List (.leaves tree)]
     (cond
       (empty? (.leaves tree))
@@ -108,28 +120,25 @@
       (leaf-fn (.get leaves root-idx))
 
       :else
-      (let [hyper-quads (dims->hyper-quads dims)
-            node-vector ^IntVector (.getDataVector nodes)]
-        ((fn step [^long level ^long parent-node-idx ^long z-prefix]
+      (let [node-vector ^IntVector (.getDataVector nodes)]
+        ((fn step [^long level ^long parent-node-idx ^long z-prefix z-range]
            (lazy-seq
             (loop [h 0
                    acc nil]
               (if (< h hyper-quads)
                 (let [node-idx (+ parent-node-idx h)]
                   (recur (inc h)
-                         (if (.isNull node-vector node-idx)
+                         (if (or (.isNull node-vector node-idx)
+                                 (not (in-z-range? z-prefix hyper-quads z-range)))
                            acc
                            (let [child-idx (.get node-vector node-idx)
                                  child-z-prefix (encode-z-prefix-level z-prefix hyper-quads level h)]
                              (concat acc
                                      (if (leaf-idx? child-idx)
                                        (leaf-fn (.get leaves (decode-leaf-idx child-idx)))
-                                       (step (inc level) child-idx child-z-prefix)))))))
+                                       (step (inc level) child-idx child-z-prefix z-range)))))))
                 acc))))
-         0 root-idx 0)))))
-
-(defn new-hyper-quad-tree-relation ^crux.wcoj.hquad_tree.HyperQuadTree [relation-name]
-  (->HyperQuadTree -1 -1 nil relation-name (ArrayList.)))
+         0 root-idx 0 z-range)))))
 
 (declare insert-tuple)
 

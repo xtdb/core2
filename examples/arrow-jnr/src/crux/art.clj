@@ -205,7 +205,7 @@
 (defn- leaf-matches-prefix-key? [^Leaf leaf ^bytes key-bytes]
   (let [leaf-key ^bytes (.key leaf)
         key-length (min (count leaf-key) (count key-bytes))]
-    (nat-int? (Arrays/compareUnsigned key-bytes 0 key-length leaf-key 0 key-length))))
+    (not (neg? (Arrays/compareUnsigned key-bytes 0 key-length leaf-key 0 key-length)))))
 
 (defn- leaf-insert-helper [^Leaf leaf ^long depth ^bytes key-bytes value]
   (let [leaf-key ^bytes (.key leaf)

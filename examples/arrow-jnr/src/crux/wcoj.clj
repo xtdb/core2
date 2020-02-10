@@ -462,7 +462,7 @@
     (update this :rules disj rule))
 
   (cardinality [this]
-    (count rules)))
+    0))
 
 (defn- new-rule-relation [name]
   (->RuleRelation name #{}))
@@ -530,8 +530,7 @@
       (update this :tuples delete value)))
 
   (cardinality [this]
-    (+ (long (cardinality rules))
-       (long (cardinality tuples))))
+    (cardinality tuples))
 
   AutoCloseable
   (close [this]

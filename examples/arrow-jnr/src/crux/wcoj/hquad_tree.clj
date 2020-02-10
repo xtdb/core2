@@ -12,11 +12,6 @@
            java.lang.AutoCloseable
            java.nio.ByteBuffer))
 
-;; Simple N-dimensional quad tree in Rust:
-;; https://github.com/reem/rust-n-tree/blob/master/src/lib.rs
-;; Python implementation:
-;; https://github.com/karimbahgat/Pyqtree/blob/master/pyqtree.py
-
 (def ^:private ^BufferAllocator
   allocator (RootAllocator. Long/MAX_VALUE))
 

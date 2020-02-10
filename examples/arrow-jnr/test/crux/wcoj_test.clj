@@ -801,8 +801,7 @@ perm(c, b).
                 cbk/*use-var-ints? true]
         (if (= factory #'wcoj-hqaud/new-hyper-quad-tree-relation)
           (doseq [leaf-tuple-factory [#'wcoj-arrow/new-arrow-struct-relation
-                                      ;; TODO: Fails some tests, fix.
-                                      #_#'wcoj/new-sorted-set-relation]]
+                                      #'wcoj/new-sorted-set-relation]]
             (t/testing (:name (meta leaf-tuple-factory))
               (binding [wcoj-hqaud/*leaf-tuple-relation-factory* leaf-tuple-factory]
                 (f))))

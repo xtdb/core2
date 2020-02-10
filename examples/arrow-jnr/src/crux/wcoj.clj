@@ -484,7 +484,7 @@
 
   IPersistentCollection
   (table-scan [this db]
-    (table-filter this db nil))
+    (seq this))
 
   (table-filter [this db var-bindings]
     (let [projection (projection var-bindings)]

@@ -13,7 +13,7 @@
            java.nio.ByteBuffer))
 
 (def ^:private ^BufferAllocator
-  allocator (RootAllocator. Long/MAX_VALUE))
+  default-allocator (RootAllocator. Long/MAX_VALUE))
 
 (def ^:dynamic ^{:tag 'long} *leaf-size* (* 128 1024))
 (def ^:private ^{:tag 'long} root-idx 0)
@@ -77,7 +77,8 @@
 
 (deftype HyperQuadTree [^:volatile-mutable ^FixedSizeListVector nodes
                         ^List leaves
-                        ^String name]
+                        ^String name
+                        ^BufferAllocator allocator]
   wcoj/Relation
   (table-scan [this db]
     (walk-tree this nodes #(wcoj/table-scan % db) z-wildcard-range))
@@ -109,8 +110,11 @@
     (doseq [leaf leaves]
       (wcoj/try-close leaf))))
 
-(defn new-hyper-quad-tree-relation ^crux.wcoj.hquad_tree.HyperQuadTree [relation-name]
-  (->HyperQuadTree nil (ArrayList.) relation-name))
+(defn new-hyper-quad-tree-relation
+  (^crux.wcoj.hquad_tree.HyperQuadTree [relation-name]
+   (new-hyper-quad-tree-relation default-allocator relation-name))
+  (^crux.wcoj.hquad_tree.HyperQuadTree [allocator relation-name]
+   (->HyperQuadTree nil (ArrayList.) relation-name allocator)))
 
 (defn- walk-tree [^HyperQuadTree tree ^FixedSizeListVector nodes leaf-fn [^long min-z ^long max-z :as z-range]]
   (let [leaves ^List (.leaves tree)]

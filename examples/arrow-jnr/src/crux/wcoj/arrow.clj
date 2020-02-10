@@ -18,7 +18,7 @@
            java.nio.charset.StandardCharsets))
 
 (def ^:private ^BufferAllocator
-  allocator (RootAllocator. Long/MAX_VALUE))
+  default-allocator (RootAllocator. Long/MAX_VALUE))
 
 (def ^:private type->arrow-vector-spec
   {Integer
@@ -258,29 +258,32 @@
                             (inc idx)))
                    acc)))))))
 
-(defn- arrow-seq [^StructVector struct var-bindings]
-  (let [struct-batch (VectorSchemaRoot. struct)
-        vector-size (min *vector-size* (.getRowCount struct-batch))
-        selection-vector (doto (BitVector. "" allocator)
-                           (.setValueCount vector-size)
-                           (.setInitialCapacity vector-size))
-        unify-tuple? (wcoj/contains-duplicate-vars? var-bindings)
-        unifier-vector (wcoj/insert
-                        (StructVector/empty nil allocator)
-                        var-bindings)
-        column-filter (unifiers->column-filters unifier-vector var-bindings)
-        projection (wcoj/projection var-bindings)]
-    (if (zero? (count (.getFieldVectors struct-batch)))
-      (repeat vector-size (with-meta [] {::index 0}))
-      (->> (for [start-idx (range 0 (.getRowCount struct-batch) vector-size)
-                 :let [start-idx (long start-idx)
-                       record-batch (if (< (.getRowCount struct-batch) (+ start-idx vector-size))
-                                      (.slice struct-batch start-idx)
-                                      (.slice struct-batch start-idx vector-size))]]
-             (cond->> (selected-indexes record-batch column-filter selection-vector)
-               true (selected-tuples record-batch projection start-idx)
-               unify-tuple? (filter (partial wcoj/unify var-bindings))))
-           (apply concat)))))
+(defn- arrow-seq
+  ([^StructVector struct var-bindings]
+   (arrow-seq (.getAllocator struct) struct var-bindings))
+  ([^BufferAllocator allocator ^StructVector struct var-bindings]
+   (let [struct-batch (VectorSchemaRoot. struct)
+         vector-size (min *vector-size* (.getRowCount struct-batch))
+         selection-vector (doto (BitVector. "" allocator)
+                            (.setValueCount vector-size)
+                            (.setInitialCapacity vector-size))
+         unify-tuple? (wcoj/contains-duplicate-vars? var-bindings)
+         unifier-vector (wcoj/insert
+                         (StructVector/empty nil allocator)
+                         var-bindings)
+         column-filter (unifiers->column-filters unifier-vector var-bindings)
+         projection (wcoj/projection var-bindings)]
+     (if (zero? (count (.getFieldVectors struct-batch)))
+       (repeat vector-size (with-meta [] {::index 0}))
+       (->> (for [start-idx (range 0 (.getRowCount struct-batch) vector-size)
+                  :let [start-idx (long start-idx)
+                        record-batch (if (< (.getRowCount struct-batch) (+ start-idx vector-size))
+                                       (.slice struct-batch start-idx)
+                                       (.slice struct-batch start-idx vector-size))]]
+              (cond->> (selected-indexes record-batch column-filter selection-vector)
+                true (selected-tuples record-batch projection start-idx)
+                unify-tuple? (filter (partial wcoj/unify var-bindings))))
+            (apply concat))))))
 
 (extend-protocol wcoj/Relation
   StructVector
@@ -319,6 +322,8 @@
     (.getValueCount this)))
 
 (defn new-arrow-struct-relation
-  ^org.apache.arrow.vector.complex.StructVector [relation-name]
-  (doto (StructVector/empty (str relation-name) allocator)
-    (.setInitialCapacity 0)))
+  (^org.apache.arrow.vector.complex.StructVector [relation-name]
+   (new-arrow-struct-relation default-allocator relation-name))
+  (^org.apache.arrow.vector.complex.StructVector [^BufferAllocator allocator relation-name]
+   (doto (StructVector/empty (str relation-name) allocator)
+     (.setInitialCapacity 0))))

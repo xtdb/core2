@@ -798,6 +798,12 @@ perm(c, b).
     (t/testing (:name (meta factory))
       (binding [wcoj/*tuple-relation-factory* factory
                 wcoj-hqaud/*leaf-size* 4
-                wcoj-hqaud/*leaf-tuple-relation-factory* wcoj-arrow/new-arrow-struct-relation
                 cbk/*use-var-ints? true]
-        (f)))))
+        (if (= factory #'wcoj-hqaud/new-hyper-quad-tree-relation)
+          (doseq [leaf-tuple-factory [#'wcoj-arrow/new-arrow-struct-relation
+                                      ;; TODO: Fails some tests, fix.
+                                      #_#'wcoj/new-sorted-set-relation]]
+            (t/testing (:name (meta leaf-tuple-factory))
+              (binding [wcoj-hqaud/*leaf-tuple-relation-factory* leaf-tuple-factory]
+                (f))))
+          (f))))))

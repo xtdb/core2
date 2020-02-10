@@ -98,7 +98,11 @@
         this))
 
   (delete [this value]
-    (walk-tree this nodes #(do (wcoj/delete % value) nil) (var-bindings->z-range value))
+    (let [leaves ^List (.leaves this)]
+      (dotimes [n (.size leaves)]
+        (let [leaf (.get leaves n)]
+          (when leaf
+            (.set leaves n (wcoj/delete leaf value))))))
     this)
 
   (cardinality [this]
@@ -172,7 +176,7 @@
   (let [leaves ^List (.leaves tree)
         leaf (.get leaves leaf-idx)]
     (if (< (wcoj/cardinality leaf) *leaf-size*)
-      (wcoj/insert leaf value)
+      (.set leaves leaf-idx (wcoj/insert leaf value))
       (let [[new-level new-node-idx] (split-leaf tree nodes level parent-node-idx leaf-idx)]
         (insert-into-node tree nodes new-level new-node-idx value)))
     tree))

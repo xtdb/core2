@@ -81,8 +81,8 @@
      (tuple->z-address (map second min+max))]))
 
 (deftype HyperQuadTree [^:volatile-mutable ^FixedSizeListVector nodes
-                        ^String name
-                        ^List leaves]
+                        ^List leaves
+                        ^String name]
   wcoj/Relation
   (table-scan [this db]
     (walk-tree this nodes #(wcoj/table-scan % db) z-wildcard-range))
@@ -115,7 +115,7 @@
       (wcoj/try-close leaf))))
 
 (defn new-hyper-quad-tree-relation ^crux.wcoj.hquad_tree.HyperQuadTree [relation-name]
-  (->HyperQuadTree nil relation-name (ArrayList.)))
+  (->HyperQuadTree nil (ArrayList.) relation-name))
 
 (defn- walk-tree [^HyperQuadTree tree ^FixedSizeListVector nodes leaf-fn [^long min-z ^long max-z :as z-range]]
   (let [leaves ^List (.leaves tree)]

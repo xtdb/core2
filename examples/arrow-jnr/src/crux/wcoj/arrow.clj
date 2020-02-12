@@ -12,8 +12,8 @@
            org.apache.arrow.vector.types.pojo.FieldType
            org.apache.arrow.vector.types.Types$MinorType
            org.apache.arrow.vector.util.Text
-           [org.apache.arrow.vector.ipc ArrowStreamReader ReadChannel WriteChannel]
-           org.apache.arrow.vector.ipc.message.MessageSerializer
+           [org.apache.arrow.vector.ipc ArrowFileReader ArrowStreamReader ArrowStreamWriter ReadChannel WriteChannel]
+           [org.apache.arrow.vector.ipc.message IpcOption MessageSerializer]
            org.apache.arrow.memory.util.ArrowBufPointer
            [java.io InputStream OutputStream]
            [java.util Arrays Date]
@@ -309,7 +309,7 @@
                                   (.slice record-batch start-idx)
                                   (.slice record-batch start-idx vector-size))]]
        (MessageSerializer/serialize out-channel (.getRecordBatch (VectorUnloader. record-batch))))
-     (.writeIntLittleEndian out-channel 0)
+     (ArrowStreamWriter/writeEndOfStream out-channel (IpcOption.))
      nil)))
 
 (defn- record-batch-seq

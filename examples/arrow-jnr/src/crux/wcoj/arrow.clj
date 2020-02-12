@@ -1,5 +1,6 @@
 (ns crux.wcoj.arrow
   (:require [crux.datalog :as cd]
+            [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.edn :as edn]
             [crux.wcoj :as wcoj])
@@ -7,20 +8,19 @@
            [org.apache.arrow.vector BaseFixedWidthVector BaseIntVector BaseVariableWidthVector
             BigIntVector BitVector ElementAddressableVector FieldVector Float4Vector Float8Vector
             FloatingPointVector IntVector TimeStampNanoVector ValueVector VarBinaryVector VarCharVector
-            VectorUnloader VectorSchemaRoot]
+            VectorLoader VectorUnloader VectorSchemaRoot]
            org.apache.arrow.vector.complex.StructVector
            org.apache.arrow.vector.types.pojo.FieldType
            org.apache.arrow.vector.types.Types$MinorType
            org.apache.arrow.vector.util.Text
-           [org.apache.arrow.vector.ipc ArrowFileReader ArrowStreamReader ArrowStreamWriter ReadChannel WriteChannel]
-           [org.apache.arrow.vector.ipc.message IpcOption MessageSerializer]
+           [org.apache.arrow.vector.ipc ArrowFileReader ArrowFileWriter]
            org.apache.arrow.memory.util.ArrowBufPointer
-           [java.io InputStream OutputStream]
+           [java.io FileInputStream FileOutputStream InputStream OutputStream]
            [java.util Arrays Date]
            [java.util.function Predicate LongPredicate DoublePredicate]
            java.time.Instant
            java.nio.charset.StandardCharsets
-           java.nio.channels.Channels))
+           [java.nio.channels Channels SeekableByteChannel]))
 
 (def ^:private ^BufferAllocator
   default-allocator (RootAllocator. Long/MAX_VALUE))
@@ -297,30 +297,34 @@
            (apply concat)))))
 
 (defn- write-field-vector
-  ([^FieldVector parent ^OutputStream out]
-   (write-field-vector parent out *vector-size*))
-  ([^FieldVector parent ^OutputStream out ^long vector-size]
-   (let [record-batch (VectorSchemaRoot. parent)
-         out-channel (WriteChannel. (Channels/newChannel out))]
-     (MessageSerializer/serialize out-channel (.getSchema record-batch))
-     (doseq [start-idx (range 0 (.getRowCount record-batch) vector-size)
-             :let [start-idx (long start-idx)
-                   record-batch (if (< (.getRowCount record-batch) (+ start-idx vector-size))
-                                  (.slice record-batch start-idx)
-                                  (.slice record-batch start-idx vector-size))]]
-       (MessageSerializer/serialize out-channel (.getRecordBatch (VectorUnloader. record-batch))))
-     (ArrowStreamWriter/writeEndOfStream out-channel (IpcOption.))
-     nil)))
+  ([^FieldVector parent f]
+   (write-field-vector parent f *vector-size*))
+  ([^FieldVector parent f ^long vector-size]
+   (let [record-batch-from (VectorSchemaRoot. parent)
+         schema (.getSchema record-batch-from)]
+     (with-open [record-batch-to (VectorSchemaRoot/create schema default-allocator)
+                 out (.getChannel (FileOutputStream. (io/file f)))
+                 writer (ArrowFileWriter. record-batch-to nil out)]
+       (let [loader (VectorLoader. record-batch-to)]
+         (doseq [start-idx (range 0 (.getRowCount record-batch-from) vector-size)
+                 :let [start-idx (long start-idx)
+                       record-batch (if (< (.getRowCount record-batch-from) (+ start-idx vector-size))
+                                      (.slice record-batch-from start-idx)
+                                      (.slice record-batch-from start-idx vector-size))]]
+           (.load loader (.getRecordBatch (VectorUnloader. record-batch)))
+           (.writeBatch writer)))))))
 
 (defn- record-batch-seq
-  ([^InputStream in]
+  ([^SeekableByteChannel in]
    (record-batch-seq default-allocator in))
-  ([^BufferAllocator allocator ^InputStream in]
-   (let [arrow-reader (ArrowStreamReader. in allocator)]
-     ((fn step []
-        (lazy-seq
-         (when (.loadNextBatch arrow-reader)
-           (cons (.getVectorSchemaRoot arrow-reader) (step)))))))))
+  ([^BufferAllocator allocator ^SeekableByteChannel in]
+   (let [reader (ArrowFileReader. in allocator)]
+     (->> (repeatedly #(when (.loadNextBatch reader)
+                         (.getVectorSchemaRoot reader)))
+          (take-while some?)))))
+
+(defn- open-file-channel ^java.nio.channels.SeekableByteChannel [f]
+  (.getChannel (FileInputStream. (io/file f))))
 
 (extend-protocol wcoj/Relation
   StructVector

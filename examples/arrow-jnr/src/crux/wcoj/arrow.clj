@@ -319,9 +319,12 @@
    (record-batch-seq default-allocator in))
   ([^BufferAllocator allocator ^SeekableByteChannel in]
    (let [reader (ArrowFileReader. in allocator)]
-     (->> (repeatedly #(when (.loadNextBatch reader)
-                         (.getVectorSchemaRoot reader)))
-          (take-while some?)))))
+     (for [block (.getRecordBlocks reader)
+           :when (.loadRecordBatch reader block)]
+       (.getVectorSchemaRoot reader)))))
+
+(defn- open-file-channel ^java.nio.channels.SeekableByteChannel [f]
+  (.getChannel (FileInputStream. (io/file f))))
 
 (extend-protocol wcoj/Relation
   StructVector

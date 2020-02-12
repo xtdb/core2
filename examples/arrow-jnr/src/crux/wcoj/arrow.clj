@@ -323,9 +323,6 @@
                          (.getVectorSchemaRoot reader)))
           (take-while some?)))))
 
-(defn- open-file-channel ^java.nio.channels.SeekableByteChannel [f]
-  (.getChannel (FileInputStream. (io/file f))))
-
 (extend-protocol wcoj/Relation
   StructVector
   (table-scan [this db]

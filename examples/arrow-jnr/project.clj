@@ -12,5 +12,6 @@
                  [ch.qos.logback/logback-classic "1.2.3"]
                  [org.apache.arrow/arrow-vector "0.16.0"]]
   :java-source-paths ["src"]
-  :jvm-opts ["-Xmx2G" "-XX:MaxDirectMemorySize=2G"]
+  :jvm-opts ["-Xmx2G" "-XX:MaxDirectMemorySize=2G"
+             "-Dio.netty.tryReflectionSetAccessible=true"]
   :global-vars {*warn-on-reflection* true})

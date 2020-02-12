@@ -309,7 +309,8 @@
                                   (.slice record-batch start-idx)
                                   (.slice record-batch start-idx vector-size))]]
        (MessageSerializer/serialize out-channel (.getRecordBatch (VectorUnloader. record-batch))))
-     (.writeIntLittleEndian out-channel 0))))
+     (.writeIntLittleEndian out-channel 0)
+     nil)))
 
 (defn- record-batch-seq
   ([^InputStream in]

@@ -258,8 +258,15 @@
                             (inc idx)))
                    acc)))))))
 
-(defn- arrow-seq [^BufferAllocator allocator ^VectorSchemaRoot record-batch var-bindings]
-  (let [vector-size (min *vector-size* (.getRowCount record-batch))
+(defn- record-batch-allocator
+  ^org.apache.arrow.memory.BufferAllocator [^VectorSchemaRoot record-batch]
+  (if-let [^ValueVector column (first (.getFieldVectors record-batch))]
+    (.getAllocator column)
+    default-allocator))
+
+(defn- arrow-seq [^VectorSchemaRoot record-batch var-bindings]
+  (let [allocator (record-batch-allocator record-batch)
+        vector-size (min *vector-size* (.getRowCount record-batch))
         selection-vector (doto (BitVector. "" allocator)
                            (.setValueCount vector-size)
                            (.setInitialCapacity vector-size))
@@ -280,11 +287,6 @@
                true (selected-tuples record-batch projection start-idx)
                unify-tuple? (filter (partial wcoj/unify var-bindings))))
            (apply concat)))))
-
-(defn- record-batch-allocator [^VectorSchemaRoot record-batch]
-  (if-let [^ValueVector column (first (.getFieldVectors record-batch))]
-    (.getAllocator column)
-    default-allocator))
 
 (extend-protocol wcoj/Relation
   StructVector
@@ -329,10 +331,10 @@
   (table-scan [this db]
     (->> (repeat (count (.getFieldVectors this)) cd/blank-var)
          (mapv wcoj/ensure-unique-logic-var )
-         (arrow-seq (record-batch-allocator this) this)))
+         (arrow-seq this)))
 
   (table-filter [this db var-bindings]
-    (arrow-seq (record-batch-allocator this) this var-bindings))
+    (arrow-seq this var-bindings))
 
   (insert [this value]
     (throw (UnsupportedOperationException.)))

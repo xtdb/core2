@@ -258,40 +258,41 @@
                             (inc idx)))
                    acc)))))))
 
-(defn- arrow-seq
-  ([^StructVector struct var-bindings]
-   (arrow-seq (.getAllocator struct) struct var-bindings))
-  ([^BufferAllocator allocator ^StructVector struct var-bindings]
-   (let [struct-batch (VectorSchemaRoot. struct)
-         vector-size (min *vector-size* (.getRowCount struct-batch))
-         selection-vector (doto (BitVector. "" allocator)
-                            (.setValueCount vector-size)
-                            (.setInitialCapacity vector-size))
-         unify-tuple? (wcoj/contains-duplicate-vars? var-bindings)
-         unifier-vector (wcoj/insert
-                         (StructVector/empty nil allocator)
-                         var-bindings)
-         column-filter (unifiers->column-filters unifier-vector var-bindings)
-         projection (wcoj/projection var-bindings)]
-     (if (zero? (count (.getFieldVectors struct-batch)))
-       (repeat vector-size (with-meta [] {::index 0}))
-       (->> (for [start-idx (range 0 (.getRowCount struct-batch) vector-size)
-                  :let [start-idx (long start-idx)
-                        record-batch (if (< (.getRowCount struct-batch) (+ start-idx vector-size))
-                                       (.slice struct-batch start-idx)
-                                       (.slice struct-batch start-idx vector-size))]]
-              (cond->> (selected-indexes record-batch column-filter selection-vector)
-                true (selected-tuples record-batch projection start-idx)
-                unify-tuple? (filter (partial wcoj/unify var-bindings))))
-            (apply concat))))))
+(defn- arrow-seq [^BufferAllocator allocator ^VectorSchemaRoot record-batch var-bindings]
+  (let [vector-size (min *vector-size* (.getRowCount record-batch))
+        selection-vector (doto (BitVector. "" allocator)
+                           (.setValueCount vector-size)
+                           (.setInitialCapacity vector-size))
+        unify-tuple? (wcoj/contains-duplicate-vars? var-bindings)
+        unifier-vector (wcoj/insert
+                        (StructVector/empty nil allocator)
+                        var-bindings)
+        column-filter (unifiers->column-filters unifier-vector var-bindings)
+        projection (wcoj/projection var-bindings)]
+    (if (zero? (count (.getFieldVectors record-batch)))
+      (repeat vector-size (with-meta [] {::index 0}))
+      (->> (for [start-idx (range 0 (.getRowCount record-batch) vector-size)
+                 :let [start-idx (long start-idx)
+                       record-batch (if (< (.getRowCount record-batch) (+ start-idx vector-size))
+                                      (.slice record-batch start-idx)
+                                      (.slice record-batch start-idx vector-size))]]
+             (cond->> (selected-indexes record-batch column-filter selection-vector)
+               true (selected-tuples record-batch projection start-idx)
+               unify-tuple? (filter (partial wcoj/unify var-bindings))))
+           (apply concat)))))
+
+(defn- record-batch-allocator [^VectorSchemaRoot record-batch]
+  (if-let [^ValueVector column (first (.getFieldVectors record-batch))]
+    (.getAllocator column)
+    default-allocator))
 
 (extend-protocol wcoj/Relation
   StructVector
   (table-scan [this db]
-    (arrow-seq this (mapv wcoj/ensure-unique-logic-var (repeat (.size this) cd/blank-var))))
+    (wcoj/table-scan (VectorSchemaRoot. this) db))
 
   (table-filter [this db var-bindings]
-    (arrow-seq this var-bindings))
+    (wcoj/table-filter (VectorSchemaRoot. this) db var-bindings))
 
   (insert [this value]
     (if (and (zero? (.size this)) (pos? (count value)))
@@ -307,7 +308,7 @@
           (.setValueCount (inc idx))))))
 
   (delete [this value]
-    (doseq [to-delete (arrow-seq this value)
+    (doseq [to-delete (wcoj/table-filter this nil value)
             :let [idx (::index (meta to-delete))]]
       (dotimes [n (.size this)]
         (let [column (.getChildByOrdinal this n)]
@@ -319,7 +320,31 @@
     this)
 
   (cardinality [this]
-    (.getValueCount this)))
+    (.getValueCount this))
+
+  (slice [this idx length]
+    (wcoj/slice (VectorSchemaRoot. this) idx length))
+
+  VectorSchemaRoot
+  (table-scan [this db]
+    (->> (repeat (count (.getFieldVectors this)) cd/blank-var)
+         (mapv wcoj/ensure-unique-logic-var )
+         (arrow-seq (record-batch-allocator this) this)))
+
+  (table-filter [this db var-bindings]
+    (arrow-seq (record-batch-allocator this) this var-bindings))
+
+  (insert [this value]
+    (throw (UnsupportedOperationException.)))
+
+  (delete [this value]
+    (throw (UnsupportedOperationException.)))
+
+  (cardinality [this]
+    (.getRowCount this))
+
+  (slice [this idx length]
+    (.slice this idx length)))
 
 (defn new-arrow-struct-relation
   (^org.apache.arrow.vector.complex.StructVector [relation-name]

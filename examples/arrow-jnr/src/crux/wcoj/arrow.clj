@@ -4,18 +4,23 @@
             [clojure.edn :as edn]
             [crux.wcoj :as wcoj])
   (:import [org.apache.arrow.memory BufferAllocator RootAllocator]
-           [org.apache.arrow.vector BaseFixedWidthVector BaseIntVector BaseVariableWidthVector BigIntVector BitVector
-            ElementAddressableVector Float4Vector Float8Vector FloatingPointVector IntVector TimeStampNanoVector
-            ValueVector VarBinaryVector VarCharVector VectorSchemaRoot]
-           [org.apache.arrow.vector.complex StructVector]
+           [org.apache.arrow.vector BaseFixedWidthVector BaseIntVector BaseVariableWidthVector
+            BigIntVector BitVector ElementAddressableVector FieldVector Float4Vector Float8Vector
+            FloatingPointVector IntVector TimeStampNanoVector ValueVector VarBinaryVector VarCharVector
+            VectorUnloader VectorSchemaRoot]
+           org.apache.arrow.vector.complex.StructVector
            org.apache.arrow.vector.types.pojo.FieldType
            org.apache.arrow.vector.types.Types$MinorType
            org.apache.arrow.vector.util.Text
+           [org.apache.arrow.vector.ipc ArrowStreamReader ReadChannel WriteChannel]
+           org.apache.arrow.vector.ipc.message.MessageSerializer
            org.apache.arrow.memory.util.ArrowBufPointer
+           [java.io InputStream OutputStream]
            [java.util Arrays Date]
            [java.util.function Predicate LongPredicate DoublePredicate]
            java.time.Instant
-           java.nio.charset.StandardCharsets))
+           java.nio.charset.StandardCharsets
+           java.nio.channels.Channels))
 
 (def ^:private ^BufferAllocator
   default-allocator (RootAllocator. Long/MAX_VALUE))
@@ -264,29 +269,57 @@
     (.getAllocator column)
     default-allocator))
 
-(defn- arrow-seq [^VectorSchemaRoot record-batch var-bindings]
-  (let [allocator (record-batch-allocator record-batch)
-        vector-size (min *vector-size* (.getRowCount record-batch))
-        selection-vector (doto (BitVector. "" allocator)
-                           (.setValueCount vector-size)
-                           (.setInitialCapacity vector-size))
-        unify-tuple? (wcoj/contains-duplicate-vars? var-bindings)
-        unifier-vector (wcoj/insert
-                        (StructVector/empty nil allocator)
-                        var-bindings)
-        column-filter (unifiers->column-filters unifier-vector var-bindings)
-        projection (wcoj/projection var-bindings)]
-    (if (zero? (count (.getFieldVectors record-batch)))
-      (repeat vector-size (with-meta [] {::index 0}))
-      (->> (for [start-idx (range 0 (.getRowCount record-batch) vector-size)
+(defn- arrow-seq [[^VectorSchemaRoot record-batch :as record-batches] var-bindings]
+  (when record-batch
+    (let [allocator (record-batch-allocator record-batch)
+          selection-vector (BitVector. "" allocator)
+          unify-tuple? (wcoj/contains-duplicate-vars? var-bindings)
+          unifier-vector (wcoj/insert
+                          (StructVector/empty nil allocator)
+                          var-bindings)
+          column-filter (unifiers->column-filters unifier-vector var-bindings)
+          projection (wcoj/projection var-bindings)]
+      (->> (for [^VectorSchemaRoot record-batch record-batches
+                 :let [vector-size (min *vector-size* (.getRowCount record-batch))
+                       selection-vector (doto selection-vector
+                                          (.setValueCount vector-size)
+                                          (.setInitialCapacity vector-size))]
+                 start-idx (range 0 (.getRowCount record-batch) vector-size)
                  :let [start-idx (long start-idx)
                        record-batch (if (< (.getRowCount record-batch) (+ start-idx vector-size))
                                       (.slice record-batch start-idx)
                                       (.slice record-batch start-idx vector-size))]]
-             (cond->> (selected-indexes record-batch column-filter selection-vector)
-               true (selected-tuples record-batch projection start-idx)
-               unify-tuple? (filter (partial wcoj/unify var-bindings))))
+             (if (zero? (count (.getFieldVectors record-batch)))
+               (repeat vector-size (with-meta [] {::index 0}))
+               (cond->> (selected-indexes record-batch column-filter selection-vector)
+                 true (selected-tuples record-batch projection start-idx)
+                 unify-tuple? (filter (partial wcoj/unify var-bindings)))))
            (apply concat)))))
+
+(defn- write-field-vector
+  ([^FieldVector parent ^OutputStream out]
+   (write-field-vector parent out *vector-size*))
+  ([^FieldVector parent ^OutputStream out ^long vector-size]
+   (let [record-batch (VectorSchemaRoot. parent)
+         out-channel (WriteChannel. (Channels/newChannel out))]
+     (MessageSerializer/serialize out-channel (.getSchema record-batch))
+     (doseq [start-idx (range 0 (.getRowCount record-batch) vector-size)
+             :let [start-idx (long start-idx)
+                   record-batch (if (< (.getRowCount record-batch) (+ start-idx vector-size))
+                                  (.slice record-batch start-idx)
+                                  (.slice record-batch start-idx vector-size))]]
+       (MessageSerializer/serialize out-channel (.getRecordBatch (VectorUnloader. record-batch))))
+     (.writeIntLittleEndian out-channel 0))))
+
+(defn- record-batch-seq
+  ([^InputStream in]
+   (record-batch-seq default-allocator in))
+  ([^BufferAllocator allocator ^InputStream in]
+   (let [arrow-reader (ArrowStreamReader. in allocator)]
+     ((fn step []
+        (lazy-seq
+         (when (.loadNextBatch arrow-reader)
+           (cons (.getVectorSchemaRoot arrow-reader) (step)))))))))
 
 (extend-protocol wcoj/Relation
   StructVector
@@ -330,11 +363,11 @@
   VectorSchemaRoot
   (table-scan [this db]
     (->> (repeat (count (.getFieldVectors this)) cd/blank-var)
-         (mapv wcoj/ensure-unique-logic-var )
-         (arrow-seq this)))
+         (mapv wcoj/ensure-unique-logic-var)
+         (arrow-seq [this])))
 
   (table-filter [this db var-bindings]
-    (arrow-seq this var-bindings))
+    (arrow-seq [this] var-bindings))
 
   (insert [this value]
     (throw (UnsupportedOperationException.)))

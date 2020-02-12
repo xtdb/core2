@@ -14,13 +14,20 @@
            org.apache.arrow.vector.types.Types$MinorType
            org.apache.arrow.vector.util.Text
            [org.apache.arrow.vector.ipc ArrowFileReader ArrowFileWriter]
+           [org.apache.arrow.vector.ipc.message ArrowBlock ArrowRecordBatch MessageSerializer]
+           [org.apache.arrow.flatbuf Message RecordBatch]
+           org.apache.arrow.memory.ReferenceManager
            org.apache.arrow.memory.util.ArrowBufPointer
+           io.netty.buffer.ArrowBuf
+           io.netty.util.internal.PlatformDependent
+           java.lang.AutoCloseable
            [java.io FileInputStream FileOutputStream InputStream OutputStream]
            [java.util Arrays Date]
            [java.util.function Predicate LongPredicate DoublePredicate]
            java.time.Instant
            java.nio.charset.StandardCharsets
-           [java.nio.channels Channels SeekableByteChannel]))
+           java.nio.ByteBuffer
+           [java.nio.channels FileChannel FileChannel$MapMode SeekableByteChannel]))
 
 (def ^:private ^BufferAllocator
   default-allocator (RootAllocator. Long/MAX_VALUE))
@@ -323,8 +330,76 @@
            :when (.loadRecordBatch reader block)]
        (.getVectorSchemaRoot reader)))))
 
-(defn- open-file-channel ^java.nio.channels.SeekableByteChannel [f]
+(defn- open-file-channel ^java.nio.channels.FileChannel [f]
   (.getChannel (FileInputStream. (io/file f))))
+
+(def ^:private mmap-reference-manager
+  (reify ReferenceManager
+    (deriveBuffer [this source-buffer index length]
+      (ArrowBuf. mmap-reference-manager
+                 nil
+                 length
+                 (+ (.memoryAddress source-buffer) index)
+                 (zero? length)))
+
+    (retain [this])
+
+    (retain [this src-buffer allocator]
+      src-buffer)
+
+    (release [this]
+      false)
+
+    (getRefCount [this]
+      1)))
+
+(defn- mmap-record-batch ^org.apache.arrow.vector.ipc.message.ArrowRecordBatch [^ArrowBlock block ^ByteBuffer nio-buffer]
+  (let [prefix-size (if (= (.getInt nio-buffer (.getOffset block)) MessageSerializer/IPC_CONTINUATION_TOKEN)
+                      8
+                      4)
+        ^RecordBatch batch (.header (Message/getRootAsMessage
+                                     (.slice nio-buffer
+                                             (+ (.getOffset block) prefix-size)
+                                             (- (.getMetadataLength block) prefix-size)))
+                                    (RecordBatch.))
+        body-buffer (ArrowBuf. mmap-reference-manager
+                               nil
+                               (.getBodyLength block)
+                               (+ (PlatformDependent/directBufferAddress nio-buffer)
+                                  (.getOffset block)
+                                  (.getMetadataLength block))
+                               (zero? (.getBodyLength block)))]
+    (MessageSerializer/deserializeRecordBatch batch body-buffer)))
+
+(defrecord MmapArrowFile [schema buffer record-batches]
+  AutoCloseable
+  (close [_]
+    (PlatformDependent/freeDirectBuffer buffer)))
+
+(defn- new-mmap-arrow-file
+  ([f]
+   (new-mmap-arrow-file default-allocator f))
+  ([^BufferAllocator allocator f]
+   (with-open [in (open-file-channel f)
+               reader (ArrowFileReader. in allocator)]
+     (let [buffer (.map in FileChannel$MapMode/READ_ONLY 0 (.size in))]
+       (->MmapArrowFile (.getSchema (.getVectorSchemaRoot reader))
+                        buffer
+                        (vec (for [block (.getRecordBlocks reader)]
+                               (mmap-record-batch block buffer))))))))
+
+(defn- record-batch-mmap-seq
+  ([^MmapArrowFile mmap-arrow-file]
+   (record-batch-mmap-seq default-allocator mmap-arrow-file))
+  ([^BufferAllocator allocator ^MmapArrowFile mmap-arrow-file]
+   (let [record-batch (VectorSchemaRoot/create (.schema mmap-arrow-file) allocator)
+         loader (VectorLoader. record-batch)]
+     ((fn step [[arrow-record-batch & arrow-record-batches]]
+        (when arrow-record-batch
+          (lazy-seq
+           (.load loader arrow-record-batch)
+           (cons record-batch (step arrow-record-batches)))))
+      (.record-batches mmap-arrow-file)))))
 
 (extend-protocol wcoj/Relation
   StructVector

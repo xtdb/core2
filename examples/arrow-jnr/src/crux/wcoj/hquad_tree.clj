@@ -156,6 +156,34 @@
                                                (cz/propagate-max-h-mask h max-h max-h-mask)))))))))))))
          0 root-idx h-mask 0)))))
 
+(def ^:dynamic *post-process-children-after-split* nil)
+
+(defn- leaf-children-of-node [^HyperQuadTree tree ^FixedSizeListVector nodes ^long parent-node-idx]
+  (let [leaves ^List (.leaves tree)
+        hyper-quads (.getListSize nodes)
+        node-vector ^IntVector (.getDataVector nodes)]
+    (loop [h 0
+           acc []]
+      (if (= h hyper-quads)
+        acc
+        (recur (inc h)
+               (let [node-idx (+ parent-node-idx h)]
+                 (conj acc (when-not (.isNull node-vector node-idx)
+                             (let [child-idx (.get node-vector node-idx)]
+                               (when (leaf-idx? child-idx)
+                                 (.get leaves (decode-leaf-idx child-idx))))))))))))
+
+(defn- post-process-children-after-split [^HyperQuadTree tree ^FixedSizeListVector nodes ^long new-node-idx]
+  (when *post-process-children-after-split*
+    (let [leaves ^List (.leaves tree)
+          hyper-quads (.getListSize nodes)
+          node-vector ^IntVector (.getDataVector nodes)
+          children (*post-process-children-after-split* (leaf-children-of-node tree nodes new-node-idx))]
+      (dotimes [h hyper-quads]
+        (let [node-idx (+ new-node-idx h)]
+          (when-let [child-leaf (nth children h)]
+            (.set leaves (decode-leaf-idx (.get node-vector node-idx)) child-leaf)))))))
+
 (defn- split-leaf [^HyperQuadTree tree ^FixedSizeListVector nodes level parent-node-idx leaf-idx]
   (let [leaves ^List (.leaves tree)
         leaf (.get leaves leaf-idx)
@@ -168,6 +196,7 @@
         (.setSafe node-vector (int parent-node-idx) new-node-idx))
       (doseq [tuple (wcoj/table-scan leaf nil)]
         (insert-into-node tree nodes new-level new-node-idx tuple))
+      (post-process-children-after-split tree nodes new-node-idx)
       (.set leaves leaf-idx nil)
       (wcoj/try-close leaf)
       [new-level new-node-idx])))

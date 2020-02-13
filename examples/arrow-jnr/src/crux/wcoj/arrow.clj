@@ -303,26 +303,17 @@
                  unify-tuple? (filter (partial wcoj/unify var-bindings)))))
            (apply concat)))))
 
-(defn- write-field-vector
-  ([^FieldVector parent f]
-   (write-field-vector parent f *vector-size*))
-  ([^FieldVector parent f ^long vector-size]
-   (let [record-batch-from (VectorSchemaRoot. parent)
-         schema (.getSchema record-batch-from)]
-     (with-open [record-batch-to (VectorSchemaRoot/create schema default-allocator)
-                 out (.getChannel (FileOutputStream. (io/file f)))
-                 writer (ArrowFileWriter. record-batch-to nil out)]
-       (let [loader (VectorLoader. record-batch-to)]
-         (doseq [start-idx (range 0 (.getRowCount record-batch-from) vector-size)
-                 :let [start-idx (long start-idx)
-                       record-batch (if (< (.getRowCount record-batch-from) (+ start-idx vector-size))
-                                      (.slice record-batch-from start-idx)
-                                      (.slice record-batch-from start-idx vector-size))]]
-           (.load loader (.getRecordBatch (VectorUnloader. record-batch)))
-           (.writeBatch writer)))))))
-
-(defn- open-file-channel ^java.nio.channels.FileChannel [f]
-  (.getChannel (FileInputStream. (io/file f))))
+(defn- write-record-batches ^java.io.File [record-batches f]
+  (let [schema (.getSchema ^VectorSchemaRoot (first record-batches))
+        f (io/file f)]
+    (with-open [record-batch-to (VectorSchemaRoot/create schema default-allocator)
+                out (.getChannel (FileOutputStream. f))
+                writer (ArrowFileWriter. record-batch-to nil out)]
+      (let [loader (VectorLoader. record-batch-to)]
+        (doseq [record-batch record-batches]
+          (.load loader (.getRecordBatch (VectorUnloader. record-batch)))
+          (.writeBatch writer))))
+    f))
 
 (def ^:private mmap-reference-manager
   (reify ReferenceManager
@@ -393,7 +384,7 @@
   (^crux.wcoj.arrow.MmapArrowFile [f]
    (new-mmap-arrow-file default-allocator f))
   (^crux.wcoj.arrow.MmapArrowFile [^BufferAllocator allocator f]
-   (with-open [in (open-file-channel f)
+   (with-open [in (.getChannel (FileInputStream. (io/file f)))
                reader (ArrowFileReader. in allocator)]
      (let [schema (.getSchema (.getVectorSchemaRoot reader))
            buffer (.map in FileChannel$MapMode/READ_ONLY 0 (.size in))

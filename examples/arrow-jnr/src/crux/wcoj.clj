@@ -21,8 +21,7 @@
   (table-filter [this db var-bindings])
   (insert [this value])
   (delete [this value])
-  (cardinality [this])
-  (slice [this idx length]))
+  (cardinality [this]))
 
 (defprotocol Db
   (assertion [this relation-name value])
@@ -463,10 +462,7 @@
     (update this :rules disj rule))
 
   (cardinality [this]
-    0)
-
-  (slice [this idx length]
-    (throw (UnsupportedOperationException.))))
+    0))
 
 (defn- new-rule-relation [name]
   (->RuleRelation name #{}))
@@ -485,8 +481,6 @@
 
   (cardinality [this]
     0)
-
-  (slice [this idx length])
 
   IPersistentCollection
   (table-scan [this db]
@@ -510,10 +504,7 @@
     (disj this tuple))
 
   (cardinality [this]
-    (count this))
-
-  (slice [this idx length]
-    (into (empty this) (drop idx (take length this)))))
+    (count this)))
 
 (defn new-sorted-set-relation [relation-name]
   (with-meta (sorted-set) {:name relation-name}))
@@ -540,9 +531,6 @@
 
   (cardinality [this]
     (cardinality tuples))
-
-  (slice [this idx length]
-    (->CombinedRelation rules (slice tuples idx length)))
 
   AutoCloseable
   (close [this]

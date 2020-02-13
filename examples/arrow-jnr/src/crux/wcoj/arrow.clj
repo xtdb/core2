@@ -437,9 +437,6 @@
   (cardinality [this]
     (.getValueCount this))
 
-  (slice [this idx length]
-    (wcoj/slice (VectorSchemaRoot. this) idx length))
-
   VectorSchemaRoot
   (table-scan [this db]
     (->> (repeat (count (.getFieldVectors this)) cd/blank-var)
@@ -456,10 +453,7 @@
     (throw (UnsupportedOperationException.)))
 
   (cardinality [this]
-    (.getRowCount this))
-
-  (slice [this idx length]
-    (.slice this idx length)))
+    (.getRowCount this)))
 
 (defn new-arrow-struct-relation
   (^org.apache.arrow.vector.complex.StructVector [relation-name]

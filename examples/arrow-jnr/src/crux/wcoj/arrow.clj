@@ -321,15 +321,6 @@
            (.load loader (.getRecordBatch (VectorUnloader. record-batch)))
            (.writeBatch writer)))))))
 
-(defn- record-batch-seq
-  ([^SeekableByteChannel in]
-   (record-batch-seq default-allocator in))
-  ([^BufferAllocator allocator ^SeekableByteChannel in]
-   (let [reader (ArrowFileReader. in allocator)]
-     (for [block (.getRecordBlocks reader)
-           :when (.loadRecordBatch reader block)]
-       (.getVectorSchemaRoot reader)))))
-
 (defn- open-file-channel ^java.nio.channels.FileChannel [f]
   (.getChannel (FileInputStream. (io/file f))))
 
@@ -371,7 +362,7 @@
                                (zero? (.getBodyLength block)))]
     (MessageSerializer/deserializeRecordBatch batch body-buffer)))
 
-(defrecord MmapArrowFile [schema buffer record-batches]
+(defrecord MmapArrowFile [schema buffer record-batches row-count]
   wcoj/Relation
   (table-scan [this db]
     (->> (for [batch record-batches]
@@ -390,9 +381,7 @@
     (throw (UnsupportedOperationException.)))
 
   (cardinality [this]
-    (->> (for [^VectorSchemaRoot batch record-batches]
-           (.getRowCount batch))
-         (reduce +)))
+    row-count)
 
   AutoCloseable
   (close [_]
@@ -407,14 +396,19 @@
    (with-open [in (open-file-channel f)
                reader (ArrowFileReader. in allocator)]
      (let [schema (.getSchema (.getVectorSchemaRoot reader))
-           buffer (.map in FileChannel$MapMode/READ_ONLY 0 (.size in))]
+           buffer (.map in FileChannel$MapMode/READ_ONLY 0 (.size in))
+           record-batches (vec (for [block (.getRecordBlocks reader)
+                                     :let [record-batch (VectorSchemaRoot/create schema allocator)
+                                           loader (VectorLoader. record-batch)]]
+                                 (do (.load loader (mmap-record-batch block buffer))
+                                     record-batch)))
+           row-count (->> (for [^VectorSchemaRoot batch record-batches]
+                            (.getRowCount batch))
+                          (reduce +))]
        (->MmapArrowFile schema
                         buffer
-                        (vec (for [block (.getRecordBlocks reader)
-                                   :let [record-batch (VectorSchemaRoot/create schema allocator)
-                                         loader (VectorLoader. record-batch)]]
-                               (do (.load loader (mmap-record-batch block buffer))
-                                   record-batch))))))))
+                        record-batches
+                        row-count)))))
 
 (extend-protocol wcoj/Relation
   StructVector

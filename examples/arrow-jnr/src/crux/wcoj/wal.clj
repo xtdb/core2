@@ -31,8 +31,8 @@
 
   (truncate [this]
     (-> this
-        (update delete wal)
-        (update wcoj/truncate :relation)))
+        (update :wal delete)
+        (update :relation wcoj/truncate)))
 
   (cardinality [this]
     (wcoj/cardinality relation))
@@ -41,9 +41,11 @@
   (close [this]
     (wcoj/try-close wal)))
 
-(defrecord EDNFileWAL [^File f ^FileOutputStream out sync?]
+(deftype EDNFileWAL [^:volatile-mutable ^FileOutputStream out ^File f sync?]
   WAL
   (write [this record]
+    (when-not out
+      (set! out (FileOutputStream. f true)))
     (.write out (.getBytes (prn-str record) StandardCharsets/UTF_8))
     (when sync?
       (.sync (.getFD out)))
@@ -61,14 +63,15 @@
 
   AutoCloseable
   (close [this]
-    (wcoj/try-close out)))
+    (wcoj/try-close out)
+    (set! out nil)))
 
 (defn new-edn-file-wal
   (^crux.wcoj.wal.EDNFileWAL [f]
    (new-edn-file-wal f false))
   (^crux.wcoj.wal.EDNFileWAL [f sync?]
    (let [f (io/file f)]
-     (->EDNFileWAL f (FileOutputStream. f true) sync?))))
+     (->EDNFileWAL nil f sync?))))
 
 (defn- replay-wal [wal relation]
   (reduce (fn [relation [op value]]

@@ -383,7 +383,7 @@
       (wcoj/try-close batch))
     (PlatformDependent/freeDirectBuffer buffer)))
 
-(defn- new-mmap-arrow-file-relation
+(defn new-mmap-arrow-file-relation
   (^crux.wcoj.arrow.MmapArrowFileRelation [f]
    (new-mmap-arrow-file-relation default-allocator f))
   (^crux.wcoj.arrow.MmapArrowFileRelation [^BufferAllocator allocator f]
@@ -403,6 +403,43 @@
                                 buffer
                                 record-batches
                                 row-count)))))
+
+(defrecord ParentChildRelation [deletion-set parent child]
+  wcoj/Relation
+  (table-scan [this db]
+    (concat (cond->> (wcoj/table-scan parent db)
+              (seq deletion-set) (remove deletion-set))
+            (wcoj/table-scan child db)))
+
+  (table-filter [this db var-bindings]
+    (concat (cond->> (wcoj/table-filter parent db var-bindings)
+              (seq deletion-set) (remove deletion-set))
+            (wcoj/table-filter child db var-bindings)))
+
+  (insert [this value]
+    (-> this
+        (update :child wcoj/insert value)
+        (update :deletion-set disj value)))
+
+  (delete [this value]
+    (cond-> (update this :child wcoj/delete value)
+      (seq (wcoj/table-filter parent nil value)) (update :deletion-set conj value)))
+
+  (truncate [this]
+    (-> this
+        (update :child wcoj/truncate)
+        (update :deletion-set empty)))
+
+  (cardinality [this]
+    (+ (wcoj/cardinality parent) (wcoj/cardinality child)))
+
+  AutoCloseable
+  (close [_]
+    (wcoj/try-close child)
+    (wcoj/try-close parent)))
+
+(defn new-parent-child-relation [parent child]
+  (->ParentChildRelation #{} parent child))
 
 (extend-protocol wcoj/Relation
   StructVector

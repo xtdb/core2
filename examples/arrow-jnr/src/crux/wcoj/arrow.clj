@@ -353,7 +353,7 @@
                                (zero? (.getBodyLength block)))]
     (MessageSerializer/deserializeRecordBatch batch body-buffer)))
 
-(defrecord MmapArrowFile [schema buffer record-batches row-count]
+(defrecord MmapArrowFileRelation [schema buffer record-batches row-count]
   wcoj/Relation
   (table-scan [this db]
     (->> (for [batch record-batches]
@@ -383,10 +383,10 @@
       (wcoj/try-close batch))
     (PlatformDependent/freeDirectBuffer buffer)))
 
-(defn- new-mmap-arrow-file
-  (^crux.wcoj.arrow.MmapArrowFile [f]
-   (new-mmap-arrow-file default-allocator f))
-  (^crux.wcoj.arrow.MmapArrowFile [^BufferAllocator allocator f]
+(defn- new-mmap-arrow-file-relation
+  (^crux.wcoj.arrow.MmapArrowFileRelation [f]
+   (new-mmap-arrow-file-relation default-allocator f))
+  (^crux.wcoj.arrow.MmapArrowFileRelation [^BufferAllocator allocator f]
    (with-open [in (.getChannel (FileInputStream. (io/file f)))
                reader (ArrowFileReader. in allocator)]
      (let [schema (.getSchema (.getVectorSchemaRoot reader))
@@ -399,10 +399,10 @@
            row-count (->> (for [^VectorSchemaRoot batch record-batches]
                             (.getRowCount batch))
                           (reduce +))]
-       (->MmapArrowFile schema
-                        buffer
-                        record-batches
-                        row-count)))))
+       (->MmapArrowFileRelation schema
+                                buffer
+                                record-batches
+                                row-count)))))
 
 (extend-protocol wcoj/Relation
   StructVector

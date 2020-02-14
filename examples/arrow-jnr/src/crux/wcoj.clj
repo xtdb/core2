@@ -11,6 +11,27 @@
            [java.util.function Predicate LongPredicate DoublePredicate]
            java.lang.AutoCloseable))
 
+;; TODO:
+
+;; * Add WALRelation decorator for persistence. Local EDN file for
+;; * now. (Later: Kafka.) Used for the leaves in the HyperQuadTree.
+
+;; * Add ObjectStore to store chunks. Local directory based store for
+;; * now. (Later: S3.) Chunks are downloaded/copied to a temp
+;; * directory.
+
+;; * Add immutable parent / mutable child Relation. Needs a
+;; * deletion-set to filter the parent. The parents are (parts of)
+;; * chunks, the children in-memory relations with WALs.
+
+;; * Ability to reconstruct a persisted relation from combination of
+;; * known chunks/objects (for the tree) and WALs (single relation or
+;; * leaves).
+
+;; * Buffer manager and caching of chunks. Allowing chunks to be
+;; * un-mapped and deleted on cache eviction, and remapped from the
+;; * object store on cache miss.
+
 (set! *unchecked-math* :warn-on-boxed)
 (s/check-asserts true)
 

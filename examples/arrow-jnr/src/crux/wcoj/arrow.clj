@@ -371,6 +371,9 @@
   (delete [this value]
     (throw (UnsupportedOperationException.)))
 
+  (truncate [this]
+    (throw (UnsupportedOperationException.)))
+
   (cardinality [this]
     row-count)
 
@@ -434,6 +437,10 @@
       (.setNull this idx))
     this)
 
+  (truncate [this]
+    (doto this
+      (.clear)))
+
   (cardinality [this]
     (.getValueCount this))
 
@@ -450,6 +457,9 @@
     (throw (UnsupportedOperationException.)))
 
   (delete [this value]
+    (throw (UnsupportedOperationException.)))
+
+  (truncate [this]
     (throw (UnsupportedOperationException.)))
 
   (cardinality [this]

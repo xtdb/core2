@@ -108,6 +108,9 @@
   (cardinality [this]
     (reduce + (map wcoj/cardinality leaves)))
 
+  (truncate [this]
+    (throw (UnsupportedOperationException.)))
+
   AutoCloseable
   (close [_]
     (wcoj/try-close nodes)

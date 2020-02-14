@@ -42,6 +42,7 @@
   (table-filter [this db var-bindings])
   (insert [this value])
   (delete [this value])
+  (truncate [this])
   (cardinality [this]))
 
 (defprotocol Db
@@ -482,6 +483,9 @@
   (delete [this rule]
     (update this :rules disj rule))
 
+  (truncate [this]
+    (update this :rules empty))
+
   (cardinality [this]
     0))
 
@@ -498,6 +502,9 @@
     (throw (UnsupportedOperationException.)))
 
   (delete [this tuple]
+    (throw (UnsupportedOperationException.)))
+
+  (truncate [this]
     (throw (UnsupportedOperationException.)))
 
   (cardinality [this]
@@ -525,7 +532,10 @@
     (disj this tuple))
 
   (cardinality [this]
-    (count this)))
+    (count this))
+
+  (truncate [this]
+    (empty this)))
 
 (defn new-sorted-set-relation [relation-name]
   (with-meta (sorted-set) {:name relation-name}))
@@ -549,6 +559,11 @@
     (if (s/valid? :crux.datalog/rule value)
       (update this :rules delete value)
       (update this :tuples delete value)))
+
+  (truncate [this]
+    (-> this
+        (update :rules truncate)
+        (update :tuples truncate)))
 
   (cardinality [this]
     (cardinality tuples))

@@ -21,12 +21,12 @@
 
   (insert [this value]
     (-> this
-        (update :wal write [::insert value])
+        (update :wal write [:crux.wcoj/insert value])
         (update :relation wcoj/insert value)))
 
   (delete [this value]
     (-> this
-        (update :wal write [::delete value])
+        (update :wal write [:crux.wcoj/delete value])
         (update :relation wcoj/delete value)))
 
   (truncate [this]
@@ -76,8 +76,8 @@
 (defn- replay-wal [wal relation]
   (reduce (fn [relation [op value]]
             (case op
-              ::insert (wcoj/insert relation value)
-              ::delete (wcoj/delete relation value)))
+              :crux.wcoj/insert (wcoj/insert relation value)
+              :crux.wcoj/delete (wcoj/delete relation value)))
           relation
           (read-all wal)))
 

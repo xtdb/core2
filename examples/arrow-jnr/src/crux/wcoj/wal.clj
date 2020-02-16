@@ -12,38 +12,41 @@
   (read-records [this offset])
   (delete [this]))
 
-(defrecord WALRelationAndNextOffset [^SoftReference relation ^long next-offset])
+(defrecord WALRecord [record next-offset])
+
+(defrecord WALRelationAndNextOffset [relation ^long next-offset])
 
 (defn- new-wal-relation-and-next-offset ^crux.wcoj.wal.WALRelationAndNextOffset [relation next-offset]
-  (->WALRelationAndNextOffset (SoftReference. relation) next-offset))
+  (->WALRelationAndNextOffset relation next-offset))
 
 (defn- replay-wal ^crux.wcoj.wal.WALRelationAndNextOffset [wal ^WALRelationAndNextOffset relation-and-next-offset]
-  (let [relation (.get ^Reference (.relation relation-and-next-offset))
-        next-offset (if relation
-                      (.next-offset relation-and-next-offset)
-                      0)
-        [relation next-offset] (reduce (fn [[relation] {:keys [record next-offset]}]
-                                         (let [[op value] record]
-                                           [(case op
-                                              :insert (wcoj/insert relation value)
-                                              :delete (wcoj/delete relation value))
-                                            next-offset]))
-                                       [(or relation (wcoj/*tuple-relation-factory* ""))
-                                        next-offset]
-                                       (read-records wal next-offset))]
-    (new-wal-relation-and-next-offset relation next-offset)))
+  (let [relation-and-next-offset (or relation-and-next-offset
+                                     (new-wal-relation-and-next-offset (wcoj/*tuple-relation-factory* "") 0))]
+    (reduce (fn [relation-and-next-offset ^WALRecord wal-record]
+              (let [[op value] (.record wal-record)]
+                (-> relation-and-next-offset
+                    (update :relation (case op
+                                        :insert wcoj/insert
+                                        :delete wcoj/delete) value)
+                    (assoc :next-offset (.next-offset wal-record)))))
+            relation-and-next-offset
+            (read-records wal (.next-offset relation-and-next-offset)))))
 
-(deftype WALRelation [^:volatile-mutable ^WALRelationAndNextOffset relation-and-next-offset wal]
+(deftype WALRelation [^:volatile-mutable ^Reference relation-and-next-offset wal]
   wcoj/Relation
   (table-scan [this db]
-    (let [new-relation-and-next-offset (replay-wal wal relation-and-next-offset)]
-      (set! (.-relation-and-next-offset this) new-relation-and-next-offset)
-      (wcoj/table-scan (.get ^Reference (.relation new-relation-and-next-offset)) db)))
+    (let [relation-and-next-offset (.get relation-and-next-offset)
+          new-relation-and-next-offset (replay-wal wal relation-and-next-offset)]
+      (when-not (identical? new-wal-relation-and-next-offset relation-and-next-offset)
+        (set! (.-relation-and-next-offset this) (SoftReference. new-relation-and-next-offset)))
+      (wcoj/table-scan (.relation new-relation-and-next-offset) db)))
 
   (table-filter [this db var-bindings]
-    (let [new-relation-and-next-offset (replay-wal wal relation-and-next-offset)]
-      (set! (.-relation-and-next-offset this) new-relation-and-next-offset)
-      (wcoj/table-filter (.get ^Reference (.relation new-relation-and-next-offset)) db var-bindings)))
+    (let [relation-and-next-offset (.get relation-and-next-offset)
+          new-relation-and-next-offset (replay-wal wal relation-and-next-offset)]
+      (when-not (identical? new-wal-relation-and-next-offset relation-and-next-offset)
+        (set! (.-relation-and-next-offset this) (SoftReference. new-relation-and-next-offset)))
+      (wcoj/table-filter (.relation new-relation-and-next-offset) db var-bindings)))
 
   (insert [this value]
     (write-record wal [:insert value])
@@ -54,15 +57,16 @@
     this)
 
   (truncate [this]
-    (set! (.-relation-and-next-offset this)
-          (new-wal-relation-and-next-offset (some-> (.get ^Reference (.relation relation-and-next-offset)) (wcoj/truncate)) 0))
+    (set! (.-relation-and-next-offset this) (SoftReference. nil))
     (delete wal)
     this)
 
   (cardinality [this]
-    (let [new-relation-and-next-offset (replay-wal wal relation-and-next-offset)]
-      (set! (.-relation-and-next-offset this) new-relation-and-next-offset)
-      (wcoj/cardinality (.get ^Reference (.relation new-relation-and-next-offset)))))
+    (let [relation-and-next-offset (.get relation-and-next-offset)
+          new-relation-and-next-offset (replay-wal wal relation-and-next-offset)]
+      (when-not (identical? new-wal-relation-and-next-offset relation-and-next-offset)
+        (set! (.-relation-and-next-offset this) (SoftReference. new-relation-and-next-offset)))
+      (wcoj/cardinality (.relation new-relation-and-next-offset))))
 
   AutoCloseable
   (close [this]
@@ -76,16 +80,14 @@
       (set! (.-write-raf this) (doto (RandomAccessFile. f (if sync? "rwd" "rw"))
                                  (.seek (.length f)))))
     (.write write-raf (.getBytes (prn-str record) StandardCharsets/UTF_8))
-    {:record record
-     :next-offset (.getFilePointer write-raf)})
+    (->WALRecord record (.getFilePointer write-raf)))
 
   (read-records [this offset]
     (when (and (.exists f) (> (.length f) offset))
       (with-open [read-raf (doto (RandomAccessFile. f "r")
                              (.seek offset))]
         (->> (repeatedly #(when-let [l (.readLine read-raf)]
-                            {:record (read-string l)
-                             :next-offset (.getFilePointer read-raf)}))
+                            (->WALRecord (read-string l) (.getFilePointer read-raf))))
              (take-while some?)
              (vec)))))
 
@@ -110,4 +112,4 @@
   (let [relation (if (string? relation-or-name)
                    (wcoj/*tuple-relation-factory* relation-or-name)
                    relation-or-name)]
-    (->WALRelation (new-wal-relation-and-next-offset relation 0) wal)))
+    (->WALRelation (SoftReference. nil) wal)))

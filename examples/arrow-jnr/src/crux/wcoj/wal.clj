@@ -18,8 +18,10 @@
   (->WALRelationAndNextOffset (SoftReference. relation) next-offset))
 
 (defn- replay-wal ^crux.wcoj.wal.WALRelationAndNextOffset [wal ^WALRelationAndNextOffset relation-and-next-offset]
-  (let [next-offset (.next-offset relation-and-next-offset)
-        relation (.get ^Reference (.relation relation-and-next-offset))
+  (let [relation (.get ^Reference (.relation relation-and-next-offset))
+        next-offset (if relation
+                      (.next-offset relation-and-next-offset)
+                      0)
         [relation next-offset] (reduce (fn [[relation] {:keys [record next-offset]}]
                                          (let [[op value] record]
                                            [(case op
@@ -28,9 +30,7 @@
                                             next-offset]))
                                        [(or relation (wcoj/*tuple-relation-factory* ""))
                                         next-offset]
-                                       (read-records wal (if relation
-                                                           next-offset
-                                                           0)))]
+                                       (read-records wal next-offset))]
     (new-wal-relation-and-next-offset relation next-offset)))
 
 (deftype WALRelation [^:volatile-mutable ^WALRelationAndNextOffset relation-and-next-offset wal]

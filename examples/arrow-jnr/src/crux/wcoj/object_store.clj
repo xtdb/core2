@@ -78,10 +78,12 @@
 
 (defonce ^:private ^Cleaner cleaner (Cleaner/create))
 
-(declare evict-object)
+(declare evict-object freeze-lru-cache-entries)
 
-(deftype CachedObjectStore [^Map cold-map ^LinkedHashMap lru-cache
-                            ^LocalDirectoryObjectStore object-store-cache object-store
+(deftype CachedObjectStore [^Map cold-map
+                            ^LinkedHashMap lru-cache
+                            ^LocalDirectoryObjectStore object-store-cache
+                            object-store
                             ^long size-limit]
   ObjectStore
   (get-object [this k]
@@ -89,18 +91,8 @@
         (when-let [v-url (or (some-> ^WeakReference (.get cold-map k) (.get))
                              (when-let [source-v-url (get-object object-store k)]
                                (let [v-url (with-open [in (io/input-stream source-v-url)]
-                                             (put-object object-store-cache k in))
-                                     dir-size (dir-size (.dir object-store-cache))
-                                     load-factor 0.75]
-                                 (when (> dir-size size-limit)
-                                   (loop [dir-size dir-size
-                                          vs (.iterator (.values lru-cache))]
-                                     (when (and (> dir-size (* load-factor size-limit))
-                                                (.hasNext vs))
-                                       (let [expired-v (.next vs)]
-                                         (recur (- dir-size (.length (io/file expired-v)))
-                                                (doto vs
-                                                  (.remove)))))))
+                                             (put-object object-store-cache k in))]
+                                 (freeze-lru-cache-entries this)
                                  (.register cleaner v-url #(evict-object this k))
                                  (.put cold-map k (WeakReference. v-url))
                                  v-url)))]
@@ -121,6 +113,23 @@
   AutoCloseable
   (close [this]
     (delete-dir (.dir object-store-cache))))
+
+(def ^:private ^{:tag 'long} freeze-load-factor 0.75)
+
+(defn- freeze-lru-cache-entries [^CachedObjectStore cached-object-store]
+  (let [object-store-cache ^LocalDirectoryObjectStore (.object-store-cache cached-object-store)
+        dir-size (dir-size (.dir object-store-cache))
+        size-limit (.size-limit cached-object-store)
+        target-size (* freeze-load-factor size-limit)]
+    (when (> dir-size size-limit)
+      (loop [dir-size dir-size
+             vs (.iterator (.values ^Map (.lru-cache cached-object-store)))]
+        (when (and (> dir-size target-size)
+                   (.hasNext vs))
+          (let [expired-v (.next vs)]
+            (recur (- dir-size (.length (io/file expired-v)))
+                   (doto vs
+                     (.remove)))))))))
 
 (defn- evict-object [^CachedObjectStore cached-object-store k]
   (delete-object (.object-store-cache cached-object-store) k)

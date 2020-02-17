@@ -23,9 +23,10 @@
                  (->> (io/copy v)))))
 
   (list-objects [this]
-    (for [^File f (file-seq dir)
-          :when (.isFile f)]
-      (io/as-url f)))
+    (let [dir-path (.toPath dir)]
+      (for [^File f (file-seq dir)
+            :when (.isFile f)]
+        (str (.relativize dir-path (.toPath f))))))
 
   (delete-object [this k]
     (let [f (io/file dir k)]

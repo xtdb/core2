@@ -124,8 +124,8 @@
 
 (defn- evict-object [^CachedObjectStore cached-object-store k]
   (delete-object (.object-store-cache cached-object-store) k)
-  (.remove ^Map (.cold-map cached-object-store) k)
-  (.remove ^Map (.lru-cache cached-object-store) k))
+  (.remove ^Map (.lru-cache cached-object-store) k)
+  (.remove ^Map (.cold-map cached-object-store) k))
 
 (defn new-cached-object-store
   (^crux.wcoj.object_store.CachedObjectStore [object-store size-limit]

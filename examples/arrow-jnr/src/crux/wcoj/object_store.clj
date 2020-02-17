@@ -6,6 +6,8 @@
            java.nio.file.attribute.FileAttribute
            java.lang.AutoCloseable))
 
+(set! *unchecked-math* :warn-on-boxed)
+
 (defprotocol ObjectStore
   (get-object [this k])
   (put-object [this k v])
@@ -58,6 +60,15 @@
   (let [dir (io/file dir)]
     (when (.exists dir)
       (Files/walkFileTree (.toPath dir) file-deletion-visitor))))
+
+(defn- dir-size ^long [dir]
+  (loop [[^File f & fs] (.listFiles (io/file dir))
+         size 0]
+    (if f
+      (recur fs (+ size (if (.isDirectory f)
+                          (dir-size f)
+                          (.length f))))
+      size)))
 
 (defn- create-tmpdir ^java.io.File [dir-name]
   (.toFile (Files/createTempDirectory dir-name (make-array FileAttribute 0))))

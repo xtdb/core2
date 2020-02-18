@@ -414,6 +414,29 @@
       (wcoj/try-close batch))
     (PlatformDependent/freeDirectBuffer buffer)))
 
+(defrecord MmapArrowBlockRelation [^MmapArrowFileRelation arrow-file-relation ^long block-idx]
+  wcoj/Relation
+  (table-scan [this db]
+    (wcoj/table-scan (nth (.record-batches arrow-file-relation) block-idx) db))
+
+  (table-filter [this db var-bindings]
+    (wcoj/table-filter (nth (.record-batches arrow-file-relation) block-idx) db var-bindings))
+
+  (insert [this value]
+    (throw (UnsupportedOperationException.)))
+
+  (delete [this value]
+    (throw (UnsupportedOperationException.)))
+
+  (truncate [this]
+    (throw (UnsupportedOperationException.)))
+
+  (cardinality [this]
+    (wcoj/cardinality (nth (.record-batches arrow-file-relation) block-idx)))
+
+  AutoCloseable
+  (close [_]))
+
 (defn- read-schema+record-blocks [^BufferAllocator allocator ^ByteBuffer buffer]
   (with-open [in (new-byte-buffer-seekable-byte-channel buffer)
               reader (ArrowFileReader. in allocator)]

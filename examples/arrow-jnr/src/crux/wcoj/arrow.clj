@@ -23,7 +23,6 @@
            io.netty.util.internal.PlatformDependent
            clojure.lang.Indexed
            java.lang.AutoCloseable
-           java.lang.ref.WeakReference
            [java.io FileInputStream FileOutputStream InputStream OutputStream]
            [java.util Arrays Date]
            [java.util.function Predicate LongPredicate DoublePredicate]
@@ -362,15 +361,15 @@
 
 (declare mmap-arrow-record-batches)
 
-(deftype MmapArrowFile [mmap-pool k ^:volatile-mutable ^WeakReference buffer ^:volatile-mutable record-batches]
+(deftype MmapArrowFile [mmap-pool k ^:volatile-mutable buffer ^:volatile-mutable record-batches]
   Indexed
   (nth [this n]
-    (if-let [current-buffer (.get buffer)]
-      (nth record-batches n)
-      (let [new-buffer (mmap/mmap-object mmap-pool k)]
-        (set! (.-buffer this) (WeakReference. new-buffer))
-        (set! (.-record-batches this) (mmap-arrow-record-batches new-buffer))
-        (nth record-batches n))))
+    (let [current-buffer (mmap/mmap-object mmap-pool k)]
+      (if (identical? buffer current-buffer)
+        (nth record-batches n)
+        (do (set! (.-buffer this) current-buffer)
+            (set! (.-record-batches this) (mmap-arrow-record-batches current-buffer))
+            (nth record-batches n)))))
 
   AutoCloseable
   (close [this]
@@ -388,7 +387,7 @@
             (do (.load loader (mmap-record-batch block buffer))
                 record-batch))))))
 (defn new-mmap-arrow-file [mmap-pool k]
-  (->MmapArrowFile mmap-pool k (WeakReference. nil) nil))
+  (->MmapArrowFile mmap-pool k nil nil))
 
 (defrecord MmapArrowBlockRelation [^MmapArrowFile arrow-file ^long block-idx]
   wcoj/Relation

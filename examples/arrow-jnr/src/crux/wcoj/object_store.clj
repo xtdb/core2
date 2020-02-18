@@ -93,7 +93,8 @@
                                (let [v-url (with-open [in (io/input-stream source-v-url)]
                                              (put-object object-store-cache k in))]
                                  (freeze-lru-cache-entries this)
-                                 (.register cleaner v-url #(evict-object this k))
+                                 (.register cleaner v-url #(when-not (.containsKey lru-cache k)
+                                                             (evict-object this k)))
                                  (.put cold-map k (WeakReference. v-url))
                                  v-url)))]
           (.put lru-cache k v-url)

@@ -386,6 +386,7 @@
                       loader (VectorLoader. record-batch)]]
             (do (.load loader (mmap-record-batch block buffer))
                 record-batch))))))
+
 (defn new-mmap-arrow-file [mmap-pool k]
   (->MmapArrowFile mmap-pool k nil nil))
 

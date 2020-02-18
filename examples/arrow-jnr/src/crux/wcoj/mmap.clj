@@ -5,7 +5,7 @@
            java.net.URL
            [java.nio ByteBuffer MappedByteBuffer]
            [java.nio.channels FileChannel$MapMode SeekableByteChannel]
-           [java.util HashMap LinkedHashMap Map]
+           [java.util HashMap LinkedHashMap Map Map$Entry]
            [java.lang.ref Cleaner WeakReference]
            io.netty.util.internal.PlatformDependent))
 
@@ -53,8 +53,11 @@
 
 (defn new-mmap-pool [object-store size]
   (->MmapPool (proxy [LinkedHashMap] [size 0.75 true]
-                (removeEldestEntry [_]
-                  (> (count this) size)))
+                (removeEldestEntry [^Map$Entry entry]
+                  (if (> (count this) size)
+                    (do (unmap-buffer (.getValue entry))
+                        true)
+                    false)))
               (HashMap.)
               object-store))
 

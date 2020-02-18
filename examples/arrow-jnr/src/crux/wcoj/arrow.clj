@@ -409,6 +409,9 @@
   (cardinality [this]
     (wcoj/cardinality (nth arrow-file block-idx))))
 
+(defn new-mmap-arrow-block-relation [^MmapArrowFile arrow-file ^long block-idx]
+  (->MmapArrowBlockRelation arrow-file block-idx))
+
 (defrecord ParentChildRelation [deletion-set parent child]
   wcoj/Relation
   (table-scan [this db]

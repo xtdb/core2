@@ -61,8 +61,8 @@
               (HashMap.)
               object-store))
 
-(defn- get-file-url ^java.net.URL [mmap-pool k]
-  (when-let [url ^URL (wcoj-os/get-object mmap-pool k)]
+(defn- get-file-url ^java.net.URL [^MmapPool mmap-pool k]
+  (when-let [url ^URL (wcoj-os/get-object (.object-store mmap-pool) k)]
     (if-not (= "file" (.getProtocol url))
       (throw (IllegalArgumentException. (str "Not a file:" url)))
       url)))

@@ -26,7 +26,7 @@
            [java.util.function Predicate LongPredicate DoublePredicate]
            java.time.Instant
            java.nio.charset.StandardCharsets
-           java.nio.ByteBuffer
+           [java.nio ByteBuffer MappedByteBuffer]
            [java.nio.channels FileChannel FileChannel$MapMode SeekableByteChannel]))
 
 (def ^:private ^BufferAllocator
@@ -315,6 +315,37 @@
           (.writeBatch writer))))
     f))
 
+(defn- new-byte-buffer-seekable-byte-channel ^java.nio.channels.SeekableByteChannel [^ByteBuffer buffer]
+  (let [buffer (.slice buffer 0 (.capacity buffer))]
+    (proxy [SeekableByteChannel] []
+      (isOpen []
+        true)
+
+      (close [])
+
+      (read [^ByteBuffer dst]
+        (let [src (-> buffer (.slice) (.limit (.remaining dst)))]
+          (.put dst src)
+          (let [bytes-read (.position src)]
+            (.position buffer (+ (.position buffer) bytes-read))
+            bytes-read)))
+
+      (position
+        ([]
+         (.position buffer))
+        ([^long new-position]
+         (.position buffer new-position)
+         this))
+
+      (size []
+        (.capacity buffer))
+
+      (write [src]
+        (throw (UnsupportedOperationException.)))
+
+      (truncate [size]
+        (throw (UnsupportedOperationException.))))))
+
 (def ^:private mmap-reference-manager
   (reify ReferenceManager
     (deriveBuffer [this source-buffer index length]
@@ -383,26 +414,34 @@
       (wcoj/try-close batch))
     (PlatformDependent/freeDirectBuffer buffer)))
 
+(defn- read-schema+record-blocks [^BufferAllocator allocator ^ByteBuffer buffer]
+  (with-open [in (new-byte-buffer-seekable-byte-channel buffer)
+              reader (ArrowFileReader. in allocator)]
+    [(.getSchema (.getVectorSchemaRoot reader))
+     (.getRecordBlocks reader)]))
+
+(defn- mmap-file ^java.nio.MappedByteBuffer [f]
+  (with-open [in (.getChannel (FileInputStream. (io/file f)))]
+    (.map in FileChannel$MapMode/READ_ONLY 0 (.size in))))
+
 (defn new-mmap-arrow-file-relation
   (^crux.wcoj.arrow.MmapArrowFileRelation [f]
    (new-mmap-arrow-file-relation default-allocator f))
   (^crux.wcoj.arrow.MmapArrowFileRelation [^BufferAllocator allocator f]
-   (with-open [in (.getChannel (FileInputStream. (io/file f)))
-               reader (ArrowFileReader. in allocator)]
-     (let [schema (.getSchema (.getVectorSchemaRoot reader))
-           buffer (.map in FileChannel$MapMode/READ_ONLY 0 (.size in))
-           record-batches (vec (for [block (.getRecordBlocks reader)
-                                     :let [record-batch (VectorSchemaRoot/create schema allocator)
-                                           loader (VectorLoader. record-batch)]]
-                                 (do (.load loader (mmap-record-batch block buffer))
-                                     record-batch)))
-           row-count (->> (for [^VectorSchemaRoot batch record-batches]
-                            (.getRowCount batch))
-                          (reduce +))]
-       (->MmapArrowFileRelation schema
-                                buffer
-                                record-batches
-                                row-count)))))
+   (let [buffer (mmap-file f)
+         [schema record-blocks] (read-schema+record-blocks allocator buffer)
+         record-batches (vec (for [block record-blocks
+                                   :let [record-batch (VectorSchemaRoot/create schema allocator)
+                                         loader (VectorLoader. record-batch)]]
+                               (do (.load loader (mmap-record-batch block buffer))
+                                   record-batch)))
+         row-count (->> (for [^VectorSchemaRoot batch record-batches]
+                          (.getRowCount batch))
+                        (reduce +))]
+     (->MmapArrowFileRelation schema
+                              buffer
+                              record-batches
+                              row-count))))
 
 (defrecord ParentChildRelation [deletion-set parent child]
   wcoj/Relation

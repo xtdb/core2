@@ -360,16 +360,7 @@
     [(.getSchema (.getVectorSchemaRoot reader))
      (.getRecordBlocks reader)]))
 
-(defn- mmap-arrow-record-batches
-  (^crux.wcoj.arrow.MmapArrowFile [buffer]
-   (mmap-arrow-record-batches default-allocator buffer))
-  (^crux.wcoj.arrow.MmapArrowFile [^BufferAllocator allocator buffer]
-   (let [[schema record-blocks] (read-schema+record-blocks allocator buffer)]
-     (vec (for [block record-blocks
-                :let [record-batch (VectorSchemaRoot/create schema allocator)
-                      loader (VectorLoader. record-batch)]]
-            (do (.load loader (mmap-record-batch block buffer))
-                record-batch))))))
+(declare mmap-arrow-record-batches)
 
 (deftype MmapArrowFile [mmap-pool k ^:volatile-mutable ^WeakReference buffer ^:volatile-mutable record-batches]
   Indexed
@@ -386,6 +377,16 @@
     (set! (.-buffer this) nil)
     (set! (.-record-batches this) nil)))
 
+(defn- mmap-arrow-record-batches
+  (^crux.wcoj.arrow.MmapArrowFile [buffer]
+   (mmap-arrow-record-batches default-allocator buffer))
+  (^crux.wcoj.arrow.MmapArrowFile [^BufferAllocator allocator buffer]
+   (let [[schema record-blocks] (read-schema+record-blocks allocator buffer)]
+     (vec (for [block record-blocks
+                :let [record-batch (VectorSchemaRoot/create schema allocator)
+                      loader (VectorLoader. record-batch)]]
+            (do (.load loader (mmap-record-batch block buffer))
+                record-batch))))))
 (defn new-mmap-arrow-file [mmap-pool k]
   (->MmapArrowFile mmap-pool k (WeakReference. nil) nil))
 

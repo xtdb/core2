@@ -21,7 +21,9 @@
            org.apache.arrow.memory.util.ArrowBufPointer
            io.netty.buffer.ArrowBuf
            io.netty.util.internal.PlatformDependent
+           clojure.lang.Indexed
            java.lang.AutoCloseable
+           java.lang.ref.WeakReference
            [java.io FileInputStream FileOutputStream InputStream OutputStream]
            [java.util Arrays Date]
            [java.util.function Predicate LongPredicate DoublePredicate]
@@ -277,32 +279,30 @@
     (.getAllocator column)
     default-allocator))
 
-(defn- arrow-seq [[^VectorSchemaRoot record-batch :as record-batches] var-bindings]
-  (when record-batch
-    (let [allocator (record-batch-allocator record-batch)
-          selection-vector (BitVector. "" allocator)
-          unify-tuple? (wcoj/contains-duplicate-vars? var-bindings)
-          unifier-vector (wcoj/insert
-                          (StructVector/empty nil allocator)
-                          var-bindings)
-          column-filter (unifiers->column-filters unifier-vector var-bindings)
-          projection (wcoj/projection var-bindings)]
-      (->> (for [^VectorSchemaRoot record-batch record-batches
-                 :let [vector-size (min *vector-size* (.getRowCount record-batch))
-                       selection-vector (doto selection-vector
-                                          (.setValueCount vector-size)
-                                          (.setInitialCapacity vector-size))]
-                 start-idx (range 0 (.getRowCount record-batch) vector-size)
-                 :let [start-idx (long start-idx)
-                       record-batch (if (< (.getRowCount record-batch) (+ start-idx vector-size))
-                                      (.slice record-batch start-idx)
-                                      (.slice record-batch start-idx vector-size))]]
-             (if (zero? (count (.getFieldVectors record-batch)))
-               (repeat vector-size (with-meta [] {::index 0}))
-               (cond->> (selected-indexes record-batch column-filter selection-vector)
-                 true (selected-tuples record-batch projection start-idx)
-                 unify-tuple? (filter (partial wcoj/unify var-bindings)))))
-           (apply concat)))))
+(defn- arrow-seq [^VectorSchemaRoot record-batch  var-bindings]
+  (let [allocator (record-batch-allocator record-batch)
+        selection-vector (BitVector. "" allocator)
+        unify-tuple? (wcoj/contains-duplicate-vars? var-bindings)
+        unifier-vector (wcoj/insert
+                        (StructVector/empty nil allocator)
+                        var-bindings)
+        column-filter (unifiers->column-filters unifier-vector var-bindings)
+        projection (wcoj/projection var-bindings)
+        vector-size (min *vector-size* (.getRowCount record-batch))
+        selection-vector (doto selection-vector
+                           (.setValueCount vector-size)
+                           (.setInitialCapacity vector-size))]
+    (->> (for [start-idx (range 0 (.getRowCount record-batch) vector-size)
+               :let [start-idx (long start-idx)
+                     record-batch (if (< (.getRowCount record-batch) (+ start-idx vector-size))
+                                    (.slice record-batch start-idx)
+                                    (.slice record-batch start-idx vector-size))]]
+           (if (zero? (count (.getFieldVectors record-batch)))
+             (repeat vector-size (with-meta [] {::index 0}))
+             (cond->> (selected-indexes record-batch column-filter selection-vector)
+               true (selected-tuples record-batch projection start-idx)
+               unify-tuple? (filter (partial wcoj/unify var-bindings)))))
+         (apply concat))))
 
 (defn- write-record-batches ^java.io.File [record-batches f]
   (let [schema (.getSchema ^VectorSchemaRoot (first record-batches))
@@ -354,83 +354,60 @@
                                (zero? (.getBodyLength block)))]
     (MessageSerializer/deserializeRecordBatch batch body-buffer)))
 
-(defrecord MmapArrowFileRelation [schema buffer record-batches row-count]
-  wcoj/Relation
-  (table-scan [this db]
-    (->> (for [batch record-batches]
-           (wcoj/table-scan batch db))
-         (apply concat)))
-
-  (table-filter [this db var-bindings]
-    (->> (for [batch record-batches]
-           (wcoj/table-filter batch db var-bindings))
-         (apply concat)))
-
-  (insert [this value]
-    (throw (UnsupportedOperationException.)))
-
-  (delete [this value]
-    (throw (UnsupportedOperationException.)))
-
-  (truncate [this]
-    (throw (UnsupportedOperationException.)))
-
-  (cardinality [this]
-    row-count)
-
-  AutoCloseable
-  (close [_]
-    (doseq [batch record-batches]
-      (wcoj/try-close batch))
-    (mmap/unmap-buffer buffer)))
-
-(defrecord MmapArrowBlockRelation [^MmapArrowFileRelation arrow-file-relation ^long block-idx]
-  wcoj/Relation
-  (table-scan [this db]
-    (wcoj/table-scan (nth (.record-batches arrow-file-relation) block-idx) db))
-
-  (table-filter [this db var-bindings]
-    (wcoj/table-filter (nth (.record-batches arrow-file-relation) block-idx) db var-bindings))
-
-  (insert [this value]
-    (throw (UnsupportedOperationException.)))
-
-  (delete [this value]
-    (throw (UnsupportedOperationException.)))
-
-  (truncate [this]
-    (throw (UnsupportedOperationException.)))
-
-  (cardinality [this]
-    (wcoj/cardinality (nth (.record-batches arrow-file-relation) block-idx)))
-
-  AutoCloseable
-  (close [_]))
-
 (defn- read-schema+record-blocks [^BufferAllocator allocator ^ByteBuffer buffer]
   (with-open [in (mmap/new-byte-buffer-seekable-byte-channel buffer)
               reader (ArrowFileReader. in allocator)]
     [(.getSchema (.getVectorSchemaRoot reader))
      (.getRecordBlocks reader)]))
 
-(defn new-mmap-arrow-file-relation
-  (^crux.wcoj.arrow.MmapArrowFileRelation [f]
-   (new-mmap-arrow-file-relation default-allocator f))
-  (^crux.wcoj.arrow.MmapArrowFileRelation [^BufferAllocator allocator f]
-   (let [buffer (mmap/mmap-file f)
-         [schema record-blocks] (read-schema+record-blocks allocator buffer)
-         record-batches (vec (for [block record-blocks
-                                   :let [record-batch (VectorSchemaRoot/create schema allocator)
-                                         loader (VectorLoader. record-batch)]]
-                               (do (.load loader (mmap-record-batch block buffer))
-                                   record-batch)))
-         row-count (->> (for [^VectorSchemaRoot batch record-batches]
-                          (.getRowCount batch))
-                        (reduce +))]
-     (->MmapArrowFileRelation schema
-                              buffer
-                              record-batches
-                              row-count))))
+(defn- mmap-arrow-record-batches
+  (^crux.wcoj.arrow.MmapArrowFile [buffer]
+   (mmap-arrow-record-batches default-allocator buffer))
+  (^crux.wcoj.arrow.MmapArrowFile [^BufferAllocator allocator buffer]
+   (let [[schema record-blocks] (read-schema+record-blocks allocator buffer)]
+     (vec (for [block record-blocks
+                :let [record-batch (VectorSchemaRoot/create schema allocator)
+                      loader (VectorLoader. record-batch)]]
+            (do (.load loader (mmap-record-batch block buffer))
+                record-batch))))))
+
+(deftype MmapArrowFile [mmap-pool k ^:volatile-mutable ^WeakReference buffer ^:volatile-mutable record-batches]
+  Indexed
+  (nth [this n]
+    (if-let [current-buffer (.get buffer)]
+      (nth record-batches n)
+      (let [new-buffer (mmap/mmap-object mmap-pool k)]
+        (set! (.-buffer this) (WeakReference. new-buffer))
+        (set! (.-record-batches this) (mmap-arrow-record-batches new-buffer))
+        (nth record-batches n))))
+
+  AutoCloseable
+  (close [this]
+    (set! (.-buffer this) nil)
+    (set! (.-record-batches this) nil)))
+
+(defn new-mmap-arrow-file [mmap-pool k]
+  (->MmapArrowFile mmap-pool k (WeakReference. nil) nil))
+
+(defrecord MmapArrowBlockRelation [^MmapArrowFile arrow-file ^long block-idx]
+  wcoj/Relation
+  (table-scan [this db]
+    (wcoj/table-scan (nth arrow-file block-idx) db))
+
+  (table-filter [this db var-bindings]
+    (wcoj/table-filter (nth arrow-file block-idx) db var-bindings))
+
+  (insert [this value]
+    (throw (UnsupportedOperationException.)))
+
+  (delete [this value]
+    (throw (UnsupportedOperationException.)))
+
+  (truncate [this]
+    (throw (UnsupportedOperationException.)))
+
+  (cardinality [this]
+    (wcoj/cardinality (nth arrow-file block-idx))))
 
 (defrecord ParentChildRelation [deletion-set parent child]
   wcoj/Relation
@@ -513,10 +490,10 @@
   (table-scan [this db]
     (->> (repeat (count (.getFieldVectors this)) cd/blank-var)
          (mapv wcoj/ensure-unique-logic-var)
-         (arrow-seq [this])))
+         (arrow-seq this)))
 
   (table-filter [this db var-bindings]
-    (arrow-seq [this] var-bindings))
+    (arrow-seq this var-bindings))
 
   (insert [this value]
     (throw (UnsupportedOperationException.)))

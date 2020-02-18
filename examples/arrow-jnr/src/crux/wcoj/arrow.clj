@@ -3,7 +3,8 @@
             [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.edn :as edn]
-            [crux.wcoj :as wcoj])
+            [crux.wcoj :as wcoj]
+            [crux.wcoj.mmap :as mmap])
   (:import [org.apache.arrow.memory BufferAllocator RootAllocator]
            [org.apache.arrow.vector BaseFixedWidthVector BaseIntVector BaseVariableWidthVector
             BigIntVector BitVector ElementAddressableVector FieldVector Float4Vector Float8Vector
@@ -315,37 +316,6 @@
           (.writeBatch writer))))
     f))
 
-(defn- new-byte-buffer-seekable-byte-channel ^java.nio.channels.SeekableByteChannel [^ByteBuffer buffer]
-  (let [buffer (.slice buffer 0 (.capacity buffer))]
-    (proxy [SeekableByteChannel] []
-      (isOpen []
-        true)
-
-      (close [])
-
-      (read [^ByteBuffer dst]
-        (let [src (-> buffer (.slice) (.limit (.remaining dst)))]
-          (.put dst src)
-          (let [bytes-read (.position src)]
-            (.position buffer (+ (.position buffer) bytes-read))
-            bytes-read)))
-
-      (position
-        ([]
-         (.position buffer))
-        ([^long new-position]
-         (.position buffer new-position)
-         this))
-
-      (size []
-        (.capacity buffer))
-
-      (write [src]
-        (throw (UnsupportedOperationException.)))
-
-      (truncate [size]
-        (throw (UnsupportedOperationException.))))))
-
 (def ^:private mmap-reference-manager
   (reify ReferenceManager
     (deriveBuffer [this source-buffer index length]
@@ -412,7 +382,7 @@
   (close [_]
     (doseq [batch record-batches]
       (wcoj/try-close batch))
-    (PlatformDependent/freeDirectBuffer buffer)))
+    (mmap/unmap-buffer buffer)))
 
 (defrecord MmapArrowBlockRelation [^MmapArrowFileRelation arrow-file-relation ^long block-idx]
   wcoj/Relation
@@ -438,20 +408,16 @@
   (close [_]))
 
 (defn- read-schema+record-blocks [^BufferAllocator allocator ^ByteBuffer buffer]
-  (with-open [in (new-byte-buffer-seekable-byte-channel buffer)
+  (with-open [in (mmap/new-byte-buffer-seekable-byte-channel buffer)
               reader (ArrowFileReader. in allocator)]
     [(.getSchema (.getVectorSchemaRoot reader))
      (.getRecordBlocks reader)]))
-
-(defn- mmap-file ^java.nio.MappedByteBuffer [f]
-  (with-open [in (.getChannel (FileInputStream. (io/file f)))]
-    (.map in FileChannel$MapMode/READ_ONLY 0 (.size in))))
 
 (defn new-mmap-arrow-file-relation
   (^crux.wcoj.arrow.MmapArrowFileRelation [f]
    (new-mmap-arrow-file-relation default-allocator f))
   (^crux.wcoj.arrow.MmapArrowFileRelation [^BufferAllocator allocator f]
-   (let [buffer (mmap-file f)
+   (let [buffer (mmap/mmap-file f)
          [schema record-blocks] (read-schema+record-blocks allocator buffer)
          record-batches (vec (for [block record-blocks
                                    :let [record-batch (VectorSchemaRoot/create schema allocator)

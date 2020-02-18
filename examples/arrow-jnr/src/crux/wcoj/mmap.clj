@@ -67,18 +67,19 @@
       (throw (IllegalArgumentException. (str "Not a file:" url)))
       url)))
 
+(defn- mmap-url-ref ^java.nio.MappedByteBuffer [^MmapPool mmap-pool ^WeakReference url-ref]
+  (let [buffer (mmap-file (io/file (.get ^WeakReference url-ref)))]
+    (.put ^Map (.buffer-cache mmap-pool) url-ref buffer)
+    buffer))
+
 (defn mmap-object ^java.nio.MappedByteBuffer [^MmapPool mmap-pool k]
   (if-let [url-ref (.get ^Map (.url-cache mmap-pool) k)]
     (or (.get ^Map (.buffer-cache mmap-pool) url-ref)
-        (let [buffer (mmap-file (io/file (.get ^WeakReference url-ref)))]
-          (.put ^Map (.buffer-cache mmap-pool) url-ref buffer)
-          buffer))
+        (mmap-url-ref mmap-pool (.get ^WeakReference url-ref)))
     (when-let [url (get-file-url mmap-pool k)]
-      (let [buffer (mmap-file (io/file url))
-            url-ref (WeakReference. url)]
+      (let [url-ref (WeakReference. url)]
         (.register cleaner url #(unmap-buffer
                                  (.remove ^Map (.buffer-cache mmap-pool)
                                           (.remove ^Map (.url-cache mmap-pool) k))))
         (.put ^Map (.url-cache mmap-pool) k url-ref)
-        (.put ^Map (.buffer-cache mmap-pool) url-ref buffer)
-        buffer))))
+        (mmap-url-ref mmap-pool url-ref)))))

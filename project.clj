@@ -6,10 +6,12 @@
   :aot [crux.datalog.main]
   :main crux.datalog.main
   :dependencies [[org.clojure/clojure "1.10.1"]
-                 [org.clojure/tools.logging "0.5.0"]
+                 [org.clojure/tools.logging "0.6.0"]
+                 [org.slf4j/slf4j-api "1.7.29"]
                  [org.clojure/spec.alpha "0.2.176"]
-                 [ch.qos.logback/logback-classic "1.2.3"]
                  [org.apache.arrow/arrow-vector "0.16.0"]]
+  :profiles {:uberjar {:dependencies [[ch.qos.logback/logback-classic "1.2.3"]]}
+             :dev {:dependencies [[ch.qos.logback/logback-classic "1.2.3"]]}}
   :java-source-paths ["src"]
   :jvm-opts ["-Xmx2G" "-XX:MaxDirectMemorySize=2G"
              "-Dio.netty.tryReflectionSetAccessible=true"]

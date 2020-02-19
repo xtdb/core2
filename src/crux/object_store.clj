@@ -45,7 +45,7 @@
   AutoCloseable
   (close [this]))
 
-(defn new-local-directory-object-store ^crux.wcoj.object_store.LocalDirectoryObjectStore [dir]
+(defn new-local-directory-object-store ^crux.object_store.LocalDirectoryObjectStore [dir]
   (->LocalDirectoryObjectStore (io/file dir)))
 
 (def ^:private file-deletion-visitor
@@ -117,9 +117,9 @@
       size)))
 
 (defn new-cached-object-store
-  (^crux.wcoj.object_store.CachedObjectStore [object-store ^long size-bytes]
+  (^crux.object_store.CachedObjectStore [object-store ^long size-bytes]
    (new-cached-object-store (create-tmpdir "cached_object_store") object-store size-bytes))
-  (^crux.wcoj.object_store.CachedObjectStore [cache-dir object-store ^long size-bytes]
+  (^crux.object_store.CachedObjectStore [cache-dir object-store ^long size-bytes]
    (->CachedObjectStore (HashMap.)
                         (proxy [LinkedHashMap] [16 0.75 true]
                           (removeEldestEntry [_]

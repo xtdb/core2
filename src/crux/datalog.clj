@@ -286,7 +286,7 @@
   term)
 
 (defn- rule->query-plan [rule bound-head-var-idxs]
-  (let [{:keys [head body] :as conformed-rule} (s/conform :crux.datalog/rule rule)
+  (let [{:keys [head body] :as conformed-rule} (s/conform :crux.datalog.parser/rule rule)
         _ (assert (set/superset? (find-vars body) (disj (find-vars head) dp/blank-var))
                   "rule does not satisfy safety requirement for head variables")
         bound-head-vars (set (map (mapv term->binding (:terms head)) bound-head-var-idxs))
@@ -478,7 +478,7 @@
     (execute-rules rules db var-bindings))
 
   (insert [this rule]
-    (s/assert :crux.datalog/rule rule)
+    (s/assert :crux.datalog.parser/rule rule)
     (update this :rules conj rule))
 
   (delete [this rule]
@@ -552,12 +552,12 @@
             (table-filter rules db var-bindings)))
 
   (insert [this value]
-    (if (s/valid? :crux.datalog/rule value)
+    (if (s/valid? :crux.datalog.parser/rule value)
       (update this :rules insert value)
       (update this :tuples insert value)))
 
   (delete [this value]
-    (if (s/valid? :crux.datalog/rule value)
+    (if (s/valid? :crux.datalog.parser/rule value)
       (update this :rules delete value)
       (update this :tuples delete value)))
 
@@ -657,8 +657,8 @@
     (query-by-name db symbol args)))
 
 (defn query [db query]
-  (s/assert :crux.datalog/query query)
-  (query-conformed-datalog db (s/conform :crux.datalog/query query)))
+  (s/assert :crux.datalog.parser/query query)
+  (query-conformed-datalog db (s/conform :crux.datalog.parser/query query)))
 
 (defn assert-all [db relation-name tuples]
   (reduce (fn [db tuple]
@@ -704,14 +704,14 @@
       (op db symbol (mapv second terms))
 
       :rule
-      (op db symbol (vec (s/unform :crux.datalog/rule clause))))))
+      (op db symbol (vec (s/unform :crux.datalog.parser/rule clause))))))
 
 (defn execute
   ([datalog]
    (execute {} datalog))
   ([db datalog]
-   (s/assert :crux.datalog/program datalog)
-   (->> (s/conform :crux.datalog/program datalog)
+   (s/assert :crux.datalog.parser/program datalog)
+   (->> (s/conform :crux.datalog.parser/program datalog)
         (reduce execute-statement db))))
 
 (defn -main [& [f :as args]]

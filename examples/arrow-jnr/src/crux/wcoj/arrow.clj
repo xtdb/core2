@@ -25,7 +25,7 @@
            java.lang.AutoCloseable
            [java.lang.ref Reference WeakReference]
            [java.io FileInputStream FileOutputStream InputStream OutputStream]
-           [java.util Arrays Date]
+           [java.util Arrays Date List]
            [java.util.function Predicate LongPredicate DoublePredicate]
            java.time.Instant
            java.nio.charset.StandardCharsets
@@ -336,7 +336,7 @@
     (getRefCount [this]
       1)))
 
-(defn- record-batch-view ^org.apache.arrow.vector.ipc.message.ArrowRecordBatch [^ArrowBlock block ^ByteBuffer nio-buffer]
+(defn- arrow-record-batch-view ^org.apache.arrow.vector.ipc.message.ArrowRecordBatch [^ArrowBlock block ^ByteBuffer nio-buffer]
   (let [prefix-size (if (= (.getInt nio-buffer (.getOffset block)) MessageSerializer/IPC_CONTINUATION_TOKEN)
                       8
                       4)
@@ -360,18 +360,18 @@
     [(.getSchema (.getVectorSchemaRoot reader))
      (.getRecordBlocks reader)]))
 
-(defn- arrow-record-batches
+(defn- read-arrow-record-batches
   ([buffer]
-   (arrow-record-batches default-allocator buffer))
+   (read-arrow-record-batches default-allocator buffer))
   ([^BufferAllocator allocator buffer]
    (let [[schema record-blocks] (read-schema+record-blocks allocator buffer)]
      (vec (for [block record-blocks
                 :let [record-batch (VectorSchemaRoot/create schema allocator)
                       loader (VectorLoader. record-batch)]]
-            (do (.load loader (record-batch-view block buffer))
+            (do (.load loader (arrow-record-batch-view block buffer))
                 record-batch))))))
 
-(defrecord ArrowRecordBatchView [record-batch buffer]
+(deftype ArrowRecordBatchView [record-batch ^:volatile-mutable buffer]
   wcoj/Relation
   (table-scan [this db]
     (wcoj/table-scan record-batch db))
@@ -389,20 +389,25 @@
     (throw (UnsupportedOperationException.)))
 
   (cardinality [this]
-    (wcoj/cardinality record-batch)))
+    (wcoj/cardinality record-batch))
 
-(defrecord ArrowBufferRefAndRecordBatches [^Reference buffer-ref record-batches])
+  AutoCloseable
+  (close [this]
+    (set! (.-buffer this) nil)))
+
+(defrecord ArrowBufferRefAndRecordBatches [^Reference buffer-ref ^List record-batches])
 
 (deftype ArrowFileView [buffer-pool k ^:volatile-mutable ^ArrowBufferRefAndRecordBatches buffer-ref-and-record-batches]
   Indexed
   (nth [this n]
-    (if-let [current-buffer (.get ^Reference (.buffer-ref buffer-ref-and-record-batches))]
-      (->ArrowRecordBatchView (nth (.record-batches buffer-ref-and-record-batches) n) current-buffer)
-      (let [current-buffer (bp/get-buffer buffer-pool k)]
-        (set! (.-buffer-ref-and-record-batches this)  (->ArrowBufferRefAndRecordBatches
-                                                       (WeakReference. current-buffer)
-                                                       (arrow-record-batches current-buffer)))
-        (->ArrowRecordBatchView (nth (.record-batches buffer-ref-and-record-batches) n) current-buffer))))
+    (if-let [buffer (.get ^Reference (.buffer-ref buffer-ref-and-record-batches))]
+      (->ArrowRecordBatchView (nth (.record-batches buffer-ref-and-record-batches) n) buffer)
+      (let [new-buffer (bp/get-buffer buffer-pool k)
+            new-buffer-ref-and-record-batches (ArrowBufferRefAndRecordBatches.
+                                               (WeakReference. new-buffer)
+                                               (read-arrow-record-batches new-buffer))]
+        (set! (.-buffer-ref-and-record-batches this) new-buffer-ref-and-record-batches)
+        (->ArrowRecordBatchView (nth (.record-batches new-buffer-ref-and-record-batches) n) new-buffer))))
 
   AutoCloseable
   (close [this]

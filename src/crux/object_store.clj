@@ -68,7 +68,7 @@
 
 (defonce ^:private ^Cleaner cleaner (Cleaner/create))
 
-(declare evict-object freeze-lru-cache-entries)
+(declare evict-object)
 
 (defrecord CachedObjectStore [^Map cold-map
                               ^LinkedHashMap lru-cache

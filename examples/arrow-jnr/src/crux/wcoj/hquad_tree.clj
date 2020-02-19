@@ -12,6 +12,8 @@
            java.lang.AutoCloseable
            java.nio.ByteBuffer))
 
+(set! *unchecked-math* :warn-on-boxed)
+
 (def ^:private ^BufferAllocator
   default-allocator (RootAllocator. Long/MAX_VALUE))
 
@@ -192,7 +194,7 @@
         leaf (.get leaves leaf-idx)
         root? (root-only-tree? nodes)]
     (let [new-node-idx (.startNewValue nodes (.getValueCount nodes))
-          new-level (inc level)
+          new-level (inc ^long level)
           node-vector ^IntVector (.getDataVector nodes)]
       (.setValueCount nodes (inc (.getValueCount nodes)))
       (when-not root?
@@ -207,7 +209,7 @@
 (defn- insert-into-leaf [^HyperQuadTree tree ^FixedSizeListVector nodes level parent-node-idx leaf-idx value]
   (let [leaves ^List (.leaves tree)
         leaf (.get leaves leaf-idx)]
-    (if (< (wcoj/cardinality leaf) *leaf-size*)
+    (if (< ^long (wcoj/cardinality leaf) *leaf-size*)
       (.set leaves leaf-idx (wcoj/insert leaf value))
       (let [[new-level new-node-idx] (split-leaf tree nodes level parent-node-idx leaf-idx)]
         (insert-into-node tree nodes new-level new-node-idx value)))
@@ -236,8 +238,8 @@
         z-address (tuple->z-address value)
         dims (cz/hyper-quads->dims (.getListSize nodes))
         node-vector ^IntVector (.getDataVector nodes)]
-    (loop [level level
-           parent-node-idx parent-node-idx]
+    (loop [level ^long level
+           parent-node-idx ^long parent-node-idx]
       (let [h (cz/decode-h-at-level z-address dims level)
             node-idx (+ parent-node-idx h)]
         (if (.isNull node-vector node-idx)

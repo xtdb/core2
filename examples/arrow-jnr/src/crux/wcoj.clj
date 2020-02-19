@@ -576,6 +576,44 @@
 
 (def ^:dynamic *tuple-relation-factory* new-sorted-set-relation)
 
+(defrecord ParentChildRelation [deletion-set parent child]
+  Relation
+  (table-scan [this db]
+    (concat (cond->> (table-scan parent db)
+              (seq deletion-set) (remove deletion-set))
+            (table-scan child db)))
+
+  (table-filter [this db var-bindings]
+    (concat (cond->> (table-filter parent db var-bindings)
+              (seq deletion-set) (remove deletion-set))
+            (table-filter child db var-bindings)))
+
+  (insert [this value]
+    (-> this
+        (update :child insert value)
+        (update :deletion-set disj value)))
+
+  (delete [this value]
+    (cond-> (update this :child delete value)
+      (seq (table-filter parent nil value)) (update :deletion-set conj value)))
+
+  (truncate [this]
+    (-> this
+        (update :child truncate)
+        (update :deletion-set empty)))
+
+  (cardinality [this]
+    (+ ^long (cardinality parent)
+       ^long (cardinality child)))
+
+  AutoCloseable
+  (close [_]
+    (try-close child)
+    (try-close parent)))
+
+(defn new-parent-child-relation [parent child]
+  (->ParentChildRelation #{} parent child))
+
 (defn- new-combined-relation [relation-name]
   (->CombinedRelation
    relation-name

@@ -8,6 +8,8 @@
            [java.util HashMap LinkedHashMap Map Map$Entry]
            io.netty.util.internal.PlatformDependent))
 
+(set! *unchecked-math* :warn-on-boxed)
+
 (defprotocol BufferPool
   (get-buffer [this k])
   (evict-buffer [this k]))
@@ -74,7 +76,7 @@
              (.remove buffer-cache)
              (unmap-buffer))))
 
-(defn new-mmap-pool [object-store size]
+(defn new-mmap-pool [object-store ^long size]
   (let [buffer-cache (HashMap.)]
     (->MmapPool buffer-cache
                 (proxy [LinkedHashMap] [size 0.75 true]
@@ -112,7 +114,7 @@
     (some->> (.remove buffer-cache k)
              (free-buffer))))
 
-(defn new-in-memory-pool [object-store size-bytes]
+(defn new-in-memory-pool [object-store ^long size-bytes]
   (->InMemoryPool (proxy [LinkedHashMap] [16 0.75 true]
                     (removeEldestEntry [_]
                       (> (buffer-cache-size this) size-bytes)))

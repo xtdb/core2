@@ -7,6 +7,8 @@
            [java.lang.ref Reference SoftReference]
            java.lang.AutoCloseable))
 
+(set! *unchecked-math* :warn-on-boxed)
+
 (defprotocol WAL
   (write-record [this record])
   (read-records [this offset])
@@ -87,7 +89,7 @@
     (->WALRecord record (.getFilePointer write-raf)))
 
   (read-records [this offset]
-    (when (and (.exists f) (> (.length f) offset))
+    (when (and (.exists f) (> (.length f) ^long offset))
       (with-open [read-raf (doto (RandomAccessFile. f "r")
                              (.seek offset))]
         (->> (repeatedly #(when-let [l (.readLine read-raf)]

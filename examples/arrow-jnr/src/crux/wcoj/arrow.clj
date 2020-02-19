@@ -23,6 +23,7 @@
            io.netty.util.internal.PlatformDependent
            clojure.lang.Indexed
            java.lang.AutoCloseable
+           [java.lang.ref Reference WeakReference]
            [java.io FileInputStream FileOutputStream InputStream OutputStream]
            [java.util Arrays Date]
            [java.util.function Predicate LongPredicate DoublePredicate]
@@ -370,19 +371,39 @@
             (do (.load loader (record-batch-view block buffer))
                 record-batch))))))
 
-(deftype ArrowFileView [buffer-pool k ^:volatile-mutable buffer ^:volatile-mutable record-batches]
+(defrecord ArrowRecordBatchView [record-batch buffer]
+  wcoj/Relation
+  (table-scan [this db]
+    (wcoj/table-scan record-batch db))
+
+  (table-filter [this db var-bindings]
+    (wcoj/table-filter record-batch db var-bindings))
+
+  (insert [this value]
+    (throw (UnsupportedOperationException.)))
+
+  (delete [this value]
+    (throw (UnsupportedOperationException.)))
+
+  (truncate [this]
+    (throw (UnsupportedOperationException.)))
+
+  (cardinality [this]
+    (wcoj/cardinality record-batch)))
+
+(deftype ArrowFileView [buffer-pool k ^:volatile-mutable ^Reference buffer-ref ^:volatile-mutable record-batches]
   Indexed
   (nth [this n]
-    (let [current-buffer (bp/get-buffer buffer-pool k)]
-      (if (identical? buffer current-buffer)
-        (nth record-batches n)
-        (do (set! (.-buffer this) current-buffer)
-            (set! (.-record-batches this) (arrow-record-batches current-buffer))
-            (nth record-batches n)))))
+    (if-let [current-buffer (.get buffer-ref)]
+      (->ArrowRecordBatchView (nth record-batches n) current-buffer)
+      (let [current-buffer (bp/get-buffer buffer-pool k)]
+        (set! (.-buffer-ref this)  (WeakReference. current-buffer))
+        (set! (.-record-batches this) (arrow-record-batches current-buffer))
+        (->ArrowRecordBatchView (nth record-batches n) current-buffer))))
 
   AutoCloseable
   (close [this]
-    (set! (.-buffer this) nil)
+    (set! (.-buffer-ref this) nil)
     (set! (.-record-batches this) nil)))
 
 (defn new-arrow-file-view [buffer-pool k]

@@ -16,7 +16,7 @@
   (list-objects [this])
   (delete-object [this k]))
 
-(deftype LocalDirectoryObjectStore [^File dir]
+(defrecord LocalDirectoryObjectStore [^File dir]
   ObjectStore
   (get-object [this k]
     (let [f (io/file dir k)]
@@ -71,11 +71,11 @@
 
 (declare evict-object freeze-lru-cache-entries)
 
-(deftype CachedObjectStore [^Map cold-map
-                            ^LinkedHashMap lru-cache
-                            ^LocalDirectoryObjectStore object-store-cache
-                            object-store
-                            ^long size-bytes]
+(defrecord CachedObjectStore [^Map cold-map
+                              ^LinkedHashMap lru-cache
+                              ^LocalDirectoryObjectStore object-store-cache
+                              object-store
+                              ^long size-bytes]
   ObjectStore
   (get-object [this k]
     (or (.get lru-cache k)

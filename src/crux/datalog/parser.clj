@@ -1,8 +1,7 @@
 (ns crux.datalog.parser
   (:require [clojure.edn :as edn]
             [clojure.java.io :as  io]
-            [clojure.spec.alpha :as s]
-            [instaparse.core :as insta])
+            [clojure.spec.alpha :as s])
   (:import clojure.lang.LineNumberingPushbackReader
            java.io.StringReader))
 

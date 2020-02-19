@@ -1,4 +1,4 @@
-(ns crux.wcoj
+(ns crux.datalog
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.spec.alpha :as s]
@@ -229,10 +229,10 @@
 (defn- build-aggregates [{:keys [terms] :as head}]
   (when-let [aggregate-ops (seq (for [[idx [type term]] (map-indexed vector terms)
                                       :when (= :aggregate type)]
-                                  [idx (get {'min crux.wcoj/min-aggregate
-                                             'max crux.wcoj/max-aggregate
-                                             'count crux.wcoj/count-aggregate
-                                             'sum crux.wcoj/sum-aggregate}
+                                  [idx (get {'min crux.datalog/min-aggregate
+                                             'max crux.datalog/max-aggregate
+                                             'count crux.datalog/count-aggregate
+                                             'sum crux.datalog/sum-aggregate}
                                             (:op term))]))]
     {:group-idxs (vec (for [[idx [type term]] (map-indexed vector terms)
                             :when (not= :aggregate type)]
@@ -299,8 +299,8 @@
      :body body}))
 
 (defn- predicate->clojure [{:keys [db-sym]} {:keys [symbol terms]}]
-  `(crux.wcoj/table-filter
-    (crux.wcoj/relation-by-name ~db-sym '~symbol)
+  `(crux.datalog/table-filter
+    (crux.datalog/relation-by-name ~db-sym '~symbol)
     ~db-sym ~(mapv term->value terms)))
 
 (defn- flip-constraint-op [op]
@@ -358,23 +358,23 @@
       (and (dp/logic-var? rhs-binding)
            (not (contains? bound-vars rhs-binding)))
       (if (= '= op)
-        `[:let [~rhs-binding (crux.wcoj/unify ~(term->value rhs) ~(term->value lhs))]
+        `[:let [~rhs-binding (crux.datalog/unify ~(term->value rhs) ~(term->value lhs))]
           :when (some? ~rhs-binding)]
         (let [op (flip-constraint-op op)]
-          `[:let [~rhs-binding (crux.wcoj/new-constraint ~(term->value rhs)
-                                                         ~(constraint->java-predicate op arg-sym (term->value lhs))
-                                                         '~op
-                                                         ~(term->value lhs))]]))
+          `[:let [~rhs-binding (crux.datalog/new-constraint ~(term->value rhs)
+                                                            ~(constraint->java-predicate op arg-sym (term->value lhs))
+                                                            '~op
+                                                            ~(term->value lhs))]]))
 
       (and (dp/logic-var? lhs-binding)
            (not (contains? bound-vars lhs-binding)))
       (if (= '= op)
-        `[:let [~lhs-binding (crux.wcoj/unify ~(term->value lhs) ~(term->value rhs))]
+        `[:let [~lhs-binding (crux.datalog/unify ~(term->value lhs) ~(term->value rhs))]
           :when (some? ~lhs-binding)]
-        `[:let [~lhs-binding (crux.wcoj/new-constraint ~(term->value lhs)
-                                                       ~(constraint->java-predicate op arg-sym (term->value rhs))
-                                                       '~op
-                                                       ~(term->value rhs))]])
+        `[:let [~lhs-binding (crux.datalog/new-constraint ~(term->value lhs)
+                                                          ~(constraint->java-predicate op arg-sym (term->value rhs))
+                                                          '~op
+                                                          ~(term->value rhs))]])
 
       :else
       `[:when ~(constraint->clojure op (term->value lhs) (term->value rhs))])))
@@ -383,7 +383,7 @@
   `[:when (empty? ~(predicate->clojure query-plan predicate))])
 
 (defmethod datalog->clojure :external-query [_ [_ {:keys [variable symbol terms]}]]
-  `[:let [~variable (crux.wcoj/unify ~variable (~symbol ~@(mapv term->value terms)))]
+  `[:let [~variable (crux.datalog/unify ~variable (~symbol ~@(mapv term->value terms)))]
     :when (some? ~variable)])
 
 (defn aggregate [{:keys [group-idxs aggregate-ops]} tuples]
@@ -408,7 +408,7 @@
         arg-vars (mapv term->binding terms)
         args-signature (mapv (comp quote-term term->signature) terms)
         query-loop `(for [loop# [nil]
-                          :let [[~@arg-vars :as unified?#] (crux.wcoj/unify ~args-sym ~args-signature)]
+                          :let [[~@arg-vars :as unified?#] (crux.datalog/unify ~args-sym ~args-signature)]
                           :when unified?#
                           :let [~@(interleave existential-vars (map quote-term existential-vars))]
                           ~@bindings]
@@ -417,7 +417,7 @@
        ([~db-sym] (~symbol ~db-sym '~(mapv ensure-unique-logic-var (repeat (count arg-vars) dp/blank-var))))
        ([~db-sym ~args-sym]
         ~(if aggregates
-           `(->> ~query-loop (crux.wcoj/aggregate '~aggregates))
+           `(->> ~query-loop (crux.datalog/aggregate '~aggregates))
            query-loop)))))
 
 (defn- compile-rule-no-memo [rule bound-head-vars]
@@ -449,7 +449,7 @@
   [(System/identityHashCode rules)
    (let  [smap (zipmap (filter dp/logic-var? var-bindings)
                        (for [id (range)]
-                         (symbol (str "crux.wcoj/variable_" id))))
+                         (symbol (str "crux.datalog/variable_" id))))
           smap (->> (for [[var memo-key] smap]
                       [var [memo-key (:constraints (meta var))]])
                     (into {}))]

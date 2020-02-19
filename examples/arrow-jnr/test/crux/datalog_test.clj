@@ -1,7 +1,7 @@
-(ns crux.wcoj-test
+(ns crux.datalog-test
   (:require [clojure.string :as str]
             [clojure.test :as t]
-            [crux.wcoj :as wcoj]
+            [crux.datalog :as d]
             [crux.datalog.arrow :as da]
             [crux.datalog.hquad-tree :as dhq]
             [crux.byte-keys :as cbk]))
@@ -31,8 +31,8 @@
                    s(5, 2).
 
                    q(A, B, C) :- r(A, B), s(B, C), t(A, C).]
-        db (wcoj/execute triangle)
-        result (wcoj/query-by-name db 'q)]
+        db (d/execute triangle)
+        result (d/query-by-name db 'q)]
     (t/is (= #{[1 3 4] [1 3 5] [1 4 6] [1 4 8] [1 4 9] [1 5 2] [3 5 2]}
              (set result)))))
 
@@ -42,14 +42,14 @@
 
                path(X, Y) :- edge(X, Y).
                path(X, Z) :- path(X, Y), edge(Y, Z).]
-        db (wcoj/execute edge)
-        result (wcoj/query-by-name db 'path)]
+        db (d/execute edge)
+        result (d/query-by-name db 'path)]
     (t/is (= #{[1 2] [2 3] [1 3]} (set result)))))
 
 (t/deftest test-literal-booleans
   (let [t '[true .]
-        db (wcoj/execute t)
-        result (wcoj/query-by-name db 'true)]
+        db (d/execute t)
+        result (d/query-by-name db 'true)]
     (t/is (= #{[]} (set result)))))
 
 (t/deftest test-fib-using-interop
@@ -64,90 +64,90 @@
               fib(N1, F1),
               fib(N2, F2),
               F :- +(F1 F2).]
-        db (wcoj/execute fib)
-        result (wcoj/query db '[fib(30, F)?])]
+        db (d/execute fib)
+        result (d/query db '[fib(30, F)?])]
     (t/is (= #{[30 832040]} (set result)))))
 
 (t/deftest test-duplicate-head-variable
   (t/is (= "q(a, a).
-" (with-out-str (wcoj/execute '[p(a). p(b). q(X, X) :- p(X). q(a a)?]))))
+" (with-out-str (d/execute '[p(a). p(b). q(X, X) :- p(X). q(a a)?]))))
   (t/is (= "q(a, a).
-" (with-out-str (wcoj/execute '[p(a). p(b). q(X, X) :- p(X). q(a X)?]))))
+" (with-out-str (d/execute '[p(a). p(b). q(X, X) :- p(X). q(a X)?]))))
   (t/is (= "q(a, a).
 q(b, b).
-" (with-out-str (wcoj/execute '[p(a). p(b). q(X, X) :- p(X). q(X A)?]))))
+" (with-out-str (d/execute '[p(a). p(b). q(X, X) :- p(X). q(X A)?]))))
   (t/is (= "q(a, a).
-" (with-out-str (wcoj/execute '[p(a). q(X, X) :- p(X). q(X X)?]))))
+" (with-out-str (d/execute '[p(a). q(X, X) :- p(X). q(X X)?]))))
   (t/is (= "q(a, a).
-" (with-out-str (wcoj/execute '[p(a). q(X, X) :- p(X). q(X Y)?]))))
-  (t/is (= "" (with-out-str (wcoj/execute '[p(a). p(b).  q(X, X) :- p(X). q(a b)?])))))
+" (with-out-str (d/execute '[p(a). q(X, X) :- p(X). q(X Y)?]))))
+  (t/is (= "" (with-out-str (d/execute '[p(a). p(b).  q(X, X) :- p(X). q(a b)?])))))
 
 (t/deftest test-duplicate-predicate-variable
   (t/is (= "q(a).
-" (with-out-str (wcoj/execute '[p(a, a). p(a, b). q(X) :- p(X, X). q(a)?]))))
+" (with-out-str (d/execute '[p(a, a). p(a, b). q(X) :- p(X, X). q(a)?]))))
   (t/is (= "q(a).
-" (with-out-str (wcoj/execute '[p(a, a). p(a, b). q(X) :- p(X, X). q(X)?]))))
+" (with-out-str (d/execute '[p(a, a). p(a, b). q(X) :- p(X, X). q(X)?]))))
   (t/is (= "q(a).
-" (with-out-str (wcoj/execute '[p(a, a). p(a, b). q(X) :- p(X, a). q(X)?]))))
-  (t/is (= "" (with-out-str (wcoj/execute '[p(a, a). q(X) :- p(X, b). q(X)?]))))
-  (t/is (= "" (with-out-str (wcoj/execute '[p(a, b). p(b, a). q(X) :- p(X, X). q(a)?])))))
+" (with-out-str (d/execute '[p(a, a). p(a, b). q(X) :- p(X, a). q(X)?]))))
+  (t/is (= "" (with-out-str (d/execute '[p(a, a). q(X) :- p(X, b). q(X)?]))))
+  (t/is (= "" (with-out-str (d/execute '[p(a, b). p(b, a). q(X) :- p(X, X). q(a)?])))))
 
 (t/deftest test-duplicate-query-variable
   (t/is (= "q(a, a).
-" (with-out-str (wcoj/execute '[p(a, a). p(a, b). q(X, Y) :- p(X, Y). q(a, a)?]))))
+" (with-out-str (d/execute '[p(a, a). p(a, b). q(X, Y) :- p(X, Y). q(a, a)?]))))
   (t/is (= "q(a, a).
-" (with-out-str (wcoj/execute '[p(a, a). p(a, b). q(X, Y) :- p(X, Y). q(X, X)?])))))
+" (with-out-str (d/execute '[p(a, a). p(a, b). q(X, Y) :- p(X, Y). q(X, X)?])))))
 
 
 (t/deftest test-range-constraints
   (t/testing "longs"
     (t/is (= "q(1).
 q(2).
-" (with-out-str (wcoj/execute '[p(1). p(2). p(3). q(X) :- p(X), X < 3 . q(X)?]))))
+" (with-out-str (d/execute '[p(1). p(2). p(3). q(X) :- p(X), X < 3 . q(X)?]))))
     (t/is (= "q(1).
 q(2).
 q(3).
-" (with-out-str (wcoj/execute '[p(1). p(2). p(3). q(X) :- p(X), X <= 3 . q(X)?]))))
+" (with-out-str (d/execute '[p(1). p(2). p(3). q(X) :- p(X), X <= 3 . q(X)?]))))
     (t/is (= "q(3).
-" (with-out-str (wcoj/execute '[p(1). p(2). p(3). q(X) :- p(X), X > 2 . q(X)?]))))
+" (with-out-str (d/execute '[p(1). p(2). p(3). q(X) :- p(X), X > 2 . q(X)?]))))
     (t/is (= "q(2).
 q(3).
-" (with-out-str (wcoj/execute '[p(1). p(2). p(3). q(X) :- p(X), X >= 2 . q(X)?])))))
+" (with-out-str (d/execute '[p(1). p(2). p(3). q(X) :- p(X), X >= 2 . q(X)?])))))
 
   (t/testing "doubles"
     (t/is (= "q(1.0).
 q(2.0).
-" (with-out-str (wcoj/execute '[p(1.0). p(2.0). p(3.0). q(X) :- p(X), X < 3.0 . q(X)?]))))
+" (with-out-str (d/execute '[p(1.0). p(2.0). p(3.0). q(X) :- p(X), X < 3.0 . q(X)?]))))
     (t/is (= "q(1.0).
 q(2.0).
 q(3.0).
-" (with-out-str (wcoj/execute '[p(1.0). p(2.0). p(3.0). q(X) :- p(X), X <= 3.0 . q(X)?]))))
+" (with-out-str (d/execute '[p(1.0). p(2.0). p(3.0). q(X) :- p(X), X <= 3.0 . q(X)?]))))
     (t/is (= "q(3.0).
-" (with-out-str (wcoj/execute '[p(1.0). p(2.0). p(3.0). q(X) :- p(X), X > 2.0 . q(X)?]))))
+" (with-out-str (d/execute '[p(1.0). p(2.0). p(3.0). q(X) :- p(X), X > 2.0 . q(X)?]))))
     (t/is (= "q(2.0).
 q(3.0).
-" (with-out-str (wcoj/execute '[p(1.0). p(2.0). p(3.0). q(X) :- p(X), X >= 2.0 . q(X)?])))))
+" (with-out-str (d/execute '[p(1.0). p(2.0). p(3.0). q(X) :- p(X), X >= 2.0 . q(X)?])))))
 
   (t/testing "comparables"
     (t/is (= "q(\"a\").
 q(\"b\").
-" (with-out-str (wcoj/execute '[p("a"). p("b"). p("c"). q(X) :- p(X), X < "c". q(X)?]))))
+" (with-out-str (d/execute '[p("a"). p("b"). p("c"). q(X) :- p(X), X < "c". q(X)?]))))
     (t/is (= "q(\"a\").
 q(\"b\").
 q(\"c\").
-" (with-out-str (wcoj/execute '[p("a"). p("b"). p("c"). q(X) :- p(X), X <= "c". q(X)?]))))
+" (with-out-str (d/execute '[p("a"). p("b"). p("c"). q(X) :- p(X), X <= "c". q(X)?]))))
     (t/is (= "q(\"c\").
-" (with-out-str (wcoj/execute '[p("a"). p("b"). p("c"). q(X) :- p(X), X > "b". q(X)?]))))
+" (with-out-str (d/execute '[p("a"). p("b"). p("c"). q(X) :- p(X), X > "b". q(X)?]))))
     (t/is (= "q(\"b\").
 q(\"c\").
-" (with-out-str (wcoj/execute '[p("a"). p("b"). p("c"). q(X) :- p(X), X >= "b". q(X)?]))))))
+" (with-out-str (d/execute '[p("a"). p("b"). p("c"). q(X) :- p(X), X >= "b". q(X)?]))))))
 
 (t/deftest test-aggregation
   (t/is (= "q(a, 2, 1, 2, 3).
 q(b, 5, 3, 2, 8).
 "
            (with-out-str
-             (wcoj/execute
+             (d/execute
               '[p(a, 1). p(a, 2). p(b, 3). p(b, 5).
 
 
@@ -158,27 +158,27 @@ q(b, 5, 3, 2, 8).
 
 (t/deftest test-racket-datalog-tutorial
   (let [db (atom {})]
-    (swap! db wcoj/execute '[parent(john,douglas).])
+    (swap! db d/execute '[parent(john,douglas).])
 
     (t/is (= '#{[john douglas]}
-             (set (wcoj/query @db '[parent(john, douglas)?]))))
-    (t/is (empty? (wcoj/query @db '[parent(john, ebbon)?])))
+             (set (d/query @db '[parent(john, douglas)?]))))
+    (t/is (empty? (d/query @db '[parent(john, ebbon)?])))
 
-    (swap! db wcoj/execute '[parent(bob,john).
-                             parent(ebbon,bob).])
+    (swap! db d/execute '[parent(bob,john).
+                          parent(ebbon,bob).])
 
     (t/is (= '#{[bob john]
                 [ebbon bob]
                 [john douglas]}
-             (set (wcoj/query @db '[parent(A, B)?]))))
+             (set (d/query @db '[parent(A, B)?]))))
 
     (t/is (= '#{[john douglas]}
-             (set (wcoj/query @db '[parent(john, B)?]))))
+             (set (d/query @db '[parent(john, B)?]))))
 
-    (t/is (empty? (wcoj/query @db '[parent(A, A)?])))
+    (t/is (empty? (d/query @db '[parent(A, A)?])))
 
-    (swap! db wcoj/execute '[ancestor(A,B) :- parent(A,B).
-                             ancestor(A,B) :- parent(A,C), ancestor(C, B).])
+    (swap! db d/execute '[ancestor(A,B) :- parent(A,B).
+                          ancestor(A,B) :- parent(A,C), ancestor(C, B).])
 
     (t/is (= '#{[bob douglas]
                 [ebbon douglas]
@@ -186,21 +186,21 @@ q(b, 5, 3, 2, 8).
                 [bob john]
                 [ebbon bob]
                 [john douglas]}
-             (set (wcoj/query @db '[ancestor(A, B)?]))))
+             (set (d/query @db '[ancestor(A, B)?]))))
 
     (t/is (= '#{[ebbon john]
                 [bob john]}
-             (set (wcoj/query @db '[ancestor(X, john)?]))))
+             (set (d/query @db '[ancestor(X, john)?]))))
 
-    (swap! db wcoj/execute '[parent(bob,john)-])
-
-    (t/is (= '#{[ebbon bob]
-                [john douglas]}
-             (set (wcoj/query @db '[parent(A, B)?]))))
+    (swap! db d/execute '[parent(bob,john)-])
 
     (t/is (= '#{[ebbon bob]
                 [john douglas]}
-             (set (wcoj/query @db '[ancestor(A, B)?]))))))
+             (set (d/query @db '[parent(A, B)?]))))
+
+    (t/is (= '#{[ebbon bob]
+                [john douglas]}
+             (set (d/query @db '[ancestor(A, B)?]))))))
 
 ;; http://www.dlvsystem.com/html/The_DLV_Tutorial.html
 
@@ -212,8 +212,8 @@ q(b, 5, 3, 2, 8).
               jogger(john).
 
               healthy(X) :- jogger(X), not smoker(X).]
-        db (wcoj/execute naf)
-        result (wcoj/query-by-name db 'healthy)]
+        db (d/execute naf)
+        result (d/query-by-name db 'healthy)]
     (t/is (= '#{[jill]} (set result))))
 
   (let [naf '[canfly(X) :- bird(X), not abnormal(X).
@@ -221,18 +221,18 @@ q(b, 5, 3, 2, 8).
               bird(john).
               bird(mary).
               wounded(john).]
-        db (wcoj/execute naf)
-        result (wcoj/query-by-name db 'canfly)]
+        db (d/execute naf)
+        result (d/query-by-name db 'canfly)]
     (t/is (= '#{[mary]} (set result))))
 
   (let [naf '[p .
 
               r :- p, q .
               s :- p, not q .]
-        db (wcoj/execute naf)]
-    (t/is (= '#{[]} (set (wcoj/query-by-name db 's))))
-    (t/is (= '#{[]} (set (wcoj/query-by-name db 'p))))
-    (t/is (= '#{} (set (wcoj/query-by-name db 'r))))))
+        db (d/execute naf)]
+    (t/is (= '#{[]} (set (d/query-by-name db 's))))
+    (t/is (= '#{[]} (set (d/query-by-name db 'p))))
+    (t/is (= '#{} (set (d/query-by-name db 'r))))))
 
 (t/deftest test-employees
   (let [emp '[emp("Jones",   30000, 35, "Accounting").
@@ -246,8 +246,8 @@ q(b, 5, 3, 2, 8).
               dept("Accounting", "Los Angeles").
 
               q1(Ename, Esalary, Dlocation) :- emp(Ename, Esalary, _, D), dept(D, Dlocation), Esalary > 31000 .]
-        db (wcoj/execute emp)
-        result (wcoj/query-by-name db 'q1)]
+        db (d/execute emp)
+        result (d/query-by-name db 'q1)]
     (t/is (= #{["Koch" 2000000 "Atlanta"] ["Miller" 38000 "New York"]
                ["Gruber" 32000 "Atlanta"] ["Nguyen" 35000 "New York"]}
              (set result)))))
@@ -257,22 +257,22 @@ q(b, 5, 3, 2, 8).
                       right_arm_broken :- not left_arm_broken .
                       can_write :- left_arm_broken .
                       be_angry :- can_write .]
-        db (wcoj/execute disjunction)]
+        db (d/execute disjunction)]
 
-    (let [db (wcoj/execute db '[left_arm_broken .])]
+    (let [db (d/execute db '[left_arm_broken .])]
       (doseq [q '[left_arm_broken can_write be_angry]]
-        (t/is (= '#{[]} (set (wcoj/query-by-name db q)))))
-      (t/is (= '#{} (set (wcoj/query-by-name db 'right_arm_broken))))))
+        (t/is (= '#{[]} (set (d/query-by-name db q)))))
+      (t/is (= '#{} (set (d/query-by-name db 'right_arm_broken))))))
 
   (let [disjunction '[left_arm_broken :- not right_arm_broken .
                       right_arm_broken :- not left_arm_broken .
                       can_write :- left_arm_broken .
                       be_angry :- can_write .]
-        db (wcoj/execute disjunction)]
-    (let [db (wcoj/execute db '[right_arm_broken .])]
+        db (d/execute disjunction)]
+    (let [db (d/execute db '[right_arm_broken .])]
       (doseq [q '[left_arm_broken can_write be_angry]]
-        (t/is (= '#{} (set (wcoj/query-by-name db q)))))
-      (t/is (= '#{[]} (set (wcoj/query-by-name db 'right_arm_broken)))))))
+        (t/is (= '#{} (set (d/query-by-name db q)))))
+      (t/is (= '#{[]} (set (d/query-by-name db 'right_arm_broken)))))))
 
 ;; https://www.swi-prolog.org/pldoc/man?section=tabling-non-termination
 (t/deftest test-connection-recursion-rules
@@ -283,8 +283,8 @@ q(b, 5, 3, 2, 8).
                      connection("Amsterdam", "Haarlem").
                      connection("Schiphol", "Leiden").
                      connection("Haarlem", "Leiden").]
-        db (wcoj/execute connection)
-        result (wcoj/query-by-name db 'connection '["Amsterdam" X])]
+        db (d/execute connection)
+        result (d/query-by-name db 'connection '["Amsterdam" X])]
     (t/is (= #{["Amsterdam" "Haarlem"]
                ["Amsterdam" "Schiphol"]
                ["Amsterdam" "Amsterdam"]
@@ -300,8 +300,8 @@ q(b, 5, 3, 2, 8).
                  owes(andy,bill).
                  owes(bill,carl).
                  owes(carl,bill).]
-        db (wcoj/execute avoids)
-        result (wcoj/query-by-name db 'avoids '[andy Y])]
+        db (d/execute avoids)
+        result (d/query-by-name db 'avoids '[andy Y])]
     (t/is (= '#{[andy bill]
                 [andy carl]} (set result)))))
 
@@ -317,16 +317,16 @@ ancestor(ebbon, john).
 ancestor(john, douglas).
 "
            (with-out-str
-             (wcoj/execute '[ancestor(A, B) :-
-                             parent(A, B).
-                             ancestor(A, B) :-
-                             parent(A, C),
-                             D = C,
-                             ancestor(D, B).
-                             parent(john, douglas).
-                             parent(bob, john).
-                             parent(ebbon, bob).
-                             ancestor(A, B)?])))))
+             (d/execute '[ancestor(A, B) :-
+                          parent(A, B).
+                          ancestor(A, B) :-
+                          parent(A, C),
+                          D = C,
+                          ancestor(D, B).
+                          parent(john, douglas).
+                          parent(bob, john).
+                          parent(ebbon, bob).
+                          ancestor(A, B)?])))))
 
 (t/deftest test-bidi-path
   (t/is (= "path(a, a).
@@ -347,7 +347,7 @@ path(d, c).
 path(d, d).
 "
            (with-out-str
-             (wcoj/execute
+             (d/execute
               '[edge(a, b). edge(b, c). edge(c, d). edge(d, a).
                 path(X, Y) :- edge(X, Y).
                 path(X, Y) :- edge(X, Z), path(Z, Y).
@@ -359,7 +359,7 @@ path(d, d).
 permit(will, fetch, rams_couch).
 "
            (with-out-str
-             (wcoj/execute
+             (d/execute
               '[contains(ca, store, rams_couch, rams).
                 contains(rams, fetch, rams_couch, will).
                 contains(ca, fetch, Name, Watcher) :-
@@ -390,7 +390,7 @@ path(d, c).
 path(d, d).
 "
            (with-out-str
-             (wcoj/execute
+             (d/execute
               '[edge(a, b). edge(b, c). edge(c, d). edge(d, a).
                 path(X, Y) :- edge(X, Y).
                 path(X, Y) :- edge(X, Z), path(Z, Y).
@@ -400,7 +400,7 @@ path(d, d).
   (t/is (= "q(a).
 "
            (with-out-str
-             (wcoj/execute
+             (d/execute
               '[q(X) :- p(X).
                 q(a).
                 p(X) :- q(X).
@@ -425,7 +425,7 @@ path(d, c).
 path(d, d).
 "
            (->> (with-out-str
-                  (wcoj/execute
+                  (d/execute
                    '[edge(a, b). edge(b, c). edge(c, d). edge(d, a).
                      path(X, Y) :- edge(X, Y).
                      path(X, Y) :- path(X, Z), edge(Z, Y).
@@ -436,7 +436,7 @@ path(d, d).
 r(a, c).
 "
            (with-out-str
-             (wcoj/execute
+             (d/execute
               '[r(X, Y) :- r(X, Z), r(Z, Y).
                 r(X, Y) :- p(X, Y), q(Y).
                 p(a, b).  p(b, d).  p(b, c).
@@ -452,7 +452,7 @@ perm(c, a).
 perm(c, b).
 "
            (with-out-str
-             (wcoj/execute
+             (d/execute
               '[sym(a).
                 sym(b).
                 sym(c).
@@ -464,7 +464,7 @@ perm(c, b).
   (t/is (= "true.
 "
            (with-out-str
-             (wcoj/execute
+             (d/execute
               '[true .
                 true ?])))))
 
@@ -473,176 +473,176 @@ perm(c, b).
 (t/deftest test-erlang-datalog
   (t/testing "single horn 1"
     (t/is (= #{[1 2] [2 3] [3 4] [4 5]}
-             (-> (wcoj/execute '[a(X, Y) :- p(X, Y).])
-                 (wcoj/assert-all 'p #{[1 2] [2 3] [3 4] [4 5]})
-                 (wcoj/query-by-name 'a)
+             (-> (d/execute '[a(X, Y) :- p(X, Y).])
+                 (d/assert-all 'p #{[1 2] [2 3] [3 4] [4 5]})
+                 (d/query-by-name 'a)
                  (set)))))
 
   (t/testing "single horn 2"
     (t/is (= #{[1 3] [2 4] [3 5]}
-             (-> (wcoj/execute '[a(X, Y) :- p(X, Z), p(Z, Y).])
-                 (wcoj/assert-all 'p #{[1 2] [2 3] [3 4] [4 5]})
-                 (wcoj/query-by-name 'a)
+             (-> (d/execute '[a(X, Y) :- p(X, Z), p(Z, Y).])
+                 (d/assert-all 'p #{[1 2] [2 3] [3 4] [4 5]})
+                 (d/query-by-name 'a)
                  (set)))))
 
   (t/testing "single horn 3"
     (t/is (= #{[1 4] [2 5]}
-             (-> (wcoj/execute '[a(X, Y) :- p(X, Z), p(Z, F), p(F, Y).])
-                 (wcoj/assert-all 'p #{[1 2] [2 3] [3 4] [4 5]})
-                 (wcoj/query-by-name 'a)
+             (-> (d/execute '[a(X, Y) :- p(X, Z), p(Z, F), p(F, Y).])
+                 (d/assert-all 'p #{[1 2] [2 3] [3 4] [4 5]})
+                 (d/query-by-name 'a)
                  (set)))))
 
   (t/testing "horn 2"
     (t/is (= #{[1 3] [2 4] [3 5]}
-             (-> (wcoj/execute '[a(X, Y) :- p(X, Y).
-                                 b(X, Y) :- a(X, Z), p(Z, Y).])
-                 (wcoj/assert-all 'p #{[1 2] [2 3] [3 4] [4 5]})
-                 (wcoj/query-by-name 'b)
+             (-> (d/execute '[a(X, Y) :- p(X, Y).
+                              b(X, Y) :- a(X, Z), p(Z, Y).])
+                 (d/assert-all 'p #{[1 2] [2 3] [3 4] [4 5]})
+                 (d/query-by-name 'b)
                  (set)))))
 
   (t/testing "horn 3"
     (t/is (= #{[1 4] [2 5]}
-             (-> (wcoj/execute '[a(X, Y) :- p(X, Y).
-                                 b(X, Y) :- a(X, Z), p(Z, Y).
-                                 c(X, Y) :- b(X, Z), p(Z, Y).])
-                 (wcoj/assert-all 'p #{[1 2] [2 3] [3 4] [4 5]})
-                 (wcoj/query-by-name 'c)
+             (-> (d/execute '[a(X, Y) :- p(X, Y).
+                              b(X, Y) :- a(X, Z), p(Z, Y).
+                              c(X, Y) :- b(X, Z), p(Z, Y).])
+                 (d/assert-all 'p #{[1 2] [2 3] [3 4] [4 5]})
+                 (d/query-by-name 'c)
                  (set)))))
 
   (t/testing "cartesian product"
     (t/is (= #{[1 1] [1 2] [1 3]
                [2 1] [2 2] [2 3]
                [3 1] [3 2] [3 3]}
-             (-> (wcoj/execute '[h(X, Y) :- p(X), p(Y).])
-                 (wcoj/assert-all 'p #{[1] [2] [3]})
-                 (wcoj/query-by-name 'h)
+             (-> (d/execute '[h(X, Y) :- p(X), p(Y).])
+                 (d/assert-all 'p #{[1] [2] [3]})
+                 (d/query-by-name 'h)
                  (set)))))
 
   (t/testing "infix eq"
     (t/is (= #{[2]}
-             (-> (wcoj/execute '[h(X) :- p(X), X = 2 .])
-                 (wcoj/assert-all 'p #{[1] [2] [3] [4]})
-                 (wcoj/query-by-name 'h)
+             (-> (d/execute '[h(X) :- p(X), X = 2 .])
+                 (d/assert-all 'p #{[1] [2] [3] [4]})
+                 (d/query-by-name 'h)
                  (set)))))
 
   (t/testing "infix lt"
     (t/is (= #{[1] [2]}
-             (-> (wcoj/execute '[h(X) :- p(X), X < 3 .])
-                 (wcoj/assert-all 'p #{[1] [2] [3] [4]})
-                 (wcoj/query-by-name 'h)
+             (-> (d/execute '[h(X) :- p(X), X < 3 .])
+                 (d/assert-all 'p #{[1] [2] [3] [4]})
+                 (d/query-by-name 'h)
                  (set)))))
 
   (t/testing "infix le"
     (t/is (= #{[1] [2]}
-             (-> (wcoj/execute '[h(X) :- p(X), X <= 2 .])
-                 (wcoj/assert-all 'p #{[1] [2] [3] [4]})
-                 (wcoj/query-by-name 'h)
+             (-> (d/execute '[h(X) :- p(X), X <= 2 .])
+                 (d/assert-all 'p #{[1] [2] [3] [4]})
+                 (d/query-by-name 'h)
                  (set)))))
 
   (t/testing "infix gt"
     (t/is (= #{[3] [4]}
-             (-> (wcoj/execute '[h(X) :- p(X), X > 2 .])
-                 (wcoj/assert-all 'p #{[1] [2] [3] [4]})
-                 (wcoj/query-by-name 'h)
+             (-> (d/execute '[h(X) :- p(X), X > 2 .])
+                 (d/assert-all 'p #{[1] [2] [3] [4]})
+                 (d/query-by-name 'h)
                  (set)))))
 
   (t/testing "infix ge"
     (t/is (= #{[3] [4]}
-             (-> (wcoj/execute '[h(X) :- p(X), X >= 3 .])
-                 (wcoj/assert-all 'p #{[1] [2] [3] [4]})
-                 (wcoj/query-by-name 'h)
+             (-> (d/execute '[h(X) :- p(X), X >= 3 .])
+                 (d/assert-all 'p #{[1] [2] [3] [4]})
+                 (d/query-by-name 'h)
                  (set)))))
 
   (t/testing "infix ne"
     (t/is (= #{[1] [3] [4]}
-             (-> (wcoj/execute '[h(X) :- p(X), X != 2 .])
-                 (wcoj/assert-all 'p #{[1] [2] [3] [4]})
-                 (wcoj/query-by-name 'h)
+             (-> (d/execute '[h(X) :- p(X), X != 2 .])
+                 (d/assert-all 'p #{[1] [2] [3] [4]})
+                 (d/query-by-name 'h)
                  (set)))))
 
   ;; These are a bit odd as some parts dedupes streams atm.
   (t/testing "union 2"
     (t/is (= (set [[1 2] [2 3] [3 4] [3 4] [4 5] [4 5]])
-             (-> (wcoj/execute '[a(X, Y) :- p(X, Y), X > 2 .
-                                 a(X, Y) :- p(X, Y).])
-                 (wcoj/assert-all 'p #{[1 2] [2 3] [3 4] [4 5]})
-                 (wcoj/query-by-name 'a)
+             (-> (d/execute '[a(X, Y) :- p(X, Y), X > 2 .
+                              a(X, Y) :- p(X, Y).])
+                 (d/assert-all 'p #{[1 2] [2 3] [3 4] [4 5]})
+                 (d/query-by-name 'a)
                  (set)))))
 
   (t/testing "union 3"
     (t/is (= (set [[1 2] [1 2] [2 3] [2 3] [3 4] [3 4] [4 5] [4 5]])
-             (-> (wcoj/execute '[a(X, Y) :- p(X, Y), X > 2 .
-                                 a(X, Y) :- p(X, Y), X < 3 .
-                                 a(X, Y) :- p(X, Y).])
-                 (wcoj/assert-all 'p #{[1 2] [2 3] [3 4] [4 5]})
-                 (wcoj/query-by-name 'a)
+             (-> (d/execute '[a(X, Y) :- p(X, Y), X > 2 .
+                              a(X, Y) :- p(X, Y), X < 3 .
+                              a(X, Y) :- p(X, Y).])
+                 (d/assert-all 'p #{[1 2] [2 3] [3 4] [4 5]})
+                 (d/query-by-name 'a)
                  (set)))))
 
   (t/testing "recursion 1"
     (t/is (= #{[1 2] [2 3] [1 3] [3 3] [3 2] [2 2]}
-             (-> (wcoj/execute '[a(X, Y) :- p(X, Y).
-                                 a(X, Y) :- a(X, Z), p(Z, Y).])
-                 (wcoj/assert-all 'p #{[1 2] [2 3] [3 2]})
-                 (wcoj/query-by-name 'a)
+             (-> (d/execute '[a(X, Y) :- p(X, Y).
+                              a(X, Y) :- a(X, Z), p(Z, Y).])
+                 (d/assert-all 'p #{[1 2] [2 3] [3 2]})
+                 (d/query-by-name 'a)
                  (set)))))
 
   (t/testing "recursion 2"
     (t/is (= #{[1 2] [2 3] [1 3] [3 4] [2 4] [1 4] [4 5] [3 5] [2 5] [1 5]}
-             (-> (wcoj/execute '[a(X, Y) :- p(X, Y).
-                                 a(X, Y) :- p(X, Z), a(Z, Y).])
-                 (wcoj/assert-all 'p #{[1 2] [2 3] [3 4] [4 5]})
-                 (wcoj/query-by-name 'a)
+             (-> (d/execute '[a(X, Y) :- p(X, Y).
+                              a(X, Y) :- p(X, Z), a(Z, Y).])
+                 (d/assert-all 'p #{[1 2] [2 3] [3 4] [4 5]})
+                 (d/query-by-name 'a)
                  (set)))))
 
   (t/testing "recursion 3"
     (t/is (= #{[4 3] [2 2] [2 3] [2 5] [3 3] [5 4] [3 4] [4 2] [5 3] [5 2] [1 4]
                [1 3] [1 5] [5 5] [2 4] [4 5] [4 4] [1 2] [3 5] [3 2]}
-             (-> (wcoj/execute '[a(X, Y) :- p(X, Y).
-                                 a(X, Y) :- a(X, Z), p(Z, Y).])
-                 (wcoj/assert-all 'p #{[1 2] [2 3] [2 5] [3 4] [4 2] [5 4]})
-                 (wcoj/query-by-name 'a)
+             (-> (d/execute '[a(X, Y) :- p(X, Y).
+                              a(X, Y) :- a(X, Z), p(Z, Y).])
+                 (d/assert-all 'p #{[1 2] [2 3] [2 5] [3 4] [4 2] [5 4]})
+                 (d/query-by-name 'a)
                  (set)))))
 
   (t/testing "lang eq"
     (t/is (= #{[1 1] [2 2] [3 3] [4 4]}
-             (-> (wcoj/execute '[a(X, Y) :- p(X), p(Y), X = Y .])
-                 (wcoj/assert-all 'p #{[1] [2] [3] [4]})
-                 (wcoj/query-by-name 'a)
+             (-> (d/execute '[a(X, Y) :- p(X), p(Y), X = Y .])
+                 (d/assert-all 'p #{[1] [2] [3] [4]})
+                 (d/query-by-name 'a)
                  (set)))))
 
   (t/testing "lang ne"
     (t/is (= #{[1 2] [2 1]}
-             (-> (wcoj/execute '[a(X, Y) :- p(X), p(Y), X != Y .])
-                 (wcoj/assert-all 'p #{[1] [2]})
-                 (wcoj/query-by-name 'a)
+             (-> (d/execute '[a(X, Y) :- p(X), p(Y), X != Y .])
+                 (d/assert-all 'p #{[1] [2]})
+                 (d/query-by-name 'a)
                  (set)))))
 
   (t/testing "lang lt"
     (t/is (= #{[1 2] [1 3] [1 4] [2 3] [2 4] [3 4]}
-             (-> (wcoj/execute '[a(X, Y) :- p(X), p(Y), X < Y .])
-                 (wcoj/assert-all 'p #{[1] [2] [3] [4]})
-                 (wcoj/query-by-name 'a)
+             (-> (d/execute '[a(X, Y) :- p(X), p(Y), X < Y .])
+                 (d/assert-all 'p #{[1] [2] [3] [4]})
+                 (d/query-by-name 'a)
                  (set)))))
 
   (t/testing "lang gt"
     (t/is (= #{[2 1] [3 1] [4 1] [3 2] [4 2] [4 3]}
-             (-> (wcoj/execute '[a(X, Y) :- p(X), p(Y), X > Y .])
-                 (wcoj/assert-all 'p #{[1] [2] [3] [4]})
-                 (wcoj/query-by-name 'a)
+             (-> (d/execute '[a(X, Y) :- p(X), p(Y), X > Y .])
+                 (d/assert-all 'p #{[1] [2] [3] [4]})
+                 (d/query-by-name 'a)
                  (set)))))
 
   (t/testing "lang le"
     (t/is (= #{[1 1] [1 2] [1 3] [1 4] [2 2] [2 3] [2 4] [3 3] [3 4] [4 4]}
-             (-> (wcoj/execute '[a(X, Y) :- p(X), p(Y), X <= Y .])
-                 (wcoj/assert-all 'p #{[1] [2] [3] [4]})
-                 (wcoj/query-by-name 'a)
+             (-> (d/execute '[a(X, Y) :- p(X), p(Y), X <= Y .])
+                 (d/assert-all 'p #{[1] [2] [3] [4]})
+                 (d/query-by-name 'a)
                  (set)))))
 
   (t/testing "lang ge"
     (t/is (= #{[1 1] [2 1] [2 2] [3 1] [3 2] [3 3] [4 1] [4 2] [4 3] [4 4]}
-             (-> (wcoj/execute '[a(X, Y) :- p(X), p(Y), X >= Y .])
-                 (wcoj/assert-all 'p #{[1] [2] [3] [4]})
-                 (wcoj/query-by-name 'a)
+             (-> (d/execute '[a(X, Y) :- p(X), p(Y), X >= Y .])
+                 (d/assert-all 'p #{[1] [2] [3] [4]})
+                 (d/query-by-name 'a)
                  (set))))))
 
 ;; https://www.informatik.uni-ulm.de/pm/fileadmin/pm/home/fruehwirth/pisa/clp-intro-ecrc-93-05.pdf
@@ -654,34 +654,34 @@ perm(c, b).
               [radishes sole icecream 9]
               [radishes pork fruit 10]
               [radishes tuna fruit 7]}
-           (-> (wcoj/execute '[lightmeal(A, M, D, IJK) :-
-                               appetiser(A, I),
-                               main(M, J),
-                               dessert(D, K),
-                               I > 0,
-                               J > 0,
-                               K > 0,
-                               IJK :- +(I, J, K),
-                               IJK <= 10 .
+           (-> (d/execute '[lightmeal(A, M, D, IJK) :-
+                            appetiser(A, I),
+                            main(M, J),
+                            dessert(D, K),
+                            I > 0,
+                            J > 0,
+                            K > 0,
+                            IJK :- +(I, J, K),
+                            IJK <= 10 .
 
-                               main(M, I) :-
-                               meat(M, I).
+                            main(M, I) :-
+                            meat(M, I).
 
-                               main(M, I) :-
-                               fish(M, I).
+                            main(M, I) :-
+                            fish(M, I).
 
-                               appetiser(radishes, 1).
-                               appetiser(pasta, 6).
+                            appetiser(radishes, 1).
+                            appetiser(pasta, 6).
 
-                               meat(beef, 5).
-                               meat(pork, 7).
+                            meat(beef, 5).
+                            meat(pork, 7).
 
-                               fish(sole, 2).
-                               fish(tuna, 4).
+                            fish(sole, 2).
+                            fish(tuna, 4).
 
-                               dessert(fruit, 2).
-                               dessert(icecream, 6).])
-               (wcoj/query-by-name 'lightmeal)
+                            dessert(fruit, 2).
+                            dessert(icecream, 6).])
+               (d/query-by-name 'lightmeal)
                (set)))))
 
 ;; http://infolab.stanford.edu/~ullman/fcdb/aut07/slides/ra.pdf
@@ -690,31 +690,31 @@ perm(c, b).
   (t/testing "selection"
     (t/is (= #{["Joe's" "Bud" 2.50]
                ["Joe's" "Miller" 2.75]}
-             (-> (wcoj/assert-all {} 'sells #{["Joe's" "Bud" 2.50]
-                                              ["Joe's" "Miller" 2.75]
-                                              ["Sue's" "Bud" 2.50]
-                                              ["Sue's" "Miller" 3.0]})
-                 (wcoj/query '[sells("Joe's" Beer Price)?])
+             (-> (d/assert-all {} 'sells #{["Joe's" "Bud" 2.50]
+                                           ["Joe's" "Miller" 2.75]
+                                           ["Sue's" "Bud" 2.50]
+                                           ["Sue's" "Miller" 3.0]})
+                 (d/query '[sells("Joe's" Beer Price)?])
                  (set)))))
 
   (t/testing "projection"
     (t/is (= '#{[_ "Bud" 2.50]
                 [_ "Miller" 2.75]
                 [_ "Miller" 3.00]}
-             (-> (wcoj/assert-all {} 'sells #{["Joe's" "Bud" 2.50]
-                                              ["Joe's" "Miller" 2.75]
-                                              ["Sue's" "Bud" 2.50]
-                                              ["Sue's" "Miller" 3.0]})
-                 (wcoj/query '[sells(_ Beer Price)?])
+             (-> (d/assert-all {} 'sells #{["Joe's" "Bud" 2.50]
+                                           ["Joe's" "Miller" 2.75]
+                                           ["Sue's" "Bud" 2.50]
+                                           ["Sue's" "Miller" 3.0]})
+                 (d/query '[sells(_ Beer Price)?])
                  (set)))))
 
   (t/testing "extended projection"
     (t/is (= #{[3 1 1]
                [7 3 3]}
-             (-> (wcoj/assert-all {} 'r #{[1 2]
-                                          [3 4]})
-                 (-> (wcoj/execute '[q(C, A, A) :- r(A, B), C :- +(A, B).]))
-                 (wcoj/query '[q(C, A1, A2)?])
+             (-> (d/assert-all {} 'r #{[1 2]
+                                       [3 4]})
+                 (-> (d/execute '[q(C, A, A) :- r(A, B), C :- +(A, B).]))
+                 (d/query '[q(C, A1, A2)?])
                  (set)))))
 
   (t/testing "product"
@@ -724,13 +724,13 @@ perm(c, b).
                [3 4 5 6]
                [3 4 7 8]
                [3 4 9 10]}
-             (-> (wcoj/assert-all {} 'r1 #{[1 2]
-                                           [3 4]})
-                 (wcoj/assert-all 'r2 #{[5 6]
-                                        [7 8]
-                                        [9 10]})
-                 (-> (wcoj/execute '[q(A, R1A, R2B, C) :- r1(A, R1A), r2(R2B, C) .]))
-                 (wcoj/query '[q(A, R1A, R2B, C)?])
+             (-> (d/assert-all {} 'r1 #{[1 2]
+                                        [3 4]})
+                 (d/assert-all 'r2 #{[5 6]
+                                     [7 8]
+                                     [9 10]})
+                 (-> (d/execute '[q(A, R1A, R2B, C) :- r1(A, R1A), r2(R2B, C) .]))
+                 (d/query '[q(A, R1A, R2B, C)?])
                  (set)))))
 
   (t/testing "theta join"
@@ -738,14 +738,14 @@ perm(c, b).
                ["Joe's" "Miller" 2.75 "Joe's" "Maple St."]
                ["Sue's" "Bud" 2.5 "Sue's" "River Rd."]
                ["Sue's" "Miller" 3.0 "Sue's" "River Rd."]}
-             (-> (wcoj/assert-all {} 'sells #{["Joe's" "Bud" 2.50]
-                                              ["Joe's" "Miller" 2.75]
-                                              ["Sue's" "Bud" 2.50]
-                                              ["Sue's" "Miller" 3.0]})
-                 (wcoj/assert-all 'bars #{["Joe's" "Maple St."]
-                                          ["Sue's" "River Rd."]})
-                 (-> (wcoj/execute '[q(Bar, Beer, Price, Name, Addr) :- sells(Bar, Beer, Price), bars(Name, Addr), Bar = Name .]))
-                 (wcoj/query '[q(Bar, Beer, Price, Name, Addr)?])
+             (-> (d/assert-all {} 'sells #{["Joe's" "Bud" 2.50]
+                                           ["Joe's" "Miller" 2.75]
+                                           ["Sue's" "Bud" 2.50]
+                                           ["Sue's" "Miller" 3.0]})
+                 (d/assert-all 'bars #{["Joe's" "Maple St."]
+                                       ["Sue's" "River Rd."]})
+                 (-> (d/execute '[q(Bar, Beer, Price, Name, Addr) :- sells(Bar, Beer, Price), bars(Name, Addr), Bar = Name .]))
+                 (d/query '[q(Bar, Beer, Price, Name, Addr)?])
                  (set)))))
 
   (t/testing "natural join"
@@ -753,14 +753,14 @@ perm(c, b).
                ["Joe's" "Miller" 2.75 "Maple St."]
                ["Sue's" "Bud" 2.5 "River Rd."]
                ["Sue's" "Coors" 3.0 "River Rd."]}
-             (-> (wcoj/assert-all {} 'sells #{["Joe's" "Bud" 2.50]
-                                              ["Joe's" "Miller" 2.75]
-                                              ["Sue's" "Bud" 2.50]
-                                              ["Sue's" "Coors" 3.0]})
-                 (wcoj/assert-all 'bars #{["Joe's" "Maple St."]
-                                          ["Sue's" "River Rd."]})
-                 (-> (wcoj/execute '[q(Bar, Beer, Price, Addr) :- sells(Bar, Beer, Price), bars(Bar, Addr).]))
-                 (wcoj/query '[q(Bar, Beer, Price, Addr)?])
+             (-> (d/assert-all {} 'sells #{["Joe's" "Bud" 2.50]
+                                           ["Joe's" "Miller" 2.75]
+                                           ["Sue's" "Bud" 2.50]
+                                           ["Sue's" "Coors" 3.0]})
+                 (d/assert-all 'bars #{["Joe's" "Maple St."]
+                                       ["Sue's" "River Rd."]})
+                 (-> (d/execute '[q(Bar, Beer, Price, Addr) :- sells(Bar, Beer, Price), bars(Bar, Addr).]))
+                 (d/query '[q(Bar, Beer, Price, Addr)?])
                  (set))))))
 
 ;; http://www.cs.toronto.edu/~drosu/csc343-l7-handout6.pdf
@@ -792,14 +792,14 @@ perm(c, b).
 ;; j(X, Y, Z, W) :- r(X, Y), t(Z, W), X > Y. ;; looks wrong?
 
 (defn- with-each-tuple-factory [f]
-  (doseq [factory [#'wcoj/new-sorted-set-relation
+  (doseq [factory [#'d/new-sorted-set-relation
                    #'da/new-arrow-struct-relation
                    #'dhq/new-hyper-quad-tree-relation]]
     (t/testing (:name (meta factory))
-      (binding [wcoj/*tuple-relation-factory* factory]
+      (binding [d/*tuple-relation-factory* factory]
         (if (= factory #'dhq/new-hyper-quad-tree-relation)
           (doseq [leaf-tuple-factory [#'da/new-arrow-struct-relation
-                                      #'wcoj/new-sorted-set-relation]]
+                                      #'d/new-sorted-set-relation]]
             (t/testing (:name (meta leaf-tuple-factory))
               (binding [dhq/*leaf-tuple-relation-factory* leaf-tuple-factory
                         dhq/*leaf-size* 4

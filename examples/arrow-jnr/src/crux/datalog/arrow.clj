@@ -3,7 +3,7 @@
             [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.edn :as edn]
-            [crux.wcoj :as wcoj]
+            [crux.datalog :as d]
             [crux.buffer-pool :as bp])
   (:import [org.apache.arrow.memory BufferAllocator RootAllocator]
            [org.apache.arrow.vector BaseFixedWidthVector BaseIntVector BaseVariableWidthVector
@@ -245,10 +245,10 @@
 (defn- project-column [^VectorSchemaRoot record-batch ^long idx ^long n projection]
   (let [p (get projection n)]
     (case p
-      :crux.wcoj/blank-var dp/blank-var
-      :crux.wcoj/logic-var (let [column (.getVector record-batch n)
-                                 value (.getObject column idx)]
-                             (arrow->clojure value))
+      :crux.datalog/blank-var dp/blank-var
+      :crux.datalog/logic-var (let [column (.getVector record-batch n)
+                                    value (.getObject column idx)]
+                                (arrow->clojure value))
       p)))
 
 (defn- selected-tuples [^VectorSchemaRoot record-batch projection ^long base-offset ^BitVector selection-vector]
@@ -284,12 +284,12 @@
 (defn- arrow-seq [^VectorSchemaRoot record-batch  var-bindings]
   (let [allocator (record-batch-allocator record-batch)
         selection-vector (BitVector. "" allocator)
-        unify-tuple? (wcoj/contains-duplicate-vars? var-bindings)
-        unifier-vector (wcoj/insert
+        unify-tuple? (d/contains-duplicate-vars? var-bindings)
+        unifier-vector (d/insert
                         (StructVector/empty nil allocator)
                         var-bindings)
         column-filter (unifiers->column-filters unifier-vector var-bindings)
-        projection (wcoj/projection var-bindings)
+        projection (d/projection var-bindings)
         vector-size (min *vector-size* (.getRowCount record-batch))
         selection-vector (doto selection-vector
                            (.setValueCount vector-size)
@@ -303,7 +303,7 @@
              (repeat vector-size (with-meta [] {::index 0}))
              (cond->> (selected-indexes record-batch column-filter selection-vector)
                true (selected-tuples record-batch projection start-idx)
-               unify-tuple? (filter (partial wcoj/unify var-bindings)))))
+               unify-tuple? (filter (partial d/unify var-bindings)))))
          (apply concat))))
 
 (defn- write-record-batches ^java.io.File [record-batches f]
@@ -374,12 +374,12 @@
                 record-batch))))))
 
 (deftype ArrowRecordBatchView [record-batch ^:volatile-mutable buffer]
-  wcoj/Relation
+  d/Relation
   (table-scan [this db]
-    (wcoj/table-scan record-batch db))
+    (d/table-scan record-batch db))
 
   (table-filter [this db var-bindings]
-    (wcoj/table-filter record-batch db var-bindings))
+    (d/table-filter record-batch db var-bindings))
 
   (insert [this value]
     (throw (UnsupportedOperationException.)))
@@ -391,7 +391,7 @@
     (throw (UnsupportedOperationException.)))
 
   (cardinality [this]
-    (wcoj/cardinality record-batch))
+    (d/cardinality record-batch))
 
   AutoCloseable
   (close [this]
@@ -419,12 +419,12 @@
   (->ArrowFileView buffer-pool k nil))
 
 (defrecord ArrowBlockRelation [^ArrowFileView arrow-file ^long block-idx]
-  wcoj/Relation
+  d/Relation
   (table-scan [this db]
-    (wcoj/table-scan (nth arrow-file block-idx) db))
+    (d/table-scan (nth arrow-file block-idx) db))
 
   (table-filter [this db var-bindings]
-    (wcoj/table-filter (nth arrow-file block-idx) db var-bindings))
+    (d/table-filter (nth arrow-file block-idx) db var-bindings))
 
   (insert [this value]
     (throw (UnsupportedOperationException.)))
@@ -436,22 +436,22 @@
     (throw (UnsupportedOperationException.)))
 
   (cardinality [this]
-    (wcoj/cardinality (nth arrow-file block-idx))))
+    (d/cardinality (nth arrow-file block-idx))))
 
 (defn new-arrow-block-relation [^ArrowFileView arrow-file ^long block-idx]
   (->ArrowBlockRelation arrow-file block-idx))
 
-(extend-protocol wcoj/Relation
+(extend-protocol d/Relation
   StructVector
   (table-scan [this db]
-    (wcoj/table-scan (VectorSchemaRoot. this) db))
+    (d/table-scan (VectorSchemaRoot. this) db))
 
   (table-filter [this db var-bindings]
-    (wcoj/table-filter (VectorSchemaRoot. this) db var-bindings))
+    (d/table-filter (VectorSchemaRoot. this) db var-bindings))
 
   (insert [this value]
     (if (and (zero? (.size this)) (pos? (count value)))
-      (wcoj/insert (init-struct this value) value)
+      (d/insert (init-struct this value) value)
       (let [idx (.getValueCount this)]
         (dotimes [n (.size this)]
           (let [v (get value n)
@@ -463,7 +463,7 @@
           (.setValueCount (inc idx))))))
 
   (delete [this value]
-    (doseq [to-delete (wcoj/table-filter this nil value)
+    (doseq [to-delete (d/table-filter this nil value)
             :let [idx (::index (meta to-delete))]]
       (dotimes [n (.size this)]
         (let [column (.getChildByOrdinal this n)]
@@ -484,7 +484,7 @@
   VectorSchemaRoot
   (table-scan [this db]
     (->> (repeat (count (.getFieldVectors this)) dp/blank-var)
-         (mapv wcoj/ensure-unique-logic-var)
+         (mapv d/ensure-unique-logic-var)
          (arrow-seq this)))
 
   (table-filter [this db var-bindings]

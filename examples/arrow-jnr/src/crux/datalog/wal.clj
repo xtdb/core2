@@ -1,7 +1,7 @@
 (ns crux.datalog.wal
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
-            [crux.wcoj :as wcoj])
+            [crux.datalog :as d])
   (:import [java.io File RandomAccessFile]
            java.nio.charset.StandardCharsets
            [java.lang.ref Reference SoftReference]
@@ -32,27 +32,27 @@
               (let [[op value] (.record wal-record)]
                 (-> relation-and-next-offset
                     (update :relation (case op
-                                        :insert wcoj/insert
-                                        :delete wcoj/delete) value)
+                                        :insert d/insert
+                                        :delete d/delete) value)
                     (assoc :next-offset (.next-offset wal-record)))))
             relation-and-next-offset
             (read-records wal (.next-offset relation-and-next-offset)))))
 
 (deftype WALRelation [name tuple-relation-factory ^:volatile-mutable ^Reference relation-and-next-offset wal]
-  wcoj/Relation
+  d/Relation
   (table-scan [this db]
     (let [relation-and-next-offset (.get relation-and-next-offset)
           new-relation-and-next-offset (replay-wal wal relation-and-next-offset name tuple-relation-factory)]
       (when-not (identical? new-wal-relation-and-next-offset relation-and-next-offset)
         (set! (.-relation-and-next-offset this) (SoftReference. new-relation-and-next-offset)))
-      (wcoj/table-scan (.relation new-relation-and-next-offset) db)))
+      (d/table-scan (.relation new-relation-and-next-offset) db)))
 
   (table-filter [this db var-bindings]
     (let [relation-and-next-offset (.get relation-and-next-offset)
           new-relation-and-next-offset (replay-wal wal relation-and-next-offset name tuple-relation-factory)]
       (when-not (identical? new-wal-relation-and-next-offset relation-and-next-offset)
         (set! (.-relation-and-next-offset this) (SoftReference. new-relation-and-next-offset)))
-      (wcoj/table-filter (.relation new-relation-and-next-offset) db var-bindings)))
+      (d/table-filter (.relation new-relation-and-next-offset) db var-bindings)))
 
   (insert [this value]
     (write-record wal [:insert value])
@@ -72,12 +72,12 @@
           new-relation-and-next-offset (replay-wal wal relation-and-next-offset name tuple-relation-factory)]
       (when-not (identical? new-wal-relation-and-next-offset relation-and-next-offset)
         (set! (.-relation-and-next-offset this) (SoftReference. new-relation-and-next-offset)))
-      (wcoj/cardinality (.relation new-relation-and-next-offset))))
+      (d/cardinality (.relation new-relation-and-next-offset))))
 
   AutoCloseable
   (close [this]
     (set! (.-relation-and-next-offset this) nil)
-    (wcoj/try-close wal)))
+    (d/try-close wal)))
 
 (deftype EDNFileWAL [^:volatile-mutable ^RandomAccessFile write-raf ^File f sync?]
   WAL
@@ -98,13 +98,13 @@
              (vec)))))
 
   (delete [this]
-    (wcoj/try-close this)
+    (d/try-close this)
     (.delete f)
     nil)
 
   AutoCloseable
   (close [this]
-    (wcoj/try-close write-raf)
+    (d/try-close write-raf)
     (set! (.-write-raf this) nil)))
 
 (defn new-edn-file-wal

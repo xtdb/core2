@@ -1,8 +1,8 @@
 (ns crux.datalog.hquad-tree
-  (:require [crux.datalog :as cd]
-            [crux.z-curve :as cz]
+  (:require [crux.z-curve :as cz]
             [crux.byte-keys :as cbk]
-            [crux.wcoj :as wcoj])
+            [crux.datalog :as d]
+            [crux.datalog.parser :as dp])
   (:import [org.apache.arrow.memory BufferAllocator RootAllocator]
            org.apache.arrow.vector.complex.FixedSizeListVector
            org.apache.arrow.vector.IntVector
@@ -21,7 +21,7 @@
 (def ^:private ^{:tag 'long} root-idx 0)
 (def ^:private ^{:tag 'long} root-level -1)
 
-(def ^:dynamic *leaf-tuple-relation-factory* wcoj/new-sorted-set-relation)
+(def ^:dynamic *leaf-tuple-relation-factory* d/new-sorted-set-relation)
 
 (declare insert-tuple insert-into-node walk-tree)
 
@@ -46,7 +46,7 @@
 
 (defn- var-bindings->z-range [var-bindings]
   (let [min+max (for [var-binding var-bindings]
-                  (if (cd/logic-var? var-binding)
+                  (if (dp/logic-var? var-binding)
                     (if-let [constraints (:constraints (meta var-binding))]
                       (let [[min-z max-z] (reduce
                                            (fn [[min-z max-z] [op value]]
@@ -81,12 +81,12 @@
                         ^List leaves
                         ^String name
                         ^BufferAllocator allocator]
-  wcoj/Relation
+  d/Relation
   (table-scan [this db]
-    (walk-tree this nodes #(wcoj/table-scan % db) z-wildcard-range))
+    (walk-tree this nodes #(d/table-scan % db) z-wildcard-range))
 
   (table-filter [this db var-bindings]
-    (walk-tree this nodes #(wcoj/table-filter % db var-bindings) (var-bindings->z-range var-bindings)))
+    (walk-tree this nodes #(d/table-filter % db var-bindings) (var-bindings->z-range var-bindings)))
 
   (insert [this value]
     (when (nil? nodes)
@@ -104,20 +104,20 @@
       (dotimes [n (.size leaves)]
         (let [leaf (.get leaves n)]
           (when leaf
-            (.set leaves n (wcoj/delete leaf value))))))
+            (.set leaves n (d/delete leaf value))))))
     this)
 
   (cardinality [this]
-    (reduce + (map wcoj/cardinality leaves)))
+    (reduce + (map d/cardinality leaves)))
 
   (truncate [this]
     (throw (UnsupportedOperationException.)))
 
   AutoCloseable
   (close [_]
-    (wcoj/try-close nodes)
+    (d/try-close nodes)
     (doseq [leaf leaves]
-      (wcoj/try-close leaf))))
+      (d/try-close leaf))))
 
 (defn new-hyper-quad-tree-relation
   (^crux.datalog.hquad_tree.HyperQuadTree [relation-name]
@@ -199,18 +199,18 @@
       (.setValueCount nodes (inc (.getValueCount nodes)))
       (when-not root?
         (.setSafe node-vector (int parent-node-idx) new-node-idx))
-      (doseq [tuple (wcoj/table-scan leaf nil)]
+      (doseq [tuple (d/table-scan leaf nil)]
         (insert-into-node tree nodes new-level new-node-idx tuple))
       (post-process-children-after-split tree nodes new-node-idx)
       (.set leaves leaf-idx nil)
-      (wcoj/try-close leaf)
+      (d/try-close leaf)
       [new-level new-node-idx])))
 
 (defn- insert-into-leaf [^HyperQuadTree tree ^FixedSizeListVector nodes level parent-node-idx leaf-idx value]
   (let [leaves ^List (.leaves tree)
         leaf (.get leaves leaf-idx)]
-    (if (< ^long (wcoj/cardinality leaf) *leaf-size*)
-      (.set leaves leaf-idx (wcoj/insert leaf value))
+    (if (< ^long (d/cardinality leaf) *leaf-size*)
+      (.set leaves leaf-idx (d/insert leaf value))
       (let [[new-level new-node-idx] (split-leaf tree nodes level parent-node-idx leaf-idx)]
         (insert-into-node tree nodes new-level new-node-idx value)))
     tree))

@@ -1,4 +1,4 @@
-(defproject arrow-jnr "0.1.0-SNAPSHOT"
+(defproject crux-datalog "0.1.0-SNAPSHOT"
   :description "Crux Datalog"
   :url "https://github.com/juxt/crux-rnd"
   :license {:name "The MIT License"

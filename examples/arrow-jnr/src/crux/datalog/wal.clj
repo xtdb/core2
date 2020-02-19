@@ -1,4 +1,4 @@
-(ns crux.wcoj.wal
+(ns crux.datalog.wal
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
             [crux.wcoj :as wcoj])
@@ -22,10 +22,10 @@
 
 (defrecord WALRelationAndNextOffset [relation ^long next-offset])
 
-(defn- new-wal-relation-and-next-offset ^crux.wcoj.wal.WALRelationAndNextOffset [relation next-offset]
+(defn- new-wal-relation-and-next-offset ^crux.datalog.wal.WALRelationAndNextOffset [relation next-offset]
   (->WALRelationAndNextOffset relation next-offset))
 
-(defn- replay-wal ^crux.wcoj.wal.WALRelationAndNextOffset [wal ^WALRelationAndNextOffset relation-and-next-offset relation-name tuple-relation-factory]
+(defn- replay-wal ^crux.datalog.wal.WALRelationAndNextOffset [wal ^WALRelationAndNextOffset relation-and-next-offset relation-name tuple-relation-factory]
   (let [relation-and-next-offset (or relation-and-next-offset
                                      (new-wal-relation-and-next-offset (tuple-relation-factory relation-name) 0))]
     (reduce (fn [relation-and-next-offset ^WALRecord wal-record]
@@ -108,13 +108,13 @@
     (set! (.-write-raf this) nil)))
 
 (defn new-edn-file-wal
-  (^crux.wcoj.wal.EDNFileWAL [f]
+  (^crux.datalog.wal.EDNFileWAL [f]
    (new-edn-file-wal f false))
-  (^crux.wcoj.wal.EDNFileWAL [f sync?]
+  (^crux.datalog.wal.EDNFileWAL [f sync?]
    (let [f (io/file f)]
      (->EDNFileWAL nil f sync?))))
 
-(defn new-wal-relation ^crux.wcoj.wal.WALRelation [wal tuple-relation-factory relation-name]
+(defn new-wal-relation ^crux.datalog.wal.WALRelation [wal tuple-relation-factory relation-name]
   (->WALRelation relation-name tuple-relation-factory (SoftReference. nil) wal))
 
 (defrecord LocalDirectoryWALDirectory [^File dir wal-factory]

@@ -1,4 +1,4 @@
-(ns crux.wcoj.hquad-tree
+(ns crux.datalog.hquad-tree
   (:require [crux.datalog :as cd]
             [crux.z-curve :as cz]
             [crux.byte-keys :as cbk]
@@ -120,9 +120,9 @@
       (wcoj/try-close leaf))))
 
 (defn new-hyper-quad-tree-relation
-  (^crux.wcoj.hquad_tree.HyperQuadTree [relation-name]
+  (^crux.datalog.hquad_tree.HyperQuadTree [relation-name]
    (new-hyper-quad-tree-relation default-allocator relation-name))
-  (^crux.wcoj.hquad_tree.HyperQuadTree [allocator relation-name]
+  (^crux.datalog.hquad_tree.HyperQuadTree [allocator relation-name]
    (->HyperQuadTree nil (ArrayList.) relation-name allocator)))
 
 (defn- walk-tree [^HyperQuadTree tree ^FixedSizeListVector nodes leaf-fn [^long min-z ^long max-z :as z-range]]

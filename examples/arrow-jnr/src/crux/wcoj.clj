@@ -5,7 +5,7 @@
             [clojure.set :as set]
             [clojure.string :as str]
             [clojure.walk :as w]
-            [crux.datalog :as cd])
+            [crux.datalog.parser :as dp])
   (:import [clojure.lang IPersistentCollection IPersistentMap Symbol]
            java.util.Arrays
            [java.util.function Predicate LongPredicate DoublePredicate]
@@ -73,7 +73,7 @@
 (defn- constrained [this that]
   (let [{:keys [constraints constraint-fn]} (meta this)]
     (if constraints
-      (if (cd/logic-var? that)
+      (if (dp/logic-var? that)
         (let [that (-> that
                        (vary-meta update :constraints into constraints)
                        (vary-meta update :constraint-fn and-constraint constraint-fn))]
@@ -89,7 +89,7 @@
   (class (byte-array 0))
   (unify [this that]
     (cond
-      (cd/logic-var? that)
+      (dp/logic-var? that)
       (unify that this)
 
       (and (bytes? that)
@@ -99,10 +99,10 @@
   Symbol
   (unify [this that]
     (cond
-      (cd/logic-var? this)
+      (dp/logic-var? this)
       (constrained this that)
 
-      (cd/logic-var? that)
+      (dp/logic-var? that)
       (unify that this)
 
       (= this that)
@@ -110,7 +110,7 @@
 
   IPersistentCollection
   (unify [this that]
-    (if (cd/logic-var? that)
+    (if (dp/logic-var? that)
       (unify that this)
       (when (and (coll? that)
                  (= (count this) (count that)))
@@ -120,22 +120,22 @@
             (if-let [u (unify (get smap x x) (get smap y y))]
               [(conj acc u)
                (cond-> smap
-                 (not= cd/blank-var x) (assoc x u)
-                 (not= cd/blank-var y) (assoc y u))]
+                 (not= dp/blank-var x) (assoc x u)
+                 (not= dp/blank-var y) (assoc y u))]
               (reduced nil)))
           [[] {}]
           (mapv vector this that))))))
 
   Object
   (unify [this that]
-    (if (cd/logic-var? that)
+    (if (dp/logic-var? that)
       (unify that this)
       (when (= this that)
         this)))
 
   nil
   (unify [this that]
-    (if (cd/logic-var? that)
+    (if (dp/logic-var? that)
       (unify that this)
       (when (nil? that)
         this))))
@@ -147,26 +147,26 @@
 (defn- find-vars [body]
   (let [vars (atom [])]
     (w/postwalk (fn [x]
-                  (when (cd/logic-var? x)
+                  (when (dp/logic-var? x)
                     (swap! vars conj x))
                   x)
                 body)
     (set @vars)))
 
 (defn ensure-unique-logic-var [var]
-  (if (cd/logic-var? var)
+  (if (dp/logic-var? var)
     (with-meta (gensym var) (meta var))
     var))
 
 (defn contains-duplicate-vars? [var-bindings]
-  (let [vars (filter cd/logic-var? var-bindings)]
+  (let [vars (filter dp/logic-var? var-bindings)]
     (not= (distinct vars) vars)))
 
 (defn projection [var-bindings]
   (vec (for [var var-bindings]
          (cond
-           (= cd/blank-var var) ::blank-var
-           (cd/logic-var? var) ::logic-var
+           (= dp/blank-var var) ::blank-var
+           (dp/logic-var? var) ::logic-var
            :else
            var))))
 
@@ -287,7 +287,7 @@
 
 (defn- rule->query-plan [rule bound-head-var-idxs]
   (let [{:keys [head body] :as conformed-rule} (s/conform :crux.datalog/rule rule)
-        _ (assert (set/superset? (find-vars body) (disj (find-vars head) cd/blank-var))
+        _ (assert (set/superset? (find-vars body) (disj (find-vars head) dp/blank-var))
                   "rule does not satisfy safety requirement for head variables")
         bound-head-vars (set (map (mapv term->binding (:terms head)) bound-head-var-idxs))
         body (reorder-body head body bound-head-vars)]
@@ -355,7 +355,7 @@
         rhs-binding (term->binding rhs)
         arg-sym (gensym 'arg)]
     (cond
-      (and (cd/logic-var? rhs-binding)
+      (and (dp/logic-var? rhs-binding)
            (not (contains? bound-vars rhs-binding)))
       (if (= '= op)
         `[:let [~rhs-binding (crux.wcoj/unify ~(term->value rhs) ~(term->value lhs))]
@@ -366,7 +366,7 @@
                                                          '~op
                                                          ~(term->value lhs))]]))
 
-      (and (cd/logic-var? lhs-binding)
+      (and (dp/logic-var? lhs-binding)
            (not (contains? bound-vars lhs-binding)))
       (if (= '= op)
         `[:let [~lhs-binding (crux.wcoj/unify ~(term->value lhs) ~(term->value rhs))]
@@ -414,7 +414,7 @@
                           ~@bindings]
                       ~arg-vars)]
     `(fn ~symbol
-       ([~db-sym] (~symbol ~db-sym '~(mapv ensure-unique-logic-var (repeat (count arg-vars) cd/blank-var))))
+       ([~db-sym] (~symbol ~db-sym '~(mapv ensure-unique-logic-var (repeat (count arg-vars) dp/blank-var))))
        ([~db-sym ~args-sym]
         ~(if aggregates
            `(->> ~query-loop (crux.wcoj/aggregate '~aggregates))
@@ -433,7 +433,7 @@
 (def ^:private compile-rule-memo (memoize compile-rule-no-memo))
 
 (defn- compile-rule [rule var-bindings]
-  (compile-rule-memo rule (mapv (complement cd/logic-var?) var-bindings)))
+  (compile-rule-memo rule (mapv (complement dp/logic-var?) var-bindings)))
 
 (defn- execute-rules-no-memo [rules db var-bindings]
   (let [var-bindings (mapv ensure-unique-logic-var var-bindings)]
@@ -447,7 +447,7 @@
 
 (defn- rule-memo-key [rules var-bindings]
   [(System/identityHashCode rules)
-   (let  [smap (zipmap (filter cd/logic-var? var-bindings)
+   (let  [smap (zipmap (filter dp/logic-var? var-bindings)
                        (for [id (range)]
                          (symbol (str "crux.wcoj/variable_" id))))
           smap (->> (for [[var memo-key] smap]
@@ -522,7 +522,7 @@
                       (unify tuple var-bindings))]
         (mapv (fn [v p]
                 (case p
-                  ::blank-var cd/blank-var
+                  ::blank-var dp/blank-var
                   ::logic-var v
                   p)) tuple projection))))
 
@@ -715,4 +715,4 @@
         (reduce execute-statement db))))
 
 (defn -main [& [f :as args]]
-  (execute (cd/parse-datalog (io/reader (or f *in*)))))
+  (execute (dp/parse-datalog (io/reader (or f *in*)))))

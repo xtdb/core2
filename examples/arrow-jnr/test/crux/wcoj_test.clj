@@ -2,8 +2,8 @@
   (:require [clojure.string :as str]
             [clojure.test :as t]
             [crux.wcoj :as wcoj]
-            [crux.wcoj.arrow :as wcoj-arrow]
-            [crux.wcoj.hquad-tree :as wcoj-hquad]
+            [crux.datalog.arrow :as da]
+            [crux.datalog.hquad-tree :as dhq]
             [crux.byte-keys :as cbk]))
 
 (declare with-each-tuple-factory)
@@ -793,16 +793,16 @@ perm(c, b).
 
 (defn- with-each-tuple-factory [f]
   (doseq [factory [#'wcoj/new-sorted-set-relation
-                   #'wcoj-arrow/new-arrow-struct-relation
-                   #'wcoj-hquad/new-hyper-quad-tree-relation]]
+                   #'da/new-arrow-struct-relation
+                   #'dhq/new-hyper-quad-tree-relation]]
     (t/testing (:name (meta factory))
       (binding [wcoj/*tuple-relation-factory* factory]
-        (if (= factory #'wcoj-hquad/new-hyper-quad-tree-relation)
-          (doseq [leaf-tuple-factory [#'wcoj-arrow/new-arrow-struct-relation
+        (if (= factory #'dhq/new-hyper-quad-tree-relation)
+          (doseq [leaf-tuple-factory [#'da/new-arrow-struct-relation
                                       #'wcoj/new-sorted-set-relation]]
             (t/testing (:name (meta leaf-tuple-factory))
-              (binding [wcoj-hquad/*leaf-tuple-relation-factory* leaf-tuple-factory
-                        wcoj-hquad/*leaf-size* 4
+              (binding [dhq/*leaf-tuple-relation-factory* leaf-tuple-factory
+                        dhq/*leaf-size* 4
                         cbk/*use-var-ints? true]
                 (f))))
           (f))))))

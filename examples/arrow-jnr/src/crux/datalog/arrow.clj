@@ -1,10 +1,10 @@
-(ns crux.wcoj.arrow
-  (:require [crux.datalog :as cd]
+(ns crux.datalog.arrow
+  (:require [crux.datalog.parser :as dp]
             [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.edn :as edn]
             [crux.wcoj :as wcoj]
-            [crux.wcoj.buffer-pool :as bp])
+            [crux.buffer-pool :as bp])
   (:import [org.apache.arrow.memory BufferAllocator RootAllocator]
            [org.apache.arrow.vector BaseFixedWidthVector BaseIntVector BaseVariableWidthVector
             BigIntVector BitVector ElementAddressableVector FieldVector Float4Vector Float8Vector
@@ -61,7 +61,7 @@
 (defn- init-struct [^StructVector struct column-template]
   (reduce
    (fn [^StructVector struct [idx column-template]]
-     (let [column-template (if-let [[[_ value]] (and (cd/logic-var? column-template)
+     (let [column-template (if-let [[[_ value]] (and (dp/logic-var? column-template)
                                                      (:constraints (meta column-template)))]
                              value
                              column-template)
@@ -158,7 +158,7 @@
     (.setSafe this idx ^bytes v)))
 
 (defn- insert-clojure-value-into-column [^ValueVector column ^long idx v]
-  (if-let [[[_ v]] (and (cd/logic-var? v)
+  (if-let [[[_ v]] (and (dp/logic-var? v)
                         (:constraints (meta v)))]
     (set-column-value column idx (clojure->arrow v))
     (set-column-value column idx (clojure->arrow v))))
@@ -176,7 +176,7 @@
 (defn- unifiers->column-filters [unifier-vector var-bindings]
   (vec (for [[^ElementAddressableVector unify-column var-binding] (map vector unifier-vector var-bindings)]
          (cond
-           (cd/logic-var? var-binding)
+           (dp/logic-var? var-binding)
            (if-let [constraint-fn (:constraint-fn (meta var-binding))]
              (cond
                (and (instance? BaseIntVector unify-column)
@@ -245,7 +245,7 @@
 (defn- project-column [^VectorSchemaRoot record-batch ^long idx ^long n projection]
   (let [p (get projection n)]
     (case p
-      :crux.wcoj/blank-var cd/blank-var
+      :crux.wcoj/blank-var dp/blank-var
       :crux.wcoj/logic-var (let [column (.getVector record-batch n)
                                  value (.getObject column idx)]
                              (arrow->clojure value))
@@ -483,7 +483,7 @@
 
   VectorSchemaRoot
   (table-scan [this db]
-    (->> (repeat (count (.getFieldVectors this)) cd/blank-var)
+    (->> (repeat (count (.getFieldVectors this)) dp/blank-var)
          (mapv wcoj/ensure-unique-logic-var)
          (arrow-seq this)))
 

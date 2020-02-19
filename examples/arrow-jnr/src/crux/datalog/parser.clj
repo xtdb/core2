@@ -1,4 +1,4 @@
-(ns crux.datalog
+(ns crux.datalog.parser
   (:require [clojure.edn :as edn]
             [clojure.java.io :as  io]
             [clojure.spec.alpha :as s]
@@ -86,7 +86,7 @@
 (def ^:private
   datalog-parser
   (insta/parser
-   (io/resource "crux/datalog.ebnf")
+   (io/resource "crux/datalog/datalog.ebnf")
    :auto-whitespace
    (insta/parser datalog-whitespace-ebnf)))
 

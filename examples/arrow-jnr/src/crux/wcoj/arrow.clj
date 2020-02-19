@@ -391,23 +391,25 @@
   (cardinality [this]
     (wcoj/cardinality record-batch)))
 
-(deftype ArrowFileView [buffer-pool k ^:volatile-mutable ^Reference buffer-ref ^:volatile-mutable record-batches]
+(defrecord ArrowBufferRefAndRecordBatches [^Reference buffer-ref record-batches])
+
+(deftype ArrowFileView [buffer-pool k ^:volatile-mutable ^ArrowBufferRefAndRecordBatches buffer-ref-and-record-batches]
   Indexed
   (nth [this n]
-    (if-let [current-buffer (.get buffer-ref)]
-      (->ArrowRecordBatchView (nth record-batches n) current-buffer)
+    (if-let [current-buffer (.get ^Reference (.buffer-ref buffer-ref-and-record-batches))]
+      (->ArrowRecordBatchView (nth (.record-batches buffer-ref-and-record-batches) n) current-buffer)
       (let [current-buffer (bp/get-buffer buffer-pool k)]
-        (set! (.-buffer-ref this)  (WeakReference. current-buffer))
-        (set! (.-record-batches this) (arrow-record-batches current-buffer))
-        (->ArrowRecordBatchView (nth record-batches n) current-buffer))))
+        (set! (.-buffer-ref-and-record-batches this)  (->ArrowBufferRefAndRecordBatches
+                                                       (WeakReference. current-buffer)
+                                                       (arrow-record-batches current-buffer)))
+        (->ArrowRecordBatchView (nth (.record-batches buffer-ref-and-record-batches) n) current-buffer))))
 
   AutoCloseable
   (close [this]
-    (set! (.-buffer-ref this) nil)
-    (set! (.-record-batches this) nil)))
+    (set! (.-buffer-ref-and-record-batches this) nil)))
 
 (defn new-arrow-file-view [buffer-pool k]
-  (->ArrowFileView buffer-pool k nil nil))
+  (->ArrowFileView buffer-pool k nil))
 
 (defrecord ArrowBlockRelation [^ArrowFileView arrow-file ^long block-idx]
   wcoj/Relation

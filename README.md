@@ -23,7 +23,7 @@ possible to implement on top of it.
 *Earlier brief, still somewhat true:* The plan of attack using
 Rust+Arrow to build a bitemporal Datalog engine based on columnar
 formats using a set of primitives somewhat inspired by KDB to
-implement the engine itself. See spikes under [rust]
+implement the engine itself. See spikes under [rust](rust).
 
 ### Goals
 

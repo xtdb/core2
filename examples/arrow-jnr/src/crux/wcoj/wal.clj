@@ -12,6 +12,10 @@
   (read-records [this offset])
   (delete [this]))
 
+(defprotocol WALDirectory
+  (list-wals [this])
+  (get-wal-relation [this k]))
+
 (defrecord WALRecord [record next-offset])
 
 (defrecord WALRelationAndNextOffset [relation ^long next-offset])
@@ -113,3 +117,20 @@
                    (wcoj/*tuple-relation-factory* relation-or-name)
                    relation-or-name)]
     (->WALRelation (SoftReference. nil) wal)))
+
+(defrecord LocalDirectoryWALDirectory [^File dir wal-factory]
+  WALDirectory
+  (list-wals [this]
+    (let [dir-path (.toPath dir)]
+      (for [^File f (file-seq dir)
+            :when (.isFile f)]
+        (str (.relativize dir-path (.toPath f))))))
+
+  (get-wal-relation [this k]
+    (new-wal-relation (wal-factory (io/file dir k)) k)))
+
+(defn new-local-directory-wal-directory
+  ([dir]
+   (new-local-directory-wal-directory dir new-edn-file-wal))
+  ([dir wal-factory]
+   (->LocalDirectoryWALDirectory dir wal-factory)))

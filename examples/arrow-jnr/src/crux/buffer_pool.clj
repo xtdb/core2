@@ -1,6 +1,6 @@
-(ns crux.wcoj.buffer-pool
+(ns crux.buffer-pool
   (:require [clojure.java.io :as io]
-            [crux.wcoj.object-store :as os])
+            [crux.object-store :as os])
   (:import java.io.FileInputStream
            java.net.URL
            [java.nio ByteBuffer MappedByteBuffer]
@@ -52,7 +52,7 @@
 (defn unmap-buffer [^MappedByteBuffer buffer]
   (PlatformDependent/freeDirectBuffer buffer))
 
-(defn- get-file-url ^java.net.URL [object-store k]
+(defn- get-object-with-file-url ^java.net.URL [object-store k]
   (when-let [url (os/get-object object-store k)]
     (io/file url)
     url))
@@ -67,7 +67,7 @@
     (if-let [url (.get ^Map url-cache k)]
       (or (.get buffer-cache url)
           (mmap-file-from-url buffer-cache url))
-      (when-let [url (get-file-url object-store k)]
+      (when-let [url (get-object-with-file-url object-store k)]
         (.put url-cache k url)
         (mmap-file-from-url buffer-cache url))))
 
@@ -101,7 +101,7 @@
   BufferPool
   (get-buffer [this k]
     (or (some-> ^ByteBuffer (.get buffer-cache k) (.slice))
-        (when-let [url (get-file-url object-store k)]
+        (when-let [url (get-object-with-file-url object-store k)]
           (let [f (io/file url)
                 buffer (ByteBuffer/allocateDirect (.length f))]
             (with-open [in (.getChannel (FileInputStream. f))]

@@ -1,6 +1,5 @@
-(ns crux.wcoj.object-store
-  (:require [clojure.java.io :as io]
-            [crux.wcoj :as wcoj])
+(ns crux.object-store
+  (:require [clojure.java.io :as io])
   (:import java.io.File
            [java.nio.file Files FileVisitResult SimpleFileVisitor]
            java.nio.file.attribute.FileAttribute

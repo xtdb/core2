@@ -85,7 +85,7 @@
 (defn prefix-z-at-level ^long [^long z-address ^long dims ^long level]
   (let [shift (- Long/SIZE (* (inc level) dims))]
     (when (neg? shift)
-      (throw (IllegalArgumentException. (str "Tree to deep, " (inc level) " levels with " dims " dimensions does not fit in " Long/SIZE " bits."))))
+      (throw (IllegalArgumentException. (str "Tree too deep, " (inc level) " levels with " dims " dimensions does not fit in " Long/SIZE " bits."))))
     (unsigned-bit-shift-right z-address shift)))
 
 (defn decode-h-at-level ^long [^long z-address ^long dims ^long level]

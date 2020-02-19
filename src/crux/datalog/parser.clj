@@ -79,27 +79,3 @@
     (->> (repeatedly #(edn/read {:eof nil} in))
          (take-while identity)
          (s/assert :crux.datalog/program))))
-
-(def ^:private datalog-whitespace-ebnf
-  "whitespace = #'[,\\s]+' | whitespace? #'%.+(\n|$)' whitespace?")
-
-(def ^:private
-  datalog-parser
-  (insta/parser
-   (io/resource "crux/datalog/datalog.ebnf")
-   :auto-whitespace
-   (insta/parser datalog-whitespace-ebnf)))
-
-(defn parse-ebnf-datalog [datalog-source]
-  (->> (insta/parse datalog-parser datalog-source)
-       (insta/transform
-        {:term (fn [[tag value]]
-                 [tag (edn/read-string value)])
-         :assignment (fn [[_ variable] value]
-                       [:assignment (symbol variable) value])
-         :equality_predicate (fn [x op y]
-                               [:equality_predicate op x y])
-         :comparison_operator symbol
-         :symbol symbol
-         :external_symbol symbol
-         :arguments vector})))

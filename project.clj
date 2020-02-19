@@ -8,7 +8,6 @@
   :dependencies [[org.clojure/clojure "1.10.1"]
                  [org.clojure/tools.logging "0.5.0"]
                  [org.clojure/spec.alpha "0.2.176"]
-                 [instaparse "1.4.10"]
                  [ch.qos.logback/logback-classic "1.2.3"]
                  [org.apache.arrow/arrow-vector "0.16.0"]]
   :java-source-paths ["src"]

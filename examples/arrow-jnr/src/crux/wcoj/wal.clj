@@ -23,9 +23,9 @@
 (defn- new-wal-relation-and-next-offset ^crux.wcoj.wal.WALRelationAndNextOffset [relation next-offset]
   (->WALRelationAndNextOffset relation next-offset))
 
-(defn- replay-wal ^crux.wcoj.wal.WALRelationAndNextOffset [wal ^WALRelationAndNextOffset relation-and-next-offset]
+(defn- replay-wal ^crux.wcoj.wal.WALRelationAndNextOffset [wal ^WALRelationAndNextOffset relation-and-next-offset relation-name]
   (let [relation-and-next-offset (or relation-and-next-offset
-                                     (new-wal-relation-and-next-offset (wcoj/*tuple-relation-factory* "") 0))]
+                                     (new-wal-relation-and-next-offset (wcoj/*tuple-relation-factory* relation-name) 0))]
     (reduce (fn [relation-and-next-offset ^WALRecord wal-record]
               (let [[op value] (.record wal-record)]
                 (-> relation-and-next-offset
@@ -36,18 +36,18 @@
             relation-and-next-offset
             (read-records wal (.next-offset relation-and-next-offset)))))
 
-(deftype WALRelation [^:volatile-mutable ^Reference relation-and-next-offset wal]
+(deftype WALRelation [name ^:volatile-mutable ^Reference relation-and-next-offset wal]
   wcoj/Relation
   (table-scan [this db]
     (let [relation-and-next-offset (.get relation-and-next-offset)
-          new-relation-and-next-offset (replay-wal wal relation-and-next-offset)]
+          new-relation-and-next-offset (replay-wal wal relation-and-next-offset name)]
       (when-not (identical? new-wal-relation-and-next-offset relation-and-next-offset)
         (set! (.-relation-and-next-offset this) (SoftReference. new-relation-and-next-offset)))
       (wcoj/table-scan (.relation new-relation-and-next-offset) db)))
 
   (table-filter [this db var-bindings]
     (let [relation-and-next-offset (.get relation-and-next-offset)
-          new-relation-and-next-offset (replay-wal wal relation-and-next-offset)]
+          new-relation-and-next-offset (replay-wal wal relation-and-next-offset name)]
       (when-not (identical? new-wal-relation-and-next-offset relation-and-next-offset)
         (set! (.-relation-and-next-offset this) (SoftReference. new-relation-and-next-offset)))
       (wcoj/table-filter (.relation new-relation-and-next-offset) db var-bindings)))
@@ -67,7 +67,7 @@
 
   (cardinality [this]
     (let [relation-and-next-offset (.get relation-and-next-offset)
-          new-relation-and-next-offset (replay-wal wal relation-and-next-offset)]
+          new-relation-and-next-offset (replay-wal wal relation-and-next-offset name)]
       (when-not (identical? new-wal-relation-and-next-offset relation-and-next-offset)
         (set! (.-relation-and-next-offset this) (SoftReference. new-relation-and-next-offset)))
       (wcoj/cardinality (.relation new-relation-and-next-offset))))
@@ -112,8 +112,8 @@
    (let [f (io/file f)]
      (->EDNFileWAL nil f sync?))))
 
-(defn new-wal-relation ^crux.wcoj.wal.WALRelation [wal]
-  (->WALRelation (SoftReference. nil) wal))
+(defn new-wal-relation ^crux.wcoj.wal.WALRelation [wal relation-name]
+  (->WALRelation relation-name (SoftReference. nil) wal))
 
 (defrecord LocalDirectoryWALDirectory [^File dir wal-factory]
   WALDirectory
@@ -124,7 +124,7 @@
         (str (.relativize dir-path (.toPath f))))))
 
   (get-wal-relation [this k]
-    (new-wal-relation (wal-factory (io/file dir k)))))
+    (new-wal-relation (wal-factory (io/file dir k)) k)))
 
 (defn new-local-directory-wal-directory
   ([dir]

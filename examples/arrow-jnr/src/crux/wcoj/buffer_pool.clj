@@ -1,6 +1,6 @@
 (ns crux.wcoj.buffer-pool
   (:require [clojure.java.io :as io]
-            [crux.wcoj.object-store :as wcoj-os])
+            [crux.wcoj.object-store :as os])
   (:import java.io.FileInputStream
            java.net.URL
            [java.nio ByteBuffer MappedByteBuffer]
@@ -50,12 +50,12 @@
   (PlatformDependent/freeDirectBuffer buffer))
 
 (defn- get-file-url ^java.net.URL [object-store k]
-  (when-let [url ^URL (wcoj-os/get-object object-store k)]
+  (when-let [url ^URL (os/get-object object-store k)]
     (if-not (= "file" (.getProtocol url))
       (throw (IllegalArgumentException. (str "Not a file:" url)))
       url)))
 
-(defn- mmap-file-url ^java.nio.MappedByteBuffer [^Map buffer-cache url]
+(defn- mmap-file-from-url ^java.nio.MappedByteBuffer [^Map buffer-cache url]
   (doto (mmap-file (io/file url))
     (->> (.put buffer-cache url))))
 
@@ -64,10 +64,10 @@
   (get-buffer [this k]
     (if-let [url (.get ^Map url-cache k)]
       (or (.get buffer-cache url)
-          (mmap-file-url buffer-cache url))
+          (mmap-file-from-url buffer-cache url))
       (when-let [url (get-file-url object-store k)]
         (.put url-cache k url)
-        (mmap-file-url buffer-cache url)))))
+        (mmap-file-from-url buffer-cache url)))))
 
 (defn new-mmap-pool [object-store size]
   (let [buffer-cache (HashMap.)]
@@ -75,7 +75,32 @@
                 (proxy [LinkedHashMap] [size 0.75 true]
                   (removeEldestEntry [^Map$Entry entry]
                     (if (> (count this) size)
-                      (do (unmap-buffer (.remove ^Map buffer-cache (.getValue entry)))
+                      (do (.remove ^Map buffer-cache (.getValue entry))
                           true)
                       false)))
                 object-store)))
+
+(defn- buffer-cache-size ^long [^Map buffer-cache]
+  (loop [[b & bs] (vals buffer-cache)
+         size 0]
+    (if b
+      (recur bs (+ size (.capacity ^ByteBuffer b)))
+      size)))
+
+(defrecord InMemoryPool [^Map buffer-cache object-store]
+  BufferPool
+  (get-buffer [this k]
+    (or (some-> ^ByteBuffer (.get buffer-cache k) (.slice))
+        (when-let [url (get-file-url object-store k)]
+          (let [f (io/file url)
+                buffer (ByteBuffer/allocateDirect (.length f))]
+            (with-open [in (.getChannel (FileInputStream. f))]
+              (while (pos? (.read in buffer))))
+            (.put buffer-cache k (.rewind buffer))
+            (.slice buffer))))))
+
+(defn new-in-memory-pool [object-store size-bytes]
+  (->InMemoryPool (proxy [LinkedHashMap] [16 0.75 true]
+                    (removeEldestEntry [_]
+                      (> (buffer-cache-size this) size-bytes)))
+                  object-store))

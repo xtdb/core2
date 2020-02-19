@@ -3,7 +3,8 @@
   :url "https://github.com/juxt/crux-rnd"
   :license {:name "The MIT License"
             :url "http://opensource.org/licenses/MIT"}
-  :main crux.arrow-jnr
+  :aot [crux.datalog.main]
+  :main crux.datalog.main
   :dependencies [[org.clojure/clojure "1.10.1"]
                  [org.clojure/tools.logging "0.5.0"]
                  [org.clojure/spec.alpha "0.2.176"]

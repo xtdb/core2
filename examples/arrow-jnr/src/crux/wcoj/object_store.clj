@@ -105,8 +105,6 @@
   (close [this]
     (delete-dir (.dir object-store-cache))))
 
-(def ^:private ^{:tag 'long} freeze-load-factor 0.75)
-
 (defn- evict-object [^CachedObjectStore cached-object-store k]
   (delete-object (.object-store-cache cached-object-store) k)
   (.remove ^Map (.lru-cache cached-object-store) k)

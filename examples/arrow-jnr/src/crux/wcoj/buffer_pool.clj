@@ -9,7 +9,8 @@
            io.netty.util.internal.PlatformDependent))
 
 (defprotocol BufferPool
-  (get-buffer [this k]))
+  (get-buffer [this k])
+  (evict-buffer [this k]))
 
 (defn new-byte-buffer-seekable-byte-channel ^java.nio.channels.SeekableByteChannel [^ByteBuffer buffer]
   (let [buffer (.slice buffer 0 (.capacity buffer))]
@@ -50,10 +51,9 @@
   (PlatformDependent/freeDirectBuffer buffer))
 
 (defn- get-file-url ^java.net.URL [object-store k]
-  (when-let [url ^URL (os/get-object object-store k)]
-    (if-not (= "file" (.getProtocol url))
-      (throw (IllegalArgumentException. (str "Not a file:" url)))
-      url)))
+  (when-let [url (os/get-object object-store k)]
+    (io/file url)
+    url))
 
 (defn- mmap-file-from-url ^java.nio.MappedByteBuffer [^Map buffer-cache url]
   (doto (mmap-file (io/file url))
@@ -67,7 +67,12 @@
           (mmap-file-from-url buffer-cache url))
       (when-let [url (get-file-url object-store k)]
         (.put url-cache k url)
-        (mmap-file-from-url buffer-cache url)))))
+        (mmap-file-from-url buffer-cache url))))
+
+  (evict-buffer [this k]
+    (some->> (.remove url-cache k)
+             (.remove buffer-cache)
+             (unmap-buffer))))
 
 (defn new-mmap-pool [object-store size]
   (let [buffer-cache (HashMap.)]
@@ -87,6 +92,9 @@
       (recur bs (+ size (.capacity ^ByteBuffer b)))
       size)))
 
+(defn free-buffer [^ByteBuffer buffer]
+  (PlatformDependent/freeDirectBuffer buffer))
+
 (defrecord InMemoryPool [^Map buffer-cache object-store]
   BufferPool
   (get-buffer [this k]
@@ -96,8 +104,13 @@
                 buffer (ByteBuffer/allocateDirect (.length f))]
             (with-open [in (.getChannel (FileInputStream. f))]
               (while (pos? (.read in buffer))))
-            (.put buffer-cache k (.rewind buffer))
-            (.slice buffer))))))
+            (let [buffer (.rewind buffer)]
+              (.put buffer-cache k buffer)
+              (.slice buffer))))))
+
+  (evict-buffer [this k]
+    (some->> (.remove buffer-cache k)
+             (free-buffer))))
 
 (defn new-in-memory-pool [object-store size-bytes]
   (->InMemoryPool (proxy [LinkedHashMap] [16 0.75 true]

@@ -4,7 +4,7 @@
             [clojure.string :as str]
             [clojure.edn :as edn]
             [crux.wcoj :as wcoj]
-            [crux.wcoj.mmap :as mmap])
+            [crux.wcoj.buffer-pool :as bp])
   (:import [org.apache.arrow.memory BufferAllocator RootAllocator]
            [org.apache.arrow.vector BaseFixedWidthVector BaseIntVector BaseVariableWidthVector
             BigIntVector BitVector ElementAddressableVector FieldVector Float4Vector Float8Vector
@@ -315,10 +315,10 @@
           (.writeBatch writer))))
     f))
 
-(def ^:private mmap-reference-manager
+(def ^:private nio-view-reference-manager
   (reify ReferenceManager
     (deriveBuffer [this source-buffer index length]
-      (ArrowBuf. mmap-reference-manager
+      (ArrowBuf. this
                  nil
                  length
                  (+ (.memoryAddress source-buffer) index)
@@ -335,7 +335,7 @@
     (getRefCount [this]
       1)))
 
-(defn- mmap-record-batch ^org.apache.arrow.vector.ipc.message.ArrowRecordBatch [^ArrowBlock block ^ByteBuffer nio-buffer]
+(defn- record-batch-view ^org.apache.arrow.vector.ipc.message.ArrowRecordBatch [^ArrowBlock block ^ByteBuffer nio-buffer]
   (let [prefix-size (if (= (.getInt nio-buffer (.getOffset block)) MessageSerializer/IPC_CONTINUATION_TOKEN)
                       8
                       4)
@@ -344,7 +344,7 @@
                                              (+ (.getOffset block) prefix-size)
                                              (- (.getMetadataLength block) prefix-size)))
                                     (RecordBatch.))
-        body-buffer (ArrowBuf. mmap-reference-manager
+        body-buffer (ArrowBuf. nio-view-reference-manager
                                nil
                                (.getBodyLength block)
                                (+ (PlatformDependent/directBufferAddress nio-buffer)
@@ -354,21 +354,30 @@
     (MessageSerializer/deserializeRecordBatch batch body-buffer)))
 
 (defn- read-schema+record-blocks [^BufferAllocator allocator ^ByteBuffer buffer]
-  (with-open [in (mmap/new-byte-buffer-seekable-byte-channel buffer)
+  (with-open [in (bp/new-byte-buffer-seekable-byte-channel buffer)
               reader (ArrowFileReader. in allocator)]
     [(.getSchema (.getVectorSchemaRoot reader))
      (.getRecordBlocks reader)]))
 
-(declare mmap-arrow-record-batches)
+(defn- arrow-record-batches
+  ([buffer]
+   (arrow-record-batches default-allocator buffer))
+  ([^BufferAllocator allocator buffer]
+   (let [[schema record-blocks] (read-schema+record-blocks allocator buffer)]
+     (vec (for [block record-blocks
+                :let [record-batch (VectorSchemaRoot/create schema allocator)
+                      loader (VectorLoader. record-batch)]]
+            (do (.load loader (record-batch-view block buffer))
+                record-batch))))))
 
-(deftype MmapArrowFile [mmap-pool k ^:volatile-mutable buffer ^:volatile-mutable record-batches]
+(deftype ArrowFileView [buffer-pool k ^:volatile-mutable buffer ^:volatile-mutable record-batches]
   Indexed
   (nth [this n]
-    (let [current-buffer (mmap/mmap-object mmap-pool k)]
+    (let [current-buffer (bp/get-buffer buffer-pool k)]
       (if (identical? buffer current-buffer)
         (nth record-batches n)
         (do (set! (.-buffer this) current-buffer)
-            (set! (.-record-batches this) (mmap-arrow-record-batches current-buffer))
+            (set! (.-record-batches this) (arrow-record-batches current-buffer))
             (nth record-batches n)))))
 
   AutoCloseable
@@ -376,21 +385,10 @@
     (set! (.-buffer this) nil)
     (set! (.-record-batches this) nil)))
 
-(defn- mmap-arrow-record-batches
-  (^crux.wcoj.arrow.MmapArrowFile [buffer]
-   (mmap-arrow-record-batches default-allocator buffer))
-  (^crux.wcoj.arrow.MmapArrowFile [^BufferAllocator allocator buffer]
-   (let [[schema record-blocks] (read-schema+record-blocks allocator buffer)]
-     (vec (for [block record-blocks
-                :let [record-batch (VectorSchemaRoot/create schema allocator)
-                      loader (VectorLoader. record-batch)]]
-            (do (.load loader (mmap-record-batch block buffer))
-                record-batch))))))
+(defn new-arrow-file-view [buffer-pool k]
+  (->ArrowFileView buffer-pool k nil nil))
 
-(defn new-mmap-arrow-file [mmap-pool k]
-  (->MmapArrowFile mmap-pool k nil nil))
-
-(defrecord MmapArrowBlockRelation [^MmapArrowFile arrow-file ^long block-idx]
+(defrecord ArrowBlockRelation [^ArrowFileView arrow-file ^long block-idx]
   wcoj/Relation
   (table-scan [this db]
     (wcoj/table-scan (nth arrow-file block-idx) db))
@@ -410,8 +408,8 @@
   (cardinality [this]
     (wcoj/cardinality (nth arrow-file block-idx))))
 
-(defn new-mmap-arrow-block-relation [^MmapArrowFile arrow-file ^long block-idx]
-  (->MmapArrowBlockRelation arrow-file block-idx))
+(defn new-arrow-block-relation [^ArrowFileView arrow-file ^long block-idx]
+  (->ArrowBlockRelation arrow-file block-idx))
 
 (defrecord ParentChildRelation [deletion-set parent child]
   wcoj/Relation

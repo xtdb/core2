@@ -1,4 +1,4 @@
-(ns crux.wcoj.mmap
+(ns crux.wcoj.buffer-pool
   (:require [clojure.java.io :as io]
             [crux.wcoj.object-store :as wcoj-os])
   (:import java.io.FileInputStream
@@ -7,6 +7,9 @@
            [java.nio.channels FileChannel$MapMode SeekableByteChannel]
            [java.util HashMap LinkedHashMap Map Map$Entry]
            io.netty.util.internal.PlatformDependent))
+
+(defprotocol BufferPool
+  (get-buffer [this k]))
 
 (defn new-byte-buffer-seekable-byte-channel ^java.nio.channels.SeekableByteChannel [^ByteBuffer buffer]
   (let [buffer (.slice buffer 0 (.capacity buffer))]
@@ -46,7 +49,25 @@
 (defn unmap-buffer [^MappedByteBuffer buffer]
   (PlatformDependent/freeDirectBuffer buffer))
 
-(defrecord MmapPool [^Map buffer-cache ^Map url-cache object-store])
+(defn- get-file-url ^java.net.URL [object-store k]
+  (when-let [url ^URL (wcoj-os/get-object object-store k)]
+    (if-not (= "file" (.getProtocol url))
+      (throw (IllegalArgumentException. (str "Not a file:" url)))
+      url)))
+
+(defn- mmap-file-url ^java.nio.MappedByteBuffer [^Map buffer-cache url]
+  (doto (mmap-file (io/file url))
+    (->> (.put buffer-cache url))))
+
+(defrecord MmapPool [^Map buffer-cache ^Map url-cache object-store]
+  BufferPool
+  (get-buffer [this k]
+    (if-let [url (.get ^Map url-cache k)]
+      (or (.get buffer-cache url)
+          (mmap-file-url buffer-cache url))
+      (when-let [url (get-file-url object-store k)]
+        (.put url-cache k url)
+        (mmap-file-url buffer-cache url)))))
 
 (defn new-mmap-pool [object-store size]
   (let [buffer-cache (HashMap.)]
@@ -58,21 +79,3 @@
                           true)
                       false)))
                 object-store)))
-
-(defn- get-file-url ^java.net.URL [^MmapPool mmap-pool k]
-  (when-let [url ^URL (wcoj-os/get-object (.object-store mmap-pool) k)]
-    (if-not (= "file" (.getProtocol url))
-      (throw (IllegalArgumentException. (str "Not a file:" url)))
-      url)))
-
-(defn- mmap-file-url ^java.nio.MappedByteBuffer [^MmapPool mmap-pool url]
-  (doto (mmap-file (io/file url))
-    (->> (.put ^Map (.buffer-cache mmap-pool) url))))
-
-(defn mmap-object ^java.nio.MappedByteBuffer [^MmapPool mmap-pool k]
-  (if-let [url (.get ^Map (.url-cache mmap-pool) k)]
-    (or (.get ^Map (.buffer-cache mmap-pool) url)
-        (mmap-file-url mmap-pool url))
-    (when-let [url (get-file-url mmap-pool k)]
-      (.put ^Map (.url-cache mmap-pool) k url)
-      (mmap-file-url mmap-pool url))))

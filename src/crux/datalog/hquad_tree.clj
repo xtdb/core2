@@ -15,7 +15,7 @@
 
 (set! *unchecked-math* :warn-on-boxed)
 
-(def ^:private ^BufferAllocator
+(def ^BufferAllocator
   default-allocator (RootAllocator. Long/MAX_VALUE))
 
 (def ^:dynamic *default-options* {:leaf-size (* 128 1024)

@@ -8,23 +8,29 @@
             [crux.byte-keys :as cbk]
             [crux.object-store :as os]))
 
-(defrecord ArrowDb [relation-db buffer-pool object-store wal-directory options]
+(deftype ArrowDb [^:volatile-mutable relation-db buffer-pool object-store wal-directory options]
   d/Db
   (assertion [this relation-name value]
-    (update-in (d/ensure-relation this relation-name (:relation-factory options))
-               [:relation-db relation-name]
-               d/insert
-               value))
+    (d/ensure-relation this relation-name (:relation-factory options))
+    (set! (.-relation-db this)
+          (update relation-db
+                  relation-name
+                  d/insert
+                  value))
+    this)
 
   (retraction [this relation-name value]
-    (update-in this
-               [:relation-db relation-name]
-               d/delete
-               value))
+    (set! (.-relation-db this)
+          (update relation-db
+                  relation-name
+                  d/delete
+                  value))
+    this)
 
   (ensure-relation [this relation-name relation-factory]
-    (cond-> this
-      (not (contains? relation-db relation-name)) (assoc-in [:relation-db relation-name] (relation-factory relation-name))))
+    (when-not (contains? relation-db relation-name)
+      (set! (.-relation-db this) (assoc relation-db relation-name (relation-factory relation-name))))
+    this)
 
   (relation-by-name [this relation-name]
     (get relation-db relation-name))

@@ -46,20 +46,17 @@
     (doseq [dependency [object-store wal-directory buffer-pool]]
       (d/try-close dependency))))
 
-(defn- write-arrow-children [children {:keys [buffer-pool object-store wal-directory] :as opts}]
-  (let [[name hyper-quads path] (dhq/leaf-name->name+hyper-quads+path (d/relation-name (first children)))
-        parent-name (dhq/leaf-name name hyper-quads (butlast path))
+(defn- write-arrow-children-on-split [leaf new-children {:keys [buffer-pool object-store wal-directory] :as opts}]
+  (let [parent-name (d/relation-name leaf)
         arrow-file-view (da/new-arrow-file-view parent-name buffer-pool)
         tmp-file (File/createTempFile parent-name "arrow")]
     (try
-      (with-open [in (io/input-stream (da/write-record-batches (map da/->record-batch children) tmp-file))]
+      (with-open [in (io/input-stream (da/write-record-batches (map da/->record-batch new-children) tmp-file))]
         (os/put-object object-store parent-name in))
-      (let [children (vec (for [child children]
-                            (d/truncate child)))]
-        (vec (for [[block-idx child] (map-indexed vector children)
-                   :let [child-name (d/relation-name child)]]
-               (d/new-parent-child-relation (da/new-arrow-block-relation arrow-file-view block-idx)
-                                            (dw/get-wal-relation wal-directory child-name)))))
+      (let [empty-children (vec (for [child new-children]
+                                  (d/truncate child)))]
+        (vec (for [[block-idx child] (map-indexed vector empty-children)]
+               (d/new-parent-child-relation (da/new-arrow-block-relation arrow-file-view block-idx) child))))
       (finally
         (.delete tmp-file)))))
 
@@ -91,8 +88,7 @@
                                hyper-quads
                                child-path
                                (d/new-parent-child-relation (da/new-arrow-block-relation arrow-file-view block-idx)
-                                                            (dw/get-wal-relation wal-directory child-name))))
-    arrow-db))
+                                                            (dw/get-wal-relation wal-directory child-name))))))
 
 (def ^:dynamic *default-options*
   {:wal-directory-factory
@@ -115,8 +111,8 @@
                        (fn [relation-name]
                          (dw/get-wal-relation wal-directory relation-name))
                        :crux.datalog.hquad-tree/post-process-children-after-split
-                       (fn [children]
-                         (write-arrow-children children opts)))]
+                       (fn [old-leaf children]
+                         (write-arrow-children-on-split old-leaf children opts)))]
        (fn [relation-name]
          (dhq/new-hyper-quad-tree-relation dhq/default-allocator opts relation-name))))
    :relation-factory-factory
@@ -127,7 +123,7 @@
    :crux.buffer-pool/size-bytes (* 128 1024 1024)
    :crux.datalog.hquad-tree/leaf-size (* 32 1024)})
 
-(defn new-arrow-db [opts]
+(defn new-arrow-db ^crux.datalog.storage.ArrowDb [opts]
   (let [opts (merge *default-options* opts)
         wal-directory ((:wal-directory-factory opts) opts)
         opts (assoc opts :wal-directory wal-directory)
@@ -138,15 +134,15 @@
         opts (assoc opts :tuple-relation-factory tuple-relation-factory)
         relation-factory ((:relation-factory-factory opts) opts)
         opts (assoc opts :relation-factory relation-factory)]
-    (restore-relations
-     (->ArrowDb {}
-                buffer-pool
-                object-store
-                wal-directory
-                (dissoc opts
-                        :wal-directory-factory
-                        :object-store
-                        :object-store-factory
-                        :buffer-pool-factory
-                        :tuple-relation-factory-factory
-                        :relation-factory-factory)))))
+    (doto (->ArrowDb {}
+                     buffer-pool
+                     object-store
+                     wal-directory
+                     (dissoc opts
+                             :wal-directory-factory
+                             :object-store
+                             :object-store-factory
+                             :buffer-pool-factory
+                             :tuple-relation-factory-factory
+                             :relation-factory-factory))
+      (restore-relations))))

@@ -183,12 +183,12 @@
                                (when (leaf-idx? child-idx)
                                  (.get leaves (decode-leaf-idx child-idx))))))))))))
 
-(defn- post-process-children-after-split [^HyperQuadTree tree ^FixedSizeListVector nodes ^long new-node-idx]
+(defn- post-process-children-after-split [^HyperQuadTree tree ^FixedSizeListVector nodes leaf ^long new-node-idx]
   (when-let [post-process-children-after-split (::post-process-children-after-split (.options tree))]
     (let [leaves ^List (.leaves tree)
           hyper-quads (.getListSize nodes)
           node-vector ^IntVector (.getDataVector nodes)
-          children (post-process-children-after-split (leaf-children-of-node tree nodes new-node-idx))]
+          children (post-process-children-after-split leaf (leaf-children-of-node tree nodes new-node-idx))]
       (dotimes [h hyper-quads]
         (let [node-idx (+ new-node-idx h)]
           (when-let [child-leaf (nth children h)]
@@ -215,7 +215,7 @@
         new-node-idx (new-node nodes parent-node-idx)]
     (doseq [tuple (d/table-scan leaf nil)]
       (insert-into-node tree nodes path new-node-idx tuple))
-    (post-process-children-after-split tree nodes new-node-idx)
+    (post-process-children-after-split tree nodes leaf new-node-idx)
     (remove-leaf tree leaf-idx)
     new-node-idx))
 

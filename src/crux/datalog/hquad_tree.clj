@@ -272,8 +272,8 @@
 (defn- insert-leaf-at-path [^HyperQuadTree tree ^FixedSizeListVector nodes path leaf-relation]
   (let [node-vector ^IntVector (.getDataVector nodes)
         leaf-idx (new-leaf tree leaf-relation)]
-    (if (= root-idx leaf-idx)
-      (assert (and (empty? path) (root-only-tree? nodes)))
+    (if (and (empty? path) (root-only-tree? nodes))
+      (assert (= root-idx leaf-idx))
       (loop [^long parent-node-idx root-idx
              [^long h & path] path]
         (let [node-idx (+ parent-node-idx h)]

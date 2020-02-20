@@ -114,7 +114,7 @@
    (let [f (io/file f)]
      (->EDNFileWAL nil f sync?))))
 
-(defn new-wal-relation ^crux.datalog.wal.WALRelation [wal tuple-relation-factory relation-name]
+(defn new-wal-relation ^crux.datalog.wal.WALRelation [relation-name wal tuple-relation-factory]
   (->WALRelation relation-name tuple-relation-factory (SoftReference. nil) wal))
 
 (defrecord LocalDirectoryWALDirectory [^File dir wal-factory]
@@ -126,7 +126,7 @@
         (str (.relativize dir-path (.toPath f))))))
 
   (get-wal-relation [this k]
-    (new-wal-relation (wal-factory (io/file dir k)) k)))
+    (new-wal-relation k (wal-factory (io/file dir k)))))
 
 (defn new-local-directory-wal-directory
   ([dir]

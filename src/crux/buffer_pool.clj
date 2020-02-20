@@ -71,7 +71,7 @@
     (some->> (.remove url-cache k)
              (.remove buffer-cache))))
 
-(defn new-mmap-pool [object-store ^long size]
+(defn new-mmap-pool ^crux.buffer_pool.MmapPool [object-store ^long size]
   (let [buffer-cache (HashMap.)]
     (->MmapPool buffer-cache
                 (proxy [LinkedHashMap] [size 0.75 true]
@@ -105,7 +105,7 @@
   (evict-buffer [this k]
     (.remove buffer-cache k)))
 
-(defn new-in-memory-pool [object-store ^long size-bytes]
+(defn new-in-memory-pool ^crux.buffer_pool.InMemoryPool [object-store ^long size-bytes]
   (->InMemoryPool (proxy [LinkedHashMap] [16 0.75 true]
                     (removeEldestEntry [_]
                       (> (buffer-cache-size this) size-bytes)))

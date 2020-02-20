@@ -614,11 +614,14 @@
 (defn new-parent-child-relation [parent child]
   (->ParentChildRelation #{} parent child))
 
-(defn- new-combined-relation [relation-name]
-  (->CombinedRelation
-   relation-name
-   (new-rule-relation relation-name)
-   (*tuple-relation-factory* relation-name)))
+(defn new-combined-relation
+  ([relation-name]
+   (new-combined-relation relation-name *tuple-relation-factory*))
+  ([relation-name tuple-relation-factory]
+   (->CombinedRelation
+    relation-name
+    (new-rule-relation relation-name)
+    (tuple-relation-factory relation-name))))
 
 (def ^:dynamic *relation-factory* new-combined-relation)
 

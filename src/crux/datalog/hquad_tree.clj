@@ -240,18 +240,21 @@
       (.set leaves leaf-idx leaf-relation))
     leaf-idx))
 
-(defn- leaf-name [^HyperQuadTree tree path]
-  (str/join "/" (cons (.name tree) path)))
+(defn- leaf-name [^HyperQuadTree tree hyper-quads path]
+  (str/join "/" (cons (str (.name tree) "_" hyper-quads) path)))
 
-(defn- leaf-name->name+path [leaf-name]
-  (let [[name & path] (str/split leaf-name #"/")]
-    [name (vec (for [e path]
-                 (Long/parseLong e)))]))
+(defn leaf-name->name+hyper-quads+path [leaf-name]
+  (let [[name+hyper-quads & path] (str/split leaf-name #"/")
+        [name hyper-quads] (str/split name+hyper-quads #"_")]
+    [name
+     (Long/parseLong hyper-quads)
+     (vec (for [e path]
+            (Long/parseLong e)))]))
 
 (defn- insert-into-node [^HyperQuadTree tree ^FixedSizeListVector nodes path parent-node-idx value]
-  (let [leaves ^List (.leaves tree)
-        z-address (tuple->z-address value)
-        dims (cz/hyper-quads->dims (.getListSize nodes))
+  (let [z-address (tuple->z-address value)
+        hyper-quads (.getListSize nodes)
+        dims (cz/hyper-quads->dims hyper-quads)
         node-vector ^IntVector (.getDataVector nodes)]
     (loop [parent-node-idx ^long parent-node-idx
            path path]
@@ -260,7 +263,7 @@
             node-idx (+ parent-node-idx h)
             path (conj path h)]
         (if (.isNull node-vector node-idx)
-          (let [leaf-idx (new-leaf tree (new-leaf-relation tree (leaf-name tree path)))]
+          (let [leaf-idx (new-leaf tree (new-leaf-relation tree (leaf-name tree hyper-quads path)))]
             (.setSafe node-vector (int node-idx) (encode-leaf-idx leaf-idx))
             (insert-into-leaf tree nodes path node-idx leaf-idx value))
           (let [child-idx (.get node-vector node-idx)]
@@ -294,7 +297,7 @@
 (defn- insert-tuple [^HyperQuadTree tree ^FixedSizeListVector nodes value]
   (if (root-only-tree? nodes)
     (do (when (empty? (.leaves tree))
-          (let [new-leaf-idx (new-leaf tree (new-leaf-relation tree (leaf-name tree [])))]
+          (let [new-leaf-idx (new-leaf tree (new-leaf-relation tree (leaf-name tree (.getListSize nodes) [])))]
             (assert (= root-idx new-leaf-idx))))
         (insert-into-leaf tree nodes [] nil root-idx value))
     (insert-into-node tree nodes [] root-idx value)))

@@ -338,6 +338,15 @@
     (getRefCount [this]
       1)))
 
+(defn- arrow-buf-view ^io.netty.buffer.ArrowBuf [^ByteBuffer nio-buffer]
+  (when-not (.isDirect nio-buffer)
+    (throw (IllegalArgumentException. (str "not a direct buffer: " nio-buffer))))
+  (ArrowBuf. nio-view-reference-manager
+             nil
+             (.capacity nio-buffer)
+             (PlatformDependent/directBufferAddress nio-buffer)
+             (zero? (.capacity nio-buffer))))
+
 (defn- arrow-record-batch-view ^org.apache.arrow.vector.ipc.message.ArrowRecordBatch [^ArrowBlock block ^ByteBuffer nio-buffer]
   (let [prefix-size (if (= (.getInt nio-buffer (.getOffset block)) MessageSerializer/IPC_CONTINUATION_TOKEN)
                       8
@@ -347,13 +356,10 @@
                                              (+ (.getOffset block) prefix-size)
                                              (- (.getMetadataLength block) prefix-size)))
                                     (RecordBatch.))
-        body-buffer (ArrowBuf. nio-view-reference-manager
-                               nil
-                               (.getBodyLength block)
-                               (+ (PlatformDependent/directBufferAddress nio-buffer)
-                                  (.getOffset block)
-                                  (.getMetadataLength block))
-                               (zero? (.getBodyLength block)))]
+        body-buffer (arrow-buf-view (.slice nio-buffer
+                                            (+ (.getOffset block)
+                                               (.getMetadataLength block))
+                                            (.getBodyLength block)))]
     (MessageSerializer/deserializeRecordBatch batch body-buffer)))
 
 (defn- read-schema+record-blocks [^BufferAllocator allocator ^ByteBuffer buffer]

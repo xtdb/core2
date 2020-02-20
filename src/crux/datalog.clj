@@ -287,8 +287,8 @@
 
 (defn- rule->query-plan [rule bound-head-var-idxs]
   (let [{:keys [head body] :as conformed-rule} (s/conform :crux.datalog.parser/rule rule)
-        _ (assert (set/superset? (find-vars body) (disj (find-vars head) dp/blank-var))
-                  "rule does not satisfy safety requirement for head variables")
+        _ (when-not (set/superset? (find-vars body) (disj (find-vars head) dp/blank-var))
+            (throw (IllegalArgumentException. (str "rule does not satisfy safety requirement for head variables: " rule))))
         bound-head-vars (set (map (mapv term->binding (:terms head)) bound-head-var-idxs))
         body (reorder-body head body bound-head-vars)]
     {:existential-vars (set/difference (find-vars body) (find-vars head))

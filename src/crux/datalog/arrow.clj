@@ -399,18 +399,20 @@
   (cardinality [this]
     (d/cardinality record-batch))
 
+  (relation-name [this])
+
   AutoCloseable
   (close [this]
     (set! (.-buffer this) nil)))
 
 (defrecord ArrowBufferRefAndRecordBatches [^Reference buffer-ref ^List record-batches])
 
-(deftype ArrowFileView [buffer-pool k ^:volatile-mutable ^ArrowBufferRefAndRecordBatches buffer-ref-and-record-batches]
+(deftype ArrowFileView [buffer-pool ^String name ^:volatile-mutable ^ArrowBufferRefAndRecordBatches buffer-ref-and-record-batches]
   Indexed
   (nth [this n]
     (if-let [buffer (.get ^Reference (.buffer-ref buffer-ref-and-record-batches))]
       (->ArrowRecordBatchView (nth (.record-batches buffer-ref-and-record-batches) n) buffer)
-      (let [new-buffer (bp/get-buffer buffer-pool k)
+      (let [new-buffer (bp/get-buffer buffer-pool name)
             new-buffer-ref-and-record-batches (ArrowBufferRefAndRecordBatches.
                                                (WeakReference. new-buffer)
                                                (read-arrow-record-batches new-buffer))]
@@ -421,8 +423,8 @@
   (close [this]
     (set! (.-buffer-ref-and-record-batches this) nil)))
 
-(defn new-arrow-file-view [buffer-pool k]
-  (->ArrowFileView buffer-pool k nil))
+(defn new-arrow-file-view [relation-name buffer-pool]
+  (->ArrowFileView buffer-pool relation-name nil))
 
 (defrecord ArrowBlockRelation [^ArrowFileView arrow-file ^long block-idx]
   d/Relation
@@ -442,7 +444,10 @@
     (throw (UnsupportedOperationException.)))
 
   (cardinality [this]
-    (d/cardinality (nth arrow-file block-idx))))
+    (d/cardinality (nth arrow-file block-idx)))
+
+  (relation-name [this]
+    (str (.name arrow-file) "/" block-idx)))
 
 (defn new-arrow-block-relation [^ArrowFileView arrow-file ^long block-idx]
   (->ArrowBlockRelation arrow-file block-idx))
@@ -487,6 +492,9 @@
   (cardinality [this]
     (.getValueCount this))
 
+  (relation-name [this]
+    (.getName this))
+
   VectorSchemaRoot
   (table-scan [this db]
     (->> (repeat (count (.getFieldVectors this)) dp/blank-var)
@@ -506,7 +514,9 @@
     (throw (UnsupportedOperationException.)))
 
   (cardinality [this]
-    (.getRowCount this)))
+    (.getRowCount this))
+
+  (relation-name [this]))
 
 (defn new-arrow-struct-relation
   (^org.apache.arrow.vector.complex.StructVector [relation-name]

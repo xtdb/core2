@@ -110,11 +110,11 @@
             (.set leaves n (d/delete leaf value))))))
     this)
 
-  (cardinality [this]
-    (reduce + (map d/cardinality leaves)))
-
   (truncate [this]
     (throw (UnsupportedOperationException.)))
+
+  (cardinality [this]
+    (reduce + (map d/cardinality leaves)))
 
   AutoCloseable
   (close [_]

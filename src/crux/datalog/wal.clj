@@ -74,6 +74,9 @@
         (set! (.-relation-and-next-offset this) (SoftReference. new-relation-and-next-offset)))
       (d/cardinality (.relation new-relation-and-next-offset))))
 
+  (relation-name [this]
+    name)
+
   AutoCloseable
   (close [this]
     (set! (.-relation-and-next-offset this) nil)

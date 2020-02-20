@@ -44,7 +44,8 @@
   (insert [this value])
   (delete [this value])
   (truncate [this])
-  (cardinality [this]))
+  (cardinality [this])
+  (relation-name [this]))
 
 (defprotocol Db
   (assertion [this relation-name value])
@@ -488,7 +489,10 @@
     (update this :rules empty))
 
   (cardinality [this]
-    0))
+    0)
+
+  (relation-name [this]
+    name))
 
 (defn- new-rule-relation [name]
   (->RuleRelation name #{}))
@@ -511,6 +515,8 @@
   (cardinality [this]
     0)
 
+  (relation-name [this])
+
   IPersistentCollection
   (table-scan [this db]
     (seq this))
@@ -532,11 +538,14 @@
   (delete [this tuple]
     (disj this tuple))
 
+  (truncate [this]
+    (empty this))
+
   (cardinality [this]
     (count this))
 
-  (truncate [this]
-    (empty this)))
+  (relation-name [this]
+    (:name (meta this))))
 
 (defn new-sorted-set-relation [relation-name]
   (with-meta (sorted-set) {:name relation-name}))
@@ -568,6 +577,9 @@
 
   (cardinality [this]
     (cardinality tuples))
+
+  (relation-name [this]
+    name)
 
   AutoCloseable
   (close [this]
@@ -605,6 +617,9 @@
   (cardinality [this]
     (+ ^long (cardinality parent)
        ^long (cardinality child)))
+
+  (relation-name [this]
+    (relation-name child))
 
   AutoCloseable
   (close [_]

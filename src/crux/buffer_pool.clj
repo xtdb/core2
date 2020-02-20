@@ -5,8 +5,7 @@
            java.net.URL
            [java.nio ByteBuffer MappedByteBuffer]
            [java.nio.channels FileChannel$MapMode SeekableByteChannel]
-           [java.util HashMap LinkedHashMap Map Map$Entry]
-           io.netty.util.internal.PlatformDependent))
+           [java.util HashMap LinkedHashMap Map Map$Entry]))
 
 (set! *unchecked-math* :warn-on-boxed)
 
@@ -49,9 +48,6 @@
   (with-open [in (.getChannel (FileInputStream. (io/file f)))]
     (.map in FileChannel$MapMode/READ_ONLY 0 (.size in))))
 
-(defn unmap-buffer [^MappedByteBuffer buffer]
-  (PlatformDependent/freeDirectBuffer buffer))
-
 (defn- get-object-with-file-url ^java.net.URL [object-store k]
   (when-let [url (os/get-object object-store k)]
     (io/file url)
@@ -73,8 +69,7 @@
 
   (evict-buffer [this k]
     (some->> (.remove url-cache k)
-             (.remove buffer-cache)
-             (unmap-buffer))))
+             (.remove buffer-cache))))
 
 (defn new-mmap-pool [object-store ^long size]
   (let [buffer-cache (HashMap.)]
@@ -94,9 +89,6 @@
       (recur bs (+ size (.capacity ^ByteBuffer b)))
       size)))
 
-(defn free-buffer [^ByteBuffer buffer]
-  (PlatformDependent/freeDirectBuffer buffer))
-
 (defrecord InMemoryPool [^Map buffer-cache object-store]
   BufferPool
   (get-buffer [this k]
@@ -111,8 +103,7 @@
               (.slice buffer))))))
 
   (evict-buffer [this k]
-    (some->> (.remove buffer-cache k)
-             (free-buffer))))
+    (.remove buffer-cache k)))
 
 (defn new-in-memory-pool [object-store ^long size-bytes]
   (->InMemoryPool (proxy [LinkedHashMap] [16 0.75 true]

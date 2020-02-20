@@ -801,8 +801,8 @@ perm(c, b).
           (doseq [leaf-tuple-factory [#'da/new-arrow-struct-relation
                                       #'d/new-sorted-set-relation]]
             (t/testing (:name (meta leaf-tuple-factory))
-              (binding [dhq/*default-options* {:leaf-tuple-relation-factory leaf-tuple-factory
-                                               :leaf-size 4}
+              (binding [dhq/*default-options* {:crux.datalog.hquad-tree/leaf-tuple-relation-factory leaf-tuple-factory
+                                               :crux.datalog.hquad-tree/leaf-size 4}
                         cbk/*use-var-ints? true]
                 (f))))
           (f))))))

@@ -19,9 +19,9 @@
 (def ^BufferAllocator
   default-allocator (RootAllocator. Long/MAX_VALUE))
 
-(def ^:dynamic *default-options* {:leaf-size (* 128 1024)
-                                  :leaf-tuple-relation-factory d/new-sorted-set-relation
-                                  :post-process-children-after-split nil})
+(def ^:dynamic *default-options* {::leaf-size (* 128 1024)
+                                  ::leaf-tuple-relation-factory d/new-sorted-set-relation
+                                  ::post-process-children-after-split nil})
 
 (def ^:private ^{:tag 'long} root-idx 0)
 (def ^:private ^{:tag 'long} root-level -1)
@@ -184,7 +184,7 @@
                                  (.get leaves (decode-leaf-idx child-idx))))))))))))
 
 (defn- post-process-children-after-split [^HyperQuadTree tree ^FixedSizeListVector nodes ^long new-node-idx]
-  (when-let [post-process-children-after-split (:post-process-children-after-split (.options tree))]
+  (when-let [post-process-children-after-split (::post-process-children-after-split (.options tree))]
     (let [leaves ^List (.leaves tree)
           hyper-quads (.getListSize nodes)
           node-vector ^IntVector (.getDataVector nodes)
@@ -222,14 +222,14 @@
 (defn- insert-into-leaf [^HyperQuadTree tree ^FixedSizeListVector nodes path parent-node-idx leaf-idx value]
   (let [leaves ^List (.leaves tree)
         leaf (.get leaves leaf-idx)]
-    (if (< ^long (d/cardinality leaf) ^long (:leaf-size (.options tree)))
+    (if (< ^long (d/cardinality leaf) ^long (::leaf-size (.options tree)))
       (.set leaves leaf-idx (d/insert leaf value))
       (let [new-node-idx (split-leaf tree nodes path parent-node-idx leaf-idx)]
         (insert-into-node tree nodes path new-node-idx value)))
     tree))
 
 (defn- new-leaf-relation [^HyperQuadTree tree ^String leaf-name]
-  (let [leaf-tuple-relation-factory (:leaf-tuple-relation-factory (.options tree))]
+  (let [leaf-tuple-relation-factory (::leaf-tuple-relation-factory (.options tree))]
     (leaf-tuple-relation-factory leaf-name)))
 
 (defn- new-leaf ^long [^HyperQuadTree tree leaf-relation]

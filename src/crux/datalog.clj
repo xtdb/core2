@@ -588,6 +588,17 @@
 
 (def ^:dynamic *tuple-relation-factory* new-sorted-set-relation)
 
+(defn new-combined-relation
+  ([relation-name]
+   (new-combined-relation relation-name *tuple-relation-factory*))
+  ([relation-name tuple-relation-factory]
+   (->CombinedRelation
+    relation-name
+    (new-rule-relation relation-name)
+    (tuple-relation-factory relation-name))))
+
+(def ^:dynamic *relation-factory* new-combined-relation)
+
 (defrecord ParentChildRelation [deletion-set parent child]
   Relation
   (table-scan [this db]
@@ -628,17 +639,6 @@
 
 (defn new-parent-child-relation [parent child]
   (->ParentChildRelation #{} parent child))
-
-(defn new-combined-relation
-  ([relation-name]
-   (new-combined-relation relation-name *tuple-relation-factory*))
-  ([relation-name tuple-relation-factory]
-   (->CombinedRelation
-    relation-name
-    (new-rule-relation relation-name)
-    (tuple-relation-factory relation-name))))
-
-(def ^:dynamic *relation-factory* new-combined-relation)
 
 (extend-type IPersistentMap
   Db

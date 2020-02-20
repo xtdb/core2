@@ -11,6 +11,7 @@
            org.apache.arrow.vector.types.Types$MinorType
            [java.util ArrayList List]
            java.lang.AutoCloseable
+           java.lang.reflect.Field
            java.nio.ByteBuffer))
 
 (set! *unchecked-math* :warn-on-boxed)
@@ -79,6 +80,12 @@
     [(tuple->z-address (map first min+max))
      (tuple->z-address (map second min+max))]))
 
+(defn- new-nodes-list [allocator hyper-quads]
+  (doto (FixedSizeListVector/empty "" hyper-quads allocator)
+    (.setInitialCapacity 0)
+    (.setValueCount 0)
+    (.addOrGetVector (FieldType/nullable (.getType Types$MinorType/INT)))))
+
 (deftype HyperQuadTree [^:volatile-mutable ^FixedSizeListVector nodes
                         ^List leaves
                         ^String name
@@ -95,10 +102,7 @@
     (when (nil? nodes)
       (let [dims (count value)
             hyper-quads (cz/dims->hyper-quads dims)]
-        (set! (.-nodes this) (doto (FixedSizeListVector/empty "" hyper-quads allocator)
-                               (.setInitialCapacity 0)
-                               (.setValueCount 0)
-                               (.addOrGetVector (FieldType/nullable (.getType Types$MinorType/INT)))))))
+        (set! (.-nodes this) (new-nodes-list allocator hyper-quads))))
     (do (insert-tuple this nodes value)
         this))
 
@@ -240,7 +244,7 @@
       (.set leaves leaf-idx leaf-relation))
     leaf-idx))
 
-(defn- leaf-name [^HyperQuadTree tree hyper-quads path]
+(defn leaf-name [^HyperQuadTree tree hyper-quads path]
   (str/join "/" (cons (str (.name tree) "_" hyper-quads) path)))
 
 (defn leaf-name->name+hyper-quads+path [leaf-name]
@@ -272,8 +276,18 @@
               (insert-into-leaf tree nodes path node-idx (decode-leaf-idx child-idx) value)
               (recur child-idx path))))))))
 
-(defn- insert-leaf-at-path [^HyperQuadTree tree ^FixedSizeListVector nodes path leaf-relation]
-  (let [node-vector ^IntVector (.getDataVector nodes)
+(def ^:private ^java.lang.reflect.Field
+  nodes-field (doto (.getDeclaredField HyperQuadTree "nodes")
+                (.setAccessible true)))
+
+(defn- get-tree-nodes ^org.apache.arrow.vector.complex.FixedSizeListVector [^HyperQuadTree tree hyper-quads]
+  (or (.get nodes-field tree)
+      (doto (new-nodes-list (.allocator tree) hyper-quads)
+        (->> (.set nodes-field tree)))))
+
+(defn insert-leaf-at-path [^HyperQuadTree tree hyper-quads path leaf-relation]
+  (let [nodes (get-tree-nodes tree hyper-quads)
+        node-vector ^IntVector (.getDataVector nodes)
         leaf-idx (new-leaf tree leaf-relation)]
     (if (and (empty? path) (root-only-tree? nodes))
       (assert (= root-idx leaf-idx))

@@ -306,7 +306,7 @@
                unify-tuple? (filter (partial d/unify var-bindings)))))
          (apply concat))))
 
-(defn- write-record-batches ^java.io.File [record-batches f]
+(defn write-record-batches ^java.io.File [record-batches f]
   (let [schema (.getSchema ^VectorSchemaRoot (first record-batches))
         f (io/file f)]
     (with-open [record-batch-to (VectorSchemaRoot/create schema default-allocator)
@@ -524,3 +524,23 @@
   (^org.apache.arrow.vector.complex.StructVector [^BufferAllocator allocator relation-name]
    (doto (StructVector/empty (str relation-name) allocator)
      (.setInitialCapacity 0))))
+
+(defprotocol ToRecordBatch
+  (->record-batch [this]))
+
+(extend-protocol ToRecordBatch
+  VectorSchemaRoot
+  (->record-batch [this]
+    this)
+
+  StructVector
+  (->record-batch [this]
+    (VectorSchemaRoot. this))
+
+  Object
+  (->record-batch [this]
+    (->record-batch
+     (reduce
+      d/insert
+      (new-arrow-struct-relation (d/relation-name this))
+      (d/table-scan this nil)))))

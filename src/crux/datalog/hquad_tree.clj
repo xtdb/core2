@@ -22,7 +22,7 @@
 (def ^:private ^{:tag 'long} root-idx 0)
 (def ^:private ^{:tag 'long} root-level -1)
 
-(declare insert-tuple insert-into-node walk-tree)
+(declare insert-tuple insert-into-node walk-tree init-hyper-quads)
 
 (defn- leaf-idx? [^long idx]
   (neg? idx))
@@ -73,9 +73,6 @@
     [(tuple->z-address (map first min+max))
      (tuple->z-address (map second min+max))]))
 
-(defn- new-nodes-list ^org.apache.arrow.vector.IntVector [^BufferAllocator allocator ^long hyper-quads]
-  (IntVector. "" allocator))
-
 (definterface INodesAccessor
   (^org.apache.arrow.vector.IntVector getNodes [])
   (^void setNodes [^org.apache.arrow.vector.IntVector nodes])
@@ -85,8 +82,6 @@
 (definterface IHyperQuadsAccessor
   (^long getHyperQuads [])
   (^void setHyperQuads [^long hyperQuads]))
-
-(declare init-tree)
 
 (deftype HyperQuadTree [^:volatile-mutable ^IntVector nodes
                         ^:volatile-mutable ^long nodes-size
@@ -103,11 +98,9 @@
     (walk-tree this #(d/table-filter % db var-bindings) (var-bindings->z-range var-bindings)))
 
   (insert [this value]
-    (when (nil? nodes)
-      (let [dims (count value)]
-        (init-tree this (cz/dims->hyper-quads dims))))
-    (do (insert-tuple this value)
-        this))
+    (doto this
+      (init-hyper-quads (cz/dims->hyper-quads (count value)))
+      (insert-tuple value)))
 
   (delete [this value]
     (let [leaves ^List (.leaves this)]
@@ -149,10 +142,9 @@
     (doseq [leaf leaves]
       (d/try-close leaf))))
 
-(defn- init-tree ^crux.datalog.hquad_tree.HyperQuadTree [^HyperQuadTree tree ^long hyper-quads]
-  (doto tree
-    (.setHyperQuads hyper-quads)
-    (.setNodes (new-nodes-list (.allocator tree) hyper-quads))))
+(defn- init-hyper-quads [^HyperQuadTree tree ^long hyper-quads]
+  (when (= -1 (.getHyperQuads tree))
+    (.setHyperQuads tree hyper-quads)))
 
 (defn- root-only-tree? [^HyperQuadTree tree]
   (zero? (.getNodesSize tree)))
@@ -160,8 +152,8 @@
 (defn new-hyper-quad-tree-relation
   (^crux.datalog.hquad_tree.HyperQuadTree [relation-name]
    (new-hyper-quad-tree-relation default-allocator {} relation-name))
-  (^crux.datalog.hquad_tree.HyperQuadTree [allocator opts relation-name]
-   (->HyperQuadTree nil 0 -1 (ArrayList.) relation-name allocator (merge *default-options* opts))))
+  (^crux.datalog.hquad_tree.HyperQuadTree [^BufferAllocator allocator opts relation-name]
+   (->HyperQuadTree (IntVector. "" allocator) 0 -1 (ArrayList.) relation-name allocator (merge *default-options* opts))))
 
 (defn- walk-tree [^HyperQuadTree tree leaf-fn [^long min-z ^long max-z :as z-range]]
   (let [node-vector (.getNodes tree)
@@ -310,8 +302,8 @@
               (recur child-idx path))))))))
 
 (defn insert-leaf-at-path [^HyperQuadTree tree ^long hyper-quads path leaf-relation]
-  (let [node-vector (or (.getNodes tree)
-                        (.getNodes ^HyperQuadTree (init-tree tree hyper-quads)))
+  (init-hyper-quads tree hyper-quads)
+  (let [node-vector (.getNodes tree)
         leaf-idx (new-leaf tree leaf-relation)]
     (if (and (empty? path) (root-only-tree? tree))
       (assert (= root-idx leaf-idx))

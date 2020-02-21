@@ -41,6 +41,22 @@
 (defn byte-key->clojure [^bytes key]
   (edn/read-string (String. key StandardCharsets/UTF_8)))
 
+(defn byte-key->var-int ^long [^bytes key]
+  (let [header-byte (aget key 0)
+        bits (bit-and (dec Long/SIZE) header-byte)
+        buffer (doto (ByteBuffer/allocate Long/BYTES)
+                 (.put key 1 (dec (alength key)))
+                 (.rewind))]
+    (cond
+      (neg? header-byte)
+      (unsigned-bit-shift-right (.getLong buffer) (- Long/SIZE bits))
+
+      (zero? bits)
+      -1
+
+      :else
+      (dec (- (unsigned-bit-shift-right (bit-not (.getLong buffer)) bits))))))
+
 (defn long->var-int-byte-key ^bytes [^long l]
   (let [bits (- Long/SIZE
                 (if (neg? l)

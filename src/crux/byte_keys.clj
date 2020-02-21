@@ -70,6 +70,25 @@
       (> output-bytes Long/BYTES) (.put (unchecked-byte (bit-and -1 (bit-shift-left l (- Byte/SIZE header-size)))))
       true (.array))))
 
+(defn long->var-int-bits-byte-key ^bytes [^long l]
+  (let [bits (- Long/SIZE
+                (if (neg? l)
+                  (Long/numberOfLeadingZeros (bit-not l))
+                  (Long/numberOfLeadingZeros l)))
+        used-bytes (inc (quot bits Byte/SIZE))
+        header-byte (if (neg? l)
+                      (- Long/SIZE bits)
+                      (bit-or Byte/MIN_VALUE bits))
+        first-long (bit-shift-left l (- Long/SIZE bits))
+        long-bytes (-> (ByteBuffer/allocate Long/BYTES)
+                       (.putLong first-long)
+                       (.array))
+        output-bytes (inc used-bytes)]
+    (-> (ByteBuffer/allocate output-bytes)
+        (.put (unchecked-byte header-byte))
+        (.put long-bytes 0 (min Long/BYTES used-bytes))
+        (.array))))
+
 (def ^:dynamic *use-var-ints? false)
 
 (extend-protocol ByteKey

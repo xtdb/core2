@@ -11,7 +11,6 @@
            org.apache.arrow.vector.types.Types$MinorType
            [java.util ArrayList List]
            java.lang.AutoCloseable
-           java.lang.reflect.Field
            java.nio.ByteBuffer))
 
 (set! *unchecked-math* :warn-on-boxed)
@@ -80,30 +79,40 @@
     [(tuple->z-address (map first min+max))
      (tuple->z-address (map second min+max))]))
 
-(defn- new-nodes-list [allocator hyper-quads]
+(defn- new-nodes-list ^org.apache.arrow.vector.complex.FixedSizeListVector [allocator ^long hyper-quads]
   (doto (FixedSizeListVector/empty "" hyper-quads allocator)
     (.setInitialCapacity 0)
     (.setValueCount 0)
     (.addOrGetVector (FieldType/nullable (.getType Types$MinorType/INT)))))
 
+(definterface INodesAccessor
+  (^org.apache.arrow.vector.complex.FixedSizeListVector getNodes [])
+  (^void setNodes [nodes]))
+
+(definterface IHyperQuadsAccessor
+  (^long getHyperQuads [])
+  (^void setHyperQuads [^long hyperQuads]))
+
+(declare init-tree)
+
 (deftype HyperQuadTree [^:volatile-mutable ^FixedSizeListVector nodes
+                        ^:volatile-mutable ^long hyper-quads
                         ^List leaves
                         ^String name
                         ^BufferAllocator allocator
                         options]
   d/Relation
   (table-scan [this db]
-    (walk-tree this nodes #(d/table-scan % db) z-wildcard-range))
+    (walk-tree this #(d/table-scan % db) z-wildcard-range))
 
   (table-filter [this db var-bindings]
-    (walk-tree this nodes #(d/table-filter % db var-bindings) (var-bindings->z-range var-bindings)))
+    (walk-tree this #(d/table-filter % db var-bindings) (var-bindings->z-range var-bindings)))
 
   (insert [this value]
     (when (nil? nodes)
-      (let [dims (count value)
-            hyper-quads (cz/dims->hyper-quads dims)]
-        (set! (.-nodes this) (new-nodes-list allocator hyper-quads))))
-    (do (insert-tuple this nodes value)
+      (let [dims (count value)]
+        (init-tree this (cz/dims->hyper-quads dims))))
+    (do (insert-tuple this value)
         this))
 
   (delete [this value]
@@ -120,20 +129,40 @@
   (cardinality [this]
     (reduce + (map d/cardinality leaves)))
 
+  INodesAccessor
+  (getNodes [this]
+    nodes)
+
+  (setNodes [this nodes]
+    (set! (.-nodes this) nodes))
+
+  IHyperQuadsAccessor
+  (getHyperQuads [this]
+    hyper-quads)
+
+  (setHyperQuads [this hyper-quads]
+    (set! (.-hyper-quads this) hyper-quads))
+
   AutoCloseable
   (close [_]
     (d/try-close nodes)
     (doseq [leaf leaves]
       (d/try-close leaf))))
 
+(defn- init-tree ^crux.datalog.hquad_tree.HyperQuadTree [^HyperQuadTree tree ^long hyper-quads]
+  (doto tree
+    (.setHyperQuads hyper-quads)
+    (.setNodes (new-nodes-list (.allocator tree) hyper-quads))))
+
 (defn new-hyper-quad-tree-relation
   (^crux.datalog.hquad_tree.HyperQuadTree [relation-name]
    (new-hyper-quad-tree-relation default-allocator {} relation-name))
   (^crux.datalog.hquad_tree.HyperQuadTree [allocator opts relation-name]
-   (->HyperQuadTree nil (ArrayList.) relation-name allocator (merge *default-options* opts))))
+   (->HyperQuadTree nil -1 (ArrayList.) relation-name allocator (merge *default-options* opts))))
 
-(defn- walk-tree [^HyperQuadTree tree ^FixedSizeListVector nodes leaf-fn [^long min-z ^long max-z :as z-range]]
-  (let [leaves ^List (.leaves tree)]
+(defn- walk-tree [^HyperQuadTree tree leaf-fn [^long min-z ^long max-z :as z-range]]
+  (let [nodes (.getNodes tree)
+        leaves ^List (.leaves tree)]
     (cond
       (empty? (.leaves tree))
       nil
@@ -142,7 +171,7 @@
       (leaf-fn (.get leaves root-idx))
 
       :else
-      (let [hyper-quads (.getListSize nodes)
+      (let [hyper-quads (.getHyperQuads tree)
             h-mask (dec hyper-quads)
             dims (cz/hyper-quads->dims hyper-quads)
             node-vector ^IntVector (.getDataVector nodes)]
@@ -168,9 +197,10 @@
                                                (cz/propagate-max-h-mask h max-h max-h-mask)))))))))))))
          0 root-idx h-mask 0)))))
 
-(defn- leaf-children-of-node [^HyperQuadTree tree ^FixedSizeListVector nodes ^long parent-node-idx]
+(defn- leaf-children-of-node [^HyperQuadTree tree ^long parent-node-idx]
   (let [leaves ^List (.leaves tree)
-        hyper-quads (.getListSize nodes)
+        hyper-quads (.getHyperQuads tree)
+        nodes (.getNodes tree)
         node-vector ^IntVector (.getDataVector nodes)]
     (loop [h 0
            acc []]
@@ -183,19 +213,20 @@
                                (when (leaf-idx? child-idx)
                                  (.get leaves (decode-leaf-idx child-idx))))))))))))
 
-(defn- post-process-children-after-split [^HyperQuadTree tree ^FixedSizeListVector nodes leaf ^long new-node-idx]
+(defn- post-process-children-after-split [^HyperQuadTree tree leaf ^long new-node-idx]
   (when-let [post-process-children-after-split (::post-process-children-after-split (.options tree))]
     (let [leaves ^List (.leaves tree)
-          hyper-quads (.getListSize nodes)
+          nodes (.getNodes tree)
           node-vector ^IntVector (.getDataVector nodes)
-          children (post-process-children-after-split leaf (leaf-children-of-node tree nodes new-node-idx))]
-      (dotimes [h hyper-quads]
+          children (post-process-children-after-split leaf (leaf-children-of-node tree new-node-idx))]
+      (dotimes [h (.getHyperQuads tree)]
         (let [node-idx (+ new-node-idx h)]
           (when-let [child-leaf (nth children h)]
             (.set leaves (decode-leaf-idx (.get node-vector node-idx)) child-leaf)))))))
 
-(defn- new-node ^long [^FixedSizeListVector nodes parent-node-idx]
-  (let [root? (root-only-tree? nodes)
+(defn- new-node ^long [^HyperQuadTree tree parent-node-idx]
+  (let [nodes (.getNodes tree)
+        root? (root-only-tree? nodes)
         new-node-idx (.startNewValue nodes (.getValueCount nodes))
         node-vector ^IntVector (.getDataVector nodes)]
     (.setValueCount nodes (inc (.getValueCount nodes)))
@@ -203,29 +234,29 @@
       (.setSafe node-vector (int parent-node-idx) new-node-idx))
     new-node-idx))
 
-(defn- remove-leaf [^HyperQuadTree tree leaf-idx]
+(defn- remove-leaf [^HyperQuadTree tree ^long leaf-idx]
   (let [leaves ^List (.leaves tree)
         leaf (.get leaves leaf-idx)]
     (.set leaves leaf-idx nil)
     (d/try-close leaf)))
 
-(defn- split-leaf [^HyperQuadTree tree ^FixedSizeListVector nodes path parent-node-idx leaf-idx]
+(defn- split-leaf [^HyperQuadTree tree path parent-node-idx ^long leaf-idx]
   (let [leaves ^List (.leaves tree)
         leaf (.get leaves leaf-idx)
-        new-node-idx (new-node nodes parent-node-idx)]
+        new-node-idx (new-node tree parent-node-idx)]
     (doseq [tuple (d/table-scan leaf nil)]
-      (insert-into-node tree nodes path new-node-idx tuple))
-    (post-process-children-after-split tree nodes leaf new-node-idx)
+      (insert-into-node tree path new-node-idx tuple))
+    (post-process-children-after-split tree leaf new-node-idx)
     (remove-leaf tree leaf-idx)
     new-node-idx))
 
-(defn- insert-into-leaf [^HyperQuadTree tree ^FixedSizeListVector nodes path parent-node-idx leaf-idx value]
+(defn- insert-into-leaf [^HyperQuadTree tree path parent-node-idx leaf-idx value]
   (let [leaves ^List (.leaves tree)
         leaf (.get leaves leaf-idx)]
     (if (< ^long (d/cardinality leaf) ^long (::leaf-size (.options tree)))
       (.set leaves leaf-idx (d/insert leaf value))
-      (let [new-node-idx (split-leaf tree nodes path parent-node-idx leaf-idx)]
-        (insert-into-node tree nodes path new-node-idx value)))
+      (let [new-node-idx (split-leaf tree path parent-node-idx leaf-idx)]
+        (insert-into-node tree path new-node-idx value)))
     tree))
 
 (defn- new-leaf-relation [^HyperQuadTree tree ^String leaf-name]
@@ -244,8 +275,8 @@
       (.set leaves leaf-idx leaf-relation))
     leaf-idx))
 
-(defn leaf-name [^HyperQuadTree tree hyper-quads path]
-  (str/join "/" (cons (str (.name tree) "_" hyper-quads) path)))
+(defn leaf-name [^HyperQuadTree tree path]
+  (str/join "/" (cons (str (.name tree) "_" (.getHyperQuads tree)) path)))
 
 (defn leaf-name->name+hyper-quads+path [leaf-name]
   (let [[name+hyper-quads & path] (str/split leaf-name #"/")
@@ -255,38 +286,30 @@
      (vec (for [e path]
             (Long/parseLong e)))]))
 
-(defn- insert-into-node [^HyperQuadTree tree ^FixedSizeListVector nodes path parent-node-idx value]
+(defn- insert-into-node [^HyperQuadTree tree path ^long parent-node-idx value]
   (let [z-address (tuple->z-address value)
-        hyper-quads (.getListSize nodes)
-        dims (cz/hyper-quads->dims hyper-quads)
+        dims (cz/hyper-quads->dims (.getHyperQuads tree))
+        nodes (.getNodes tree)
         node-vector ^IntVector (.getDataVector nodes)]
-    (loop [parent-node-idx ^long parent-node-idx
+    (loop [parent-node-idx parent-node-idx
            path path]
       (let [level (count path)
             h (cz/decode-h-at-level z-address dims level)
             node-idx (+ parent-node-idx h)
             path (conj path h)]
         (if (.isNull node-vector node-idx)
-          (let [leaf-idx (new-leaf tree (new-leaf-relation tree (leaf-name tree hyper-quads path)))]
+          (let [leaf-idx (new-leaf tree (new-leaf-relation tree (leaf-name tree path)))]
             (.setSafe node-vector (int node-idx) (encode-leaf-idx leaf-idx))
-            (insert-into-leaf tree nodes path node-idx leaf-idx value))
+            (insert-into-leaf tree path node-idx leaf-idx value))
           (let [child-idx (.get node-vector node-idx)]
             (assert (not= root-idx child-idx))
             (if (leaf-idx? child-idx)
-              (insert-into-leaf tree nodes path node-idx (decode-leaf-idx child-idx) value)
+              (insert-into-leaf tree path node-idx (decode-leaf-idx child-idx) value)
               (recur child-idx path))))))))
 
-(def ^:private ^java.lang.reflect.Field
-  nodes-field (doto (.getDeclaredField HyperQuadTree "nodes")
-                (.setAccessible true)))
-
-(defn- get-tree-nodes ^org.apache.arrow.vector.complex.FixedSizeListVector [^HyperQuadTree tree hyper-quads]
-  (or (.get nodes-field tree)
-      (doto (new-nodes-list (.allocator tree) hyper-quads)
-        (->> (.set nodes-field tree)))))
-
-(defn insert-leaf-at-path [^HyperQuadTree tree hyper-quads path leaf-relation]
-  (let [nodes (get-tree-nodes tree hyper-quads)
+(defn insert-leaf-at-path [^HyperQuadTree tree ^long hyper-quads path leaf-relation]
+  (let [nodes (or (.getNodes tree)
+                  (.getNodes ^HyperQuadTree (init-tree tree hyper-quads)))
         node-vector ^IntVector (.getDataVector nodes)
         leaf-idx (new-leaf tree leaf-relation)]
     (if (and (empty? path) (root-only-tree? nodes))
@@ -295,23 +318,23 @@
              [^long h & path] path]
         (let [node-idx (+ parent-node-idx h)]
           (let [child-idx (if (.isNull node-vector node-idx)
-                            (new-node nodes node-idx)
+                            (new-node tree hyper-quads nodes node-idx)
                             (let [child-idx (.get node-vector node-idx)]
                               (assert (not= root-idx child-idx))
                               (if (leaf-idx? child-idx)
                                 (let [leaf-idx (decode-leaf-idx child-idx)]
                                   (remove-leaf tree leaf-idx)
-                                  (new-node nodes node-idx))
+                                  (new-node tree hyper-quads nodes node-idx))
                                 child-idx)))]
             (if path
               (recur child-idx path)
               (.setSafe node-vector (int child-idx) (encode-leaf-idx leaf-idx)))))))))
 
 
-(defn- insert-tuple [^HyperQuadTree tree ^FixedSizeListVector nodes value]
-  (if (root-only-tree? nodes)
+(defn- insert-tuple [^HyperQuadTree tree value]
+  (if (root-only-tree? (.getNodes tree))
     (do (when (empty? (.leaves tree))
-          (let [new-leaf-idx (new-leaf tree (new-leaf-relation tree (leaf-name tree (.getListSize nodes) [])))]
+          (let [new-leaf-idx (new-leaf tree (new-leaf-relation tree (leaf-name tree [])))]
             (assert (= root-idx new-leaf-idx))))
-        (insert-into-leaf tree nodes [] nil root-idx value))
-    (insert-into-node tree nodes [] root-idx value)))
+        (insert-into-leaf tree [] nil root-idx value))
+    (insert-into-node tree [] root-idx value)))

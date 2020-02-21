@@ -82,9 +82,14 @@
   (^long getHyperQuads [])
   (^void setHyperQuads [^long hyperQuads]))
 
+(definterface IFreeLeafIndexAccessor
+  (^long getFreeLeafIndex [])
+  (^void setFreeLeafIndex [^long free-leaf-idx]))
+
 (deftype HyperQuadTree [^:volatile-mutable ^ints nodes
                         ^:volatile-mutable ^long nodes-size
                         ^:volatile-mutable ^long hyper-quads
+                        ^:volatile-mutable ^long free-leaf-idx
                         ^List leaves
                         ^String name
                         options]
@@ -134,6 +139,13 @@
   (setHyperQuads [this hyper-quads]
     (set! (.-hyper-quads this) hyper-quads))
 
+  IFreeLeafIndexAccessor
+  (getFreeLeafIndex [this]
+    free-leaf-idx)
+
+  (setFreeLeafIndex [this free-leaf-idx]
+    (set! (.-free-leaf-idx this) free-leaf-idx))
+
   AutoCloseable
   (close [_]
     (d/try-close nodes)
@@ -151,7 +163,7 @@
   (^crux.datalog.hquad_tree.HyperQuadTree [relation-name]
    (new-hyper-quad-tree-relation {} relation-name))
   (^crux.datalog.hquad_tree.HyperQuadTree [opts relation-name]
-   (->HyperQuadTree (int-array initial-nodes-capacity) 0 -1 (ArrayList.) relation-name (merge *default-options* opts))))
+   (->HyperQuadTree (int-array initial-nodes-capacity) 0 -1 -1 (ArrayList.) relation-name (merge *default-options* opts))))
 
 (defn- walk-tree [^HyperQuadTree tree leaf-fn [^long min-z ^long max-z :as z-range]]
   (let [node-vector (.getNodes tree)
@@ -234,7 +246,8 @@
 (defn- remove-leaf [^HyperQuadTree tree ^long leaf-idx]
   (let [leaves ^List (.leaves tree)
         leaf (.get leaves leaf-idx)]
-    (.set leaves leaf-idx nil)
+    (.set leaves leaf-idx (.getFreeLeafIndex tree))
+    (.setFreeLeafIndex tree leaf-idx)
     (d/try-close leaf)))
 
 (defn- split-leaf [^HyperQuadTree tree path parent-node-idx ^long leaf-idx]
@@ -262,11 +275,12 @@
 
 (defn- new-leaf ^long [^HyperQuadTree tree leaf-relation]
   (let [leaves ^List (.leaves tree)
-        free-leaf-idx (.indexOf leaves nil)
+        free-leaf-idx (.getFreeLeafIndex tree)
         new-leaf? (= -1 free-leaf-idx)
         leaf-idx (if new-leaf?
                    (.size leaves)
-                   free-leaf-idx)]
+                   (do (.setFreeLeafIndex tree (.get leaves free-leaf-idx))
+                       free-leaf-idx))]
     (if new-leaf?
       (.add leaves leaf-relation)
       (.set leaves leaf-idx leaf-relation))

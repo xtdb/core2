@@ -41,36 +41,7 @@
 (defn byte-key->clojure [^bytes key]
   (edn/read-string (String. key StandardCharsets/UTF_8)))
 
-;; Experimental var-int encoder. Idea is to respect lexiographic sort
-;; as well as moving interesting bits to the front. First byte is
-;; sign bit + number of bytes (4 bits) used for positive numbers or
-;; skipped for negative, followed by the actual used bytes.
 (defn long->var-int-byte-key ^bytes [^long l]
-  (let [header-size 4
-        pad-bytes (if (or (= -1 l) (zero? l))
-                    (dec Long/BYTES)
-                    (bit-shift-right (if (neg? l)
-                                       (Long/numberOfLeadingZeros (bit-not l))
-                                       (Long/numberOfLeadingZeros l))
-                                     3))
-        used-bytes (- Long/BYTES pad-bytes)
-        header (if (neg? l)
-                 (bit-shift-left pad-bytes (- Long/SIZE header-size))
-                 (bit-or Long/MIN_VALUE (bit-shift-left (dec used-bytes) (- Long/SIZE header-size))))
-        first-long (bit-or header (bit-and (dec (bit-shift-left 1 (- Long/SIZE header-size)))
-                                           (if (zero? pad-bytes)
-                                             (bit-shift-right l header-size)
-                                             (bit-shift-left l (- (bit-shift-left pad-bytes 3) header-size)))))
-        long-bytes (-> (ByteBuffer/allocate Long/BYTES)
-                       (.putLong first-long)
-                       (.array))
-        output-bytes (inc used-bytes)]
-    (cond-> (ByteBuffer/allocate output-bytes)
-      true (.put long-bytes 0 (min Long/BYTES output-bytes))
-      (> output-bytes Long/BYTES) (.put (unchecked-byte (bit-and -1 (bit-shift-left l (- Byte/SIZE header-size)))))
-      true (.array))))
-
-(defn long->var-int-bits-byte-key ^bytes [^long l]
   (let [bits (- Long/SIZE
                 (if (neg? l)
                   (Long/numberOfLeadingZeros (bit-not l))

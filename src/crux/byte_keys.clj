@@ -55,7 +55,7 @@
       -1
 
       :else
-      (dec (- (unsigned-bit-shift-right (bit-not (.getLong buffer)) bits))))))
+      (bit-not (unsigned-bit-shift-right (bit-not (.getLong buffer)) bits)))))
 
 (defn long->var-int-byte-key ^bytes [^long l]
   (let [bits (- Long/SIZE

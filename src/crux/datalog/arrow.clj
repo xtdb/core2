@@ -545,7 +545,4 @@
      (reduce
       d/insert
       (new-arrow-struct-relation (d/relation-name this))
-      (d/table-scan this nil))))
-
-  nil
-  (->record-batch [this]))
+      (d/table-scan this nil)))))

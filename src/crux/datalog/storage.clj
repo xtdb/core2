@@ -54,15 +54,18 @@
 (defn- write-arrow-children-on-split [leaf new-children {:keys [buffer-pool object-store wal-directory] :as opts}]
   (let [parent-name (d/relation-name leaf)
         arrow-file-view (da/new-arrow-file-view parent-name buffer-pool)
-        tmp-file (File/createTempFile parent-name "arrow")]
+        tmp-file (File/createTempFile parent-name "arrow")
+        [name hyper-quads path] (dhq/leaf-name->name+hyper-quads+path parent-name)]
     (try
-      (with-open [in (io/input-stream (da/write-record-batches (map da/->record-batch new-children) tmp-file))]
+      (with-open [in (io/input-stream (da/write-record-batches (for [child new-children]
+                                                                 (some-> child da/->record-batch)) tmp-file))]
         (os/put-object object-store parent-name in))
-      (let [empty-children (vec (for [child new-children
-                                      :let [child (d/truncate child)]]
-                                  ((:crux.datalog.hquad-tree/leaf-tuple-relation-factory opts) (d/relation-name child))))]
-        (vec (for [[block-idx child] (map-indexed vector empty-children)]
-               (d/new-parent-child-relation (da/new-arrow-block-relation arrow-file-view block-idx) child))))
+      (vec (for [[block-idx child] (map-indexed new-children)
+                 :let [child (when child
+                               (d/truncate child))
+                       child-name (dhq/leaf-name name hyper-quads (conj path block-idx))
+                       child ((:crux.datalog.hquad-tree/leaf-tuple-relation-factory opts) child-name)]]
+             (d/new-parent-child-relation (da/new-arrow-block-relation arrow-file-view block-idx) child)))
       (finally
         (.delete tmp-file)))))
 

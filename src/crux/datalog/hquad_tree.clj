@@ -305,8 +305,11 @@
       (.set leaves leaf-idx leaf-relation))
     leaf-idx))
 
-(defn leaf-name [^HyperQuadTree tree path]
-  (str/join "/" (cons (str (.name tree) "_" (.getHyperQuads tree)) path)))
+(defn leaf-name
+  ([^HyperQuadTree tree path]
+   (leaf-name (.name tree) (.getHyperQuads tree) path))
+  ([name hyper-quads path]
+   (str/join "/" (cons (str name "_" hyper-quads) path))))
 
 (defn leaf-name->name+hyper-quads+path [leaf-name]
   (let [[name+hyper-quads & path] (str/split leaf-name #"/")

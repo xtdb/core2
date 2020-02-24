@@ -47,7 +47,7 @@
     (meta relation-db))
 
   (withMeta [this meta]
-    (->ArrowDb (with-meta relation-db meta) buffer-pool object-store wal-directory options))
+    (ArrowDb. (with-meta relation-db meta) buffer-pool object-store wal-directory options))
 
   AutoCloseable
   (close [this]

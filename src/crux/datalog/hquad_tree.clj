@@ -14,7 +14,7 @@
 (def ^:private ^{:tag 'long} root-level -1)
 (def ^:private ^{:tag 'long} initial-nodes-capacity 128)
 
-(declare insert-tuple insert-into-node walk-tree init-hyper-quads)
+(declare insert-tuple insert-into-node walk-tree init-hyper-quads new-leaf)
 
 (defn- leaf-idx? [^long idx]
   (neg? idx))
@@ -164,7 +164,7 @@
     (doseq [leaf leaves]
       (d/try-close leaf))))
 
-(defn init-hyper-quads [^HyperQuadTree tree ^long hyper-quads]
+(defn- init-hyper-quads [^HyperQuadTree tree ^long hyper-quads]
   (when (= -1 (.getHyperQuads tree))
     (.setHyperQuads tree hyper-quads)))
 
@@ -364,13 +364,14 @@
             (recur child-idx path)
             (aset node-vector (int child-idx) (encode-leaf-idx leaf-idx))))))))
 
-(defn ensure-root-node [^HyperQuadTree tree]
+(defn ensure-root-node [^HyperQuadTree tree hyper-quads]
   (when (empty? (.leaves tree))
+    (init-hyper-quads tree hyper-quads)
     (let [new-leaf-idx (new-leaf tree (new-leaf-relation tree (leaf-name tree [])))]
       (assert (= root-idx new-leaf-idx)))))
 
 (defn- insert-tuple [^HyperQuadTree tree value]
   (if (root-only-tree? tree)
-    (do (ensure-root-node tree)
+    (do (ensure-root-node tree (.getHyperQuads tree))
         (insert-into-leaf tree [] nil root-idx value))
     (insert-into-node tree [] root-idx value)))

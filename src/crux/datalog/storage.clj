@@ -93,8 +93,7 @@
     (doseq [[name [[_ hyper-quads]]] (apply dissoc root-name->nhp (keys name->nhp))
             :let [combined-relation (d/relation-by-name arrow-db (symbol name))
                   tree (:tuples combined-relation)]]
-      (dhq/init-hyper-quads tree hyper-quads)
-      (dhq/ensure-root-node tree))
+      (dhq/ensure-root-node tree hyper-quads))
     (doseq [[name nhp] name->nhp
             :let [nhp (sort-by (comp count last) nhp)
                   combined-relation (d/relation-by-name arrow-db (symbol name))

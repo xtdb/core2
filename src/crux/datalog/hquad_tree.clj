@@ -164,7 +164,7 @@
     (doseq [leaf leaves]
       (d/try-close leaf))))
 
-(defn- init-hyper-quads [^HyperQuadTree tree ^long hyper-quads]
+(defn init-hyper-quads [^HyperQuadTree tree ^long hyper-quads]
   (when (= -1 (.getHyperQuads tree))
     (.setHyperQuads tree hyper-quads)))
 
@@ -364,11 +364,13 @@
             (recur child-idx path)
             (aset node-vector (int child-idx) (encode-leaf-idx leaf-idx))))))))
 
+(defn ensure-root-node [^HyperQuadTree tree]
+  (when (empty? (.leaves tree))
+    (let [new-leaf-idx (new-leaf tree (new-leaf-relation tree (leaf-name tree [])))]
+      (assert (= root-idx new-leaf-idx)))))
 
 (defn- insert-tuple [^HyperQuadTree tree value]
   (if (root-only-tree? tree)
-    (do (when (empty? (.leaves tree))
-          (let [new-leaf-idx (new-leaf tree (new-leaf-relation tree (leaf-name tree [])))]
-            (assert (= root-idx new-leaf-idx))))
+    (do (ensure-root-node tree)
         (insert-into-leaf tree [] nil root-idx value))
     (insert-into-node tree [] root-idx value)))

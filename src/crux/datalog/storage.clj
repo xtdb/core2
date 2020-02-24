@@ -75,11 +75,11 @@
 
 (defn- restore-relations [^ArrowDb arrow-db]
   (let [{:keys [relation-factory] :as options} (.options arrow-db)
-        root-names (->> (dw/list-wals (.wal-directory arrow-db))
-                        (map #(str/replace % #".wal$" ""))
-                        (map dhq/leaf-name->name+hyper-quads+path)
-                        (filter (comp empty? last))
-                        (map first))
+        root-name->nhp (->> (dw/list-wals (.wal-directory arrow-db))
+                            (map #(str/replace % #".wal$" ""))
+                            (map dhq/leaf-name->name+hyper-quads+path)
+                            (filter (comp empty? last))
+                            (group-by first))
         name->nhp (->> (os/list-objects (.object-store arrow-db))
                        (map #(str/replace % #".arrow$" ""))
                        (map dhq/leaf-name->name+hyper-quads+path)
@@ -88,7 +88,13 @@
                            (fn [arrow-db name]
                              (d/ensure-relation arrow-db name relation-factory))
                            arrow-db
-                           (set (concat root-names (keys name->nhp))))]
+                           (set (concat (keys root-name->nhp)
+                                        (keys name->nhp))))]
+    (doseq [[name [[_ hyper-quads]]] (apply dissoc root-name->nhp (keys name->nhp))
+            :let [combined-relation (d/relation-by-name arrow-db name)
+                  tree (:tuples combined-relation)]]
+      (dhq/init-hyper-quads tree hyper-quads)
+      (dhq/ensure-root-node tree))
     (doseq [[name nhp] name->nhp
             :let [nhp (sort-by (comp count last) nhp)
                   combined-relation (d/relation-by-name arrow-db name)

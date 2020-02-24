@@ -11,32 +11,8 @@
            [java.util.function Predicate LongPredicate DoublePredicate]
            java.lang.AutoCloseable))
 
-;; TODO:
-
-;; * DONE Add WALRelation decorator for persistence. Local EDN file
-;; * for now. (Later: Kafka.) To be used for the leaves in the
-;; * HyperQuadTree.
-
-;; * DONE Add ObjectStore to store chunks. Local directory based store for
-;; * now. (Later: S3.)
-
-;; * DONE Add immutable parent / mutable child Relation. Needs a
-;; * deletion-set to filter the parent. The parents will be (parts of)
-;; * chunks, the children in-memory relations with WALs.
-
-;; * Ability to reconstruct a persisted relation from combination of
-;; * known chunks/objects (for the tree) and WALs (single relation or
-;; * leaves).
-
-;; * Buffer manager and caching of chunks. Chunks are copied to a temp
-;; * directory from the object store. Allowing chunks to be un-mapped
-;; * and deleted on cache eviction, and remapped from the object store
-;; * on cache miss.
-
 (set! *unchecked-math* :warn-on-boxed)
 (s/check-asserts true)
-
-;; generic-join
 
 (defprotocol Relation
   (table-scan [this db])
@@ -399,6 +375,8 @@
                  tuple aggregate-ops))))
     {}
     tuples)))
+
+;; generic-join
 
 (defn- query-plan->clojure [{:keys [existential-vars aggregates head body] :as query-plan}]
   (let [{:keys [symbol terms]} head

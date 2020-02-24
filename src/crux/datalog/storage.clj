@@ -95,7 +95,7 @@
   {:crux.buffer-pool/size-bytes (* 128 1024 1024)
    :crux.datalog.hquad-tree/leaf-size (* 32 1024)
    :wal-directory-factory
-   (fn [{:keys [crux.datomic.storage/root-dir crux.datomic.wal/local-directory] :as opts}]
+   (fn [{:keys [crux.datalog.storage/root-dir crux.datalog.wal/local-directory] :as opts}]
      (assert (or root-dir local-directory))
      (dw/new-local-directory-wal-directory (or local-directory (io/file root-dir "wals")) dw/new-edn-file-wal dhq/new-z-sorted-set-relation))
    :buffer-pool-factory
@@ -103,7 +103,7 @@
      (assert size-bytes)
      (bp/new-in-memory-pool object-store size-bytes))
    :object-store-factory
-   (fn [{:keys [crux.datomic.storage/root-dir crux.object-store/local-directory] :as opts}]
+   (fn [{:keys [crux.datalog.storage/root-dir crux.object-store/local-directory] :as opts}]
      (assert (or root-dir local-directory))
      (os/new-local-directory-object-store (or local-directory (io/file root-dir "objects"))))
    :tuple-relation-factory-factory

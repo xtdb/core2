@@ -281,7 +281,7 @@
     (.getAllocator column)
     default-allocator))
 
-(defn- arrow-seq [^VectorSchemaRoot record-batch  var-bindings]
+(defn- arrow-seq [^VectorSchemaRoot record-batch var-bindings]
   (let [allocator (record-batch-allocator record-batch)
         selection-vector (BitVector. "" allocator)
         unify-tuple? (d/contains-duplicate-vars? var-bindings)

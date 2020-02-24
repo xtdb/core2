@@ -7,10 +7,11 @@
             [crux.buffer-pool :as bp]
             [crux.byte-keys :as cbk]
             [crux.object-store :as os])
-  (:import java.io.File
+  (:import clojure.lang.IObj
+           java.io.File
            java.lang.AutoCloseable))
 
-(deftype ArrowDb [^:volatile-mutable relation-db buffer-pool object-store wal-directory options]
+(deftype ArrowDb [^:volatile-mutable relation-db buffer-pool object-store wal-directory options meta]
   d/Db
   (assertion [this relation-name value]
     (d/ensure-relation this relation-name (:relation-factory options))
@@ -39,6 +40,10 @@
 
   (relations [this]
     (vals relation-db))
+
+  IObj
+  (withMeta [this meta]
+    (->ArrowDb relation-db buffer-pool object-store wal-directory options meta))
 
   AutoCloseable
   (close [this]
@@ -147,5 +152,6 @@
                              :object-store-factory
                              :buffer-pool-factory
                              :tuple-relation-factory-factory
-                             :relation-factory-factory))
+                             :relation-factory-factory)
+                     nil)
       (restore-relations))))

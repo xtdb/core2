@@ -307,14 +307,16 @@
          (apply concat))))
 
 (defn write-record-batches ^java.io.File [record-batches f]
-  (let [schema (.getSchema ^VectorSchemaRoot (first record-batches))
+  (let [schema (.getSchema ^VectorSchemaRoot (some identity record-batches))
         f (io/file f)]
     (with-open [record-batch-to (VectorSchemaRoot/create schema default-allocator)
                 out (.getChannel (FileOutputStream. f))
                 writer (ArrowFileWriter. record-batch-to nil out)]
       (let [loader (VectorLoader. record-batch-to)]
         (doseq [record-batch record-batches]
-          (.load loader (.getRecordBatch (VectorUnloader. record-batch)))
+          (if record-batch
+            (.load loader (.getRecordBatch (VectorUnloader. record-batch)))
+            (.clear record-batch-to))
           (.writeBatch writer))))
     f))
 
@@ -543,4 +545,7 @@
      (reduce
       d/insert
       (new-arrow-struct-relation (d/relation-name this))
-      (d/table-scan this nil)))))
+      (d/table-scan this nil))))
+
+  nil
+  (->record-batch [this]))

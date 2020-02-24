@@ -86,18 +86,18 @@
                        (group-by first))
         ^ArrowDb arrow-db (reduce
                            (fn [arrow-db name]
-                             (d/ensure-relation arrow-db name relation-factory))
+                             (d/ensure-relation arrow-db (symbol name) relation-factory))
                            arrow-db
                            (set (concat (keys root-name->nhp)
                                         (keys name->nhp))))]
     (doseq [[name [[_ hyper-quads]]] (apply dissoc root-name->nhp (keys name->nhp))
-            :let [combined-relation (d/relation-by-name arrow-db name)
+            :let [combined-relation (d/relation-by-name arrow-db (symbol name))
                   tree (:tuples combined-relation)]]
       (dhq/init-hyper-quads tree hyper-quads)
       (dhq/ensure-root-node tree))
     (doseq [[name nhp] name->nhp
             :let [nhp (sort-by (comp count last) nhp)
-                  combined-relation (d/relation-by-name arrow-db name)
+                  combined-relation (d/relation-by-name arrow-db (symbol name))
                   tree (:tuples combined-relation)]
             [_ hyper-quads path] nhp
             :let [parent-name (dhq/leaf-name name hyper-quads path)

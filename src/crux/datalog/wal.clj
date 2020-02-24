@@ -130,7 +130,7 @@
         (str (.relativize dir-path (.toPath f))))))
 
   (get-wal-relation [this k]
-    (new-wal-relation k (wal-factory (io/file dir k)) tuple-relation-factory)))
+    (new-wal-relation k (wal-factory (io/file dir (str k ".wal"))) tuple-relation-factory)))
 
 (defn new-local-directory-wal-directory
   ([dir]

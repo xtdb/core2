@@ -82,7 +82,7 @@
         (.put long-bytes 0 (min Long/BYTES used-bytes))
         (.array))))
 
-(def ^:dynamic *use-var-ints? false)
+(def ^:dynamic *use-var-ints? true)
 
 (extend-protocol ByteKey
   (class (byte-array 0))

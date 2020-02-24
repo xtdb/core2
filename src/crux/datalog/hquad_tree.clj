@@ -236,7 +236,10 @@
       (dotimes [h (.getHyperQuads tree)]
         (let [node-idx (+ new-node-idx h)]
           (when-let [child-leaf (nth children h)]
-            (.set leaves (decode-leaf-idx (aget node-vector node-idx)) child-leaf)))))))
+            (let [leaf-idx (aget node-vector node-idx)]
+              (if (undefined-idx? leaf-idx)
+                (aset node-vector node-idx (encode-leaf-idx (new-leaf tree child-leaf)))
+                (.set leaves (decode-leaf-idx (aget node-vector node-idx)) child-leaf)))))))))
 
 (defn- ensure-nodes-capacity ^ints [^HyperQuadTree tree ^long capacity]
   (let [node-vector (.getNodes tree)]

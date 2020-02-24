@@ -1,5 +1,6 @@
 (ns crux.datalog.storage
   (:require [clojure.java.io :as io]
+            [clojure.string :as str]
             [crux.datalog :as d]
             [crux.datalog.arrow :as da]
             [crux.datalog.hquad-tree :as dhq]
@@ -11,7 +12,7 @@
            java.io.File
            java.lang.AutoCloseable))
 
-(deftype ArrowDb [^:volatile-mutable relation-db buffer-pool object-store wal-directory options meta]
+(deftype ArrowDb [^:volatile-mutable relation-db buffer-pool object-store wal-directory options]
   d/Db
   (assertion [this relation-name value]
     (d/ensure-relation this relation-name (:relation-factory options))
@@ -42,8 +43,11 @@
     (vals relation-db))
 
   IObj
+  (meta [this]
+    (meta relation-db))
+
   (withMeta [this meta]
-    (->ArrowDb relation-db buffer-pool object-store wal-directory options meta))
+    (->ArrowDb (with-meta relation-db meta) buffer-pool object-store wal-directory options))
 
   AutoCloseable
   (close [this]
@@ -59,12 +63,12 @@
     (try
       (with-open [in (io/input-stream (da/write-record-batches (for [child new-children]
                                                                  (some-> child da/->record-batch)) tmp-file))]
-        (os/put-object object-store parent-name in))
-      (vec (for [[block-idx child] (map-indexed new-children)
+        (os/put-object object-store (str parent-name ".arrow") in))
+      (vec (for [[block-idx child] (map-indexed vector new-children)
                  :let [child (when child
                                (d/truncate child))
                        child-name (dhq/leaf-name name hyper-quads (conj path block-idx))
-                       child ((:crux.datalog.hquad-tree/leaf-tuple-relation-factory opts) child-name)]]
+                       child (dw/get-wal-relation wal-directory child-name)]]
              (d/new-parent-child-relation (da/new-arrow-block-relation arrow-file-view block-idx) child)))
       (finally
         (.delete tmp-file)))))
@@ -72,10 +76,12 @@
 (defn- restore-relations [^ArrowDb arrow-db]
   (let [{:keys [relation-factory] :as options} (.options arrow-db)
         root-names (->> (dw/list-wals (.wal-directory arrow-db))
+                        (map #(str/replace % #".wal$" ""))
                         (map dhq/leaf-name->name+hyper-quads+path)
                         (filter (comp empty? last))
                         (map first))
         name->nhp (->> (os/list-objects (.object-store arrow-db))
+                       (map #(str/replace % #".arrow$" ""))
                        (map dhq/leaf-name->name+hyper-quads+path)
                        (group-by first))
         ^ArrowDb arrow-db (reduce
@@ -97,11 +103,12 @@
                                hyper-quads
                                child-path
                                (d/new-parent-child-relation (da/new-arrow-block-relation arrow-file-view block-idx)
-                                                            ((:crux.datalog.hquad-tree/leaf-tuple-relation-factory options) child-name))))))
+                                                            (dw/get-wal-relation (.wal-directory arrow-db) child-name))))))
 
 (def ^:dynamic *default-options*
   {:crux.buffer-pool/size-bytes (* 128 1024 1024)
    :crux.datalog.hquad-tree/leaf-size (* 32 1024)
+   :crux.datalog.hquad-tree/split-leaf-tuple-relation-factory da/new-arrow-struct-relation
    :wal-directory-factory
    (fn [{:keys [crux.datalog.storage/root-dir crux.datalog.wal/local-directory] :as opts}]
      (assert (or root-dir local-directory))
@@ -115,10 +122,10 @@
      (assert (or root-dir local-directory))
      (os/new-local-directory-object-store (or local-directory (io/file root-dir "objects"))))
    :tuple-relation-factory-factory
-   (fn [{:keys [wal-directory] :as opts}]
+   (fn [{:keys [wal-directory buffer-pool] :as opts}]
      (assert wal-directory)
-     (let [opts (assoc opts :crux.datalog.hquad-tree/split-leaf-tuple-relation-factory da/new-arrow-struct-relation)
-           opts (assoc opts
+     (assert buffer-pool)
+     (let [opts (assoc opts
                        :crux.datalog.hquad-tree/leaf-tuple-relation-factory
                        (fn [relation-name]
                          (dw/get-wal-relation wal-directory relation-name)))
@@ -141,6 +148,7 @@
         object-store ((:object-store-factory opts) opts)
         opts (assoc opts :object-store object-store)
         buffer-pool ((:buffer-pool-factory opts) opts)
+        opts (assoc opts :buffer-pool buffer-pool)
         tuple-relation-factory ((:tuple-relation-factory-factory opts) opts)
         opts (assoc opts :tuple-relation-factory tuple-relation-factory)
         relation-factory ((:relation-factory-factory opts) opts)
@@ -150,11 +158,12 @@
                      object-store
                      wal-directory
                      (dissoc opts
+                             :wal-directory
                              :wal-directory-factory
                              :object-store
                              :object-store-factory
+                             :buffer-pool
                              :buffer-pool-factory
                              :tuple-relation-factory-factory
-                             :relation-factory-factory)
-                     nil)
+                             :relation-factory-factory))
       (restore-relations))))

@@ -90,15 +90,15 @@
                            arrow-db
                            (set (concat root-names (keys name->nhp))))]
     (doseq [[name nhp] name->nhp
-            :let [nhp (sort-by count nhp)
+            :let [nhp (sort-by (comp count last) nhp)
                   combined-relation (d/relation-by-name arrow-db name)
                   tree (:tuples combined-relation)]
             [_ hyper-quads path] nhp
-            :let [parent-name (dhq/leaf-name tree hyper-quads path)
+            :let [parent-name (dhq/leaf-name name hyper-quads path)
                   arrow-file-view (da/new-arrow-file-view parent-name (.buffer-pool arrow-db))]
             block-idx (range hyper-quads)
             :let [child-path (conj path block-idx)
-                  child-name (dhq/leaf-name tree hyper-quads child-path)]]
+                  child-name (dhq/leaf-name name hyper-quads child-path)]]
       (dhq/insert-leaf-at-path tree
                                hyper-quads
                                child-path

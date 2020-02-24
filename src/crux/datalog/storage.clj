@@ -55,7 +55,7 @@
         (os/put-object object-store parent-name in))
       (let [empty-children (vec (for [child new-children
                                       :let [child (d/truncate child)]]
-                                  ((::leaf-tuple-relation-factory opts) (d/relation-name child))))]
+                                  ((:crux.datalog.hquad-tree/leaf-tuple-relation-factory opts) (d/relation-name child))))]
         (vec (for [[block-idx child] (map-indexed vector empty-children)]
                (d/new-parent-child-relation (da/new-arrow-block-relation arrow-file-view block-idx) child))))
       (finally
@@ -89,10 +89,12 @@
                                hyper-quads
                                child-path
                                (d/new-parent-child-relation (da/new-arrow-block-relation arrow-file-view block-idx)
-                                                            ((::leaf-tuple-relation-factory options) child-name))))))
+                                                            ((:crux.datalog.hquad-tree/leaf-tuple-relation-factory options) child-name))))))
 
 (def ^:dynamic *default-options*
-  {:wal-directory-factory
+  {:crux.buffer-pool/size-bytes (* 128 1024 1024)
+   :crux.datalog.hquad-tree/leaf-size (* 32 1024)
+   :wal-directory-factory
    (fn [{:keys [crux.datomic.storage/root-dir crux.datomic.wal/local-directory] :as opts}]
      (assert (or root-dir local-directory))
      (dw/new-local-directory-wal-directory (or local-directory (io/file root-dir "wals")) dw/new-edn-file-wal dhq/new-z-sorted-set-relation))
@@ -122,9 +124,7 @@
    (fn [{:keys [tuple-relation-factory] :as opts}]
      (assert tuple-relation-factory)
      (fn [relation-name]
-       (d/new-combined-relation relation-name tuple-relation-factory)))
-   :crux.buffer-pool/size-bytes (* 128 1024 1024)
-   :crux.datalog.hquad-tree/leaf-size (* 32 1024)})
+       (d/new-combined-relation relation-name tuple-relation-factory)))})
 
 (defn new-arrow-db ^crux.datalog.storage.ArrowDb [opts]
   (let [opts (merge *default-options* opts)

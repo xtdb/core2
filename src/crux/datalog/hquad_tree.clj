@@ -348,21 +348,22 @@
         leaf-idx (new-leaf tree leaf-relation)]
     (if (and (empty? path) (root-only-tree? tree))
       (assert (= root-idx leaf-idx))
-      (loop [^long parent-node-idx root-idx
-             [^long h & path] path]
-        (let [node-idx (+ parent-node-idx h)
-              child-idx (aget node-vector node-idx)
-              child-idx (if (undefined-idx? child-idx)
-                          (new-node tree node-idx)
-                          (do (assert (not= root-idx child-idx))
-                              (if (leaf-idx? child-idx)
-                                (let [leaf-idx (decode-leaf-idx child-idx)]
-                                  (remove-leaf tree leaf-idx)
-                                  (new-node tree node-idx))
-                                child-idx)))]
-          (if path
-            (recur child-idx path)
-            (aset node-vector (int child-idx) (encode-leaf-idx leaf-idx))))))))
+      (do (when (root-only-tree? tree)
+            (new-node tree nil))
+          (loop [^long parent-node-idx root-idx
+                 [^long h & path] path]
+            (let [node-idx (+ parent-node-idx h)
+                  _ (ensure-nodes-capacity tree node-idx)
+                  child-idx (aget node-vector node-idx)]
+              (when (leaf-idx? child-idx)
+                (remove-leaf tree (decode-leaf-idx child-idx)))
+              (if path
+                (recur (if (or (leaf-idx? child-idx)
+                               (undefined-idx? child-idx))
+                         (new-node tree node-idx)
+                         child-idx)
+                       path)
+                (aset node-vector node-idx (encode-leaf-idx leaf-idx)))))))))
 
 (defn ensure-root-node [^HyperQuadTree tree hyper-quads]
   (when (empty? (.leaves tree))

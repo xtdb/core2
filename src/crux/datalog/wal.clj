@@ -86,6 +86,7 @@
   WAL
   (write-record [this record]
     (when-not write-raf
+      (io/make-parents f)
       (set! (.-write-raf this) (doto (RandomAccessFile. f (if sync? "rwd" "rw"))
                                  (.seek (.length f)))))
     (.write write-raf (.getBytes (prn-str record) StandardCharsets/UTF_8))

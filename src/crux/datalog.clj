@@ -547,8 +547,11 @@
   (relation-name [this]
     (:name (meta this))))
 
-(defn new-sorted-set-relation [relation-name]
-  (with-meta (sorted-set) {:name relation-name}))
+(defn new-sorted-set-relation
+  ([relation-name]
+   (with-meta (sorted-set) {:name relation-name}))
+  ([comparator relation-name]
+   (with-meta (sorted-set-by comparator) {:name relation-name})))
 
 (defrecord CombinedRelation [name rules tuples]
   Relation

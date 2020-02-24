@@ -4,15 +4,11 @@
             [crux.byte-keys :as cbk]
             [crux.datalog :as d]
             [crux.datalog.parser :as dp])
-  (:import [java.util Arrays ArrayList List]
+  (:import [java.util Arrays ArrayList Comparator List]
            java.lang.AutoCloseable
            java.nio.ByteBuffer))
 
 (set! *unchecked-math* :warn-on-boxed)
-
-(def ^:dynamic *default-options* {::leaf-size (* 128 1024)
-                                  ::leaf-tuple-relation-factory d/new-sorted-set-relation
-                                  ::post-process-children-after-split nil})
 
 (def ^:private ^{:tag 'long} root-idx 0)
 (def ^:private ^{:tag 'long} root-level -1)
@@ -36,8 +32,24 @@
 (def ^:private z-wildcard-min-bytes (byte-array Long/BYTES (byte 0)))
 (def ^:private z-wildcard-max-bytes (byte-array Long/BYTES (byte -1)))
 
-(defn- tuple->z-address ^long [value]
-  (.getLong (ByteBuffer/wrap (cz/bit-interleave (map cbk/->byte-key value)))))
+(defn- tuple->z-address ^bytes [value]
+  (cz/bit-interleave (mapv cbk/->byte-key value)))
+
+(defn- tuple->z-address-long ^long [value]
+  (.getLong (ByteBuffer/wrap (tuple->z-address value))))
+
+(def ^Comparator z-comparator
+  (reify Comparator
+    (compare [_ x y]
+      (.compare cbk/unsigned-bytes-comparator (tuple->z-address x) (tuple->z-address y)))))
+
+(defn new-z-sorted-set-relation [relation-name]
+  (d/new-sorted-set-relation z-comparator relation-name))
+
+(def ^:dynamic *default-options* {::leaf-size (* 128 1024)
+                                  ::leaf-tuple-relation-factory new-z-sorted-set-relation
+                                  ::post-process-children-after-split nil
+                                  ::split-leaf-tuple-relation-factory nil})
 
 (defn- var-bindings->z-range [var-bindings]
   (let [min+max (for [var-binding var-bindings]
@@ -69,8 +81,8 @@
                          (or max-z z-wildcard-max-bytes)])
                       [z-wildcard-min-bytes z-wildcard-max-bytes])
                     [var-binding var-binding]))]
-    [(tuple->z-address (map first min+max))
-     (tuple->z-address (map second min+max))]))
+    [(tuple->z-address-long (mapv first min+max))
+     (tuple->z-address-long (mapv second min+max))]))
 
 (definterface INodesAccessor
   (^ints getNodes [])
@@ -250,12 +262,15 @@
     (.setFreeLeafIndex tree leaf-idx)
     (d/try-close leaf)))
 
+(def ^:private ^:dynamic *leaf-split?* false)
+
 (defn- split-leaf [^HyperQuadTree tree path parent-node-idx ^long leaf-idx]
   (let [leaves ^List (.leaves tree)
         leaf (.get leaves leaf-idx)
         new-node-idx (new-node tree parent-node-idx)]
-    (doseq [tuple (d/table-scan leaf nil)]
-      (insert-into-node tree path new-node-idx tuple))
+    (binding [*leaf-split?* true]
+      (doseq [tuple (d/table-scan leaf nil)]
+        (insert-into-node tree path new-node-idx tuple)))
     (post-process-children-after-split tree leaf new-node-idx)
     (remove-leaf tree leaf-idx)
     new-node-idx))
@@ -270,7 +285,11 @@
     tree))
 
 (defn- new-leaf-relation [^HyperQuadTree tree ^String leaf-name]
-  (let [leaf-tuple-relation-factory (::leaf-tuple-relation-factory (.options tree))]
+  (let [leaf-tuple-relation-factory (::leaf-tuple-relation-factory (.options tree))
+        leaf-tuple-relation-factory (if *leaf-split?*
+                                      (or (::split-leaf-tuple-relation-factory (.options tree))
+                                          leaf-tuple-relation-factory)
+                                      leaf-tuple-relation-factory)]
     (leaf-tuple-relation-factory leaf-name)))
 
 (defn- new-leaf ^long [^HyperQuadTree tree leaf-relation]
@@ -298,7 +317,7 @@
             (Long/parseLong e)))]))
 
 (defn- insert-into-node [^HyperQuadTree tree path ^long parent-node-idx value]
-  (let [z-address (tuple->z-address value)
+  (let [z-address (tuple->z-address-long value)
         dims (cz/hyper-quads->dims (.getHyperQuads tree))
         node-vector (.getNodes tree)]
     (loop [parent-node-idx parent-node-idx

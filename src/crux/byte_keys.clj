@@ -1,9 +1,14 @@
 (ns crux.byte-keys
   (:require [clojure.edn :as edn])
-  (:import [java.util Arrays Date]
+  (:import [java.util Arrays Comparator Date]
            java.time.Instant
            java.nio.ByteBuffer
            java.nio.charset.StandardCharsets))
+
+(def ^Comparator unsigned-bytes-comparator
+  (reify Comparator
+    (compare [_ x y]
+      (Arrays/compareUnsigned ^bytes x ^bytes y))))
 
 (defprotocol ByteKey
   (^bytes ->byte-key [this]))

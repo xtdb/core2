@@ -53,14 +53,15 @@
     (try
       (with-open [in (io/input-stream (da/write-record-batches (map da/->record-batch new-children) tmp-file))]
         (os/put-object object-store parent-name in))
-      (let [empty-children (vec (for [child new-children]
-                                  (d/truncate child)))]
+      (let [empty-children (vec (for [child new-children
+                                      :let [child (d/truncate child)]]
+                                  ((::leaf-tuple-relation-factory opts) (d/relation-name child))))]
         (vec (for [[block-idx child] (map-indexed vector empty-children)]
                (d/new-parent-child-relation (da/new-arrow-block-relation arrow-file-view block-idx) child))))
       (finally
         (.delete tmp-file)))))
 
-(defn- restore-relations [{:keys [wal-directory object-store opts buffer-pool] :as arrow-db}]
+(defn- restore-relations [{:keys [wal-directory object-store opts buffer-pool options] :as arrow-db}]
   (let [root-names (->> (dw/list-wals wal-directory)
                         (map dhq/leaf-name->name+hyper-quads+path)
                         (filter (comp empty? last))
@@ -88,13 +89,13 @@
                                hyper-quads
                                child-path
                                (d/new-parent-child-relation (da/new-arrow-block-relation arrow-file-view block-idx)
-                                                            (dw/get-wal-relation wal-directory child-name))))))
+                                                            ((::leaf-tuple-relation-factory options) child-name))))))
 
 (def ^:dynamic *default-options*
   {:wal-directory-factory
    (fn [{:keys [crux.datomic.storage/root-dir crux.datomic.wal/local-directory] :as opts}]
      (assert (or root-dir local-directory))
-     (dw/new-local-directory-wal-directory (or local-directory (io/file root-dir "wals")) dw/new-edn-file-wal da/new-arrow-struct-relation))
+     (dw/new-local-directory-wal-directory (or local-directory (io/file root-dir "wals")) dw/new-edn-file-wal dhq/new-z-sorted-set-relation))
    :buffer-pool-factory
    (fn [{:keys [object-store crux.buffer-pool/size-bytes] :as opts}]
      (assert size-bytes)
@@ -106,15 +107,17 @@
    :tuple-relation-factory-factory
    (fn [{:keys [wal-directory] :as opts}]
      (assert wal-directory)
-     (let [opts (assoc opts
+     (let [opts (assoc opts :crux.datalog.hquad-tree/split-leaf-tuple-relation-factory da/new-arrow-struct-relation)
+           opts (assoc opts
                        :crux.datalog.hquad-tree/leaf-tuple-relation-factory
                        (fn [relation-name]
-                         (dw/get-wal-relation wal-directory relation-name))
+                         (dw/get-wal-relation wal-directory relation-name)))
+           opts (assoc opts
                        :crux.datalog.hquad-tree/post-process-children-after-split
                        (fn [old-leaf children]
                          (write-arrow-children-on-split old-leaf children opts)))]
        (fn [relation-name]
-         (dhq/new-hyper-quad-tree-relation dhq/default-allocator opts relation-name))))
+         (dhq/new-hyper-quad-tree-relation opts relation-name))))
    :relation-factory-factory
    (fn [{:keys [tuple-relation-factory] :as opts}]
      (assert tuple-relation-factory)

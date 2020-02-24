@@ -61,27 +61,27 @@
       (finally
         (.delete tmp-file)))))
 
-(defn- restore-relations [{:keys [wal-directory object-store opts buffer-pool options] :as arrow-db}]
-  (let [root-names (->> (dw/list-wals wal-directory)
+(defn- restore-relations [^ArrowDb arrow-db]
+  (let [{:keys [relation-factory] :as options} (.options arrow-db)
+        root-names (->> (dw/list-wals (.wal-directory arrow-db))
                         (map dhq/leaf-name->name+hyper-quads+path)
                         (filter (comp empty? last))
                         (map first))
-        name->nhp (->> (os/list-objects object-store)
+        name->nhp (->> (os/list-objects (.object-store arrow-db))
                        (map dhq/leaf-name->name+hyper-quads+path)
                        (group-by first))
-        relation-factory (:relation-factory opts)
-        arrow-db (reduce
-                  (fn [arrow-db name]
-                    (d/ensure-relation arrow-db name relation-factory))
-                  arrow-db
-                  (set (concat root-names (keys name->nhp))))]
+        ^ArrowDb arrow-db (reduce
+                           (fn [arrow-db name]
+                             (d/ensure-relation arrow-db name relation-factory))
+                           arrow-db
+                           (set (concat root-names (keys name->nhp))))]
     (doseq [[name nhp] name->nhp
             :let [nhp (sort-by count nhp)
                   combined-relation (d/relation-by-name arrow-db name)
                   tree (:tuples combined-relation)]
             [_ hyper-quads path] nhp
             :let [parent-name (dhq/leaf-name tree hyper-quads path)
-                  arrow-file-view (da/new-arrow-file-view parent-name buffer-pool)]
+                  arrow-file-view (da/new-arrow-file-view parent-name (.buffer-pool arrow-db))]
             block-idx (range hyper-quads)
             :let [child-path (conj path block-idx)
                   child-name (dhq/leaf-name tree hyper-quads child-path)]]

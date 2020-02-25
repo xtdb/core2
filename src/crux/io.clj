@@ -26,13 +26,16 @@
   (^java.io.File [dir-name]
    (.toFile (Files/createTempDirectory dir-name (make-array FileAttribute 0)))))
 
-(defn merge-sorted [^Comparator comp xs ys]
-  ((fn step [[x & xs* :as xs] [y & ys* :as ys]]
-     (cond (nil? x) ys
-           (nil? y) xs
-           :else
-           (lazy-seq
-            (if (neg? (.compare comp x y))
-              (cons x (step xs* ys))
-              (cons y (step xs ys*))))))
-   xs ys))
+(defn merge-sorted
+  ([xs ys]
+   (merge-sorted (Comparator/naturalOrder) xs ys))
+  ([^Comparator comp xs ys]
+   ((fn step [[x & xs* :as xs] [y & ys* :as ys]]
+      (cond (nil? x) ys
+            (nil? y) xs
+            :else
+            (lazy-seq
+             (if (neg? (.compare comp x y))
+               (cons x (step xs* ys))
+               (cons y (step xs ys*))))))
+    xs ys)))

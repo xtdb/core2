@@ -36,12 +36,21 @@
                  :buffer-pool-factory *buffer-pool-factory*}]
     (t/testing "in memory"
       (with-open [db (ds/new-arrow-db db-opts)]
-        (t/is (= #{[1 3 4] [1 3 5] [1 4 6] [1 4 8] [1 4 9] [1 5 2] [3 5 2]}
-                 (-> db
-                     (d/execute triangle-edb)
-                     (d/execute triangle-idb)
-                     (d/query-by-name 'q)
-                     (set))))))
+        (t/testing "IDB"
+          (t/is (= #{[1 3 4] [1 3 5] [1 4 6] [1 4 8] [1 4 9] [1 5 2] [3 5 2]}
+                   (-> db
+                       (d/execute triangle-edb)
+                       (d/execute triangle-idb)
+                       (d/query-by-name 'q)
+                       (set)))))
+
+        (t/testing "Relations are stored in Z order"
+          (t/is (= (sort dhq/z-comparator [[1 3] [1 4] [1 5] [3 5]])
+                   (d/query-by-name db 'r)))
+          (t/is (= (sort dhq/z-comparator [[1 2] [1 4] [1 5] [1 6] [1 8] [1 9] [3 2]])
+                   (d/query-by-name db 't)))
+          (t/is (= (sort dhq/z-comparator [[3 4] [3 5] [4 6] [4 8] [4 9] [5 2]])
+                   (d/query-by-name db 's))))))
 
     (t/testing "persistence"
       (with-open [db (ds/new-arrow-db db-opts)]
@@ -54,9 +63,8 @@
                      (d/query-by-name db 'r)))
             (t/is (= (sort dhq/z-comparator [[1 2] [1 4] [1 5] [1 6] [1 8] [1 9] [3 2]])
                      (d/query-by-name db 't)))
-            ;; TODO: is this an issue or not?
-            #_(t/is (= (sort dhq/z-comparator [[3 4] [3 5] [4 6] [4 8] [4 9] [5 2]])
-                       (d/query-by-name db 's))))
+            (t/is (= (sort dhq/z-comparator [[3 4] [3 5] [4 6] [4 8] [4 9] [5 2]])
+                     (d/query-by-name db 's))))
 
           (t/testing "reasserting IDB"
             (t/is (= #{[1 3 4] [1 3 5] [1 4 6] [1 4 8] [1 4 9] [1 5 2] [3 5 2]}

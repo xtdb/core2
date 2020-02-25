@@ -70,7 +70,7 @@
                                (d/truncate child))
                        child-name (dhq/leaf-name name hyper-quads (conj path block-idx))
                        child (dw/get-wal-relation wal-directory child-name)]]
-             (d/new-parent-child-relation (da/new-arrow-block-relation arrow-file-view block-idx) child)))
+             (d/new-parent-child-relation (da/new-arrow-block-relation arrow-file-view block-idx) child dhq/z-comparator)))
       (finally
         (.delete tmp-file)))))
 
@@ -109,7 +109,8 @@
                                hyper-quads
                                child-path
                                (d/new-parent-child-relation (da/new-arrow-block-relation arrow-file-view block-idx)
-                                                            (dw/get-wal-relation (.wal-directory arrow-db) child-name))))))
+                                                            (dw/get-wal-relation (.wal-directory arrow-db) child-name)
+                                                            dhq/z-comparator)))))
 
 (defn new-in-memory-buffer-pool-factory [{:keys [object-store crux.buffer-pool/size-bytes] :as opts}]
   (assert size-bytes)

@@ -580,17 +580,19 @@
 
 (def ^:dynamic *relation-factory* new-combined-relation)
 
-(defrecord ParentChildRelation [deletion-set parent child]
+(defrecord ParentChildRelation [deletion-set parent child comparator]
   Relation
   (table-scan [this db]
-    (concat (cond->> (table-scan parent db)
-              (seq deletion-set) (remove deletion-set))
-            (table-scan child db)))
+    (cond->> (concat (cond->> (table-scan parent db)
+                       (seq deletion-set) (remove deletion-set))
+                     (table-scan child db))
+      comparator (sort comparator)))
 
   (table-filter [this db var-bindings]
-    (concat (cond->> (table-filter parent db var-bindings)
-              (seq deletion-set) (remove deletion-set))
-            (table-filter child db var-bindings)))
+    (cond->> (concat (cond->> (table-filter parent db var-bindings)
+                       (seq deletion-set) (remove deletion-set))
+                     (table-filter child db var-bindings))
+      comparator (sort comparator)))
 
   (insert [this value]
     (-> this
@@ -618,8 +620,11 @@
     (try-close child)
     (try-close parent)))
 
-(defn new-parent-child-relation [parent child]
-  (->ParentChildRelation #{} parent child))
+(defn new-parent-child-relation
+  ([parent child]
+   (new-parent-child-relation parent child nil))
+  ([parent child comparator]
+   (->ParentChildRelation #{} parent child comparator)))
 
 (extend-type IPersistentMap
   Db

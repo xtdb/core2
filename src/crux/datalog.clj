@@ -5,6 +5,7 @@
             [clojure.set :as set]
             [clojure.string :as str]
             [clojure.walk :as w]
+            [crux.io :as cio]
             [crux.datalog.parser :as dp])
   (:import [clojure.lang IPersistentCollection IPersistentMap Symbol]
            java.util.Arrays
@@ -583,16 +584,20 @@
 (defrecord ParentChildRelation [deletion-set parent child comparator]
   Relation
   (table-scan [this db]
-    (cond->> (concat (cond->> (table-scan parent db)
+    (let [parent-seq (cond->> (table-scan parent db)
                        (seq deletion-set) (remove deletion-set))
-                     (table-scan child db))
-      comparator (sort comparator)))
+          child-seq (table-scan child db)]
+      (if comparator
+        (cio/merge-sort comparator [parent-seq child-seq])
+        (concat parent-seq child-seq))))
 
   (table-filter [this db var-bindings]
-    (cond->> (concat (cond->> (table-filter parent db var-bindings)
+    (let [parent-seq (cond->> (table-filter parent db var-bindings)
                        (seq deletion-set) (remove deletion-set))
-                     (table-filter child db var-bindings))
-      comparator (sort comparator)))
+          child-seq (table-filter child db var-bindings)]
+      (if comparator
+        (cio/merge-sort comparator [parent-seq child-seq])
+        (concat parent-seq child-seq))))
 
   (insert [this value]
     (-> this

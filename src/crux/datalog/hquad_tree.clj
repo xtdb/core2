@@ -353,7 +353,7 @@
           (loop [^long parent-node-idx root-idx
                  [^long h & path] path]
             (let [node-idx (+ parent-node-idx h)
-                  _ (ensure-nodes-capacity tree node-idx)
+                  node-vector ^ints (ensure-nodes-capacity tree node-idx)
                   child-idx (aget node-vector node-idx)]
               (when (leaf-idx? child-idx)
                 (remove-leaf tree (decode-leaf-idx child-idx)))

@@ -111,41 +111,52 @@
                                (d/new-parent-child-relation (da/new-arrow-block-relation arrow-file-view block-idx)
                                                             (dw/get-wal-relation (.wal-directory arrow-db) child-name))))))
 
+(defn new-in-memory-buffer-pool-factory [{:keys [object-store crux.buffer-pool/size-bytes] :as opts}]
+  (assert size-bytes)
+  (bp/new-in-memory-pool object-store size-bytes))
+
+(defn new-mmap-buffer-pool-factory [{:keys [object-store crux.buffer-pool/size] :as opts}]
+  (assert size)
+  (bp/new-mmap-pool object-store size))
+
+(defn new-local-directory-wal-directory-factory [{:keys [crux.datalog.storage/root-dir crux.datalog.wal/local-directory crux.datalog.wal/suffix] :as opts}]
+  (assert (or root-dir local-directory))
+  (dw/new-local-directory-wal-directory (or local-directory (io/file root-dir "wals")) dw/new-edn-file-wal dhq/new-z-sorted-set-relation suffix))
+
+(defn new-local-directory-object-store-factory [{:keys [crux.datalog.storage/root-dir crux.object-store/local-directory] :as opts}]
+  (assert (or root-dir local-directory))
+  (os/new-local-directory-object-store (or local-directory (io/file root-dir "objects"))))
+
+(defn new-hquad-arrow-tuple-relation-factory-factory [{:keys [wal-directory buffer-pool] :as opts}]
+  (assert wal-directory)
+  (assert buffer-pool)
+  (let [opts (assoc opts
+                    :crux.datalog.hquad-tree/leaf-tuple-relation-factory
+                    (fn [relation-name]
+                      (dw/get-wal-relation wal-directory relation-name)))
+        opts (assoc opts
+                    :crux.datalog.hquad-tree/post-process-children-after-split
+                    (fn [old-leaf children]
+                      (write-arrow-children-on-split old-leaf children opts)))]
+    (fn [relation-name]
+      (dhq/new-hyper-quad-tree-relation opts relation-name))))
+
+(defn new-combined-relation-factory-factory [{:keys [tuple-relation-factory] :as opts}]
+  (assert tuple-relation-factory)
+  (fn [relation-name]
+    (d/new-combined-relation relation-name tuple-relation-factory)))
+
 (def ^:dynamic *default-options*
   {:crux.buffer-pool/size-bytes (* 128 1024 1024)
+   :crux.buffer-pool/size 128
+   :crux.datalog.wal/suffix ".wal"
    :crux.datalog.hquad-tree/leaf-size (* 32 1024)
    :crux.datalog.hquad-tree/split-leaf-tuple-relation-factory da/new-arrow-struct-relation
-   :wal-directory-factory
-   (fn [{:keys [crux.datalog.storage/root-dir crux.datalog.wal/local-directory] :as opts}]
-     (assert (or root-dir local-directory))
-     (dw/new-local-directory-wal-directory (or local-directory (io/file root-dir "wals")) dw/new-edn-file-wal dhq/new-z-sorted-set-relation))
-   :buffer-pool-factory
-   (fn [{:keys [object-store crux.buffer-pool/size-bytes] :as opts}]
-     (assert size-bytes)
-     (bp/new-in-memory-pool object-store size-bytes))
-   :object-store-factory
-   (fn [{:keys [crux.datalog.storage/root-dir crux.object-store/local-directory] :as opts}]
-     (assert (or root-dir local-directory))
-     (os/new-local-directory-object-store (or local-directory (io/file root-dir "objects"))))
-   :tuple-relation-factory-factory
-   (fn [{:keys [wal-directory buffer-pool] :as opts}]
-     (assert wal-directory)
-     (assert buffer-pool)
-     (let [opts (assoc opts
-                       :crux.datalog.hquad-tree/leaf-tuple-relation-factory
-                       (fn [relation-name]
-                         (dw/get-wal-relation wal-directory relation-name)))
-           opts (assoc opts
-                       :crux.datalog.hquad-tree/post-process-children-after-split
-                       (fn [old-leaf children]
-                         (write-arrow-children-on-split old-leaf children opts)))]
-       (fn [relation-name]
-         (dhq/new-hyper-quad-tree-relation opts relation-name))))
-   :relation-factory-factory
-   (fn [{:keys [tuple-relation-factory] :as opts}]
-     (assert tuple-relation-factory)
-     (fn [relation-name]
-       (d/new-combined-relation relation-name tuple-relation-factory)))})
+   :wal-directory-factory new-local-directory-wal-directory-factory
+   :buffer-pool-factory new-in-memory-buffer-pool-factory
+   :object-store-factory new-local-directory-object-store-factory
+   :tuple-relation-factory-factory new-hquad-arrow-tuple-relation-factory-factory
+   :relation-factory-factory new-combined-relation-factory-factory})
 
 (defn new-arrow-db ^crux.datalog.storage.ArrowDb [opts]
   (let [opts (merge *default-options* opts)

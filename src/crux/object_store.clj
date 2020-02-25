@@ -1,5 +1,6 @@
 (ns crux.object-store
-  (:require [clojure.java.io :as io])
+  (:require [clojure.java.io :as io]
+            [crux.io :as cio])
   (:import java.io.File
            [java.nio.file Files FileVisitResult SimpleFileVisitor]
            java.nio.file.attribute.FileAttribute
@@ -48,24 +49,6 @@
 (defn new-local-directory-object-store ^crux.object_store.LocalDirectoryObjectStore [dir]
   (->LocalDirectoryObjectStore (io/file dir)))
 
-(def ^:private file-deletion-visitor
-  (proxy [SimpleFileVisitor] []
-    (visitFile [file _]
-      (Files/delete file)
-      FileVisitResult/CONTINUE)
-
-    (postVisitDirectory [dir _]
-      (Files/delete dir)
-      FileVisitResult/CONTINUE)))
-
-(defn- delete-dir [dir]
-  (let [dir (io/file dir)]
-    (when (.exists dir)
-      (Files/walkFileTree (.toPath dir) file-deletion-visitor))))
-
-(defn- create-tmpdir ^java.io.File [dir-name]
-  (.toFile (Files/createTempDirectory dir-name (make-array FileAttribute 0))))
-
 (defonce ^:private ^Cleaner cleaner (Cleaner/create))
 
 (declare evict-object)
@@ -102,7 +85,7 @@
 
   AutoCloseable
   (close [this]
-    (delete-dir (.dir object-store-cache))))
+    (cio/delete-dir (.dir object-store-cache))))
 
 (defn- evict-object [^CachedObjectStore cached-object-store k]
   (delete-object (.object-store-cache cached-object-store) k)
@@ -118,7 +101,7 @@
 
 (defn new-cached-object-store
   (^crux.object_store.CachedObjectStore [object-store ^long size-bytes]
-   (new-cached-object-store (create-tmpdir "cached_object_store") object-store size-bytes))
+   (new-cached-object-store (cio/create-tmpdir "cached_object_store") object-store size-bytes))
   (^crux.object_store.CachedObjectStore [cache-dir object-store ^long size-bytes]
    (->CachedObjectStore (HashMap.)
                         (proxy [LinkedHashMap] [16 0.75 true]

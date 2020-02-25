@@ -121,7 +121,7 @@
 (defn new-wal-relation ^crux.datalog.wal.WALRelation [relation-name wal tuple-relation-factory]
   (->WALRelation relation-name tuple-relation-factory (SoftReference. nil) wal))
 
-(defrecord LocalDirectoryWALDirectory [^File dir wal-factory tuple-relation-factory]
+(defrecord LocalDirectoryWALDirectory [^File dir wal-factory tuple-relation-factory suffix]
   WALDirectory
   (list-wals [this]
     (let [dir-path (.toPath dir)]
@@ -130,10 +130,10 @@
         (str (.relativize dir-path (.toPath f))))))
 
   (get-wal-relation [this k]
-    (new-wal-relation k (wal-factory (io/file dir (str k ".wal"))) tuple-relation-factory)))
+    (new-wal-relation k (wal-factory (io/file dir (str k suffix))) tuple-relation-factory)))
 
 (defn new-local-directory-wal-directory
   ([dir]
-   (new-local-directory-wal-directory dir new-edn-file-wal d/new-sorted-set-relation))
-  ([dir wal-factory tuple-relation-factory]
-   (->LocalDirectoryWALDirectory dir wal-factory tuple-relation-factory)))
+   (new-local-directory-wal-directory dir new-edn-file-wal d/new-sorted-set-relation ""))
+  ([dir wal-factory tuple-relation-factory suffix]
+   (->LocalDirectoryWALDirectory dir wal-factory tuple-relation-factory suffix)))

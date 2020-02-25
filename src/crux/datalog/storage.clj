@@ -12,6 +12,8 @@
            java.io.File
            java.lang.AutoCloseable))
 
+(set! *unchecked-math* :warn-on-boxed)
+
 (deftype ArrowDb [^:volatile-mutable relation-db buffer-pool object-store wal-directory options]
   d/Db
   (assertion [this relation-name value]

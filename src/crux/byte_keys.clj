@@ -5,6 +5,8 @@
            java.nio.ByteBuffer
            java.nio.charset.StandardCharsets))
 
+(set! *unchecked-math* :warn-on-boxed)
+
 (def ^Comparator unsigned-bytes-comparator
   (reify Comparator
     (compare [_ x y]

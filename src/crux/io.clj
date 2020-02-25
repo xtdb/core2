@@ -3,7 +3,7 @@
   (:import java.io.File
            [java.nio.file Files FileVisitResult SimpleFileVisitor]
            java.nio.file.attribute.FileAttribute
-           [java.util Comparator PriorityQueue]))
+           java.util.Comparator))
 
 (def ^:private file-deletion-visitor
   (proxy [SimpleFileVisitor] []
@@ -26,25 +26,13 @@
   (^java.io.File [dir-name]
    (.toFile (Files/createTempDirectory dir-name (make-array FileAttribute 0)))))
 
-(defn- new-merge-sort-priority-queue ^PriorityQueue [^Comparator comp sorted-seqs]
-  (let [pq-comp (reify Comparator
-                  (compare [_ [a] [b]]
-                    (.compare comp a b)))]
-    (doto (PriorityQueue. (count sorted-seqs) pq-comp)
-      (.addAll sorted-seqs))))
-
-(defn- merge-sort-priority-queue->seq [^PriorityQueue pq]
-  ((fn step []
-     (lazy-seq
-      (let [[x & xs] (.poll pq)]
-        (when x
-          (when xs
-            (.add pq xs))
-          (cons x (step))))))))
-
-(defn merge-sort [comp sorted-seqs]
-  (let [sorted-seqs (remove empty? sorted-seqs)]
-    (if (< (count sorted-seqs) 2)
-      (first sorted-seqs)
-      (->> (new-merge-sort-priority-queue comp sorted-seqs)
-           (merge-sort-priority-queue->seq)))))
+(defn merge-sorted [^Comparator comp xs ys]
+  ((fn step [[x & xs* :as xs] [y & ys* :as ys]]
+     (cond (nil? x) ys
+           (nil? y) xs
+           :else
+           (lazy-seq
+            (if (neg? (.compare comp x y))
+              (cons x (step xs* ys))
+              (cons y (step xs ys*))))))
+   xs ys))

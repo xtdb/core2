@@ -581,23 +581,17 @@
 
 (def ^:dynamic *relation-factory* new-combined-relation)
 
-(defrecord ParentChildRelation [deletion-set parent child comparator]
+(defrecord ParentChildRelation [deletion-set parent child merge-fn]
   Relation
   (table-scan [this db]
-    (let [parent-seq (cond->> (table-scan parent db)
-                       (seq deletion-set) (remove deletion-set))
-          child-seq (table-scan child db)]
-      (if comparator
-        (cio/merge-sort comparator [parent-seq child-seq])
-        (concat parent-seq child-seq))))
+    (merge-fn (cond->> (table-scan parent db)
+                (seq deletion-set) (remove deletion-set))
+              (table-scan child db)))
 
   (table-filter [this db var-bindings]
-    (let [parent-seq (cond->> (table-filter parent db var-bindings)
-                       (seq deletion-set) (remove deletion-set))
-          child-seq (table-filter child db var-bindings)]
-      (if comparator
-        (cio/merge-sort comparator [parent-seq child-seq])
-        (concat parent-seq child-seq))))
+    (merge-fn (cond->> (table-filter parent db var-bindings)
+                (seq deletion-set) (remove deletion-set))
+              (table-filter child db var-bindings)))
 
   (insert [this value]
     (-> this
@@ -629,7 +623,9 @@
   ([parent child]
    (new-parent-child-relation parent child nil))
   ([parent child comparator]
-   (->ParentChildRelation #{} parent child comparator)))
+   (->ParentChildRelation #{} parent child (if comparator
+                                             (partial cio/merge-sorted comparator)
+                                             concat))))
 
 (extend-type IPersistentMap
   Db

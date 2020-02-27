@@ -64,7 +64,7 @@
         [name hyper-quads path] (dhq/leaf-name->name+hyper-quads+path parent-name)]
     (try
       (with-open [in (io/input-stream (da/write-record-batches (for [child new-children]
-                                                                 (some-> child da/->record-batch)) tmp-file))]
+                                                                 (some-> child (da/->record-batch))) tmp-file))]
         (os/put-object object-store (str parent-name ".arrow") in))
       (d/truncate leaf)
       (vec (for [[block-idx child] (map-indexed vector new-children)

@@ -14,7 +14,7 @@
 
 (set! *unchecked-math* :warn-on-boxed)
 
-(deftype ArrowDb [^:volatile-mutable relation-db buffer-pool object-store wal-directory options]
+(deftype ArrowDb [^:volatile-mutable relation-db buffer-pool object-store wal-directory rule-wal-directory options]
   d/Db
   (assertion [this relation-name value]
     (d/ensure-relation this relation-name (:relation-factory options))
@@ -49,7 +49,7 @@
     (meta relation-db))
 
   (withMeta [this meta]
-    (ArrowDb. (with-meta relation-db meta) buffer-pool object-store wal-directory options))
+    (ArrowDb. (with-meta relation-db meta) buffer-pool object-store wal-directory rule-wal-directory options))
 
   AutoCloseable
   (close [this]
@@ -79,10 +79,13 @@
 (defn- restore-relations [^ArrowDb arrow-db]
   (let [{:keys [relation-factory] :as options} (.options arrow-db)
         root-name->nhp (->> (dw/list-wals (.wal-directory arrow-db))
-                            (map #(str/replace % #".wal$" ""))
+                            (map #(str/replace % #"\.wal$" ""))
                             (map dhq/leaf-name->name+hyper-quads+path)
                             (filter (comp empty? last))
                             (group-by first))
+        rule-relations (->> (dw/list-wals (.rule-wal-directory arrow-db))
+                            (map #(str/replace % #"\.wal_rule$" ""))
+                            (set))
         name->nhp (->> (os/list-objects (.object-store arrow-db))
                        (map #(str/replace % #".arrow$" ""))
                        (map dhq/leaf-name->name+hyper-quads+path)
@@ -92,7 +95,8 @@
                              (d/ensure-relation arrow-db (symbol name) relation-factory))
                            arrow-db
                            (set (concat (keys root-name->nhp)
-                                        (keys name->nhp))))]
+                                        (keys name->nhp)
+                                        rule-relations)))]
     (doseq [[name [[_ hyper-quads]]] (apply dissoc root-name->nhp (keys name->nhp))
             :let [combined-relation (d/relation-by-name arrow-db (symbol name))
                   tree (:tuples combined-relation)]]
@@ -126,6 +130,10 @@
   (assert (or root-dir local-directory))
   (dw/new-local-directory-wal-directory (or local-directory (io/file root-dir "wals")) dw/new-edn-file-wal dhq/new-z-sorted-set-relation suffix))
 
+(defn new-local-directory-rule-wal-directory-factory [{:keys [crux.datalog.storage/root-dir crux.datalog.wal/local-directory crux.datalog.wal/suffix] :as opts}]
+  (assert (or root-dir local-directory))
+  (dw/new-local-directory-wal-directory (or local-directory (io/file root-dir "wals")) dw/new-edn-file-wal d/new-rule-relation (str suffix "_rule")))
+
 (defn new-local-directory-object-store-factory [{:keys [crux.datalog.storage/root-dir crux.object-store/local-directory] :as opts}]
   (assert (or root-dir local-directory))
   (os/new-local-directory-object-store (or local-directory (io/file root-dir "objects"))))
@@ -144,10 +152,14 @@
     (fn [relation-name]
       (dhq/new-hyper-quad-tree-relation opts relation-name))))
 
-(defn new-combined-relation-factory-factory [{:keys [tuple-relation-factory] :as opts}]
+(defn new-rule-relation-factory-factory [{:keys [rule-wal-directory] :as opts}]
+  (fn [relation-name]
+    (dw/get-wal-relation rule-wal-directory relation-name)))
+
+(defn new-combined-relation-factory-factory [{:keys [tuple-relation-factory rule-relation-factory] :as opts}]
   (assert tuple-relation-factory)
   (fn [relation-name]
-    (d/new-combined-relation relation-name tuple-relation-factory)))
+    (d/new-combined-relation relation-name tuple-relation-factory rule-relation-factory)))
 
 (def ^:dynamic *default-options*
   {:crux.buffer-pool/size-bytes (* 128 1024 1024)
@@ -156,34 +168,44 @@
    :crux.datalog.hquad-tree/leaf-size (* 32 1024)
    :crux.datalog.hquad-tree/split-leaf-tuple-relation-factory da/new-arrow-struct-relation
    :wal-directory-factory new-local-directory-wal-directory-factory
+   :rule-wal-directory-factory new-local-directory-rule-wal-directory-factory
    :buffer-pool-factory new-in-memory-buffer-pool-factory
    :object-store-factory new-local-directory-object-store-factory
    :tuple-relation-factory-factory new-hquad-arrow-tuple-relation-factory-factory
+   :rule-relation-factory-factory new-rule-relation-factory-factory
    :relation-factory-factory new-combined-relation-factory-factory})
 
 (defn new-arrow-db ^crux.datalog.storage.ArrowDb [opts]
   (let [opts (merge *default-options* opts)
         wal-directory ((:wal-directory-factory opts) opts)
         opts (assoc opts :wal-directory wal-directory)
+        rule-wal-directory ((:rule-wal-directory-factory opts) opts)
+        opts (assoc opts :rule-wal-directory rule-wal-directory)
         object-store ((:object-store-factory opts) opts)
         opts (assoc opts :object-store object-store)
         buffer-pool ((:buffer-pool-factory opts) opts)
         opts (assoc opts :buffer-pool buffer-pool)
         tuple-relation-factory ((:tuple-relation-factory-factory opts) opts)
         opts (assoc opts :tuple-relation-factory tuple-relation-factory)
+        rule-relation-factory ((:rule-relation-factory-factory opts) opts)
+        opts (assoc opts :rule-relation-factory rule-relation-factory)
         relation-factory ((:relation-factory-factory opts) opts)
         opts (assoc opts :relation-factory relation-factory)]
     (doto (->ArrowDb {}
                      buffer-pool
                      object-store
                      wal-directory
+                     rule-wal-directory
                      (dissoc opts
                              :wal-directory
                              :wal-directory-factory
+                             :rule-wal-directory
+                             :rule-wal-directory-factory
                              :object-store
                              :object-store-factory
                              :buffer-pool
                              :buffer-pool-factory
                              :tuple-relation-factory-factory
-                             :relation-factory-factory))
+                             :relation-factory-factory
+                             :rule-relation-factory-factory))
       (restore-relations))))

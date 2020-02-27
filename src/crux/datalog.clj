@@ -473,7 +473,7 @@
   (relation-name [this]
     name))
 
-(defn- new-rule-relation [name]
+(defn new-rule-relation [name]
   (->RuleRelation name #{}))
 
 (extend-protocol Relation
@@ -572,11 +572,11 @@
 
 (defn new-combined-relation
   ([relation-name]
-   (new-combined-relation relation-name *tuple-relation-factory*))
-  ([relation-name tuple-relation-factory]
+   (new-combined-relation relation-name *tuple-relation-factory* new-rule-relation))
+  ([relation-name tuple-relation-factory rule-relation-factory]
    (->CombinedRelation
     relation-name
-    (new-rule-relation relation-name)
+    (rule-relation-factory relation-name)
     (tuple-relation-factory relation-name))))
 
 (def ^:dynamic *relation-factory* new-combined-relation)

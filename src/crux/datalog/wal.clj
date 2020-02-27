@@ -1,6 +1,7 @@
 (ns crux.datalog.wal
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
+            [clojure.string :as str]
             [crux.datalog :as d])
   (:import [java.io File RandomAccessFile]
            java.nio.charset.StandardCharsets
@@ -126,7 +127,7 @@
   (list-wals [this]
     (let [dir-path (.toPath dir)]
       (for [^File f (file-seq dir)
-            :when (.isFile f)]
+            :when (and (.isFile f) (str/ends-with? (.getName f) suffix))]
         (str (.relativize dir-path (.toPath f))))))
 
   (get-wal-relation [this k]

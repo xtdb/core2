@@ -54,9 +54,6 @@
 
     (t/testing "persistence"
       (with-open [db (ds/new-arrow-db db-opts)]
-        (t/testing "IDB is not persisted"
-          (t/is (nil? (d/relation-by-name db 'q))))
-
         (t/testing "EDB is persisted"
           (t/testing "Relations are stored in Z order"
             (t/is (= (sort dhq/z-comparator [[1 3] [1 4] [1 5] [3 5]])
@@ -64,14 +61,14 @@
             (t/is (= (sort dhq/z-comparator [[1 2] [1 4] [1 5] [1 6] [1 8] [1 9] [3 2]])
                      (d/query-by-name db 't)))
             (t/is (= (sort dhq/z-comparator [[3 4] [3 5] [4 6] [4 8] [4 9] [5 2]])
-                     (d/query-by-name db 's))))
+                     (d/query-by-name db 's)))))
 
-          (t/testing "reasserting IDB"
-            (t/is (= #{[1 3 4] [1 3 5] [1 4 6] [1 4 8] [1 4 9] [1 5 2] [3 5 2]}
-                     (-> db
-                         (d/execute triangle-idb)
-                         (d/query-by-name 'q)
-                         (set))))))))))
+        (t/testing "IDB is persisted"
+          (t/is (d/relation-by-name db 'q))
+          (t/is (= #{[1 3 4] [1 3 5] [1 4 6] [1 4 8] [1 4 9] [1 5 2] [3 5 2]}
+                   (-> db
+                       (d/query-by-name 'q)
+                       (set)))))))))
 
 (defn with-tmp-dir [f]
   (binding [*dir* (cio/create-tmpdir (str *ns*))]

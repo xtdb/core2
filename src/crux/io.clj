@@ -35,20 +35,23 @@
             (nil? y) xs
             :else
             (lazy-seq
-             (if (neg? (.compare comp x y))
-               (cons x (step xs* ys))
-               (cons y (step xs ys*))))))
+             (let [diff (.compare comp x y)]
+               (cond
+                 (zero? diff)
+                 (cons x (step xs* ys*))
+
+                 (neg? diff)
+                 (cons x (step xs* ys))
+
+                 (pos? diff)
+                 (cons y (step xs ys*)))))))
     xs ys)))
 
 (defn merge-sorted-eager
   ([xs ys]
    (merge-sorted-eager (Comparator/naturalOrder) xs ys))
-  ([^Comparator comp xs ys]
+  ([^Comparator comp ^Iterable xs ^Iterable ys]
    (cond
-     (not (and (instance? Iterable xs)
-               (instance? Iterable ys)))
-     (merge-sorted-lazy comp xs ys)
-
      (empty? xs)
      ys
 
@@ -57,21 +60,39 @@
 
      :else
      (let [acc (ArrayList.)
-           xs-it (.iterator ^Iterable xs)
-           ys-it (.iterator ^Iterable ys)
-           add-all (fn [e ^Iterator i]
-                     (.add acc e)
+           xs-it (.iterator xs)
+           ys-it (.iterator ys)
+           add-all (fn [^Iterator i]
                      (while (.hasNext i)
                        (.add acc (.next i))))]
        (loop [x (.next xs-it)
               y (.next ys-it)]
-         (if (<= (.compare comp x y) 0)
-           (do (.add acc x)
-               (if (.hasNext xs-it)
-                 (recur (.next xs-it) y)
-                 (add-all y ys-it)))
-           (do (.add acc y)
-               (if (.hasNext ys-it)
-                 (recur x (.next ys-it))
-                 (add-all x xs-it)))))
+         (let [diff (.compare comp x y)]
+           (cond
+             (zero? diff)
+             (do (.add acc x)
+                 (cond
+                   (and (.hasNext xs-it)
+                        (.hasNext ys-it))
+                   (recur (.next xs-it) (.next ys-it))
+
+                   (.hasNext xs-it)
+                   (add-all xs-it)
+
+                   (.hasNext ys-it)
+                   (add-all ys-it)))
+
+             (neg? diff)
+             (do (.add acc x)
+                 (if (.hasNext xs-it)
+                   (recur (.next xs-it) y)
+                   (do (.add acc y)
+                       (add-all ys-it))))
+
+             (pos? diff)
+             (do (.add acc y)
+                 (if (.hasNext ys-it)
+                   (recur x (.next ys-it))
+                   (do (.add acc x)
+                       (add-all xs-it)))))))
        acc))))

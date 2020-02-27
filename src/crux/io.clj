@@ -47,61 +47,52 @@
                  (cons y (step xs ys*)))))))
     xs ys)))
 
-(defn merge-sorted-eager
+(defn- maybe-next [^Iterator it]
+  (when (.hasNext it)
+    (.next it)))
+
+(deftype MergeSortedIterator [^Comparator comp
+                              ^Iterator xs-it
+                              ^Iterator ys-it
+                              ^:volatile-mutable x
+                              ^:volatile-mutable y]
+  Iterator
+  (hasNext [this]
+    (boolean (or x y)))
+
+  (next [this]
+    (cond
+      (and x y)
+      (let [x* x
+            y* y
+            diff (.compare comp x y)]
+        (cond
+          (zero? diff)
+          (do (set! (.-y this) (maybe-next ys-it))
+              (set! (.-x this) (maybe-next xs-it))
+              x*)
+
+          (neg? diff)
+          (do (set! (.-x this) (maybe-next xs-it))
+              x*)
+
+          (pos? diff)
+          (do (set! (.-y this) (maybe-next ys-it))
+              y*)))
+
+      x
+      (let [x* x]
+        (set! (.-x this) (maybe-next xs-it))
+        x*)
+
+      y
+      (let [y* y]
+        (set! (.-y this) (maybe-next ys-it))
+        y*))))
+
+(defn merge-sorted-iter
   ([xs ys]
-   (merge-sorted-eager (Comparator/naturalOrder) xs ys))
-  ([^Comparator comp ^Iterable xs ^Iterable ys]
-   (cond
-     (empty? xs)
-     ys
-
-     (empty? ys)
-     xs
-
-     :else
-     (let [acc (ArrayList.)
-           xs-it (.iterator xs)
-           ys-it (.iterator ys)
-           add-all (fn [^Iterator i]
-                     (while (.hasNext i)
-                       (.add acc (.next i))))]
-       (loop [x (.next xs-it)
-              y (.next ys-it)]
-         (let [diff (.compare comp x y)]
-           (cond
-             (zero? diff)
-             (do (.add acc x)
-                 (cond
-                   (and (.hasNext xs-it)
-                        (.hasNext ys-it))
-                   (recur (.next xs-it) (.next ys-it))
-
-                   (.hasNext xs-it)
-                   (add-all xs-it)
-
-                   (.hasNext ys-it)
-                   (add-all ys-it)))
-
-             (neg? diff)
-             (do (.add acc x)
-                 (if (.hasNext xs-it)
-                   (recur (.next xs-it) y)
-                   (do (.add acc y)
-                       (add-all ys-it))))
-
-             (pos? diff)
-             (do (.add acc y)
-                 (if (.hasNext ys-it)
-                   (recur x (.next ys-it))
-                   (do (.add acc x)
-                       (add-all xs-it)))))))
-       acc))))
-
-(def ^:dynamic ^{:tag 'long} *merge-chunk-size* 128)
-
-(defn merge-sorted-chunked
-  ([xs ys]
-   (merge-sorted-chunked (Comparator/naturalOrder) xs ys))
+   (merge-sorted-iter (Comparator/naturalOrder) xs ys))
   ([^Comparator comp ^Iterable xs ^Iterable ys]
    (cond
      (empty? xs)
@@ -113,37 +104,4 @@
      :else
      (let [xs-it (.iterator xs)
            ys-it (.iterator ys)]
-       ((fn step [x y ^List acc]
-          (if (= (.size acc) *merge-chunk-size*)
-            (concat acc (lazy-seq (step x y (ArrayList.))))
-            (let [diff (.compare comp x y)]
-              (cond
-                (zero? diff)
-                (do (.add acc x)
-                    (cond
-                      (and (.hasNext xs-it)
-                           (.hasNext ys-it))
-                      (recur (.next xs-it) (.next ys-it) acc)
-
-                      (.hasNext xs-it)
-                      (concat acc (iterator-seq xs-it))
-
-                      (.hasNext ys-it)
-                      (concat acc (iterator-seq ys-it))))
-
-                (neg? diff)
-                (do (.add acc x)
-                    (if (.hasNext xs-it)
-                      (recur (.next xs-it) y acc)
-                      (do (.add acc y)
-                          (concat acc (iterator-seq ys-it)))))
-
-                (pos? diff)
-                (do (.add acc y)
-                    (if (.hasNext ys-it)
-                      (recur x (.next ys-it) acc)
-                      (do (.add acc x)
-                          (concat acc (iterator-seq xs-it)))))))))
-        (.next xs-it)
-        (.next ys-it)
-        (ArrayList.))))))
+       (iterator-seq (->MergeSortedIterator comp xs-it ys-it (maybe-next xs-it) (maybe-next ys-it)))))))

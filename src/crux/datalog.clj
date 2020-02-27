@@ -624,7 +624,7 @@
    (new-parent-child-relation parent child nil))
   ([parent child comparator]
    (->ParentChildRelation #{} parent child (if comparator
-                                             (partial cio/merge-sorted-eager comparator)
+                                             (partial cio/merge-sorted-iter comparator)
                                              concat))))
 
 (extend-type IPersistentMap

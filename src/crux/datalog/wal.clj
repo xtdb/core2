@@ -125,10 +125,11 @@
 (defrecord LocalDirectoryWALDirectory [^File dir wal-factory tuple-relation-factory suffix]
   WALDirectory
   (list-wals [this]
-    (let [dir-path (.toPath dir)]
+    (let [dir-path (.toPath dir)
+          suffix-pattern (re-pattern (str suffix "$"))]
       (for [^File f (file-seq dir)
-            :when (and (.isFile f) (str/ends-with? (.getName f) suffix))]
-        (str (.relativize dir-path (.toPath f))))))
+            :when (and (.isFile f) (re-find suffix-pattern (.getName f)))]
+        (str/replace (str (.relativize dir-path (.toPath f))) suffix-pattern ""))))
 
   (get-wal-relation [this k]
     (new-wal-relation k (wal-factory (io/file dir (str k suffix))) tuple-relation-factory)))

@@ -79,12 +79,10 @@
 (defn- restore-relations [^ArrowDb arrow-db]
   (let [{:keys [relation-factory] :as options} (.options arrow-db)
         root-name->nhp (->> (dw/list-wals (.wal-directory arrow-db))
-                            (map #(str/replace % #"\.wal$" ""))
                             (map dhq/leaf-name->name+hyper-quads+path)
                             (filter (comp empty? last))
                             (group-by first))
         rule-relations (->> (dw/list-wals (.rule-wal-directory arrow-db))
-                            (map #(str/replace % #"\.wal_rule$" ""))
                             (set))
         name->nhp (->> (os/list-objects (.object-store arrow-db))
                        (map #(str/replace % #".arrow$" ""))
@@ -118,25 +116,36 @@
                                                             (dw/get-wal-relation (.wal-directory arrow-db) child-name)
                                                             dhq/z-comparator)))))
 
-(defn new-in-memory-buffer-pool-factory [{:keys [object-store crux.buffer-pool/size-bytes] :as opts}]
-  (assert size-bytes)
-  (bp/new-in-memory-pool object-store size-bytes))
+(defn new-in-memory-buffer-pool-factory [{:keys [object-store crux.datalog.storage/in-memory-buffer-pool-size-bytes] :as opts}]
+  (assert in-memory-buffer-pool-size-bytes)
+  (bp/new-in-memory-pool object-store in-memory-buffer-pool-size-bytes))
 
-(defn new-mmap-buffer-pool-factory [{:keys [object-store crux.buffer-pool/size] :as opts}]
-  (assert size)
-  (bp/new-mmap-pool object-store size))
+(defn new-mmap-buffer-pool-factory [{:keys [object-store crux.datalog.storage/mmap-buffer-pool-size] :as opts}]
+  (assert mmap-buffer-pool-size)
+  (bp/new-mmap-pool object-store mmap-buffer-pool-size))
 
-(defn new-local-directory-wal-directory-factory [{:keys [crux.datalog.storage/root-dir crux.datalog.wal/local-directory crux.datalog.wal/suffix] :as opts}]
-  (assert (or root-dir local-directory))
-  (dw/new-local-directory-wal-directory (or local-directory (io/file root-dir "wals")) dw/new-edn-file-wal dhq/new-z-sorted-set-relation suffix))
+(defn new-local-directory-wal-directory-factory [{:crux.datalog.storage/keys [root-dir
+                                                                              tuple-wal-local-directory
+                                                                              wal-suffix] :as opts}]
+  (assert (or root-dir tuple-wal-local-directory))
+  (dw/new-local-directory-wal-directory (or tuple-wal-local-directory (io/file root-dir "tuple-wals"))
+                                        dw/new-edn-file-wal
+                                        dhq/new-z-sorted-set-relation
+                                        wal-suffix))
 
-(defn new-local-directory-rule-wal-directory-factory [{:keys [crux.datalog.storage/root-dir crux.datalog.wal/local-directory crux.datalog.wal/suffix] :as opts}]
-  (assert (or root-dir local-directory))
-  (dw/new-local-directory-wal-directory (or local-directory (io/file root-dir "wals")) dw/new-edn-file-wal d/new-rule-relation (str suffix "_rule")))
+(defn new-local-directory-rule-wal-directory-factory [{:crux.datalog.storage/keys [root-dir
+                                                                                   rule-wal-local-directory
+                                                                                   wal-suffix] :as opts}]
+  (assert (or root-dir rule-wal-local-directory))
+  (dw/new-local-directory-wal-directory (or rule-wal-local-directory (io/file root-dir "rule-wals"))
+                                        dw/new-edn-file-wal
+                                        d/new-rule-relation
+                                        wal-suffix))
 
-(defn new-local-directory-object-store-factory [{:keys [crux.datalog.storage/root-dir crux.object-store/local-directory] :as opts}]
-  (assert (or root-dir local-directory))
-  (os/new-local-directory-object-store (or local-directory (io/file root-dir "objects"))))
+(defn new-local-directory-object-store-factory [{:crux.datalog.storage/keys [root-dir
+                                                                             object-store-local-directory] :as opts}]
+  (assert (or root-dir object-store-local-directory))
+  (os/new-local-directory-object-store (or object-store-local-directory (io/file root-dir "objects"))))
 
 (defn new-hquad-arrow-tuple-relation-factory-factory [{:keys [wal-directory buffer-pool] :as opts}]
   (assert wal-directory)
@@ -162,9 +171,9 @@
     (d/new-combined-relation relation-name tuple-relation-factory rule-relation-factory)))
 
 (def ^:dynamic *default-options*
-  {:crux.buffer-pool/size-bytes (* 128 1024 1024)
-   :crux.buffer-pool/size 128
-   :crux.datalog.wal/suffix ".wal"
+  {:crux.datalog.storage/in-memory-buffer-pool-size-bytes (* 128 1024 1024)
+   :crux.datalog.storage/mmap-buffer-pool-size 128
+   :crux.datalog.storage/wal-suffix ".wal"
    :crux.datalog.hquad-tree/leaf-size (* 32 1024)
    :crux.datalog.hquad-tree/split-leaf-tuple-relation-factory da/new-arrow-struct-relation
    :wal-directory-factory new-local-directory-wal-directory-factory

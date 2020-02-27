@@ -96,3 +96,54 @@
                    (do (.add acc x)
                        (add-all xs-it)))))))
        acc))))
+
+(def ^:dynamic ^{:tag 'long} *merge-chunk-size* 128)
+
+(defn merge-sorted-chunked
+  ([xs ys]
+   (merge-sorted-chunked (Comparator/naturalOrder) xs ys))
+  ([^Comparator comp ^Iterable xs ^Iterable ys]
+   (cond
+     (empty? xs)
+     ys
+
+     (empty? ys)
+     xs
+
+     :else
+     (let [xs-it (.iterator xs)
+           ys-it (.iterator ys)]
+       ((fn step [x y ^List acc]
+          (if (= (.size acc) *merge-chunk-size*)
+            (concat acc (lazy-seq (step x y (ArrayList.))))
+            (let [diff (.compare comp x y)]
+              (cond
+                (zero? diff)
+                (do (.add acc x)
+                    (cond
+                      (and (.hasNext xs-it)
+                           (.hasNext ys-it))
+                      (recur (.next xs-it) (.next ys-it) acc)
+
+                      (.hasNext xs-it)
+                      (concat acc (iterator-seq xs-it))
+
+                      (.hasNext ys-it)
+                      (concat acc (iterator-seq ys-it))))
+
+                (neg? diff)
+                (do (.add acc x)
+                    (if (.hasNext xs-it)
+                      (recur (.next xs-it) y acc)
+                      (do (.add acc y)
+                          (concat acc (iterator-seq ys-it)))))
+
+                (pos? diff)
+                (do (.add acc y)
+                    (if (.hasNext ys-it)
+                      (recur x (.next ys-it) acc)
+                      (do (.add acc x)
+                          (concat acc (iterator-seq xs-it)))))))))
+        (.next xs-it)
+        (.next ys-it)
+        (ArrayList.))))))

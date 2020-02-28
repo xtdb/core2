@@ -98,6 +98,126 @@
 (defn propagate-max-h-mask ^long [^long h ^long max ^long max-mask]
   (bit-or (bit-xor h max) max-mask))
 
+;; Should double check example and algorithm 6.5.2 in Lawder on page 127.
+;; http://www.dcs.bbk.ac.uk/~jkl/thesis.pdf
+
+(def ^:private dimension-masks
+  (long-array (cons 0
+                    (for [n (range 1 Long/SIZE)]
+                      (reduce
+                       (fn [^long acc ^long b]
+                         (bit-or acc (bit-shift-left 1 b)))
+                       0
+                       (range 0 Long/SIZE n))))))
+
+(defn ^"[J" z-get-next-address [^long start ^long end ^long dim]
+  (let [first-differing-bit (Long/numberOfLeadingZeros (bit-xor start end))
+        split-dimension (rem first-differing-bit dim)
+        dimension-inherit-mask (Long/rotateLeft (aget ^longs dimension-masks dim) split-dimension)
+
+        common-most-significant-bits-mask (bit-shift-left -1 (- Long/SIZE first-differing-bit))
+        all-common-bits-mask (bit-or dimension-inherit-mask common-most-significant-bits-mask)
+
+        ;; 1000 -> 1000000
+        next-dimension-above (bit-shift-left 1 (dec (- Long/SIZE first-differing-bit)))
+        bigmin (bit-or (bit-and all-common-bits-mask start) next-dimension-above)
+
+        ;; 0111 -> 0010101
+        next-dimension-below (bit-and (dec next-dimension-above)
+                                      (bit-not dimension-inherit-mask))
+        litmax (bit-or (bit-and all-common-bits-mask end) next-dimension-below)]
+    (doto (long-array 2)
+      (aset 0 litmax)
+      (aset 1 bigmin))))
+
+(defn z-range-search ^"[J" [^long start ^long end ^long z ^long dim]
+  (loop [start start
+         end end]
+    (cond
+      (neg? (Long/compareUnsigned end z))
+      (doto (long-array 2)
+        (aset 0 end)
+        (aset 1 0))
+
+      (neg? (Long/compareUnsigned z start))
+      (doto (long-array 2)
+        (aset 0 0)
+        (aset 1 start))
+
+      :else
+      (let [litmax+bigmin (z-get-next-address start end dim)
+            litmax (aget litmax+bigmin 0)
+            bigmin (aget litmax+bigmin 1)]
+        (cond
+          (neg? (Long/compareUnsigned bigmin z))
+          (recur bigmin end)
+
+          (neg? (Long/compareUnsigned z litmax))
+          (recur start litmax)
+
+          :else
+          (doto (long-array 2)
+            (aset 0 litmax)
+            (aset 1 bigmin)))))))
+
+(defn z-get-next-address-arrays [^"[J" start ^"[J" end ^long dim]
+  (let [n (Arrays/mismatch start end)]
+    (if (= -1 n)
+      [start end]
+      (let [length (min (alength start) (alength end))
+            bigmin (Arrays/copyOf start length)
+            litmax (Arrays/copyOf end length)
+            start-n (aget start n)
+            end-n (aget end n)]
+        (let [first-differing-bit (Long/numberOfLeadingZeros (bit-xor start-n end-n))
+              split-dimension (rem first-differing-bit dim)
+              dimension-inherit-mask (Long/rotateLeft (aget ^longs dimension-masks dim) split-dimension)
+
+              common-most-significant-bits-mask (bit-shift-left -1 (- Long/SIZE first-differing-bit))
+              all-common-bits-mask (bit-or dimension-inherit-mask common-most-significant-bits-mask)
+
+              ;; 1000 -> 1000000
+              next-dimension-above (bit-shift-left 1 (dec (- Long/SIZE first-differing-bit)))
+              _ (doto bigmin
+                  (aset n (bit-or (bit-and all-common-bits-mask start-n) next-dimension-above)))
+
+              ;; 0111 -> 0010101
+              other-dimensions-mask (bit-not dimension-inherit-mask)
+              next-dimension-below (bit-and (dec next-dimension-above) other-dimensions-mask)
+              _ (doto litmax
+                  (aset n (bit-or (bit-and all-common-bits-mask end-n) next-dimension-below)))]
+          (loop [n (inc n)]
+            (if (= n length)
+              [litmax bigmin]
+              (do (doto bigmin
+                    (aset n (bit-or dimension-inherit-mask (aget start n))))
+                  (doto litmax
+                    (aset n (bit-or (bit-and dimension-inherit-mask (aget end n))
+                                    other-dimensions-mask)))
+                  (recur (inc n))))))))))
+
+(defn z-range-search-arrays [^"[J" start ^"[J" end ^"[J" z ^long dim]
+  (loop [start start
+         end end]
+    (cond
+      (neg? (Arrays/compareUnsigned end z))
+      [end 0]
+
+      (neg? (Arrays/compareUnsigned z start))
+      [0 start]
+
+      :else
+      (let [[^"[J" litmax ^"[J" bigmin] (z-get-next-address start end dim)]
+        (cond
+          (neg? (Arrays/compareUnsigned bigmin z))
+          (recur bigmin end)
+
+          (neg? (Arrays/compareUnsigned z litmax))
+          (recur start litmax)
+
+          :else
+          [litmax bigmin])))))
+
 ;; Interleave alternatives:
 ;; LUT: https://github.com/kevinhartman/morton-nd
 ;; Magic bits: https://github.com/LLNL/rubik/blob/master/rubik/zorder.py

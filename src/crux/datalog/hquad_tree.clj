@@ -14,7 +14,7 @@
 (def ^:private ^{:tag 'long} root-level -1)
 (def ^:private ^{:tag 'long} initial-nodes-capacity 128)
 
-(declare insert-tuple insert-into-node walk-tree init-hyper-quads new-leaf)
+(declare insert-tuple insert-into-node walk-tree init-hyper-quads new-leaf var-bindings->z-range)
 
 (defn- leaf-idx? [^long idx]
   (neg? idx))
@@ -43,46 +43,70 @@
     (compare [_ x y]
       (.compare cbk/unsigned-bytes-comparator (tuple->z-address x) (tuple->z-address y)))))
 
+(deftype ZRelation [sorted-set]
+  d/Relation
+  (table-scan [this db]
+    (d/table-scan sorted-set db))
+  (table-filter [this db var-bindings]
+    (let [[min-tuple max-tuple] (var-bindings->z-range var-bindings identity)]
+      (d/table-filter (subseq sorted-set >= min-tuple <= max-tuple) db var-bindings)))
+  (insert [this value]
+    (set! (.-sorted-set this) (d/insert sorted-set value))
+    this)
+  (delete [this value]
+    (set! (.-sorted-set this) (d/delete sorted-set value))
+    this)
+  (truncate [this]
+    (set! (.-sorted-set this) (d/truncate sorted-set))
+    this)
+  (cardinality [this]
+    (d/cardinality sorted-set))
+  (relation-name [this]
+    (d/relation-name sorted-set)))
+
 (defn new-z-sorted-set-relation [relation-name]
-  (d/new-sorted-set-relation z-comparator relation-name))
+  (->ZRelation (d/new-sorted-set-relation z-comparator relation-name)))
 
 (def ^:dynamic *default-options* {::leaf-size (* 128 1024)
                                   ::leaf-tuple-relation-factory new-z-sorted-set-relation
                                   ::post-process-children-after-split nil
                                   ::split-leaf-tuple-relation-factory nil})
 
-(defn- var-bindings->z-range [var-bindings]
-  (let [min+max (for [var-binding var-bindings]
-                  (if (dp/logic-var? var-binding)
-                    (if-let [constraints (:constraints (meta var-binding))]
-                      (let [[min-z max-z] (reduce
-                                           (fn [[min-z max-z] [op value]]
-                                             [(case op
-                                                (>= >) (if min-z
-                                                         (let [diff (compare value min-z)]
-                                                           (if (pos? diff)
-                                                             value
-                                                             min-z))
-                                                         value)
-                                                = value
-                                                min-z)
-                                              (case op
-                                                (<= <) (if max-z
-                                                         (let [diff (compare value max-z)]
-                                                           (if (pos? diff)
-                                                             max-z
-                                                             value))
-                                                         value)
-                                                = value
-                                                max-z)])
-                                           [nil nil]
-                                           constraints)]
-                        [(or min-z z-wildcard-min-bytes)
-                         (or max-z z-wildcard-max-bytes)])
-                      [z-wildcard-min-bytes z-wildcard-max-bytes])
-                    [var-binding var-binding]))]
-    [(tuple->z-address-long (mapv first min+max))
-     (tuple->z-address-long (mapv second min+max))]))
+(defn- var-bindings->z-range
+  ([var-bindings]
+   (var-bindings->z-range var-bindings tuple->z-address-long))
+  ([var-bindings z-fn]
+   (let [min+max (for [var-binding var-bindings]
+                   (if (dp/logic-var? var-binding)
+                     (if-let [constraints (:constraints (meta var-binding))]
+                       (let [[min-z max-z] (reduce
+                                            (fn [[min-z max-z] [op value]]
+                                              [(case op
+                                                 (>= >) (if min-z
+                                                          (let [diff (compare value min-z)]
+                                                            (if (pos? diff)
+                                                              value
+                                                              min-z))
+                                                          value)
+                                                 = value
+                                                 min-z)
+                                               (case op
+                                                 (<= <) (if max-z
+                                                          (let [diff (compare value max-z)]
+                                                            (if (pos? diff)
+                                                              max-z
+                                                              value))
+                                                          value)
+                                                 = value
+                                                 max-z)])
+                                            [nil nil]
+                                            constraints)]
+                         [(or min-z z-wildcard-min-bytes)
+                          (or max-z z-wildcard-max-bytes)])
+                       [z-wildcard-min-bytes z-wildcard-max-bytes])
+                     [var-binding var-binding]))]
+     [(z-fn (mapv first min+max))
+      (z-fn (mapv second min+max))])))
 
 (definterface INodesAccessor
   (^ints getNodes [])

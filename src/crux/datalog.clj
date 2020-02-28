@@ -16,6 +16,7 @@
 (s/check-asserts true)
 
 (defprotocol Relation
+  :extend-via-metadata true
   (table-scan [this db])
   (table-filter [this db var-bindings])
   (insert [this value])

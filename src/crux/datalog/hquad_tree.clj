@@ -43,29 +43,13 @@
     (compare [_ x y]
       (.compare cbk/unsigned-bytes-comparator (tuple->z-address x) (tuple->z-address y)))))
 
-(deftype ZRelation [sorted-set]
-  d/Relation
-  (table-scan [this db]
-    (d/table-scan sorted-set db))
-  (table-filter [this db var-bindings]
-    (let [[min-tuple max-tuple] (var-bindings->z-range var-bindings identity)]
-      (d/table-filter (subseq sorted-set >= min-tuple <= max-tuple) db var-bindings)))
-  (insert [this value]
-    (set! (.-sorted-set this) (d/insert sorted-set value))
-    this)
-  (delete [this value]
-    (set! (.-sorted-set this) (d/delete sorted-set value))
-    this)
-  (truncate [this]
-    (set! (.-sorted-set this) (d/truncate sorted-set))
-    this)
-  (cardinality [this]
-    (d/cardinality sorted-set))
-  (relation-name [this]
-    (d/relation-name sorted-set)))
-
 (defn new-z-sorted-set-relation [relation-name]
-  (->ZRelation (d/new-sorted-set-relation z-comparator relation-name)))
+  (vary-meta (d/new-sorted-set-relation z-comparator relation-name)
+             assoc
+             'crux.datalog/table-filter
+             (fn [this db var-bindings]
+               (let [[min-tuple max-tuple] (var-bindings->z-range var-bindings identity)]
+                 (d/table-filter (subseq this >= min-tuple <= max-tuple) db var-bindings)))))
 
 (def ^:dynamic *default-options* {::leaf-size (* 128 1024)
                                   ::leaf-tuple-relation-factory new-z-sorted-set-relation

@@ -101,7 +101,7 @@
 ;; Should double check example and algorithm 6.5.2 in Lawder on page 127.
 ;; http://www.dcs.bbk.ac.uk/~jkl/thesis.pdf
 
-(def ^:private dimension-masks
+(def ^:private ^{:tag 'longs} dimension-masks
   (long-array (cons 0
                     (for [n (range 1 Long/SIZE)]
                       (reduce
@@ -113,7 +113,7 @@
 (defn ^"[J" z-get-next-address [^long start ^long end ^long dim]
   (let [first-differing-bit (Long/numberOfLeadingZeros (bit-xor start end))
         split-dimension (rem first-differing-bit dim)
-        dimension-inherit-mask (Long/rotateLeft (aget ^longs dimension-masks dim) split-dimension)
+        dimension-inherit-mask (Long/rotateLeft (aget dimension-masks dim) split-dimension)
 
         common-most-significant-bits-mask (bit-shift-left -1 (- Long/SIZE first-differing-bit))
         all-common-bits-mask (bit-or dimension-inherit-mask common-most-significant-bits-mask)
@@ -171,7 +171,7 @@
             end-n (aget end n)]
         (let [first-differing-bit (Long/numberOfLeadingZeros (bit-xor start-n end-n))
               split-dimension (rem first-differing-bit dim)
-              dimension-inherit-mask (Long/rotateLeft (aget ^longs dimension-masks dim) split-dimension)
+              dimension-inherit-mask (Long/rotateLeft (aget dimension-masks dim) split-dimension)
 
               common-most-significant-bits-mask (bit-shift-left -1 (- Long/SIZE first-differing-bit))
               all-common-bits-mask (bit-or dimension-inherit-mask common-most-significant-bits-mask)

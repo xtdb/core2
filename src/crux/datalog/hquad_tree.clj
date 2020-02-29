@@ -32,10 +32,10 @@
 (def ^:private z-wildcard-min-bytes (byte-array Long/BYTES (byte 0)))
 (def ^:private z-wildcard-max-bytes (byte-array Long/BYTES (byte -1)))
 
-(defn- tuple->z-address ^bytes [value]
+(defn tuple->z-address ^bytes [value]
   (cz/bit-interleave (mapv cbk/->byte-key value)))
 
-(defn- tuple->z-address-long ^long [value]
+(defn tuple->z-address-long ^long [value]
   (.getLong (ByteBuffer/wrap (tuple->z-address value))))
 
 (def ^Comparator z-comparator

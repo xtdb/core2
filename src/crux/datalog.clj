@@ -309,7 +309,7 @@
             = `(zero? ~diff-sym)
             != `(not (zero? ~diff-sym)))))))
 
-(defn- constraint->java-predicate [op arg-sym value]
+(defn constraint->java-predicate [op arg-sym value]
   (case (maybe-primitive-tag value)
     long `(reify LongPredicate
             (test [_ ~arg-sym]

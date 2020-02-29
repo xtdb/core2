@@ -190,9 +190,9 @@
             (if (= n length)
               [litmax bigmin]
               (do (doto bigmin
-                    (aset n (bit-or dimension-inherit-mask (aget start n))))
+                    (aset n (bit-or dimension-inherit-mask start-n)))
                   (doto litmax
-                    (aset n (bit-or (bit-and dimension-inherit-mask (aget end n))
+                    (aset n (bit-or (bit-and dimension-inherit-mask end-n)
                                     other-dimensions-mask)))
                   (recur (inc n))))))))))
 
@@ -201,13 +201,13 @@
          end end]
     (cond
       (neg? (Arrays/compareUnsigned end z))
-      [end 0]
+      [end nil]
 
       (neg? (Arrays/compareUnsigned z start))
-      [0 start]
+      [nil start]
 
       :else
-      (let [[^"[J" litmax ^"[J" bigmin] (z-get-next-address start end dim)]
+      (let [[^"[J" litmax ^"[J" bigmin] (z-get-next-address-arrays start end dim)]
         (cond
           (neg? (Arrays/compareUnsigned bigmin z))
           (recur bigmin end)

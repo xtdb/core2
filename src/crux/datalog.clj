@@ -497,6 +497,28 @@
 
   (relation-name [this])
 
+  IPersistentMap
+  (table-scan [this db]
+    (table-scan (vals this) db))
+
+  (table-filter [this db var-bindings]
+    (table-filter (vals this) db var-bindings))
+
+  (insert [this tuple]
+    (assoc this tuple tuple))
+
+  (delete [this tuple]
+    (dissoc this tuple))
+
+  (truncate [this]
+    (empty this))
+
+  (cardinality [this]
+    (count this))
+
+  (relation-name [this]
+    (:name (meta this)))
+
   IPersistentCollection
   (table-scan [this db]
     (seq this))
@@ -526,6 +548,12 @@
 
   (relation-name [this]
     (:name (meta this))))
+
+(defn new-sorted-map-relation
+  ([relation-name]
+   (with-meta (sorted-map) {:name relation-name}))
+  ([comparator relation-name]
+   (with-meta (sorted-map-by comparator) {:name relation-name})))
 
 (defn new-sorted-set-relation
   ([relation-name]

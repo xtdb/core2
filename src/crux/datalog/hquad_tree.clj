@@ -51,6 +51,22 @@
                (let [[min-tuple max-tuple] (var-bindings->z-range var-bindings identity)]
                  (d/table-filter (subseq this >= min-tuple <= max-tuple) db var-bindings)))))
 
+(defn new-z-sorted-map-relation [relation-name]
+  (vary-meta (d/new-sorted-map-relation cbk/unsigned-bytes-comparator relation-name)
+             assoc
+             'crux.datalog/insert
+             (fn [this tuple]
+               (assoc this (tuple->z-address tuple) tuple))
+             'crux.datalog/delete
+             (fn [this tuple]
+               (dissoc this (tuple->z-address tuple)))
+             'crux.datalog/table-filter
+             (fn [this db var-bindings]
+               (let [[min-tuple max-tuple] (var-bindings->z-range var-bindings tuple->z-address)]
+                 (-> (subseq this >= min-tuple <= max-tuple)
+                     (vals)
+                     (d/table-filter db var-bindings))))))
+
 (def ^:dynamic *default-options* {::leaf-size (* 128 1024)
                                   ::leaf-tuple-relation-factory new-z-sorted-set-relation
                                   ::post-process-children-after-split nil

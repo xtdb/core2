@@ -47,9 +47,11 @@
                (dissoc this (tuple->z-address tuple)))
              'crux.datalog/table-filter
              (fn [this db var-bindings]
-               (let [[^bytes min-z ^bytes max-z :as z-range] (var-bindings->z-range var-bindings)]
-                 (-> (subseq this >= min-z <= max-z)
-                     (vals)
+               (let [[^bytes min-z ^bytes max-z :as z-range] (var-bindings->z-range var-bindings)
+                     dims (count var-bindings)]
+                 (-> (for [[k v] (subseq this >= min-z <= max-z)
+                           :when (cz/in-z-range? min-z max-z k dims)]
+                       v)
                      (d/table-filter db var-bindings))))))
 
 (def ^:dynamic *default-options* {::leaf-size (* 128 1024)

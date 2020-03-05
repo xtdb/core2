@@ -106,6 +106,31 @@
 (defn propagate-max-h-mask ^long [^long h ^long max ^long max-mask]
   (bit-or (bit-xor h max) max-mask))
 
+;; TODO: This should be able to tell us the next valid z address
+;; prefix using successor-h at the diffing level.
+(defn in-z-range? [^bytes min-z ^bytes max-z ^bytes z ^long dims]
+  (if (or (zero? dims)
+          (and (Arrays/equals min-z max-z)
+               (Arrays/equals max-z z)))
+    true
+    (let [hyper-quads (dims->hyper-quads dims)
+          h-mask (dec hyper-quads)
+          max-level (quot (* Byte/SIZE (min (alength min-z) (alength max-z) (alength z))) dims)]
+      (loop [level 0
+             min-h-mask h-mask
+             max-h-mask 0]
+        (let [h (decode-h-at-level z dims level)
+              min-h (bit-and (decode-h-at-level min-z dims level) min-h-mask)
+              max-h (bit-or (decode-h-at-level max-z dims level) max-h-mask)]
+          (if (in-h-range? min-h max-h h)
+            (if (or (and (zero? min-h) (= h-mask max-h))
+                    (= max-level level))
+              true
+              (recur (inc level)
+                     (propagate-min-h-mask h min-h min-h-mask)
+                     (propagate-max-h-mask h max-h max-h-mask)))
+            false))))))
+
 ;; Should double check example and algorithm 6.5.2 in Lawder on page 127.
 ;; http://www.dcs.bbk.ac.uk/~jkl/thesis.pdf
 

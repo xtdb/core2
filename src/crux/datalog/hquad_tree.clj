@@ -36,19 +36,6 @@
 (defn tuple->z-address ^bytes [value]
   (cz/bit-interleave (mapv cbk/->byte-key value)))
 
-(def ^Comparator z-comparator
-  (reify Comparator
-    (compare [_ x y]
-      (.compare cbk/unsigned-bytes-comparator (tuple->z-address x) (tuple->z-address y)))))
-
-(defn new-z-sorted-set-relation [relation-name]
-  (vary-meta (d/new-sorted-set-relation z-comparator relation-name)
-             assoc
-             'crux.datalog/table-filter
-             (fn [this db var-bindings]
-               (let [[min-tuple max-tuple] (var-bindings->z-range var-bindings identity)]
-                 (d/table-filter (subseq this >= min-tuple <= max-tuple) db var-bindings)))))
-
 (defn new-z-sorted-map-relation [relation-name]
   (vary-meta (d/new-sorted-map-relation cbk/unsigned-bytes-comparator relation-name)
              assoc

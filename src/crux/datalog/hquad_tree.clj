@@ -28,15 +28,13 @@
 (defn- encode-leaf-idx ^long [^long idx]
   (- (inc idx)))
 
-(def ^:private z-wildcard-range [0 -1])
 (def ^:private z-wildcard-min-bytes (byte-array Long/BYTES (byte 0)))
 (def ^:private z-wildcard-max-bytes (byte-array Long/BYTES (byte -1)))
+(def ^:private z-wildcard-range [z-wildcard-min-bytes
+                                 z-wildcard-max-bytes])
 
 (defn tuple->z-address ^bytes [value]
   (cz/bit-interleave (mapv cbk/->byte-key value)))
-
-(defn tuple->z-address-long ^long [value]
-  (.getLong (ByteBuffer/wrap (tuple->z-address value))))
 
 (def ^Comparator z-comparator
   (reify Comparator
@@ -74,7 +72,7 @@
 
 (defn- var-bindings->z-range
   ([var-bindings]
-   (var-bindings->z-range var-bindings tuple->z-address-long))
+   (var-bindings->z-range var-bindings tuple->z-address))
   ([var-bindings z-fn]
    (let [min+max (for [var-binding var-bindings]
                    (if (dp/logic-var? var-binding)
@@ -201,7 +199,7 @@
   (^crux.datalog.hquad_tree.HyperQuadTree [opts relation-name]
    (->HyperQuadTree (int-array initial-nodes-capacity) 0 -1 -1 (ArrayList.) relation-name (merge *default-options* opts))))
 
-(defn- walk-tree [^HyperQuadTree tree leaf-fn [^long min-z ^long max-z :as z-range]]
+(defn- walk-tree [^HyperQuadTree tree leaf-fn [^bytes min-z ^bytes max-z :as z-range]]
   (let [node-vector (.getNodes tree)
         leaves ^List (.leaves tree)]
     (cond
@@ -347,7 +345,7 @@
             (Long/parseLong e)))]))
 
 (defn- insert-into-node [^HyperQuadTree tree path ^long parent-node-idx value]
-  (let [z-address (tuple->z-address-long value)
+  (let [z-address (tuple->z-address value)
         dims (cz/hyper-quads->dims (.getHyperQuads tree))
         node-vector (.getNodes tree)]
     (loop [parent-node-idx parent-node-idx

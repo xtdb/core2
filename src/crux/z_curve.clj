@@ -84,21 +84,21 @@
 
 (defn decode-h-at-level ^long [^bytes z-address ^long dims ^long level]
   (assert (<= dims Long/SIZE))
-  (let [start-bit (* dims level)
+  (let [h-mask (dec (dims->hyper-quads dims))
+        start-bit (* dims level)
         end-bit (dec (+ dims start-bit))
         start-byte (bit-shift-right start-bit 3)
         end-byte (bit-shift-right end-bit 3)
-        h-mask (dec (dims->hyper-quads dims))
         shift (dec (- Byte/SIZE (bit-and end-bit (dec Byte/SIZE))))]
-    (loop [idx end-byte
+    (loop [idx start-byte
            z 0]
       (let [z (bit-or (bit-shift-left z Byte/SIZE)
                       (if (< idx (alength z-address))
                         (aget z-address idx)
                         (byte 0)))]
-        (if (= idx start-byte)
+        (if (= idx end-byte)
           (bit-and (unsigned-bit-shift-right z shift) h-mask)
-          (recur (dec idx) z))))))
+          (recur (inc idx) z))))))
 
 (defn propagate-min-h-mask ^long [^long h ^long min ^long min-mask]
   (bit-and (bit-not (bit-xor h min)) min-mask))

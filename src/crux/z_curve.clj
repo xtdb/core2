@@ -76,14 +76,17 @@
     ;; remove invalid bits.
     (bit-or (bit-and next-h max) min)))
 
+(def ^:const ^{:tag 'long} max-dims Byte/SIZE)
+
 (defn dims->hyper-quads ^long [^long dims]
+  (assert (<= dims max-dims))
   (max (bit-shift-left 2 (dec dims)) 1))
 
 (defn hyper-quads->dims ^long [^long hyper-quads]
   (Long/numberOfTrailingZeros hyper-quads))
 
 (defn decode-h-at-level ^long [^bytes z-address ^long dims ^long level]
-  (assert (<= dims Long/SIZE))
+  (assert (<= dims max-dims))
   (let [h-mask (dec (dims->hyper-quads dims))
         start-bit (* dims level)
         end-bit (dec (+ dims start-bit))
@@ -99,6 +102,29 @@
         (if (= idx end-byte)
           (bit-and (unsigned-bit-shift-right z shift) h-mask)
           (recur (inc idx) z))))))
+
+(defn encode-h-at-level ^bytes [^bytes z-address ^long dims ^long level ^long h]
+  (assert (<= dims max-dims))
+  (let [h-mask (dec (dims->hyper-quads dims))
+        start-bit (* dims level)
+        end-bit (dec (+ dims start-bit))
+        start-byte (bit-shift-right start-bit 3)
+        end-byte (bit-shift-right end-bit 3)
+        shift (dec (- Byte/SIZE (bit-and end-bit (dec Byte/SIZE))))]
+    (aset z-address
+          start-byte
+          (unchecked-byte
+           (bit-or (bit-and (bit-shift-right (bit-not h-mask) shift)
+                            (aget z-address start-byte))
+                   (bit-shift-left h shift))))
+    (when-not (= start-byte end-byte)
+      (aset z-address
+            end-byte
+            (unchecked-byte
+             (bit-or (bit-and (bit-shift-left (bit-not h-mask) shift)
+                              (aget z-address end-byte))
+                     (bit-shift-right h shift)))))
+    z-address))
 
 (defn propagate-min-h-mask ^long [^long h ^long min ^long min-mask]
   (bit-and (bit-not (bit-xor h min)) min-mask))

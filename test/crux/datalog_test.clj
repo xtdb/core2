@@ -799,7 +799,7 @@ perm(c, b).
       (binding [d/*tuple-relation-factory* factory]
         (if (= factory #'dhq/new-hyper-quad-tree-relation)
           (doseq [leaf-tuple-factory [#'da/new-arrow-struct-relation
-                                      #'dhq/new-z-sorted-set-relation]]
+                                      #'dhq/new-z-sorted-map-relation]]
             (t/testing (:name (meta leaf-tuple-factory))
               (binding [dhq/*default-options* {:crux.datalog.hquad-tree/leaf-tuple-relation-factory leaf-tuple-factory
                                                :crux.datalog.hquad-tree/leaf-size 4}

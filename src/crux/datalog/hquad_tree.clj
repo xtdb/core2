@@ -66,7 +66,7 @@
                      (d/table-filter db var-bindings))))))
 
 (def ^:dynamic *default-options* {::leaf-size (* 128 1024)
-                                  ::leaf-tuple-relation-factory new-z-sorted-set-relation
+                                  ::leaf-tuple-relation-factory new-z-sorted-map-relation
                                   ::post-process-children-after-split nil
                                   ::split-leaf-tuple-relation-factory nil})
 

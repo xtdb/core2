@@ -130,7 +130,7 @@
   (assert (or root-dir tuple-wal-local-directory))
   (dw/new-local-directory-wal-directory (or tuple-wal-local-directory (io/file root-dir "tuple-wals"))
                                         dw/new-edn-file-wal
-                                        dhq/new-z-sorted-set-relation
+                                        dhq/new-z-sorted-map-relation
                                         wal-suffix))
 
 (defn new-local-directory-rule-wal-directory-factory [{:crux.datalog.storage/keys [root-dir

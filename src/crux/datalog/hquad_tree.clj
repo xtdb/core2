@@ -60,7 +60,7 @@
                (dissoc this (tuple->z-address tuple)))
              'crux.datalog/table-filter
              (fn [this db var-bindings]
-               (let [[min-tuple max-tuple] (var-bindings->z-range var-bindings tuple->z-address)]
+               (let [[min-tuple max-tuple] (var-bindings->z-range var-bindings)]
                  (-> (subseq this >= min-tuple <= max-tuple)
                      (vals)
                      (d/table-filter db var-bindings))))))

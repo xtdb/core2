@@ -1,6 +1,7 @@
 (ns crux.z-curve
   (:require [clojure.string :as str])
-  (:import java.util.Arrays))
+  (:import java.nio.ByteBuffer
+           java.util.Arrays))
 
 (set! *unchecked-math* :warn-on-boxed)
 
@@ -276,6 +277,66 @@
 
           :else
           [litmax bigmin])))))
+
+(defn z-get-next-address-byte-arrays [^bytes start ^bytes end ^long dim]
+  (let [n (Arrays/mismatch start end)]
+    (if (= -1 n)
+      [start end]
+      (let [length (min (alength start) (alength end))
+            bigmin (ByteBuffer/wrap (Arrays/copyOf start length))
+            litmax (ByteBuffer/wrap (Arrays/copyOf end length))
+            start-n (.getLong bigmin n)
+            end-n (.getLong litmax n)]
+        (let [first-differing-bit (Long/numberOfLeadingZeros (bit-xor start-n end-n))
+              split-dimension (rem first-differing-bit dim)
+              dimension-inherit-mask (Long/rotateLeft (aget dimension-masks dim) split-dimension)
+
+              common-most-significant-bits-mask (bit-shift-left -1 (- Long/SIZE first-differing-bit))
+              all-common-bits-mask (bit-or dimension-inherit-mask common-most-significant-bits-mask)
+
+              ;; 1000 -> 1000000
+              next-dimension-above (bit-shift-left 1 (dec (- Long/SIZE first-differing-bit)))
+              _ (doto bigmin
+                  (.putLong n (bit-or (bit-and all-common-bits-mask start-n) next-dimension-above)))
+
+              ;; 0111 -> 0010101
+              other-dimensions-mask (bit-not dimension-inherit-mask)
+              next-dimension-below (bit-and (dec next-dimension-above) other-dimensions-mask)
+              _ (doto litmax
+                  (.putLong n (bit-or (bit-and all-common-bits-mask end-n) next-dimension-below)))]
+          (loop [n (inc n)]
+            (if (= n length)
+              [(.array litmax)
+               (.array bigmin)]
+              (do (doto bigmin
+                    (.putLong n (bit-or dimension-inherit-mask start-n)))
+                  (doto litmax
+                    (.putLong n (bit-or (bit-and dimension-inherit-mask end-n)
+                                    other-dimensions-mask)))
+                  (recur (inc n))))))))))
+
+(defn z-range-search-byte-arrays [^bytes start ^bytes end ^bytes z ^long dim]
+  (loop [start start
+         end end]
+    (cond
+      (neg? (Arrays/compareUnsigned end z))
+      [end nil]
+
+      (neg? (Arrays/compareUnsigned z start))
+      [nil start]
+
+      :else
+      (let [[^bytes litmax ^bytes bigmin] (z-get-next-address-byte-arrays start end dim)]
+        (cond
+          (neg? (Arrays/compareUnsigned bigmin z))
+          (recur bigmin end)
+
+          (neg? (Arrays/compareUnsigned z litmax))
+          (recur start litmax)
+
+          :else
+          [litmax bigmin])))))
+
 
 ;; Interleave alternatives:
 ;; LUT: https://github.com/kevinhartman/morton-nd

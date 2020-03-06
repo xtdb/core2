@@ -313,7 +313,7 @@
                     (.putLong n (bit-or dimension-inherit-mask start-n)))
                   (doto litmax
                     (.putLong n (bit-or (bit-and dimension-inherit-mask end-n)
-                                    other-dimensions-mask)))
+                                        other-dimensions-mask)))
                   (recur (+ n Long/BYTES))))))))))
 
 (defn z-range-search-byte-arrays [^bytes start ^bytes end ^bytes z ^long dims]

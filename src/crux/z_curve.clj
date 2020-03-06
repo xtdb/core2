@@ -170,7 +170,7 @@
                        0
                        (range 0 Long/SIZE n))))))
 
-(defn ^"[J" z-get-next-address [^long start ^long end ^long dims]
+(defn z-get-next-address [^long start ^long end ^long dims]
   (let [first-differing-bit (Long/numberOfLeadingZeros (bit-xor start end))
         split-dimension (rem first-differing-bit dims)
         dimension-inherit-mask (Long/rotateLeft (aget dimension-masks dims) split-dimension)
@@ -190,7 +190,7 @@
       (aset 0 litmax)
       (aset 1 bigmin))))
 
-(defn z-range-search ^"[J" [^long start ^long end ^long z ^long dims]
+(defn z-range-search [^long start ^long end ^long z ^long dims]
   (loop [start start
          end end]
     (cond
@@ -205,7 +205,7 @@
         (aset 1 start))
 
       :else
-      (let [litmax+bigmin (z-get-next-address start end dims)
+      (let [litmax+bigmin ^"[J" (z-get-next-address start end dims)
             litmax (aget litmax+bigmin 0)
             bigmin (aget litmax+bigmin 1)]
         (cond

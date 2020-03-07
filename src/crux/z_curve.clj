@@ -241,8 +241,8 @@
     (if (= -1 n)
       [start end]
       (let [length (alength start)
-            bigmin (ByteBuffer/wrap start)
-            litmax (ByteBuffer/wrap end)
+            bigmin (ByteBuffer/wrap (Arrays/copyOf start length))
+            litmax (ByteBuffer/wrap (Arrays/copyOf end length))
             start-n (get-partial-long bigmin n)
             end-n (get-partial-long litmax n)]
         (let [first-differing-bit (Long/numberOfLeadingZeros (bit-xor start-n end-n))
@@ -271,8 +271,8 @@
 
 (defn z-range-search-arrays [^bytes start ^bytes end ^bytes z ^long dims]
   (assert (= (alength start) (alength end)))
-  (loop [start (Arrays/copyOf start (alength start))
-         end (Arrays/copyOf end (alength end))]
+  (loop [start start
+         end end]
     (cond
       (neg? (Arrays/compareUnsigned end z))
       [end nil]

@@ -58,7 +58,7 @@
                      ;;          (if (cz/in-z-range? min-z max-z k dims)
                      ;;            (conj acc v)
                      ;;            (reduced
-                     ;;             (if-let [^bytes bigmin (second (cz/z-range-search-byte-arrays min-z max-z k dims))]
+                     ;;             (if-let [^bytes bigmin (second (cz/z-range-search-arrays min-z max-z k dims))]
                      ;;               (concat acc (step bigmin))
                      ;;               acc))))
                      ;;        []

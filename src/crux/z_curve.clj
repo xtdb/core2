@@ -220,15 +220,31 @@
             (aset 0 litmax)
             (aset 1 bigmin)))))))
 
-(defn z-get-next-address-arrays [^"[J" start ^"[J" end ^long dims]
+(defn get-partial-long ^long [^ByteBuffer b ^long idx]
+  (let [remaining (- (.capacity b) idx)]
+    (if (>= remaining Long/BYTES)
+      (.getLong b idx)
+      (let [ba (byte-array Long/BYTES)]
+        (.get b ba idx remaining)
+        (.getLong (ByteBuffer/wrap ba))))))
+
+(defn put-partial-long ^java.nio.ByteBuffer [^ByteBuffer b ^long idx ^long l]
+  (let [remaining (- (.capacity b) idx)]
+    (if (>= remaining Long/BYTES)
+      (.putLong b idx l)
+      (let [ba (byte-array Long/BYTES)]
+        (.putLong (ByteBuffer/wrap ba) 0 l)
+        (.put b ba idx remaining)))))
+
+(defn z-get-next-address-arrays [^bytes start ^bytes end ^long dims]
   (let [n (Arrays/mismatch start end)]
     (if (= -1 n)
       [start end]
-      (let [length (min (alength start) (alength end))
-            bigmin (Arrays/copyOf start length)
-            litmax (Arrays/copyOf end length)
-            start-n (aget start n)
-            end-n (aget end n)]
+      (let [length (alength start)
+            bigmin (ByteBuffer/wrap start)
+            litmax (ByteBuffer/wrap end)
+            start-n (get-partial-long bigmin n)
+            end-n (get-partial-long litmax n)]
         (let [first-differing-bit (Long/numberOfLeadingZeros (bit-xor start-n end-n))
               split-dimension (rem first-differing-bit dims)
               dimension-inherit-mask (Long/rotateLeft (aget dimension-masks dims) split-dimension)
@@ -238,87 +254,25 @@
 
               ;; 1000 -> 1000000
               next-dimension-above (bit-shift-left 1 (dec (- Long/SIZE first-differing-bit)))
-              _ (doto bigmin
-                  (aset n (bit-or (bit-and all-common-bits-mask start-n) next-dimension-above)))
+              _ (put-partial-long bigmin n (bit-or (bit-and all-common-bits-mask start-n) next-dimension-above))
 
               ;; 0111 -> 0010101
               other-dimensions-mask (bit-not dimension-inherit-mask)
               next-dimension-below (bit-and (dec next-dimension-above) other-dimensions-mask)
-              _ (doto litmax
-                  (aset n (bit-or (bit-and all-common-bits-mask end-n) next-dimension-below)))]
-          (loop [n (inc n)]
-            (if (= n length)
-              [litmax bigmin]
-              (do (doto bigmin
-                    (aset n (bit-or dimension-inherit-mask start-n)))
-                  (doto litmax
-                    (aset n (bit-or (bit-and dimension-inherit-mask end-n)
-                                    other-dimensions-mask)))
-                  (recur (inc n))))))))))
-
-(defn z-range-search-arrays [^"[J" start ^"[J" end ^"[J" z ^long dims]
-  (loop [start start
-         end end]
-    (cond
-      (neg? (Arrays/compareUnsigned end z))
-      [end nil]
-
-      (neg? (Arrays/compareUnsigned z start))
-      [nil start]
-
-      :else
-      (let [[^"[J" litmax ^"[J" bigmin] (z-get-next-address-arrays start end dims)]
-        (cond
-          (neg? (Arrays/compareUnsigned bigmin z))
-          (recur bigmin end)
-
-          (neg? (Arrays/compareUnsigned z litmax))
-          (recur start litmax)
-
-          :else
-          [litmax bigmin])))))
-
-(defn z-get-next-address-byte-arrays [^bytes start ^bytes end ^long dims]
-  (let [n (Arrays/mismatch start end)]
-    (if (= -1 n)
-      [start end]
-      (let [real-length (min (alength start) (alength end))
-            length (max real-length (+ n Long/BYTES))
-            bigmin (ByteBuffer/wrap (Arrays/copyOf start length))
-            litmax (ByteBuffer/wrap (Arrays/copyOf end length))
-            start-n (.getLong bigmin n)
-            end-n (.getLong litmax n)]
-        (let [first-differing-bit (Long/numberOfLeadingZeros (bit-xor start-n end-n))
-              split-dimension (rem first-differing-bit dims)
-              dimension-inherit-mask (Long/rotateLeft (aget dimension-masks dims) split-dimension)
-
-              common-most-significant-bits-mask (bit-shift-left -1 (- Long/SIZE first-differing-bit))
-              all-common-bits-mask (bit-or dimension-inherit-mask common-most-significant-bits-mask)
-
-              ;; 1000 -> 1000000
-              next-dimension-above (bit-shift-left 1 (dec (- Long/SIZE first-differing-bit)))
-              _ (doto bigmin
-                  (.putLong n (bit-or (bit-and all-common-bits-mask start-n) next-dimension-above)))
-
-              ;; 0111 -> 0010101
-              other-dimensions-mask (bit-not dimension-inherit-mask)
-              next-dimension-below (bit-and (dec next-dimension-above) other-dimensions-mask)
-              _ (doto litmax
-                  (.putLong n (bit-or (bit-and all-common-bits-mask end-n) next-dimension-below)))]
+              _ (put-partial-long litmax n (bit-or (bit-and all-common-bits-mask end-n) next-dimension-below))]
           (loop [n (+ n Long/BYTES)]
-            (if (> (+ n Long/BYTES) length)
-              [(Arrays/copyOf (.array litmax) real-length)
-               (Arrays/copyOf (.array bigmin) real-length)]
-              (do (doto bigmin
-                    (.putLong n (bit-or dimension-inherit-mask start-n)))
-                  (doto litmax
-                    (.putLong n (bit-or (bit-and dimension-inherit-mask end-n)
-                                        other-dimensions-mask)))
+            (if (> n length)
+              [(.array litmax)
+               (.array bigmin)]
+              (do (put-partial-long bigmin n (bit-or dimension-inherit-mask start-n))
+                  (put-partial-long litmax n (bit-or (bit-and dimension-inherit-mask end-n)
+                                                     other-dimensions-mask))
                   (recur (+ n Long/BYTES))))))))))
 
-(defn z-range-search-byte-arrays [^bytes start ^bytes end ^bytes z ^long dims]
-  (loop [start start
-         end end]
+(defn z-range-search-arrays [^bytes start ^bytes end ^bytes z ^long dims]
+  (assert (= (alength start) (alength end)))
+  (loop [start (Arrays/copyOf start (alength start))
+         end (Arrays/copyOf end (alength end))]
     (cond
       (neg? (Arrays/compareUnsigned end z))
       [end nil]
@@ -327,7 +281,7 @@
       [nil start]
 
       :else
-      (let [[^bytes litmax ^bytes bigmin] (z-get-next-address-byte-arrays start end dims)]
+      (let [[^bytes litmax ^bytes bigmin] (z-get-next-address-arrays start end dims)]
         (cond
           (neg? (Arrays/compareUnsigned bigmin z))
           (recur bigmin end)

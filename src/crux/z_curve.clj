@@ -225,8 +225,8 @@
     (if (>= remaining Long/BYTES)
       (.getLong b idx)
       (let [ba (byte-array Long/BYTES)]
-        (.get b ba idx remaining)
-        (.getLong (ByteBuffer/wrap ba))))))
+        (-> b (.position idx) (.get ba 0 remaining) (.rewind))
+        (.getLong (ByteBuffer/wrap ba) 0)))))
 
 (defn put-partial-long ^java.nio.ByteBuffer [^ByteBuffer b ^long idx ^long l]
   (let [remaining (- (.capacity b) idx)]
@@ -234,7 +234,7 @@
       (.putLong b idx l)
       (let [ba (byte-array Long/BYTES)]
         (.putLong (ByteBuffer/wrap ba) 0 l)
-        (.put b ba idx remaining)))))
+        (-> b (.position idx) (.put ba 0 remaining) (.rewind))))))
 
 (defn z-get-next-address-arrays [^bytes start ^bytes end ^long dims]
   (let [n (Arrays/mismatch start end)]
@@ -261,7 +261,7 @@
               next-dimension-below (bit-and (dec next-dimension-above) other-dimensions-mask)
               _ (put-partial-long litmax n (bit-or (bit-and all-common-bits-mask end-n) next-dimension-below))]
           (loop [n (+ n Long/BYTES)]
-            (if (> n length)
+            (if (>= n length)
               [(.array litmax)
                (.array bigmin)]
               (do (put-partial-long bigmin n (bit-or dimension-inherit-mask start-n))

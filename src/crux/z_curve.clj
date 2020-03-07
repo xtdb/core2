@@ -292,7 +292,6 @@
           :else
           [litmax bigmin])))))
 
-
 ;; Interleave alternatives:
 ;; LUT: https://github.com/kevinhartman/morton-nd
 ;; Magic bits: https://github.com/LLNL/rubik/blob/master/rubik/zorder.py

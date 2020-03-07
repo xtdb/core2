@@ -74,41 +74,38 @@
                                   ::post-process-children-after-split nil
                                   ::split-leaf-tuple-relation-factory nil})
 
-(defn- var-bindings->z-range
-  ([var-bindings]
-   (var-bindings->z-range var-bindings tuple->z-address))
-  ([var-bindings z-fn]
-   (let [min+max (for [var-binding var-bindings]
-                   (if (dp/logic-var? var-binding)
-                     (if-let [constraints (:constraints (meta var-binding))]
-                       (let [[min-z max-z] (reduce
-                                            (fn [[min-z max-z] [op value]]
-                                              [(case op
-                                                 (>= >) (if min-z
-                                                          (let [diff (compare value min-z)]
-                                                            (if (pos? diff)
-                                                              value
-                                                              min-z))
-                                                          value)
-                                                 = value
-                                                 min-z)
-                                               (case op
-                                                 (<= <) (if max-z
-                                                          (let [diff (compare value max-z)]
-                                                            (if (pos? diff)
-                                                              max-z
-                                                              value))
-                                                          value)
-                                                 = value
-                                                 max-z)])
-                                            [nil nil]
-                                            constraints)]
-                         [(or min-z z-wildcard-min-bytes)
-                          (or max-z z-wildcard-max-bytes)])
-                       [z-wildcard-min-bytes z-wildcard-max-bytes])
-                     [var-binding var-binding]))]
-     [(z-fn (mapv first min+max))
-      (z-fn (mapv second min+max))])))
+(defn- var-bindings->z-range [var-bindings]
+  (let [min+max (for [var-binding var-bindings]
+                  (if (dp/logic-var? var-binding)
+                    (if-let [constraints (:constraints (meta var-binding))]
+                      (let [[min-z max-z] (reduce
+                                           (fn [[min-z max-z] [op value]]
+                                             [(case op
+                                                (>= >) (if min-z
+                                                         (let [diff (compare value min-z)]
+                                                           (if (pos? diff)
+                                                             value
+                                                             min-z))
+                                                         value)
+                                                = value
+                                                min-z)
+                                              (case op
+                                                (<= <) (if max-z
+                                                         (let [diff (compare value max-z)]
+                                                           (if (pos? diff)
+                                                             max-z
+                                                             value))
+                                                         value)
+                                                = value
+                                                max-z)])
+                                           [nil nil]
+                                           constraints)]
+                        [(or min-z z-wildcard-min-bytes)
+                         (or max-z z-wildcard-max-bytes)])
+                      [z-wildcard-min-bytes z-wildcard-max-bytes])
+                    [var-binding var-binding]))]
+    [(tuple->z-address (mapv first min+max))
+     (tuple->z-address (mapv second min+max))]))
 
 (definterface INodesAccessor
   (^ints getNodes [])

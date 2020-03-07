@@ -10,7 +10,8 @@
             [crux.object-store :as os])
   (:import clojure.lang.IObj
            java.io.File
-           java.lang.AutoCloseable))
+           java.lang.AutoCloseable
+           java.util.Comparator))
 
 (set! *unchecked-math* :warn-on-boxed)
 
@@ -57,6 +58,13 @@
     (doseq [dependency [object-store wal-directory buffer-pool]]
       (d/try-close dependency))))
 
+(def ^Comparator z-comparator
+  (reify Comparator
+    (compare [_ x y]
+      (.compare cbk/unsigned-bytes-comparator
+                (dhq/tuple->z-address x)
+                (dhq/tuple->z-address y)))))
+
 (defn- write-arrow-children-on-split [leaf new-children {:keys [buffer-pool object-store wal-directory] :as opts}]
   (let [parent-name (d/relation-name leaf)
         arrow-file-view (da/new-arrow-file-view parent-name buffer-pool)
@@ -72,7 +80,7 @@
                                (d/truncate child))
                        child-name (dhq/leaf-name name hyper-quads (conj path block-idx))
                        child (dw/get-wal-relation wal-directory child-name)]]
-             (d/new-parent-child-relation (da/new-arrow-block-relation arrow-file-view block-idx) child dhq/z-comparator)))
+             (d/new-parent-child-relation (da/new-arrow-block-relation arrow-file-view block-idx) child z-comparator)))
       (finally
         (.delete tmp-file)))))
 
@@ -114,7 +122,7 @@
                                child-path
                                (d/new-parent-child-relation (da/new-arrow-block-relation arrow-file-view block-idx)
                                                             (dw/get-wal-relation (.wal-directory arrow-db) child-name)
-                                                            dhq/z-comparator)))))
+                                                            z-comparator)))))
 
 (defn new-in-memory-buffer-pool-factory [{:keys [object-store crux.datalog.storage/in-memory-buffer-pool-size-bytes] :as opts}]
   (assert in-memory-buffer-pool-size-bytes)

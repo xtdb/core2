@@ -2,7 +2,6 @@
   (:require [clojure.test :as t]
             [crux.io :as cio]
             [crux.datalog :as d]
-            [crux.datalog.hquad-tree :as dhq]
             [crux.datalog.storage :as ds]))
 
 (def ^:dynamic *dir*)
@@ -45,22 +44,22 @@
                        (set)))))
 
         (t/testing "Relations are stored in Z order"
-          (t/is (= (sort dhq/z-comparator [[1 3] [1 4] [1 5] [3 5]])
+          (t/is (= (sort ds/z-comparator [[1 3] [1 4] [1 5] [3 5]])
                    (d/query-by-name db 'r)))
-          (t/is (= (sort dhq/z-comparator [[1 2] [1 4] [1 5] [1 6] [1 8] [1 9] [3 2]])
+          (t/is (= (sort ds/z-comparator [[1 2] [1 4] [1 5] [1 6] [1 8] [1 9] [3 2]])
                    (d/query-by-name db 't)))
-          (t/is (= (sort dhq/z-comparator [[3 4] [3 5] [4 6] [4 8] [4 9] [5 2]])
+          (t/is (= (sort ds/z-comparator [[3 4] [3 5] [4 6] [4 8] [4 9] [5 2]])
                    (d/query-by-name db 's))))))
 
     (t/testing "persistence"
       (with-open [db (ds/new-arrow-db db-opts)]
         (t/testing "EDB is persisted"
           (t/testing "Relations are stored in Z order"
-            (t/is (= (sort dhq/z-comparator [[1 3] [1 4] [1 5] [3 5]])
+            (t/is (= (sort ds/z-comparator [[1 3] [1 4] [1 5] [3 5]])
                      (d/query-by-name db 'r)))
-            (t/is (= (sort dhq/z-comparator [[1 2] [1 4] [1 5] [1 6] [1 8] [1 9] [3 2]])
+            (t/is (= (sort ds/z-comparator [[1 2] [1 4] [1 5] [1 6] [1 8] [1 9] [3 2]])
                      (d/query-by-name db 't)))
-            (t/is (= (sort dhq/z-comparator [[3 4] [3 5] [4 6] [4 8] [4 9] [5 2]])
+            (t/is (= (sort ds/z-comparator [[3 4] [3 5] [4 6] [4 8] [4 9] [5 2]])
                      (d/query-by-name db 's)))))
 
         (t/testing "IDB is persisted"

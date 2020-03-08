@@ -14,7 +14,7 @@
 (def ^:private ^{:tag 'long} root-level -1)
 (def ^:private ^{:tag 'long} initial-nodes-capacity 128)
 
-(declare insert-tuple insert-into-node walk-tree init-hyper-quads new-leaf var-bindings->z-range)
+(declare insert-tuple insert-into-node walk-tree init-hyper-quads new-leaf var-bindings->z-range non-z-range-var-bindings)
 
 (defn- leaf-idx? [^long idx]
   (neg? idx))
@@ -48,6 +48,7 @@
              'crux.datalog/table-filter
              (fn [this db var-bindings]
                (let [[^bytes min-z ^bytes max-z :as z-range] (var-bindings->z-range var-bindings)
+                     ;; non-z-var-bindings (non-z-range-var-bindings var-bindings)
                      dims (count var-bindings)
                      ;; TODO: Doesn't work properly yet, infinite
                      ;; loop.
@@ -97,38 +98,52 @@
                                   ::post-process-children-after-split nil
                                   ::split-leaf-tuple-relation-factory nil})
 
+(defn- non-z-range-var-bindings [var-bindings]
+  (vec (for [var-binding var-bindings]
+         (if (dp/logic-var? var-binding)
+           (if (some (comp #{'!=} first) (:constraints (meta var-binding)))
+             var-binding
+             (with-meta var-binding nil))
+           var-binding))))
+
 (defn- var-bindings->z-range [var-bindings]
   (let [min+max (for [var-binding var-bindings]
                   (if (dp/logic-var? var-binding)
                     (if-let [constraints (:constraints (meta var-binding))]
-                      (let [[min-z max-z] (reduce
-                                           (fn [[min-z max-z] [op value]]
-                                             [(case op
-                                                (>= >) (if min-z
-                                                         (let [diff (compare value min-z)]
-                                                           (if (pos? diff)
-                                                             value
-                                                             min-z))
-                                                         value)
-                                                = value
-                                                min-z)
-                                              (case op
-                                                (<= <) (if max-z
-                                                         (let [diff (compare value max-z)]
-                                                           (if (pos? diff)
-                                                             max-z
-                                                             value))
-                                                         value)
-                                                = value
-                                                max-z)])
-                                           [nil nil]
-                                           constraints)]
-                        [(or min-z z-wildcard-min-bytes)
-                         (or max-z z-wildcard-max-bytes)])
+                      (reduce
+                       (fn [[min-z max-z] [op value]]
+                         [(case op
+                            (>= >) (let [value-bs (if (= '> op)
+                                                    (if (int? value)
+                                                      (cbk/->byte-key (inc ^long value))
+                                                      (cz/inc-unsigned-bytes (cbk/->byte-key value)))
+                                                    (cbk/->byte-key value))
+                                         diff (.compare cbk/unsigned-bytes-comparator value-bs min-z)]
+                                     (if (pos? diff)
+                                       value-bs
+                                       min-z))
+                            = (cbk/->byte-key value)
+                            min-z)
+                          (case op
+                            (<= <) (let [value-bs (if (= '< op)
+                                                    (if (int? value)
+                                                      (cbk/->byte-key (dec ^long value))
+                                                      (cz/dec-unsigned-bytes (cbk/->byte-key value)))
+                                                    (cbk/->byte-key value))
+                                         diff (.compare cbk/unsigned-bytes-comparator value-bs max-z)]
+                                     (if (pos? diff)
+                                       max-z
+                                       value-bs))
+                            = (cbk/->byte-key value)
+                            max-z)])
+                       [z-wildcard-min-bytes
+                        z-wildcard-max-bytes]
+                       constraints)
                       [z-wildcard-min-bytes z-wildcard-max-bytes])
-                    [var-binding var-binding]))]
-    [(tuple->z-address (mapv first min+max))
-     (tuple->z-address (mapv second min+max))]))
+                    (let [value-bs (cbk/->byte-key var-binding)]
+                      [value-bs value-bs])))]
+    [(cz/bit-interleave (mapv first min+max))
+     (cz/bit-interleave (mapv second min+max))]))
 
 (definterface INodesAccessor
   (^ints getNodes [])

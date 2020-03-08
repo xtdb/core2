@@ -794,6 +794,7 @@ perm(c, b).
 (defn- with-each-tuple-factory [f]
   (doseq [factory [#'d/new-sorted-set-relation
                    #'da/new-arrow-struct-relation
+                   #'dhq/new-z-sorted-map-relation
                    #'dhq/new-hyper-quad-tree-relation]]
     (t/testing (:name (meta factory))
       (binding [d/*tuple-relation-factory* factory]

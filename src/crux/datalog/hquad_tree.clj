@@ -48,7 +48,7 @@
              'crux.datalog/table-filter
              (fn [this db var-bindings]
                (let [[^bytes min-z ^bytes max-z :as z-range] (var-bindings->z-range var-bindings)
-                     ;; non-z-var-bindings (non-z-range-var-bindings var-bindings)
+                     non-z-var-bindings (non-z-range-var-bindings var-bindings)
                      dims (count var-bindings)
                      ;; TODO: Doesn't work properly yet, infinite
                      ;; loop.
@@ -91,7 +91,7 @@
                      s (for [[k v] (subseq this >= min-z <= max-z)
                              :when (cz/in-z-range? min-z max-z k dims)]
                          v)]
-                 (d/table-filter s db var-bindings)))))
+                 (d/table-filter s db non-z-var-bindings)))))
 
 (def ^:dynamic *default-options* {::leaf-size (* 128 1024)
                                   ::leaf-tuple-relation-factory new-z-sorted-map-relation

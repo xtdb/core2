@@ -150,7 +150,7 @@
               min-h (bit-and (decode-h-at-level min-z dims level) min-h-mask)
               max-h (bit-or (decode-h-at-level max-z dims level) max-h-mask)]
           (if (in-h-range? min-h max-h h)
-            (if (or (and (zero? min-h) (= h-mask max-h))
+            (if (or (and (zero? min-h-mask) (= h-mask max-h-mask))
                     (= max-level level))
               true
               (recur (inc level)

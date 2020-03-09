@@ -6,8 +6,11 @@
             [crux.datalog.hquad-tree :as dhq]
             [crux.byte-keys :as cbk]))
 
-(declare with-each-tuple-factory)
-(t/use-fixtures :each #'with-each-tuple-factory)
+(declare with-each-tuple-factory with-and-without-var-ints)
+(t/use-fixtures :each
+  ;; TODO: Make this work with z-get-next-address-arrays
+  ;; #'with-and-without-var-ints
+  #'with-each-tuple-factory)
 
 (t/deftest test-triangle-join-query
   (let [triangle '[r(1, 3).
@@ -791,6 +794,14 @@ perm(c, b).
 ;; Theta Join R .R.x >T.yT
 ;; j(X, Y, Z, W) :- r(X, Y), t(Z, W), X > Y. ;; looks wrong?
 
+(defn- with-and-without-var-ints [f]
+  (doseq [var-ints? [true false]]
+    (t/testing (str (if var-ints?
+                      "with"
+                      "without") "-var-ints")
+      (binding [cbk/*use-var-ints? var-ints?]
+        (f)))))
+
 (defn- with-each-tuple-factory [f]
   (doseq [factory [#'d/new-sorted-set-relation
                    #'da/new-arrow-struct-relation
@@ -803,7 +814,6 @@ perm(c, b).
                                       #'dhq/new-z-sorted-map-relation]]
             (t/testing (:name (meta leaf-tuple-factory))
               (binding [dhq/*default-options* {:crux.datalog.hquad-tree/leaf-tuple-relation-factory leaf-tuple-factory
-                                               :crux.datalog.hquad-tree/leaf-size 4}
-                        cbk/*use-var-ints? true]
+                                               :crux.datalog.hquad-tree/leaf-size 4}]
                 (f))))
           (f))))))

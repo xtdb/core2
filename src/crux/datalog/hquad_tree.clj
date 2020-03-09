@@ -50,47 +50,28 @@
                (let [[^bytes min-z ^bytes max-z :as z-range] (var-bindings->z-range var-bindings)
                      non-z-var-bindings (non-z-range-var-bindings var-bindings)
                      dims (count var-bindings)
-                     ;; TODO: Doesn't work properly yet, infinite
-                     ;; loop.
-                     ;; Repro from test-connection-recursion-rules,
-                     ;; using longs, z-get-next-address returns litmax
-                     ;; == end:
-                     _ (comment
+                     after-max-z (some-> (subseq this > max-z) (first) (key))
+                     s ((fn step [^bytes z]
+                          (reduce
+                           (fn [acc [^bytes k v]]
+                             (cond
+                               (identical? k after-max-z)
+                               (reduced acc)
 
-                         (seq (crux.z-curve/z-get-next-address
-                               1175461566330508304
-                               -4973453124906008902
-                               2))
-                         [-4973453124906008902,
-                          -8047910470524267504]
+                               (cz/in-z-range? min-z max-z k dims)
+                               (conj acc v)
 
-                         (crux.z-curve/z-range-search
-                          1175461566330508304
-                          -4973453124906008902
-                          3477408534101704484
-                          2))
-
-                     ;; after-max-z (some-> (subseq this > max-z) (first) (key))
-                     ;; s ((fn step [^bytes z]
-                     ;;      (reduce
-                     ;;       (fn [acc [^bytes k v]]
-                     ;;         (cond
-                     ;;           (identical? k after-max-z)
-                     ;;           (reduced acc)
-
-                     ;;           (cz/in-z-range? min-z max-z k dims)
-                     ;;           (conj acc v)
-
-                     ;;           :else
-                     ;;           (if-let [^bytes bigmin (second (cz/z-range-search-arrays min-z max-z k dims))]
-                     ;;             (reduced (concat acc (step bigmin)))
-                     ;;             (reduced acc))))
-                     ;;       []
-                     ;;       (subseq this >= z)))
-                     ;;    min-z)
-                     s (for [[k v] (subseq this >= min-z <= max-z)
-                             :when (cz/in-z-range? min-z max-z k dims)]
-                         v)]
+                               :else
+                               (if-let [^bytes bigmin (second (cz/z-range-search-arrays z max-z k dims))]
+                                 (reduced (concat acc (step bigmin)))
+                                 (reduced acc))))
+                           []
+                           (subseq this >= z)))
+                        min-z)
+                     ;; s (for [[k v] (subseq this >= min-z <= max-z)
+                     ;;         :when (cz/in-z-range? min-z max-z k dims)]
+                     ;;     v)
+                     ]
                  (d/table-filter s db non-z-var-bindings)))))
 
 (def ^:dynamic *default-options* {::leaf-size (* 128 1024)

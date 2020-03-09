@@ -173,7 +173,7 @@
         split-dimension (rem first-differing-bit dims)
         dimension-inherit-mask (Long/rotateLeft (aget dimension-masks dims) split-dimension)
 
-        common-most-significant-bits-mask (bit-shift-left -1 (- Long/SIZE first-differing-bit))
+        common-most-significant-bits-mask (bit-not (unsigned-bit-shift-right -1 first-differing-bit))
         all-common-bits-mask (bit-or dimension-inherit-mask common-most-significant-bits-mask)
 
         ;; 1000 -> 1000000
@@ -255,7 +255,7 @@
               split-dimension (rem first-differing-bit dims)
               dimension-inherit-mask (Long/rotateLeft (aget dimension-masks dims) split-dimension)
 
-              common-most-significant-bits-mask (bit-shift-left -1 (- Long/SIZE first-differing-bit))
+              common-most-significant-bits-mask (bit-not (unsigned-bit-shift-right -1 first-differing-bit))
               all-common-bits-mask (bit-or dimension-inherit-mask common-most-significant-bits-mask)
 
               ;; 1000 -> 1000000

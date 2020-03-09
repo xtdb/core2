@@ -231,8 +231,8 @@
                        (bit-shift-left (Byte/toUnsignedInt (aget b idx)) shift)))))))
 
 (defn put-partial-long ^bytes [^bytes b ^long idx ^long l]
-  (let [end (min Long/BYTES (- (alength b) idx))]
-    (loop [idx 0
+  (let [end (min (+ idx Long/BYTES) (alength b))]
+    (loop [idx idx
            shift (- Long/SIZE Byte/SIZE)
            acc b]
       (if (= end idx)
@@ -252,7 +252,7 @@
             start-n (get-partial-long bigmin n)
             end-n (get-partial-long litmax n)]
         (let [first-differing-bit (Long/numberOfLeadingZeros (bit-xor start-n end-n))
-              split-dimension (rem first-differing-bit dims)
+              split-dimension (rem (+ (* n Byte/SIZE) first-differing-bit) dims)
               dimension-inherit-mask (Long/rotateLeft (aget dimension-masks dims) split-dimension)
 
               common-most-significant-bits-mask (bit-not (unsigned-bit-shift-right -1 first-differing-bit))
@@ -269,9 +269,8 @@
           (loop [n (+ n Long/BYTES)]
             (if (>= n length)
               [litmax bigmin]
-              (do (put-partial-long bigmin n (bit-or dimension-inherit-mask start-n))
-                  (put-partial-long litmax n (bit-or (bit-and dimension-inherit-mask end-n)
-                                                     other-dimensions-mask))
+              (do (put-partial-long bigmin n (bit-and dimension-inherit-mask (get-partial-long bigmin n)))
+                  (put-partial-long litmax n (bit-and other-dimensions-mask (get-partial-long litmax n)))
                   (recur (+ n Long/BYTES))))))))))
 
 (defn z-range-search-arrays [^bytes start ^bytes end ^bytes z ^long dims]

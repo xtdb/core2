@@ -228,7 +228,7 @@
         (recur (inc idx)
                (- shift Byte/SIZE)
                (bit-or acc
-                       (bit-shift-left (aget b idx) shift)))))))
+                       (bit-shift-left (Byte/toUnsignedInt (aget b idx)) shift)))))))
 
 (defn put-partial-long ^bytes [^bytes b ^long idx ^long l]
   (let [end (min Long/BYTES (- (alength b) idx))]

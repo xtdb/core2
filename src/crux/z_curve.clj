@@ -274,9 +274,8 @@
                   (recur (+ n Long/BYTES))))))))))
 
 (defn z-range-search-arrays [^bytes start ^bytes end ^bytes z ^long dims]
-  (assert (= (alength start) (alength end)))
-  (loop [start start
-         end end]
+  (loop [start (Arrays/copyOf start (alength z))
+         end (Arrays/copyOf end (alength z))]
     (cond
       (neg? (Arrays/compareUnsigned end z))
       [end nil]

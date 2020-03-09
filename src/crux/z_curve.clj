@@ -1,7 +1,5 @@
 (ns crux.z-curve
-  (:require [clojure.string :as str])
-  (:import java.nio.ByteBuffer
-           java.util.Arrays))
+  (:import java.util.Arrays))
 
 (set! *unchecked-math* :warn-on-boxed)
 
@@ -220,29 +218,37 @@
             (aset 0 litmax)
             (aset 1 bigmin)))))))
 
-(defn get-partial-long ^long [^ByteBuffer b ^long idx]
-  (let [remaining (- (.capacity b) idx)]
-    (if (>= remaining Long/BYTES)
-      (.getLong b idx)
-      (let [ba (byte-array Long/BYTES)]
-        (-> b (.position idx) (.get ba 0 remaining) (.rewind))
-        (.getLong (ByteBuffer/wrap ba) 0)))))
+(defn get-partial-long ^long [^bytes b ^long idx]
+  (let [end (min (+ idx Long/BYTES) (alength b))]
+    (loop [idx idx
+           shift (- Long/SIZE Byte/SIZE)
+           acc 0]
+      (if (= end idx)
+        acc
+        (recur (inc idx)
+               (- shift Byte/SIZE)
+               (bit-or acc
+                       (bit-shift-left (aget b idx) shift)))))))
 
-(defn put-partial-long ^java.nio.ByteBuffer [^ByteBuffer b ^long idx ^long l]
-  (let [remaining (- (.capacity b) idx)]
-    (if (>= remaining Long/BYTES)
-      (.putLong b idx l)
-      (let [ba (byte-array Long/BYTES)]
-        (.putLong (ByteBuffer/wrap ba) 0 l)
-        (-> b (.position idx) (.put ba 0 remaining) (.rewind))))))
+(defn put-partial-long ^bytes [^bytes b ^long idx ^long l]
+  (let [end (min Long/BYTES (- (alength b) idx))]
+    (loop [idx 0
+           shift (- Long/SIZE Byte/SIZE)
+           acc b]
+      (if (= end idx)
+        acc
+        (recur (inc idx)
+               (- shift Byte/SIZE)
+               (doto acc
+                 (aset idx (unchecked-byte (unsigned-bit-shift-right l shift)))))))))
 
 (defn z-get-next-address-arrays [^bytes start ^bytes end ^long dims]
   (let [n (Arrays/mismatch start end)]
     (if (= -1 n)
       [start end]
       (let [length (alength start)
-            bigmin (ByteBuffer/wrap (Arrays/copyOf start length))
-            litmax (ByteBuffer/wrap (Arrays/copyOf end length))
+            bigmin (Arrays/copyOf start length)
+            litmax (Arrays/copyOf end length)
             start-n (get-partial-long bigmin n)
             end-n (get-partial-long litmax n)]
         (let [first-differing-bit (Long/numberOfLeadingZeros (bit-xor start-n end-n))
@@ -262,8 +268,7 @@
               _ (put-partial-long litmax n (bit-or (bit-and all-common-bits-mask end-n) next-dimension-below))]
           (loop [n (+ n Long/BYTES)]
             (if (>= n length)
-              [(.array litmax)
-               (.array bigmin)]
+              [litmax bigmin]
               (do (put-partial-long bigmin n (bit-or dimension-inherit-mask start-n))
                   (put-partial-long litmax n (bit-or (bit-and dimension-inherit-mask end-n)
                                                      other-dimensions-mask))

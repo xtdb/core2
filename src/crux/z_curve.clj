@@ -269,8 +269,11 @@
           (loop [n (+ n Long/BYTES)]
             (if (>= n length)
               [litmax bigmin]
-              (do (put-partial-long bigmin n (bit-and dimension-inherit-mask (get-partial-long bigmin n)))
-                  (put-partial-long litmax n (bit-and other-dimensions-mask (get-partial-long litmax n)))
+              ;; TODO: This is wrong, should really propagate the
+              ;; masks, but would need to take the long boundaries of
+              ;; the masks into account.
+              (do (put-partial-long bigmin n 0 #_(bit-and dimension-inherit-mask (get-partial-long bigmin n)))
+                  (put-partial-long litmax n -1 #_(bit-and other-dimensions-mask (get-partial-long litmax n)))
                   (recur (+ n Long/BYTES))))))))))
 
 (defn z-range-search-arrays [^bytes start ^bytes end ^bytes z ^long dims]

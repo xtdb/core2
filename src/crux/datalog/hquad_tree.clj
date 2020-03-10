@@ -62,6 +62,7 @@
                                (conj acc v)
 
                                :else
+                               ;; TODO: this has to be min-z
                                (if-let [^bytes bigmin (second (cz/z-range-search-arrays z max-z k dims))]
                                  (reduced (concat acc (step bigmin)))
                                  (reduced acc))))

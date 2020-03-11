@@ -159,19 +159,22 @@
 ;; Should double check example and algorithm 6.5.2 in Lawder on page 127.
 ;; http://www.dcs.bbk.ac.uk/~jkl/thesis.pdf
 
-(def ^:private ^{:tag 'longs} dimension-masks
-  (long-array (cons 0
-                    (for [n (range 1 Long/SIZE)]
-                      (reduce
-                       (fn [^long acc ^long b]
-                         (bit-or acc (bit-shift-left 1 b)))
-                       0
-                       (range 0 Long/SIZE n))))))
+(def ^:private dimension-masks
+  (vec (cons (long-array [0])
+             (for [n (range 1 Long/SIZE)]
+               (long-array
+                (for [m (range n)]
+                  (reduce
+                   (fn [^long acc ^long b]
+                     (bit-or acc (bit-shift-left 1 b)))
+                   0
+                   (range m Long/SIZE n))))))))
+
 
 (defn z-get-next-address [^long start ^long end ^long dims]
   (let [first-differing-bit (Long/numberOfLeadingZeros (bit-xor start end))
         split-dimension (rem first-differing-bit dims)
-        dimension-inherit-mask (Long/rotateLeft (aget dimension-masks dims) split-dimension)
+        dimension-inherit-mask (aget ^"[J" (nth dimension-masks dims) split-dimension)
 
         common-most-significant-bits-mask (bit-not (unsigned-bit-shift-right -1 first-differing-bit))
         all-common-bits-mask (bit-or dimension-inherit-mask common-most-significant-bits-mask)
@@ -253,7 +256,7 @@
             end-n (get-partial-long litmax n)]
         (let [first-differing-bit (Long/numberOfLeadingZeros (bit-xor start-n end-n))
               split-dimension (rem (+ (* n Byte/SIZE) first-differing-bit) dims)
-              dimension-inherit-mask (Long/rotateLeft (aget dimension-masks dims) split-dimension)
+              dimension-inherit-mask (aget ^"[J" (nth dimension-masks dims) split-dimension)
 
               common-most-significant-bits-mask (bit-not (unsigned-bit-shift-right -1 first-differing-bit))
               all-common-bits-mask (bit-or dimension-inherit-mask common-most-significant-bits-mask)
@@ -269,12 +272,12 @@
           (loop [n (+ n Long/BYTES)]
             (if (>= n length)
               [litmax bigmin]
-              ;; TODO: This is wrong, should really propagate the
-              ;; masks, but would need to take the long boundaries of
-              ;; the masks into account.
-              (do (put-partial-long bigmin n 0 #_(bit-and dimension-inherit-mask (get-partial-long bigmin n)))
-                  (put-partial-long litmax n -1 #_(bit-and other-dimensions-mask (get-partial-long litmax n)))
-                  (recur (+ n Long/BYTES))))))))))
+              (let [shift (rem (+ (* n Byte/SIZE) first-differing-bit) dims)
+                    mask (aget ^"[J" (nth dimension-masks dims) shift)]
+                (put-partial-long bigmin n (bit-and mask (get-partial-long bigmin n)))
+                (put-partial-long litmax n (bit-or (bit-not mask)
+                                                   (bit-and mask (get-partial-long litmax n))))
+                (recur (+ n Long/BYTES))))))))))
 
 (defn z-range-search-arrays [^bytes start ^bytes end ^bytes z ^long dims]
   (loop [start (Arrays/copyOf start (alength z))
@@ -287,9 +290,15 @@
       [nil start]
 
       :else
-      (let [[^bytes litmax ^bytes bigmin] (z-get-next-address-arrays start end dims)]
+      (let [[^bytes litmax ^bytes bigmin] (z-get-next-address-arrays start end dims)
+            bigmin-diff (Arrays/compareUnsigned bigmin z)]
         (cond
-          (neg? (Arrays/compareUnsigned bigmin z))
+          ;; TODO: this is a workaround for something, should not
+          ;; really reach here.
+          (zero? bigmin-diff)
+          [nil nil]
+
+          (neg? bigmin-diff)
           (recur bigmin end)
 
           (neg? (Arrays/compareUnsigned z litmax))

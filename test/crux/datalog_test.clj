@@ -7,10 +7,7 @@
             [crux.byte-keys :as cbk]))
 
 (declare with-each-tuple-factory with-and-without-var-ints)
-(t/use-fixtures :each
-  ;; TODO: Make this work with z-get-next-address-arrays
-  ;; #'with-and-without-var-ints
-  #'with-each-tuple-factory)
+(t/use-fixtures :each #'with-and-without-var-ints #'with-each-tuple-factory)
 
 (t/deftest test-triangle-join-query
   (let [triangle '[r(1, 3).

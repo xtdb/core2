@@ -62,17 +62,12 @@
                                (conj acc v)
 
                                :else
-                               ;; TODO: this has to be min-z
-                               (if-let [^bytes bigmin (second (cz/z-range-search-arrays z max-z k dims))]
+                               (if-let [^bytes bigmin (second (cz/z-range-search-arrays min-z max-z k dims))]
                                  (reduced (concat acc (step bigmin)))
-                                 (reduced acc))))
+                                 acc)))
                            []
                            (subseq this >= z)))
-                        min-z)
-                     ;; s (for [[k v] (subseq this >= min-z <= max-z)
-                     ;;         :when (cz/in-z-range? min-z max-z k dims)]
-                     ;;     v)
-                     ]
+                        min-z)]
                  (d/table-filter s db non-z-var-bindings)))))
 
 (def ^:dynamic *default-options* {::leaf-size (* 128 1024)

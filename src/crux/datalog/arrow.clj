@@ -278,7 +278,7 @@
    (let [reused-selection-vector ^BitVector (new-selection-vector (record-batch-allocator record-batch) *vector-size*)]
      (arrow-seq record-batch
                 var-bindings
-                (fn [start-idx vector-size]
+                (fn [^long base-offset ^long vector-size]
                   (doto reused-selection-vector
                     (.setRangeToOne 0 vector-size))))))
   ([^VectorSchemaRoot record-batch var-bindings selection-vector-for-range-fn]

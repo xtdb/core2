@@ -212,34 +212,22 @@
 
 (defn- selected-indexes ^org.apache.arrow.vector.BitVector
   [^VectorSchemaRoot record-batch column-filters ^BitVector selection-vector-out]
-  (loop [n 0
-         selection-vector selection-vector-out]
-    (if (< n (count (.getFieldVectors record-batch)))
-      (let [column-filter (get column-filters n)]
-        (if (and (pos? n) (= wildcard-column-filter column-filter))
-          (recur (inc n) selection-vector)
-          (let [column ^ElementAddressableVector (.getVector record-batch n)
-                value-count (.getValueCount column)]
-            (recur (inc n)
-                   (loop [idx (int 0)
-                          selection-vector selection-vector]
-                     (if (< idx value-count)
-                       (recur (unchecked-inc-int idx)
-                              (cond
-                                (.isNull column idx)
-                                (doto selection-vector
-                                  (.set idx 0))
+  (dotimes [n (count (.getFieldVectors record-batch))]
+    (let [column-filter (get column-filters n)
+          column ^ElementAddressableVector (.getVector record-batch n)]
+      (when-not (and (pos? n) (= wildcard-column-filter column-filter))
+        (dotimes [idx (.getValueCount column)]
+          (cond
+            (.isNull column idx)
+            (doto selection-vector-out
+              (.set idx 0))
 
-                                (zero? (.get selection-vector idx))
-                                selection-vector
-
-                                :else
-                                (doto selection-vector
-                                  (.set idx (if (.test ^ColumnFilter column-filter column idx)
-                                              1
-                                              0)))))
-                       selection-vector))))))
-      selection-vector)))
+            (= 1 (.get selection-vector-out idx))
+            (doto selection-vector-out
+              (.set idx (if (.test ^ColumnFilter column-filter column idx)
+                          1
+                          0))))))))
+  selection-vector-out)
 
 (defn- project-column [^VectorSchemaRoot record-batch ^long idx ^long n projection]
   (let [p (get projection n)]

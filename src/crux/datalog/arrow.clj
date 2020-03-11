@@ -288,7 +288,7 @@
         unifier-vector (d/insert
                         (StructVector/empty nil allocator)
                         var-bindings)
-        column-filter (unifiers->column-filters unifier-vector var-bindings)
+        column-filters (unifiers->column-filters unifier-vector var-bindings)
         projection (d/projection var-bindings)
         vector-size (min *vector-size* (.getRowCount record-batch))
         selection-vector (doto selection-vector
@@ -301,7 +301,7 @@
                                     (.slice record-batch start-idx vector-size))]]
            (if (zero? (count (.getFieldVectors record-batch)))
              (repeat vector-size (with-meta [] {::index 0}))
-             (cond->> (selected-indexes record-batch column-filter selection-vector)
+             (cond->> (selected-indexes record-batch column-filters selection-vector)
                true (selected-tuples record-batch projection start-idx)
                unify-tuple? (filter (partial d/unify var-bindings)))))
          (apply concat))))

@@ -230,8 +230,7 @@
                                 (doto selection-vector
                                   (.set idx 0))
 
-                                (and (pos? n)
-                                     (zero? (.get selection-vector idx)))
+                                (zero? (.get selection-vector idx))
                                 selection-vector
 
                                 :else
@@ -281,30 +280,40 @@
     (.getAllocator column)
     default-allocator))
 
-(defn- arrow-seq [^VectorSchemaRoot record-batch var-bindings]
-  (let [allocator (record-batch-allocator record-batch)
-        selection-vector (BitVector. "" allocator)
-        unify-tuple? (d/contains-duplicate-vars? var-bindings)
-        unifier-vector (d/insert
-                        (StructVector/empty nil allocator)
-                        var-bindings)
-        column-filters (unifiers->column-filters unifier-vector var-bindings)
-        projection (d/projection var-bindings)
-        vector-size (min *vector-size* (.getRowCount record-batch))
-        selection-vector (doto selection-vector
-                           (.setValueCount vector-size)
-                           (.setInitialCapacity vector-size))]
-    (->> (for [start-idx (range 0 (.getRowCount record-batch) vector-size)
-               :let [start-idx (long start-idx)
-                     record-batch (if (< (.getRowCount record-batch) (+ start-idx vector-size))
-                                    (.slice record-batch start-idx)
-                                    (.slice record-batch start-idx vector-size))]]
-           (if (zero? (count (.getFieldVectors record-batch)))
-             (repeat vector-size (with-meta [] {::index 0}))
-             (cond->> (selected-indexes record-batch column-filters selection-vector)
-               true (selected-tuples record-batch projection start-idx)
-               unify-tuple? (filter (partial d/unify var-bindings)))))
-         (apply concat))))
+(defn- new-selection-vector ^org.apache.arrow.vector.BitVector [^BufferAllocator allocator ^long vector-size]
+  (doto (BitVector. "" allocator)
+    (.setValueCount vector-size)
+    (.setInitialCapacity vector-size)))
+
+(defn- arrow-seq
+  ([^VectorSchemaRoot record-batch var-bindings]
+   (let [reused-selection-vector ^BitVector (new-selection-vector (record-batch-allocator record-batch) *vector-size*)]
+     (arrow-seq record-batch
+                var-bindings
+                (fn [start-idx vector-size]
+                  (doto reused-selection-vector
+                    (.setRangeToOne 0 vector-size))))))
+  ([^VectorSchemaRoot record-batch var-bindings selection-vector-for-range-fn]
+   (let [allocator (record-batch-allocator record-batch)
+         unify-tuple? (d/contains-duplicate-vars? var-bindings)
+         unifier-vector (d/insert
+                         (StructVector/empty nil allocator)
+                         var-bindings)
+         column-filters (unifiers->column-filters unifier-vector var-bindings)
+         projection (d/projection var-bindings)
+         vector-size (min *vector-size* (.getRowCount record-batch))]
+     (->> (for [start-idx (range 0 (.getRowCount record-batch) vector-size)
+                :let [start-idx (long start-idx)
+                      record-batch (if (< (.getRowCount record-batch) (+ start-idx vector-size))
+                                     (.slice record-batch start-idx)
+                                     (.slice record-batch start-idx vector-size))
+                      selection-vector (selection-vector-for-range-fn start-idx (.getRowCount record-batch))]]
+            (if (zero? (count (.getFieldVectors record-batch)))
+              (repeat vector-size (with-meta [] {::index 0}))
+              (cond->> (selected-indexes record-batch column-filters selection-vector)
+                true (selected-tuples record-batch projection start-idx)
+                unify-tuple? (filter (partial d/unify var-bindings)))))
+          (apply concat)))))
 
 (defn write-record-batches ^java.io.File [record-batches f]
   (let [schema (.getSchema ^VectorSchemaRoot (some identity record-batches))

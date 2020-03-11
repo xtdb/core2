@@ -295,7 +295,8 @@
                       record-batch (if (< (.getRowCount record-batch) (+ start-idx vector-size))
                                      (.slice record-batch start-idx)
                                      (.slice record-batch start-idx vector-size))
-                      selection-vector (selection-vector-for-range-fn start-idx (.getRowCount record-batch))]]
+                      selection-vector (selection-vector-for-range-fn start-idx (.getRowCount record-batch))]
+                :when selection-vector]
             (if (zero? (count (.getFieldVectors record-batch)))
               (repeat vector-size (with-meta [] {::index 0}))
               (cond->> (selected-indexes record-batch column-filters selection-vector)

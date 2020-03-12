@@ -537,6 +537,10 @@
   (->record-batch [this]
     (VectorSchemaRoot. this))
 
+  FieldVector
+  (->record-batch [this]
+    (VectorSchemaRoot/of (into-array FieldVector [this])))
+
   Object
   (->record-batch [this]
     (->record-batch

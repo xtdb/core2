@@ -56,7 +56,7 @@
   AutoCloseable
   (close [this]
     (d/close-db relation-db)
-    (doseq [dependency [object-store wal-directory buffer-pool]]
+    (doseq [dependency [object-store wal-directory rule-wal-directory buffer-pool]]
       (d/try-close dependency))))
 
 (def ^Comparator z-comparator

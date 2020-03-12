@@ -407,12 +407,12 @@
 
 (defrecord ArrowBufferRefAndRecordBatches [^Reference buffer-ref ^List record-batches])
 
-(deftype ArrowFileView [buffer-pool ^String name ^:volatile-mutable ^ArrowBufferRefAndRecordBatches buffer-ref-and-record-batches]
+(deftype ArrowFileView [buffer-pool ^String name ^String buffer-name ^:volatile-mutable ^ArrowBufferRefAndRecordBatches buffer-ref-and-record-batches]
   Indexed
   (nth [this n]
     (if-let [buffer (and buffer-ref-and-record-batches (.get ^Reference (.buffer-ref buffer-ref-and-record-batches)))]
       (->ArrowRecordBatchView (nth (.record-batches buffer-ref-and-record-batches) n) buffer)
-      (let [new-buffer (bp/get-buffer buffer-pool (str name ".arrow"))
+      (let [new-buffer (bp/get-buffer buffer-pool buffer-name)
             new-buffer-ref-and-record-batches (ArrowBufferRefAndRecordBatches.
                                                (WeakReference. new-buffer)
                                                (read-arrow-record-batches new-buffer))]
@@ -423,9 +423,9 @@
   (close [this]
     (set! (.-buffer-ref-and-record-batches this) nil)))
 
-(defn new-arrow-file-view [relation-name buffer-pool]
+(defn new-arrow-file-view [relation-name buffer-name buffer-pool]
   (assert buffer-pool)
-  (->ArrowFileView buffer-pool relation-name nil))
+  (->ArrowFileView buffer-pool relation-name buffer-name nil))
 
 (defrecord ArrowBlockRelation [^ArrowFileView arrow-file ^long block-idx]
   d/Relation

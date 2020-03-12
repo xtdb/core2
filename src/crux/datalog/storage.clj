@@ -67,13 +67,14 @@
 
 (defn- write-arrow-children-on-split [leaf new-children {:keys [buffer-pool object-store wal-directory] :as opts}]
   (let [parent-name (d/relation-name leaf)
-        arrow-file-view (da/new-arrow-file-view parent-name buffer-pool)
+        buffer-name (str parent-name ".arrow")
+        arrow-file-view (da/new-arrow-file-view parent-name buffer-name buffer-pool)
         tmp-file (File/createTempFile parent-name "arrow")
         [name hyper-quads path] (dhq/leaf-name->name+hyper-quads+path parent-name)]
     (try
       (with-open [in (io/input-stream (da/write-record-batches (for [child new-children]
                                                                  (some-> child (da/->record-batch))) tmp-file))]
-        (os/put-object object-store (str parent-name ".arrow") in))
+        (os/put-object object-store buffer-name in))
       (d/truncate leaf)
       (vec (for [[block-idx child] (map-indexed vector new-children)
                  :let [child (when child
@@ -113,7 +114,8 @@
                   tree (:tuples combined-relation)]
             [_ hyper-quads path] nhp
             :let [parent-name (dhq/leaf-name name hyper-quads path)
-                  arrow-file-view (da/new-arrow-file-view parent-name (.buffer-pool arrow-db))]
+                  buffer-name (str parent-name ".arrow")
+                  arrow-file-view (da/new-arrow-file-view parent-name buffer-name (.buffer-pool arrow-db))]
             block-idx (range hyper-quads)
             :let [child-path (conj path block-idx)
                   child-name (dhq/leaf-name name hyper-quads child-path)]]

@@ -36,39 +36,51 @@
 (defn tuple->z-address ^bytes [value]
   (cz/bit-interleave (mapv cbk/->byte-key value)))
 
+(defn z-sorted-map-insert [this tuple]
+  (assoc this (tuple->z-address tuple) tuple))
+
+(defn z-sorted-map-delete [this tuple]
+  (dissoc this (tuple->z-address tuple)))
+
+(defn z-sorted-map-table-filter [this db var-bindings]
+  (let [[^bytes min-z ^bytes max-z :as z-range] (var-bindings->z-range var-bindings)
+        non-z-var-bindings (non-z-range-var-bindings var-bindings)
+        dims (count var-bindings)
+        after-max-z (some-> (subseq this > max-z) (first) (key))
+        s ((fn step [^bytes z]
+             (reduce
+              (fn [acc [^bytes k v]]
+                (cond
+                  (identical? k after-max-z)
+                  (reduced acc)
+
+                  (cz/in-z-range? min-z max-z k dims)
+                  (conj acc v)
+
+                  :else
+                  (if-let [^bytes bigmin (second (cz/z-range-search-arrays min-z max-z k dims))]
+                    (reduced (concat acc (step bigmin)))
+                    acc)))
+              []
+              (subseq this >= z)))
+           min-z)]
+    (d/table-filter s db non-z-var-bindings)))
+
+(def z-sorted-map-prototype
+  {'crux.datalog/insert
+   z-sorted-map-insert
+   'crux.datalog/delete
+   z-sorted-map-delete
+   'crux.datalog/table-filter
+   z-sorted-map-table-filter})
+
+(defn z-sorted-map? [m]
+  (and (map? m) (= z-sorted-map-table-filter ('crux.datalog/table-filter (meta m)))))
+
 (defn new-z-sorted-map-relation [relation-name]
   (vary-meta (d/new-sorted-map-relation cbk/unsigned-bytes-comparator relation-name)
-             assoc
-             'crux.datalog/insert
-             (fn [this tuple]
-               (assoc this (tuple->z-address tuple) tuple))
-             'crux.datalog/delete
-             (fn [this tuple]
-               (dissoc this (tuple->z-address tuple)))
-             'crux.datalog/table-filter
-             (fn [this db var-bindings]
-               (let [[^bytes min-z ^bytes max-z :as z-range] (var-bindings->z-range var-bindings)
-                     non-z-var-bindings (non-z-range-var-bindings var-bindings)
-                     dims (count var-bindings)
-                     after-max-z (some-> (subseq this > max-z) (first) (key))
-                     s ((fn step [^bytes z]
-                          (reduce
-                           (fn [acc [^bytes k v]]
-                             (cond
-                               (identical? k after-max-z)
-                               (reduced acc)
-
-                               (cz/in-z-range? min-z max-z k dims)
-                               (conj acc v)
-
-                               :else
-                               (if-let [^bytes bigmin (second (cz/z-range-search-arrays min-z max-z k dims))]
-                                 (reduced (concat acc (step bigmin)))
-                                 acc)))
-                           []
-                           (subseq this >= z)))
-                        min-z)]
-                 (d/table-filter s db non-z-var-bindings)))))
+             merge
+             z-sorted-map-prototype))
 
 (def ^:dynamic *default-options* {::leaf-size (* 128 1024)
                                   ::leaf-tuple-relation-factory new-z-sorted-map-relation

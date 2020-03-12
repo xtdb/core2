@@ -9,9 +9,10 @@
             [crux.byte-keys :as cbk]
             [crux.object-store :as os])
   (:import clojure.lang.IObj
+           org.apache.arrow.vector.FixedSizeBinaryVector
            java.io.File
            java.lang.AutoCloseable
-           java.util.Comparator))
+           [java.util Arrays Comparator]))
 
 (set! *unchecked-math* :warn-on-boxed)
 
@@ -64,6 +65,23 @@
       (.compare cbk/unsigned-bytes-comparator
                 (dhq/tuple->z-address x)
                 (dhq/tuple->z-address y)))))
+
+(def ^:dynamic ^{:tag 'long} *z-index-byte-width* 16)
+
+(defn relation->z-index
+  (^org.apache.arrow.vector.FixedSizeBinaryVector [relation]
+   (relation->z-index relation *z-index-byte-length*))
+  (^org.apache.arrow.vector.FixedSizeBinaryVector [relation ^long byte-width]
+   (let [z-index (FixedSizeBinaryVector. (str (d/relation-name relation)) da/default-allocator byte-width)]
+     (doseq [^bytes z (if (dhq/z-sorted-map? relation)
+                        (keys relation)
+                        (map dhq/tuple->z-address (d/table-scan relation {})))
+             :let [z (Arrays/copyOf z *z-index-byte-length*)
+                   idx (.getValueCount z-index)]]
+       (doto z-index
+         (.setSafe idx z)
+         (.setValueCount (inc idx))))
+     z-index)))
 
 (defn- write-arrow-children-on-split [leaf new-children {:keys [buffer-pool object-store wal-directory] :as opts}]
   (let [parent-name (d/relation-name leaf)

@@ -34,8 +34,7 @@
 
 (set! *unchecked-math* :warn-on-boxed)
 
-(def ^:private ^BufferAllocator
-  default-allocator (RootAllocator. Long/MAX_VALUE))
+(def ^BufferAllocator default-allocator (RootAllocator. Long/MAX_VALUE))
 
 (def ^:private type->arrow-vector-spec
   {Integer
@@ -470,7 +469,6 @@
             (insert-clojure-value-into-column column idx v)))
 
         (doto this
-          (.setIndexDefined idx)
           (.setValueCount (inc idx))))))
 
   (delete [this value]

@@ -211,7 +211,7 @@
 
 (defn- selected-indexes ^org.apache.arrow.vector.BitVector
   [^VectorSchemaRoot record-batch column-filters ^BitVector selection-vector-out]
-  (dotimes [n (count (.getFieldVectors record-batch))]
+  (dotimes [n (.size (.getFieldVectors record-batch))]
     (let [column-filter (get column-filters n)
           column ^ElementAddressableVector (.getVector record-batch n)]
       (when-not (and (pos? n) (= wildcard-column-filter column-filter))
@@ -239,7 +239,7 @@
 
 (defn- selected-tuples [^VectorSchemaRoot record-batch projection ^long base-offset ^BitVector selection-vector]
   (let [row-count (.getRowCount record-batch)
-        column-count (count (.getFieldVectors record-batch))]
+        column-count (.size (.getFieldVectors record-batch))]
     (loop [n 0
            acc []]
       (if (= n column-count)
@@ -296,7 +296,7 @@
                                      (.slice record-batch start-idx vector-size))
                       selection-vector (selection-vector-for-range-fn start-idx (.getRowCount record-batch))]
                 :when selection-vector]
-            (if (zero? (count (.getFieldVectors record-batch)))
+            (if (zero? (.size (.getFieldVectors record-batch)))
               (repeat vector-size (with-meta [] {::index 0}))
               (cond->> (selected-indexes record-batch column-filters selection-vector)
                 true (selected-tuples record-batch projection start-idx)
@@ -495,7 +495,7 @@
 
   VectorSchemaRoot
   (table-scan [this db]
-    (->> (repeat (count (.getFieldVectors this)) dp/blank-var)
+    (->> (repeat (.size (.getFieldVectors this)) dp/blank-var)
          (mapv d/ensure-unique-logic-var)
          (arrow-seq this)))
 

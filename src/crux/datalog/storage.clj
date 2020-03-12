@@ -83,6 +83,28 @@
          (.setValueCount (inc idx))))
      z-index)))
 
+(defn binary-search-z-index ^long [^FixedSizeBinaryVector z-index ^bytes k]
+  (with-open [k-vector (FixedSizeBinaryVector. nil (.getAllocator z-index) (.getByteWidth z-index))]
+    (doto k-vector
+      (.setSafe 0 (Arrays/copyOf k (.getByteWidth z-index)))
+      (.setValueCount 1))
+    (let [k-pointer (.getDataPointer k-vector 0)]
+      (loop [low 0
+             high (dec (.getValueCount z-index))]
+        (if (<= low high)
+          (let [mid (+ low (bit-shift-right (- high low) 1))
+                diff (.compareTo k-pointer (.getDataPointer z-index mid))]
+            (cond
+              (zero? diff)
+              mid
+
+              (pos? diff)
+              (recur (inc mid) high)
+
+              :else
+              (recur low (dec mid))))
+          (dec (- low)))))))
+
 (defn- write-arrow-children-on-split [leaf new-children {:keys [buffer-pool object-store wal-directory] :as opts}]
   (let [parent-name (d/relation-name leaf)
         buffer-name (str parent-name ".arrow")

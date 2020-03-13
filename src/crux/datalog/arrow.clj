@@ -267,7 +267,7 @@
     (.getAllocator column)
     default-allocator))
 
-(defn- new-selection-vector ^org.apache.arrow.vector.BitVector [^BufferAllocator allocator ^long vector-size]
+(defn new-selection-vector ^org.apache.arrow.vector.BitVector [^BufferAllocator allocator ^long vector-size]
   (doto (BitVector. "" allocator)
     (.setValueCount vector-size)
     (.setInitialCapacity vector-size)))

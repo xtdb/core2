@@ -9,7 +9,7 @@
             [crux.byte-keys :as cbk]
             [crux.object-store :as os])
   (:import clojure.lang.IObj
-           org.apache.arrow.vector.FixedSizeBinaryVector
+           [org.apache.arrow.vector BitVector FixedSizeBinaryVector]
            java.io.File
            java.lang.AutoCloseable
            [java.util Arrays Comparator]))
@@ -70,13 +70,13 @@
 
 (defn relation->z-index
   (^org.apache.arrow.vector.FixedSizeBinaryVector [relation]
-   (relation->z-index relation *z-index-byte-length*))
+   (relation->z-index relation *z-index-byte-width*))
   (^org.apache.arrow.vector.FixedSizeBinaryVector [relation ^long byte-width]
    (let [z-index (FixedSizeBinaryVector. (str (d/relation-name relation)) da/default-allocator byte-width)]
      (doseq [^bytes z (if (dhq/z-sorted-map? relation)
                         (keys relation)
                         (map dhq/tuple->z-address (d/table-scan relation {})))
-             :let [z (Arrays/copyOf z *z-index-byte-length*)
+             :let [z (Arrays/copyOf z *z-index-byte-width*)
                    idx (.getValueCount z-index)]]
        (doto z-index
          (.setSafe idx z)

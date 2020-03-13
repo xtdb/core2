@@ -7,7 +7,8 @@
             [crux.datalog.wal :as dw]
             [crux.buffer-pool :as bp]
             [crux.byte-keys :as cbk]
-            [crux.object-store :as os])
+            [crux.object-store :as os]
+            [crux.z-curve :as cz])
   (:import clojure.lang.IObj
            [org.apache.arrow.vector BitVector FixedSizeBinaryVector]
            java.io.File
@@ -104,6 +105,29 @@
               :else
               (recur low (dec mid))))
           (dec (- low)))))))
+
+(defn- binary-serach-idx->pos-idx ^long [^long idx]
+  (if (neg? idx)
+    (dec (- idx))
+    idx))
+
+(defn z-index->selection-vector ^org.apache.arrow.vector.BitVector [^FixedSizeBinaryVector z-index [^bytes min-z ^bytes max-z :as z-range] ^long dims]
+  (let [selection-vector ^BitVector (da/new-selection-vector (.getAllocator z-index) (.getValueCount z-index))
+        min-z (Arrays/copyOf min-z (.getByteWidth z-index))
+        max-z (Arrays/copyOf max-z (.getByteWidth z-index))
+        max-z-idx (binary-serach-idx->pos-idx (binary-search-z-index z-index max-z))]
+    (loop [idx (binary-serach-idx->pos-idx (binary-search-z-index z-index min-z))]
+      (when (and (< idx (.getValueCount z-index))
+                 (<= idx max-z-idx))
+        (if (.isNull z-index idx)
+          (recur (inc idx))
+          (let [k (.get z-index idx)]
+            (if (cz/in-z-range? min-z max-z k dims)
+              (do (.set selection-vector idx 1)
+                  (recur (inc idx)))
+              (when-let [^bytes bigmin (second (cz/z-range-search-arrays min-z max-z k dims))]
+                (recur (binary-serach-idx->pos-idx (binary-search-z-index z-index bigmin)))))))))
+    selection-vector))
 
 (defn- write-arrow-children-on-split [leaf new-children {:keys [buffer-pool object-store wal-directory] :as opts}]
   (let [parent-name (d/relation-name leaf)

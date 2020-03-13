@@ -106,7 +106,7 @@
               (recur low (dec mid))))
           (dec (- low)))))))
 
-(defn- binary-serach-idx->pos-idx ^long [^long idx]
+(defn- binary-search-idx->pos-idx ^long [^long idx]
   (if (neg? idx)
     (dec (- idx))
     idx))
@@ -115,8 +115,8 @@
   (let [selection-vector ^BitVector (da/new-selection-vector (.getAllocator z-index) (.getValueCount z-index))
         min-z (Arrays/copyOf min-z (.getByteWidth z-index))
         max-z (Arrays/copyOf max-z (.getByteWidth z-index))
-        max-z-idx (binary-serach-idx->pos-idx (binary-search-z-index z-index max-z))]
-    (loop [idx (binary-serach-idx->pos-idx (binary-search-z-index z-index min-z))]
+        max-z-idx (binary-search-idx->pos-idx (binary-search-z-index z-index max-z))]
+    (loop [idx (binary-search-idx->pos-idx (binary-search-z-index z-index min-z))]
       (when (and (< idx (.getValueCount z-index))
                  (<= idx max-z-idx))
         (if (.isNull z-index idx)
@@ -126,7 +126,7 @@
               (do (.set selection-vector idx 1)
                   (recur (inc idx)))
               (when-let [^bytes bigmin (second (cz/z-range-search-arrays min-z max-z k dims))]
-                (recur (binary-serach-idx->pos-idx (binary-search-z-index z-index bigmin)))))))))
+                (recur (binary-search-idx->pos-idx (binary-search-z-index z-index bigmin)))))))))
     selection-vector))
 
 (defn- write-arrow-children-on-split [leaf new-children {:keys [buffer-pool object-store wal-directory] :as opts}]

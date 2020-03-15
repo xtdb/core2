@@ -129,6 +129,11 @@
                 (recur (binary-search-idx->pos-idx (binary-search-z-index z-index bigmin)))))))))
     selection-vector))
 
+(defn- new-arrow-leaf-relation [arrow-file-view block-idx wal-directory child-name]
+  (d/new-parent-child-relation (da/new-arrow-block-relation arrow-file-view block-idx)
+                               (dw/get-wal-relation wal-directory child-name)
+                               z-comparator))
+
 (defn- write-arrow-children-on-split [leaf new-children {:keys [buffer-pool object-store wal-directory] :as opts}]
   (let [parent-name (d/relation-name leaf)
         buffer-name (str parent-name ".arrow")
@@ -143,14 +148,14 @@
       (vec (for [[block-idx child] (map-indexed vector new-children)
                  :let [child (when child
                                (d/truncate child))
-                       child-name (dhq/leaf-name name hyper-quads (conj path block-idx))
-                       child (dw/get-wal-relation wal-directory child-name)]]
-             (d/new-parent-child-relation (da/new-arrow-block-relation arrow-file-view block-idx) child z-comparator)))
+                       child-name (dhq/leaf-name name hyper-quads (conj path block-idx))]]
+             (new-arrow-leaf-relation arrow-file-view block-idx wal-directory child-name)))
       (finally
         (.delete tmp-file)))))
 
 (defn- restore-relations [^ArrowDb arrow-db]
   (let [{:keys [relation-factory] :as options} (.options arrow-db)
+        wal-directory (.wal-directory arrow-db)
         root-name->nhp (->> (dw/list-wals (.wal-directory arrow-db))
                             (map dhq/leaf-name->name+hyper-quads+path)
                             (filter (comp empty? last))
@@ -186,9 +191,7 @@
       (dhq/insert-leaf-at-path tree
                                hyper-quads
                                child-path
-                               (d/new-parent-child-relation (da/new-arrow-block-relation arrow-file-view block-idx)
-                                                            (dw/get-wal-relation (.wal-directory arrow-db) child-name)
-                                                            z-comparator)))))
+                               (new-arrow-leaf-relation arrow-file-view block-idx wal-directory child-name)))))
 
 (defn new-in-memory-buffer-pool-factory [{:keys [object-store crux.datalog.storage/in-memory-buffer-pool-size-bytes] :as opts}]
   (assert in-memory-buffer-pool-size-bytes)

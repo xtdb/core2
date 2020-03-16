@@ -196,7 +196,10 @@
                                   (da/new-arrow-file-view z-index-buffer-name buffer-pool))
         tmp-file (File/createTempFile parent-name "arrow")
         [name hyper-quads path] (dhq/leaf-name->name+hyper-quads+path parent-name)
-        z-index-prefix-length (z-index-prefix-length hyper-quads path)]
+        z-index-prefix-length (z-index-prefix-length hyper-quads path)
+        z-index-record-batches (when z-index?
+                                 (for [child new-children]
+                                   (some-> child (relation->z-index z-index-prefix-length) (da/->record-batch))))]
     (try
       (with-open [in (io/input-stream (da/write-record-batches (for [child new-children]
                                                                  (some-> child (da/->record-batch))) tmp-file))]
@@ -204,9 +207,7 @@
       (when z-index?
         (let [z-index-tmp-file (File/createTempFile parent-name "idx.arrow")]
           (try
-            (with-open [in (io/input-stream (da/write-record-batches (for [child new-children]
-                                                                       (some-> child (relation->z-index z-index-prefix-length) (da/->record-batch)))
-                                                                     tmp-file))]
+            (with-open [in (io/input-stream (da/write-record-batches z-index-record-batches z-index-tmp-file))]
               (os/put-object object-store z-index-buffer-name in))
             (finally
               (.delete z-index-tmp-file)))))
@@ -217,6 +218,8 @@
                        child-name (dhq/leaf-name name hyper-quads (conj path block-idx))]]
              (new-arrow-leaf-relation arrow-file-view arrow-z-index-file-view block-idx wal-directory child-name z-index-prefix-length)))
       (finally
+        (doseq [child (concat new-children z-index-record-batches)]
+          (d/try-close child))
         (.delete tmp-file)))))
 
 (defn- restore-relations [^ArrowDb arrow-db]

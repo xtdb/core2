@@ -151,6 +151,7 @@
           z-index-selection-vector ^BitVector (z-index->selection-vector z-index-column
                                                                          z-range
                                                                          dims)]
+      (.register da/buffer-cleaner record-batch #(d/try-close z-index-selection-vector))
       (da/arrow-seq record-batch
                     var-bindings
                     (fn [^long base-offset ^long vector-size]

@@ -23,7 +23,7 @@
            io.netty.util.internal.PlatformDependent
            clojure.lang.Indexed
            java.lang.AutoCloseable
-           [java.lang.ref Reference WeakReference]
+           [java.lang.ref Cleaner Reference WeakReference]
            [java.io FileInputStream FileOutputStream InputStream OutputStream]
            [java.util Arrays Date List]
            [java.util.function Predicate LongPredicate DoublePredicate]
@@ -35,6 +35,7 @@
 (set! *unchecked-math* :warn-on-boxed)
 
 (def ^BufferAllocator default-allocator (RootAllocator. Long/MAX_VALUE))
+(defonce ^Cleaner buffer-cleaner (Cleaner/create))
 
 (def ^:private type->arrow-vector-spec
   {Integer
@@ -275,6 +276,7 @@
 (defn arrow-seq
   ([^VectorSchemaRoot record-batch var-bindings]
    (let [reused-selection-vector ^BitVector (new-selection-vector (record-batch-allocator record-batch) *vector-size*)]
+     (.register buffer-cleaner record-batch #(d/try-close reused-selection-vector))
      (arrow-seq record-batch
                 var-bindings
                 (fn [^long base-offset ^long vector-size]

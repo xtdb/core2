@@ -170,57 +170,6 @@
                    0
                    (range m Long/SIZE n))))))))
 
-
-(defn z-get-next-address [^long start ^long end ^long dims]
-  (let [first-differing-bit (Long/numberOfLeadingZeros (bit-xor start end))
-        split-dimension (rem first-differing-bit dims)
-        dimension-inherit-mask (aget ^"[J" (nth dimension-masks dims) split-dimension)
-
-        common-most-significant-bits-mask (bit-not (unsigned-bit-shift-right -1 first-differing-bit))
-        all-common-bits-mask (bit-or dimension-inherit-mask common-most-significant-bits-mask)
-
-        ;; 1000 -> 1000000
-        next-dimension-above (bit-shift-left 1 (dec (- Long/SIZE first-differing-bit)))
-        bigmin (bit-or (bit-and all-common-bits-mask start) next-dimension-above)
-
-        ;; 0111 -> 0010101
-        next-dimension-below (bit-and (dec next-dimension-above)
-                                      (bit-not dimension-inherit-mask))
-        litmax (bit-or (bit-and all-common-bits-mask end) next-dimension-below)]
-    (doto (long-array 2)
-      (aset 0 litmax)
-      (aset 1 bigmin))))
-
-(defn z-range-search [^long start ^long end ^long z ^long dims]
-  (loop [start start
-         end end]
-    (cond
-      (neg? (Long/compareUnsigned end z))
-      (doto (long-array 2)
-        (aset 0 end)
-        (aset 1 0))
-
-      (neg? (Long/compareUnsigned z start))
-      (doto (long-array 2)
-        (aset 0 0)
-        (aset 1 start))
-
-      :else
-      (let [litmax+bigmin ^"[J" (z-get-next-address start end dims)
-            litmax (aget litmax+bigmin 0)
-            bigmin (aget litmax+bigmin 1)]
-        (cond
-          (neg? (Long/compareUnsigned bigmin z))
-          (recur bigmin end)
-
-          (neg? (Long/compareUnsigned z litmax))
-          (recur start litmax)
-
-          :else
-          (doto (long-array 2)
-            (aset 0 litmax)
-            (aset 1 bigmin)))))))
-
 (defn get-partial-long ^long [^bytes b ^long idx]
   (let [end (min (+ idx Long/BYTES) (alength b))]
     (loop [idx idx
@@ -245,7 +194,7 @@
                (doto acc
                  (aset idx (unchecked-byte (unsigned-bit-shift-right l shift)))))))))
 
-(defn z-get-next-address-arrays [^bytes start ^bytes end ^long dims]
+(defn z-get-next-address [^bytes start ^bytes end ^long dims]
   (let [n (Arrays/mismatch start end)]
     (if (= -1 n)
       [start end]
@@ -279,7 +228,7 @@
                                                    (bit-and mask (get-partial-long litmax n))))
                 (recur (+ n Long/BYTES))))))))))
 
-(defn z-range-search-arrays [^bytes start ^bytes end ^bytes z ^long dims]
+(defn z-range-search [^bytes start ^bytes end ^bytes z ^long dims]
   (loop [start (Arrays/copyOf start (alength z))
          end (Arrays/copyOf end (alength z))]
     (cond
@@ -290,7 +239,7 @@
       [nil start]
 
       :else
-      (let [[^bytes litmax ^bytes bigmin] (z-get-next-address-arrays start end dims)
+      (let [[^bytes litmax ^bytes bigmin] (z-get-next-address start end dims)
             bigmin-diff (Arrays/compareUnsigned bigmin z)]
         (cond
           ;; TODO: this is a workaround for something, should not

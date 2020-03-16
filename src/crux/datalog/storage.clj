@@ -126,7 +126,7 @@
             (if (cz/in-z-range? min-z max-z k dims)
               (do (.set selection-vector idx 1)
                   (recur (inc idx)))
-              (when-let [^bytes bigmin (second (cz/z-range-search-arrays min-z max-z k dims))]
+              (when-let [^bytes bigmin (second (cz/z-range-search min-z max-z k dims))]
                 (recur (binary-search-idx->pos-idx (binary-search-z-index z-index bigmin)))))))))
     selection-vector))
 

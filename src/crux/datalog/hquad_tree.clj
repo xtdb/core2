@@ -58,7 +58,7 @@
                   (conj acc v)
 
                   :else
-                  (if-let [^bytes bigmin (second (cz/z-range-search-arrays min-z max-z k dims))]
+                  (if-let [^bytes bigmin (second (cz/z-range-search min-z max-z k dims))]
                     (reduced (concat acc (step bigmin)))
                     acc)))
               []

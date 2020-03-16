@@ -95,7 +95,7 @@
              (with-meta var-binding nil))
            var-binding))))
 
-(defn- var-bindings->z-range [var-bindings]
+(defn var-bindings->z-range [var-bindings]
   (let [min+max (for [var-binding var-bindings]
                   (if (dp/logic-var? var-binding)
                     (if-let [constraints (:constraints (meta var-binding))]

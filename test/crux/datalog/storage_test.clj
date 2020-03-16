@@ -6,8 +6,9 @@
 
 (def ^:dynamic *dir*)
 (def ^:dynamic *buffer-pool-factory*)
-(declare with-tmp-dir with-each-buffer-pool)
-(t/use-fixtures :each #'with-each-buffer-pool #'with-tmp-dir)
+(def ^:dynamic *z-index?*)
+(declare with-tmp-dir with-each-buffer-pool with-and-without-z-index)
+(t/use-fixtures :each #'with-each-buffer-pool #'with-and-without-z-index #'with-tmp-dir)
 
 (t/deftest test-restore-db
   (let [triangle-edb '[r(1, 3).
@@ -31,6 +32,7 @@
                        s(5, 2).]
         triangle-idb '[q(A, B, C) :- r(A, B), s(B, C), t(A, C).]
         db-opts {:crux.datalog.storage/root-dir *dir*
+                 :crux.datalog.storage/z-index? *z-index?*
                  :crux.datalog.hquad-tree/leaf-size 4
                  :buffer-pool-factory *buffer-pool-factory*}]
     (t/testing "in memory"
@@ -81,4 +83,14 @@
                    #'ds/new-mmap-buffer-pool-factory]]
     (binding [*buffer-pool-factory* factory]
       (t/testing (:name (meta factory))
+        (f)))))
+
+(defn- with-and-without-z-index [f]
+  ;; TODO: Make z index work.
+  (doseq [z-index? [;; true
+                    false]]
+    (t/testing (str (if z-index?
+                      "with"
+                      "without") "-z-index")
+      (binding [*z-index?* z-index?]
         (f)))))

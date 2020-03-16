@@ -10,7 +10,8 @@
             [crux.object-store :as os]
             [crux.z-curve :as cz])
   (:import clojure.lang.IObj
-           [org.apache.arrow.vector BitVector FixedSizeBinaryVector]
+           [crux.datalog.arrow ArrowBlockRelation ArrowRecordBatchView]
+           [org.apache.arrow.vector BitVector FixedSizeBinaryVector VectorSchemaRoot]
            java.io.File
            java.lang.AutoCloseable
            [java.util Arrays Comparator]))
@@ -129,32 +130,87 @@
                 (recur (binary-search-idx->pos-idx (binary-search-z-index z-index bigmin)))))))))
     selection-vector))
 
-(defn- new-arrow-leaf-relation [arrow-file-view block-idx wal-directory child-name]
-  (d/new-parent-child-relation (da/new-arrow-block-relation arrow-file-view block-idx)
-                               (dw/get-wal-relation wal-directory child-name)
-                               z-comparator))
+(deftype ZIndexArrowBlockRelation [^ArrowBlockRelation arrow-block-relation
+                                   ^ArrowBlockRelation z-index-arrow-block-relation]
+  d/Relation
+  (table-scan [this db]
+    (d/table-scan arrow-block-relation db))
 
-(defn- write-arrow-children-on-split [leaf new-children {:keys [buffer-pool object-store wal-directory] :as opts}]
+  (table-filter [this db var-bindings]
+    (let [dims (count var-bindings)
+          z-range (dhq/var-bindings->z-range var-bindings)
+          record-batch-view ^ArrowRecordBatchView (nth (.arrow-file arrow-block-relation)
+                                                       (.block-idx arrow-block-relation))
+          record-batch (.record-batch record-batch-view)
+          z-index-record-batch-view ^ArrowRecordBatchView (nth (.arrow-file z-index-arrow-block-relation)
+                                                               (.block-idx z-index-arrow-block-relation))
+          z-index-record-batch ^VectorSchemaRoot (.record-batch z-index-record-batch-view)
+          z-index-column (.get (.getFieldVectors z-index-record-batch) 0)
+          z-index-selection-vector ^VectorSchemaRoot (da/->record-batch (z-index->selection-vector z-index-column
+                                                                                                   z-range
+                                                                                                   dims))]
+      (da/arrow-seq record-batch
+                    var-bindings
+                    (fn [^long base-offset ^long vector-size]
+                      (.get (.getFieldVectors (.slice z-index-selection-vector base-offset vector-size)) 0)))))
+
+  (insert [this value]
+    (throw (UnsupportedOperationException.)))
+
+  (delete [this value]
+    (throw (UnsupportedOperationException.)))
+
+  (truncate [this]
+    (throw (UnsupportedOperationException.)))
+
+  (cardinality [this]
+    (d/cardinality arrow-block-relation))
+
+  (relation-name [this]))
+
+(defn- new-arrow-leaf-relation [arrow-file-view arrow-z-index-file-view block-idx wal-directory child-name]
+  (d/new-parent-child-relation
+   (if arrow-z-index-file-view
+     (->ZIndexArrowBlockRelation (da/new-arrow-block-relation arrow-file-view block-idx)
+                                 (da/new-arrow-block-relation arrow-z-index-file-view block-idx))
+     (da/new-arrow-block-relation arrow-file-view block-idx))
+   (dw/get-wal-relation wal-directory child-name)
+   z-comparator))
+
+(defn- write-arrow-children-on-split [leaf new-children {:keys [buffer-pool object-store wal-directory
+                                                                crux.datalog.storage/z-index?] :as opts}]
   (let [parent-name (d/relation-name leaf)
         buffer-name (str parent-name ".arrow")
+        z-index-buffer-name  (str parent-name ".idx.arrow")
         arrow-file-view (da/new-arrow-file-view buffer-name buffer-pool)
+        arrow-z-index-file-view (when z-index?
+                                  (da/new-arrow-file-view z-index-buffer-name buffer-pool))
         tmp-file (File/createTempFile parent-name "arrow")
         [name hyper-quads path] (dhq/leaf-name->name+hyper-quads+path parent-name)]
     (try
       (with-open [in (io/input-stream (da/write-record-batches (for [child new-children]
                                                                  (some-> child (da/->record-batch))) tmp-file))]
         (os/put-object object-store buffer-name in))
+      (when z-index?
+        (let [z-index-tmp-file (File/createTempFile parent-name "idx.arrow")]
+          (try
+            (with-open [in (io/input-stream (da/write-record-batches (for [child new-children]
+                                                                       (some-> child (relation->z-index) (da/->record-batch)))
+                                                                     tmp-file))]
+              (os/put-object object-store z-index-buffer-name in))
+            (finally
+              (.delete z-index-tmp-file)))))
       (d/truncate leaf)
       (vec (for [[block-idx child] (map-indexed vector new-children)
                  :let [child (when child
                                (d/truncate child))
                        child-name (dhq/leaf-name name hyper-quads (conj path block-idx))]]
-             (new-arrow-leaf-relation arrow-file-view block-idx wal-directory child-name)))
+             (new-arrow-leaf-relation arrow-file-view arrow-z-index-file-view block-idx wal-directory child-name)))
       (finally
         (.delete tmp-file)))))
 
 (defn- restore-relations [^ArrowDb arrow-db]
-  (let [{:keys [relation-factory] :as options} (.options arrow-db)
+  (let [{:keys [relation-factory crux.datalog.storage/z-index?] :as options} (.options arrow-db)
         wal-directory (.wal-directory arrow-db)
         root-name->nhp (->> (dw/list-wals (.wal-directory arrow-db))
                             (map dhq/leaf-name->name+hyper-quads+path)
@@ -163,6 +219,7 @@
         rule-relations (->> (dw/list-wals (.rule-wal-directory arrow-db))
                             (set))
         name->nhp (->> (os/list-objects (.object-store arrow-db))
+                       (remove #(re-find #".idx.arrow$" %))
                        (map #(str/replace % #".arrow$" ""))
                        (map dhq/leaf-name->name+hyper-quads+path)
                        (group-by first))
@@ -184,14 +241,17 @@
             [_ hyper-quads path] nhp
             :let [parent-name (dhq/leaf-name name hyper-quads path)
                   buffer-name (str parent-name ".arrow")
-                  arrow-file-view (da/new-arrow-file-view buffer-name (.buffer-pool arrow-db))]
+                  z-index-buffer-name  (str parent-name ".idx.arrow")
+                  arrow-file-view (da/new-arrow-file-view buffer-name (.buffer-pool arrow-db))
+                  arrow-z-index-file-view (when z-index?
+                                            (da/new-arrow-file-view z-index-buffer-name (.buffer-pool arrow-db)))]
             block-idx (range hyper-quads)
             :let [child-path (conj path block-idx)
                   child-name (dhq/leaf-name name hyper-quads child-path)]]
       (dhq/insert-leaf-at-path tree
                                hyper-quads
                                child-path
-                               (new-arrow-leaf-relation arrow-file-view block-idx wal-directory child-name)))))
+                               (new-arrow-leaf-relation arrow-file-view arrow-z-index-file-view block-idx wal-directory child-name)))))
 
 (defn new-in-memory-buffer-pool-factory [{:keys [object-store crux.datalog.storage/in-memory-buffer-pool-size-bytes] :as opts}]
   (assert in-memory-buffer-pool-size-bytes)
@@ -251,6 +311,7 @@
   {:crux.datalog.storage/in-memory-buffer-pool-size-bytes (* 128 1024 1024)
    :crux.datalog.storage/mmap-buffer-pool-size 128
    :crux.datalog.storage/wal-suffix ".wal"
+   :crux.datalog.storage/z-index? false
    :crux.datalog.hquad-tree/leaf-size (* 32 1024)
    :crux.datalog.hquad-tree/split-leaf-tuple-relation-factory da/new-arrow-struct-relation
    :wal-directory-factory new-local-directory-wal-directory-factory

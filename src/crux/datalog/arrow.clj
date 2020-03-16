@@ -272,7 +272,7 @@
     (.setValueCount vector-size)
     (.setInitialCapacity vector-size)))
 
-(defn- arrow-seq
+(defn arrow-seq
   ([^VectorSchemaRoot record-batch var-bindings]
    (let [reused-selection-vector ^BitVector (new-selection-vector (record-batch-allocator record-batch) *vector-size*)]
      (arrow-seq record-batch
@@ -378,7 +378,7 @@
             (do (.load loader (arrow-record-batch-view block buffer))
                 record-batch))))))
 
-(deftype ArrowRecordBatchView [record-batch ^:volatile-mutable buffer]
+(deftype ArrowRecordBatchView [^VectorSchemaRoot record-batch ^:volatile-mutable buffer]
   d/Relation
   (table-scan [this db]
     (d/table-scan record-batch db))

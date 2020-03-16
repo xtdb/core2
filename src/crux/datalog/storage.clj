@@ -70,22 +70,22 @@
 
 (def ^:dynamic ^{:tag 'long} *z-index-byte-width* 16)
 
-(defn relation->z-index
-  (^org.apache.arrow.vector.FixedSizeBinaryVector [relation]
-   (relation->z-index relation *z-index-byte-width*))
-  (^org.apache.arrow.vector.FixedSizeBinaryVector [relation ^long byte-width]
+(defn- relation->z-index
+  (^org.apache.arrow.vector.FixedSizeBinaryVector [relation ^long prefix-length]
+   (relation->z-index relation prefix-length *z-index-byte-width*))
+  (^org.apache.arrow.vector.FixedSizeBinaryVector [relation ^long  prefix-length ^long byte-width]
    (let [z-index (FixedSizeBinaryVector. (str (d/relation-name relation)) da/default-allocator byte-width)]
      (doseq [^bytes z (if (dhq/z-sorted-map? relation)
                         (keys relation)
                         (map dhq/tuple->z-address (d/table-scan relation {})))
-             :let [z (Arrays/copyOf z *z-index-byte-width*)
+             :let [z (Arrays/copyOfRange z prefix-length (+ prefix-length byte-width))
                    idx (.getValueCount z-index)]]
        (doto z-index
          (.setSafe idx z)
          (.setValueCount (inc idx))))
      z-index)))
 
-(defn binary-search-z-index ^long [^FixedSizeBinaryVector z-index ^bytes k]
+(defn- binary-search-z-index ^long [^FixedSizeBinaryVector z-index ^bytes k]
   (with-open [k-vector (FixedSizeBinaryVector. nil (.getAllocator z-index) (.getByteWidth z-index))]
     (doto k-vector
       (.setSafe 0 (Arrays/copyOf k (.getByteWidth z-index)))
@@ -112,11 +112,11 @@
     (dec (- idx))
     idx))
 
-(defn z-index->selection-vector ^org.apache.arrow.vector.BitVector [^FixedSizeBinaryVector z-index [^bytes min-z ^bytes max-z :as z-range] ^long dims]
+(defn- z-index->selection-vector ^org.apache.arrow.vector.BitVector [^FixedSizeBinaryVector z-index [^bytes min-z ^bytes max-z :as z-range] ^long dims]
   (let [selection-vector ^BitVector (da/new-selection-vector (.getAllocator z-index) (.getValueCount z-index))
-        min-z (Arrays/copyOf min-z (.getByteWidth z-index))
-        max-z (Arrays/copyOf max-z (.getByteWidth z-index))
         max-z-idx (binary-search-idx->pos-idx (binary-search-z-index z-index max-z))]
+    (dotimes [idx (.getValueCount selection-vector)]
+      (.set selection-vector idx 0))
     (loop [idx (binary-search-idx->pos-idx (binary-search-z-index z-index min-z))]
       (when (and (< idx (.getValueCount z-index))
                  (<= idx max-z-idx))
@@ -131,28 +131,32 @@
     selection-vector))
 
 (deftype ZIndexArrowBlockRelation [^ArrowBlockRelation arrow-block-relation
-                                   ^ArrowBlockRelation z-index-arrow-block-relation]
+                                   ^ArrowBlockRelation z-index-arrow-block-relation
+                                   ^long prefix-length]
   d/Relation
   (table-scan [this db]
     (d/table-scan arrow-block-relation db))
 
   (table-filter [this db var-bindings]
-    (let [dims (count var-bindings)
-          z-range (dhq/var-bindings->z-range var-bindings)
-          record-batch-view ^ArrowRecordBatchView (nth (.arrow-file arrow-block-relation)
+    (let [record-batch-view ^ArrowRecordBatchView (nth (.arrow-file arrow-block-relation)
                                                        (.block-idx arrow-block-relation))
           record-batch (.record-batch record-batch-view)
           z-index-record-batch-view ^ArrowRecordBatchView (nth (.arrow-file z-index-arrow-block-relation)
                                                                (.block-idx z-index-arrow-block-relation))
           z-index-record-batch ^VectorSchemaRoot (.record-batch z-index-record-batch-view)
-          z-index-column (.get (.getFieldVectors z-index-record-batch) 0)
-          z-index-selection-vector ^VectorSchemaRoot (da/->record-batch (z-index->selection-vector z-index-column
-                                                                                                   z-range
-                                                                                                   dims))]
+          z-index-column ^FixedSizeBinaryVector (.getVector z-index-record-batch 0)
+          z-range (for [^bytes z (dhq/var-bindings->z-range var-bindings)]
+                    (Arrays/copyOfRange z prefix-length (+ prefix-length (.getByteWidth z-index-column))))
+          dims (count var-bindings)
+          z-index-selection-vector ^BitVector (z-index->selection-vector z-index-column
+                                                                         z-range
+                                                                         dims)]
       (da/arrow-seq record-batch
                     var-bindings
                     (fn [^long base-offset ^long vector-size]
-                      (.get (.getFieldVectors (.slice z-index-selection-vector base-offset vector-size)) 0)))))
+                      (let [transfter-pair (.getTransferPair z-index-selection-vector (.getAllocator z-index-selection-vector))]
+                        (.splitAndTransfer transfter-pair base-offset vector-size)
+                        (.getTo transfter-pair))))))
 
   (insert [this value]
     (throw (UnsupportedOperationException.)))
@@ -168,14 +172,19 @@
 
   (relation-name [this]))
 
-(defn- new-arrow-leaf-relation [arrow-file-view arrow-z-index-file-view block-idx wal-directory child-name]
+(defn- new-arrow-leaf-relation [arrow-file-view arrow-z-index-file-view block-idx wal-directory child-name z-index-prefix-length]
   (d/new-parent-child-relation
    (if arrow-z-index-file-view
      (->ZIndexArrowBlockRelation (da/new-arrow-block-relation arrow-file-view block-idx)
-                                 (da/new-arrow-block-relation arrow-z-index-file-view block-idx))
+                                 (da/new-arrow-block-relation arrow-z-index-file-view block-idx)
+                                 z-index-prefix-length)
      (da/new-arrow-block-relation arrow-file-view block-idx))
    (dw/get-wal-relation wal-directory child-name)
    z-comparator))
+
+(defn- z-index-prefix-length ^long [^long hyper-quads path]
+  (let [dims (cz/hyper-quads->dims hyper-quads)]
+    (quot (* (count path) dims) Byte/SIZE)))
 
 (defn- write-arrow-children-on-split [leaf new-children {:keys [buffer-pool object-store wal-directory
                                                                 crux.datalog.storage/z-index?] :as opts}]
@@ -186,7 +195,8 @@
         arrow-z-index-file-view (when z-index?
                                   (da/new-arrow-file-view z-index-buffer-name buffer-pool))
         tmp-file (File/createTempFile parent-name "arrow")
-        [name hyper-quads path] (dhq/leaf-name->name+hyper-quads+path parent-name)]
+        [name hyper-quads path] (dhq/leaf-name->name+hyper-quads+path parent-name)
+        z-index-prefix-length (z-index-prefix-length hyper-quads path)]
     (try
       (with-open [in (io/input-stream (da/write-record-batches (for [child new-children]
                                                                  (some-> child (da/->record-batch))) tmp-file))]
@@ -195,7 +205,7 @@
         (let [z-index-tmp-file (File/createTempFile parent-name "idx.arrow")]
           (try
             (with-open [in (io/input-stream (da/write-record-batches (for [child new-children]
-                                                                       (some-> child (relation->z-index) (da/->record-batch)))
+                                                                       (some-> child (relation->z-index z-index-prefix-length) (da/->record-batch)))
                                                                      tmp-file))]
               (os/put-object object-store z-index-buffer-name in))
             (finally
@@ -205,7 +215,7 @@
                  :let [child (when child
                                (d/truncate child))
                        child-name (dhq/leaf-name name hyper-quads (conj path block-idx))]]
-             (new-arrow-leaf-relation arrow-file-view arrow-z-index-file-view block-idx wal-directory child-name)))
+             (new-arrow-leaf-relation arrow-file-view arrow-z-index-file-view block-idx wal-directory child-name z-index-prefix-length)))
       (finally
         (.delete tmp-file)))))
 
@@ -244,14 +254,15 @@
                   z-index-buffer-name  (str parent-name ".idx.arrow")
                   arrow-file-view (da/new-arrow-file-view buffer-name (.buffer-pool arrow-db))
                   arrow-z-index-file-view (when z-index?
-                                            (da/new-arrow-file-view z-index-buffer-name (.buffer-pool arrow-db)))]
+                                            (da/new-arrow-file-view z-index-buffer-name (.buffer-pool arrow-db)))
+                  z-index-prefix-length (z-index-prefix-length hyper-quads path)]
             block-idx (range hyper-quads)
             :let [child-path (conj path block-idx)
                   child-name (dhq/leaf-name name hyper-quads child-path)]]
       (dhq/insert-leaf-at-path tree
                                hyper-quads
                                child-path
-                               (new-arrow-leaf-relation arrow-file-view arrow-z-index-file-view block-idx wal-directory child-name)))))
+                               (new-arrow-leaf-relation arrow-file-view arrow-z-index-file-view block-idx wal-directory child-name z-index-prefix-length)))))
 
 (defn new-in-memory-buffer-pool-factory [{:keys [object-store crux.datalog.storage/in-memory-buffer-pool-size-bytes] :as opts}]
   (assert in-memory-buffer-pool-size-bytes)

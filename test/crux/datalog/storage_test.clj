@@ -86,9 +86,7 @@
         (f)))))
 
 (defn- with-and-without-z-index [f]
-  ;; TODO: Make z index work.
-  (doseq [z-index? [;; true
-                    false]]
+  (doseq [z-index? [true false]]
     (t/testing (str (if z-index?
                       "with"
                       "without") "-z-index")

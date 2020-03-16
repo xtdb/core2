@@ -84,7 +84,7 @@
         (.put long-bytes 0 (min Long/BYTES used-bytes))
         (.array))))
 
-(def ^:dynamic *use-var-ints? true)
+(def ^:dynamic *use-var-ints?* true)
 
 (extend-protocol ByteKey
   (class (byte-array 0))
@@ -107,7 +107,7 @@
 
   Integer
   (->byte-key [this]
-    (if *use-var-ints?
+    (if *use-var-ints?*
       (long->var-int-byte-key this)
       (-> (ByteBuffer/allocate Integer/BYTES)
           (.putInt (bit-xor ^long this Integer/MIN_VALUE))
@@ -115,7 +115,7 @@
 
   Long
   (->byte-key [this]
-    (if *use-var-ints?
+    (if *use-var-ints?*
       (long->var-int-byte-key this)
       (-> (ByteBuffer/allocate Long/BYTES)
           (.putLong (bit-xor ^long this Long/MIN_VALUE))

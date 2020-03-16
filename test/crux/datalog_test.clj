@@ -796,7 +796,7 @@ perm(c, b).
     (t/testing (str (if var-ints?
                       "with"
                       "without") "-var-ints")
-      (binding [cbk/*use-var-ints? var-ints?]
+      (binding [cbk/*use-var-ints?* var-ints?]
         (f)))))
 
 (defn- with-each-tuple-factory [f]

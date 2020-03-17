@@ -3,6 +3,7 @@
             [crux.z-curve :as cz]
             [crux.byte-keys :as cbk]
             [crux.datalog :as d]
+            [crux.io :as cio]
             [crux.datalog.parser :as dp])
   (:import [java.util Arrays ArrayList Comparator List]
            java.lang.AutoCloseable
@@ -210,9 +211,9 @@
 
   AutoCloseable
   (close [_]
-    (d/try-close nodes)
+    (cio/try-close nodes)
     (doseq [leaf leaves]
-      (d/try-close leaf))))
+      (cio/try-close leaf))))
 
 (defn- init-hyper-quads [^HyperQuadTree tree ^long hyper-quads]
   (when (= -1 (.getHyperQuads tree))
@@ -313,7 +314,7 @@
         leaf (.get leaves leaf-idx)]
     (.set leaves leaf-idx (.getFreeLeafIndex tree))
     (.setFreeLeafIndex tree leaf-idx)
-    (d/try-close leaf)))
+    (cio/try-close leaf)))
 
 (def ^:private ^:dynamic *leaf-split?* false)
 

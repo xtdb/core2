@@ -2,7 +2,8 @@
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as str]
-            [crux.datalog :as d])
+            [crux.datalog :as d]
+            [crux.io :as cio])
   (:import [java.io File RandomAccessFile]
            java.nio.charset.StandardCharsets
            [java.lang.ref Reference SoftReference]
@@ -81,7 +82,7 @@
   AutoCloseable
   (close [this]
     (set! (.-relation-and-next-offset this) nil)
-    (d/try-close wal)))
+    (cio/try-close wal)))
 
 (deftype EDNFileWAL [^:volatile-mutable ^RandomAccessFile write-raf ^File f sync?]
   WAL
@@ -103,13 +104,13 @@
              (vec)))))
 
   (delete [this]
-    (d/try-close this)
+    (cio/try-close this)
     (.delete f)
     nil)
 
   AutoCloseable
   (close [this]
-    (d/try-close write-raf)
+    (cio/try-close write-raf)
     (set! (.-write-raf this) nil)))
 
 (defn new-edn-file-wal

@@ -7,6 +7,7 @@
             [crux.datalog.wal :as dw]
             [crux.buffer-pool :as bp]
             [crux.byte-keys :as cbk]
+            [crux.io :as cio]
             [crux.object-store :as os]
             [crux.z-curve :as cz])
   (:import clojure.lang.IObj
@@ -59,7 +60,7 @@
   (close [this]
     (d/close-db relation-db)
     (doseq [dependency [object-store wal-directory rule-wal-directory buffer-pool]]
-      (d/try-close dependency))))
+      (cio/try-close dependency))))
 
 (def ^Comparator z-comparator
   (reify Comparator
@@ -151,7 +152,7 @@
           z-index-selection-vector ^BitVector (z-index->selection-vector z-index-column
                                                                          z-range
                                                                          dims)]
-      (.register da/buffer-cleaner record-batch #(d/try-close z-index-selection-vector))
+      (.register da/buffer-cleaner record-batch #(cio/try-close z-index-selection-vector))
       (da/arrow-seq record-batch
                     var-bindings
                     (fn [^long base-offset ^long vector-size]
@@ -220,7 +221,7 @@
              (new-arrow-leaf-relation arrow-file-view arrow-z-index-file-view block-idx wal-directory child-name z-index-prefix-length)))
       (finally
         (doseq [child (concat new-children z-index-record-batches)]
-          (d/try-close child))
+          (cio/try-close child))
         (.delete tmp-file)))))
 
 (defn- restore-relations [^ArrowDb arrow-db]

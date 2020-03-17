@@ -4,7 +4,8 @@
             [clojure.string :as str]
             [clojure.edn :as edn]
             [crux.datalog :as d]
-            [crux.buffer-pool :as bp])
+            [crux.buffer-pool :as bp]
+            [crux.io :as cio])
   (:import [org.apache.arrow.memory BufferAllocator RootAllocator OwnershipTransferResult]
            [org.apache.arrow.vector BaseFixedWidthVector BaseIntVector BaseVariableWidthVector
             BigIntVector BitVector ElementAddressableVector FieldVector Float4Vector Float8Vector
@@ -276,7 +277,7 @@
 (defn arrow-seq
   ([^VectorSchemaRoot record-batch var-bindings]
    (let [reused-selection-vector ^BitVector (new-selection-vector (record-batch-allocator record-batch) *vector-size*)]
-     (.register buffer-cleaner record-batch #(d/try-close reused-selection-vector))
+     (.register buffer-cleaner record-batch #(cio/try-close reused-selection-vector))
      (arrow-seq record-batch
                 var-bindings
                 (fn [^long base-offset ^long vector-size]

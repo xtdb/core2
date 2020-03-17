@@ -119,10 +119,6 @@
       (when (nil? that)
         this))))
 
-(defn try-close [c]
-  (when (instance? AutoCloseable c)
-    (.close ^AutoCloseable c)))
-
 (defn- find-vars [body]
   (let [vars (atom [])]
     (w/postwalk (fn [x]
@@ -594,8 +590,8 @@
 
   AutoCloseable
   (close [this]
-    (try-close rules)
-    (try-close tuples)))
+    (cio/try-close rules)
+    (cio/try-close tuples)))
 
 (def ^:dynamic *tuple-relation-factory* new-sorted-set-relation)
 
@@ -645,8 +641,8 @@
 
   AutoCloseable
   (close [_]
-    (try-close child)
-    (try-close parent)))
+    (cio/try-close child)
+    (cio/try-close parent)))
 
 (defn new-parent-child-relation
   ([parent child]
@@ -700,8 +696,8 @@
 
 (defn close-db [db]
   (doseq [relation (relations db)]
-    (try-close relation))
-  (try-close db))
+    (cio/try-close relation))
+  (cio/try-close db))
 
 (defn tuple->datalog-str [relation-name tuple]
   (str relation-name

@@ -3,7 +3,12 @@
   (:import java.io.File
            [java.nio.file Files FileVisitResult SimpleFileVisitor]
            java.nio.file.attribute.FileAttribute
-           [java.util ArrayList Comparator Iterator]))
+           [java.util ArrayList Comparator Iterator]
+           java.lang.AutoCloseable))
+
+(defn try-close [c]
+  (when (instance? AutoCloseable c)
+    (.close ^AutoCloseable c)))
 
 (def ^:private file-deletion-visitor
   (proxy [SimpleFileVisitor] []

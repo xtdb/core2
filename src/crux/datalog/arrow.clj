@@ -5,7 +5,7 @@
             [clojure.edn :as edn]
             [crux.datalog :as d]
             [crux.buffer-pool :as bp])
-  (:import [org.apache.arrow.memory BufferAllocator RootAllocator]
+  (:import [org.apache.arrow.memory BufferAllocator RootAllocator OwnershipTransferResult]
            [org.apache.arrow.vector BaseFixedWidthVector BaseIntVector BaseVariableWidthVector
             BigIntVector BitVector ElementAddressableVector FieldVector Float4Vector Float8Vector
             FloatingPointVector IntVector TimeStampNanoVector ValueVector VarBinaryVector VarCharVector
@@ -296,8 +296,7 @@
                       record-batch (if (< (.getRowCount record-batch) (+ start-idx vector-size))
                                      (.slice record-batch start-idx)
                                      (.slice record-batch start-idx vector-size))
-                      selection-vector (selection-vector-for-range-fn start-idx (.getRowCount record-batch))]
-                :when selection-vector]
+                      selection-vector (selection-vector-for-range-fn start-idx (.getRowCount record-batch))]]
             (if (zero? (.size (.getFieldVectors record-batch)))
               (repeat vector-size (with-meta [] {::index 0}))
               (cond->> (selected-indexes record-batch column-filters selection-vector)
@@ -337,7 +336,15 @@
       false)
 
     (getRefCount [this]
-      1)))
+      1)
+
+    (transferOwnership [this source-buffer target-allocator]
+      (reify OwnershipTransferResult
+        (getAllocationFit [this]
+          true)
+
+        (getTransferredBuffer [this]
+          source-buffer)))))
 
 (defn- arrow-buf-view ^io.netty.buffer.ArrowBuf [^ByteBuffer nio-buffer]
   (when-not (.isDirect nio-buffer)

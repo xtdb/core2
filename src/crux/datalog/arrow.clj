@@ -34,7 +34,7 @@
 
 (set! *unchecked-math* :warn-on-boxed)
 
-(def ^BufferAllocator default-allocator (RootAllocator. Long/MAX_VALUE))
+(def ^BufferAllocator default-allocator (RootAllocator.))
 (defonce ^Cleaner buffer-cleaner (Cleaner/create))
 
 (def ^:private type->arrow-vector-spec

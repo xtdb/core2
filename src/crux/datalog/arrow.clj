@@ -37,6 +37,8 @@
 (defonce ^:dynamic ^BufferAllocator *allocator* (RootAllocator.))
 (defonce ^Cleaner buffer-cleaner (Cleaner/create))
 
+(declare new-arrow-struct-relation)
+
 (def ^:private type->arrow-vector-spec
   {Integer
    [(FieldType/nullable (.getType Types$MinorType/INT)) IntVector]
@@ -286,7 +288,7 @@
    (let [allocator (record-batch-allocator record-batch)
          unify-tuple? (d/contains-duplicate-vars? var-bindings)
          unifier-vector (d/insert
-                         (StructVector/empty nil allocator)
+                         (new-arrow-struct-relation allocator "unifier_vector")
                          var-bindings)
          column-filters (unifiers->column-filters unifier-vector var-bindings)
          projection (d/projection var-bindings)
@@ -433,7 +435,11 @@
 
   AutoCloseable
   (close [this]
-    (set! (.-buffer-ref-and-record-batches this) nil)))
+    (locking this
+      (when buffer-ref-and-record-batches
+        (doseq [record-batch (.record-batches buffer-ref-and-record-batches)]
+          (cio/try-close record-batch))
+        (set! (.-buffer-ref-and-record-batches this) nil)))))
 
 (defn new-arrow-file-view [buffer-name buffer-pool]
   (assert buffer-pool)
@@ -459,7 +465,11 @@
   (cardinality [this]
     (d/cardinality (.getArrowRecordBatchView arrow-file block-idx)))
 
-  (relation-name [this]))
+  (relation-name [this])
+
+  AutoCloseable
+  (close [this]
+    (.close arrow-file)))
 
 (defn new-arrow-block-relation [^ArrowFileView arrow-file ^long block-idx]
   (->ArrowBlockRelation arrow-file block-idx))

@@ -89,10 +89,11 @@
         z-index-prefix-length (daz/z-index-prefix-length hyper-quads path)
         z-index-record-batches (when z-index?
                                  (for [child new-children]
-                                   (some-> child (daz/relation->z-index z-index-prefix-length) (da/->record-batch))))]
+                                   (some-> child (daz/relation->z-index z-index-prefix-length) (da/->record-batch))))
+        new-record-batches (for [child new-children]
+                             (some-> child (da/->record-batch)))]
     (try
-      (with-open [in (io/input-stream (da/write-record-batches (for [child new-children]
-                                                                 (some-> child (da/->record-batch))) tmp-file))]
+      (with-open [in (io/input-stream (da/write-record-batches new-record-batches tmp-file))]
         (os/put-object object-store buffer-name in))
       (when z-index?
         (let [z-index-tmp-file (File/createTempFile parent-name "idx.arrow")]
@@ -108,7 +109,7 @@
                        child-name (dhq/leaf-name name hyper-quads (conj path block-idx))]]
              (new-arrow-leaf-relation arrow-file-view arrow-z-index-file-view block-idx wal-directory child-name z-index-prefix-length)))
       (finally
-        (doseq [child (concat new-children z-index-record-batches)]
+        (doseq [child (concat new-record-batches z-index-record-batches)]
           (cio/try-close child))
         (.delete tmp-file)))))
 

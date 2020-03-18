@@ -110,7 +110,6 @@
 
   AutoCloseable
   (close [_]
-    (cio/try-close nodes)
     (doseq [leaf leaves]
       (cio/try-close leaf))))
 

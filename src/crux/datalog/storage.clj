@@ -23,23 +23,17 @@
   (assertion [this relation-name value]
     (d/ensure-relation this relation-name (:relation-factory options))
     (set! (.-relation-db this)
-          (update relation-db
-                  relation-name
-                  d/insert
-                  value))
+          (d/assertion relation-db relation-name value))
     this)
 
   (retraction [this relation-name value]
     (set! (.-relation-db this)
-          (update relation-db
-                  relation-name
-                  d/delete
-                  value))
+          (d/retraction relation-db relation-name value))
     this)
 
   (ensure-relation [this relation-name relation-factory]
-    (when-not (contains? relation-db relation-name)
-      (set! (.-relation-db this) (assoc relation-db relation-name (relation-factory relation-name))))
+    (when-not (d/relation-by-name relation-db relation-name)
+      (set! (.-relation-db this) (d/ensure-relation relation-db relation-name relation-factory)))
     this)
 
   (relation-by-name [this relation-name]

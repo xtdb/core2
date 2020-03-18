@@ -34,7 +34,7 @@
 
 (set! *unchecked-math* :warn-on-boxed)
 
-(defonce ^BufferAllocator default-allocator (RootAllocator.))
+(defonce ^:dynamic ^BufferAllocator *allocator* (RootAllocator.))
 (defonce ^Cleaner buffer-cleaner (Cleaner/create))
 
 (def ^:private type->arrow-vector-spec
@@ -266,7 +266,7 @@
   ^org.apache.arrow.memory.BufferAllocator [^VectorSchemaRoot record-batch]
   (if-let [^ValueVector column (first (.getFieldVectors record-batch))]
     (.getAllocator column)
-    default-allocator))
+    *allocator*))
 
 (defn new-selection-vector ^org.apache.arrow.vector.BitVector [^BufferAllocator allocator ^long vector-size]
   (doto (BitVector. "" allocator)
@@ -307,7 +307,7 @@
 (defn write-record-batches ^java.io.File [record-batches f]
   (let [schema (.getSchema ^VectorSchemaRoot (some identity record-batches))
         f (io/file f)]
-    (with-open [record-batch-to (VectorSchemaRoot/create schema default-allocator)
+    (with-open [record-batch-to (VectorSchemaRoot/create schema *allocator*)
                 out (.getChannel (FileOutputStream. f))
                 writer (ArrowFileWriter. record-batch-to nil out)]
       (let [loader (VectorLoader. record-batch-to)]
@@ -378,7 +378,7 @@
 
 (defn- read-arrow-record-batches
   ([buffer]
-   (read-arrow-record-batches default-allocator buffer))
+   (read-arrow-record-batches *allocator* buffer))
   ([^BufferAllocator allocator buffer]
    (let [[schema record-blocks] (read-schema+record-blocks allocator buffer)]
      (vec (for [block record-blocks
@@ -530,7 +530,7 @@
 
 (defn new-arrow-struct-relation
   (^org.apache.arrow.vector.complex.StructVector [relation-name]
-   (new-arrow-struct-relation default-allocator relation-name))
+   (new-arrow-struct-relation *allocator* relation-name))
   (^org.apache.arrow.vector.complex.StructVector [^BufferAllocator allocator relation-name]
    (doto (StructVector/empty (str relation-name) allocator)
      (.setInitialCapacity 0))))

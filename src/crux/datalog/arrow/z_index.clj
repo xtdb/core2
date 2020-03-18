@@ -4,7 +4,8 @@
             [crux.datalog.z-sorted-map :as dz]
             [crux.io :as cio]
             [crux.z-curve :as cz])
-  (:import [crux.datalog.arrow ArrowBlockRelation ArrowFileView ArrowRecordBatchView]
+  (:import org.apache.arrow.memory.BufferAllocator
+           [crux.datalog.arrow ArrowBlockRelation ArrowFileView ArrowRecordBatchView]
            [org.apache.arrow.vector BitVector FixedSizeBinaryVector VectorSchemaRoot]
            java.util.Arrays))
 
@@ -12,9 +13,9 @@
 
 (defn relation->z-index
   (^org.apache.arrow.vector.FixedSizeBinaryVector [relation ^long prefix-length]
-   (relation->z-index relation prefix-length *z-index-byte-width*))
-  (^org.apache.arrow.vector.FixedSizeBinaryVector [relation ^long  prefix-length ^long byte-width]
-   (let [z-index (FixedSizeBinaryVector. (str (d/relation-name relation)) da/default-allocator byte-width)]
+   (relation->z-index da/*allocator* relation prefix-length *z-index-byte-width*))
+  (^org.apache.arrow.vector.FixedSizeBinaryVector [^BufferAllocator allocator relation ^long  prefix-length ^long byte-width]
+   (let [z-index (FixedSizeBinaryVector. (str (d/relation-name relation)) allocator byte-width)]
      (doseq [^bytes z (if (dz/z-sorted-map? relation)
                         (keys relation)
                         (map dz/tuple->z-address (d/table-scan relation {})))

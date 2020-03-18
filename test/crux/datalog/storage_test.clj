@@ -5,7 +5,8 @@
             [crux.datalog.arrow :as da]
             [crux.datalog.storage :as ds]
             [crux.datalog.arrow-test])
-  (:import org.apache.arrow.memory.RootAllocator))
+  (:import org.apache.arrow.memory.RootAllocator
+           java.lang.AutoCloseable))
 
 (def ^:dynamic *dir*)
 (def ^:dynamic *buffer-pool-factory*)
@@ -38,14 +39,15 @@
                  :crux.datalog.storage/z-index? *z-index?*
                  :crux.datalog.hquad-tree/leaf-size 4
                  :buffer-pool-factory *buffer-pool-factory*}]
-    (binding [da/*allocator* (RootAllocator.)]
-      (t/testing "in memory"
-        (with-open [db (ds/new-arrow-db db-opts)]
+    (t/testing "in memory"
+      (binding [da/*allocator* (RootAllocator.)]
+        (with-open [^AutoCloseable db (-> (ds/new-arrow-db db-opts)
+                                          (d/execute triangle-edb)
+                                          (d/execute triangle-idb))]
+
           (t/testing "IDB"
             (t/is (= #{[1 3 4] [1 3 5] [1 4 6] [1 4 8] [1 4 9] [1 5 2] [3 5 2]}
                      (-> db
-                         (d/execute triangle-edb)
-                         (d/execute triangle-idb)
                          (d/query-by-name 'q)
                          (set)))))
 
@@ -55,9 +57,13 @@
             (t/is (= (sort ds/z-comparator [[1 2] [1 4] [1 5] [1 6] [1 8] [1 9] [3 2]])
                      (d/query-by-name db 't)))
             (t/is (= (sort ds/z-comparator [[3 4] [3 5] [4 6] [4 8] [4 9] [5 2]])
-                     (d/query-by-name db 's))))))
+                     (d/query-by-name db 's)))))
+        (t/testing "can cleanly close allocator"
+          (crux.datalog.arrow-test/try-reclaim-memory)
+          (.close da/*allocator*))))
 
-      (t/testing "persistence"
+    (t/testing "persistence"
+      (binding [da/*allocator* (RootAllocator.)]
         (with-open [db (ds/new-arrow-db db-opts)]
           (t/testing "EDB is persisted"
             (t/testing "Relations are stored in Z order"
@@ -68,16 +74,17 @@
               (t/is (= (sort ds/z-comparator [[3 4] [3 5] [4 6] [4 8] [4 9] [5 2]])
                        (d/query-by-name db 's)))))
 
+          (crux.datalog.arrow-test/try-reclaim-memory)
+
           (t/testing "IDB is persisted"
             (t/is (d/relation-by-name db 'q))
             (t/is (= #{[1 3 4] [1 3 5] [1 4 6] [1 4 8] [1 4 9] [1 5 2] [3 5 2]}
                      (-> db
                          (d/query-by-name 'q)
-                         (set)))))))
-
-      #_(t/testing "can cleanly close allocator"
+                         (set))))))
+        (t/testing "can cleanly close allocator"
           (crux.datalog.arrow-test/try-reclaim-memory)
-          (.close da/*allocator*)))))
+          (.close da/*allocator*))))))
 
 (defn with-tmp-dir [f]
   (binding [*dir* (cio/create-tmpdir (str *ns*))]

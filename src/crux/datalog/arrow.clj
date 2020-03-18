@@ -283,8 +283,9 @@
                 var-bindings
                 (fn [^long base-offset ^long vector-size]
                   (doto reused-selection-vector
-                    (.setRangeToOne 0 vector-size))))))
-  ([^VectorSchemaRoot record-batch var-bindings selection-vector-for-range-fn]
+                    (.setRangeToOne 0 vector-size)))
+                identity)))
+  ([^VectorSchemaRoot record-batch var-bindings selection-vector-for-range-fn selection-vector-close-fn]
    (let [allocator (record-batch-allocator record-batch)
          unify-tuple? (d/contains-duplicate-vars? var-bindings)
          unifier-vector (d/insert
@@ -300,11 +301,14 @@
                                      (.slice record-batch start-idx)
                                      (.slice record-batch start-idx vector-size))
                       selection-vector (selection-vector-for-range-fn start-idx (.getRowCount record-batch))]]
-            (if (zero? (.size (.getFieldVectors record-batch)))
-              (repeat vector-size (with-meta [] {::index 0}))
-              (cond->> (selected-indexes record-batch column-filters selection-vector)
-                true (selected-tuples record-batch projection start-idx)
-                unify-tuple? (filter (partial d/unify var-bindings)))))
+            (try
+              (if (zero? (.size (.getFieldVectors record-batch)))
+                (repeat vector-size (with-meta [] {::index 0}))
+                (cond->> (selected-indexes record-batch column-filters selection-vector)
+                  true (selected-tuples record-batch projection start-idx)
+                  unify-tuple? (filter (partial d/unify var-bindings))))
+              (finally
+                (selection-vector-close-fn selection-vector))))
           (apply concat)))))
 
 (defn write-record-batches ^java.io.File [record-batches f]
@@ -317,9 +321,11 @@
       (let [loader (VectorLoader. record-batch-to)]
         (doseq [record-batch record-batches]
           (if record-batch
-            (.load loader (.getRecordBatch (VectorUnloader. record-batch)))
-            (.clear record-batch-to))
-          (.writeBatch writer))))
+            (with-open [batch (.getRecordBatch (VectorUnloader. record-batch))]
+              (.load loader batch)
+              (.writeBatch writer))
+            (do (.clear record-batch-to)
+                (.writeBatch writer))))))
     f))
 
 (def ^:private nio-view-reference-manager

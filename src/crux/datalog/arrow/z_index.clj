@@ -7,7 +7,8 @@
   (:import org.apache.arrow.memory.BufferAllocator
            [crux.datalog.arrow ArrowBlockRelation ArrowFileView ArrowRecordBatchView]
            [org.apache.arrow.vector BitVector FixedSizeBinaryVector VectorSchemaRoot]
-           java.util.Arrays))
+           java.util.Arrays
+           java.lang.AutoCloseable))
 
 (def ^:dynamic ^{:tag 'long} *z-index-byte-width* 16)
 
@@ -98,7 +99,8 @@
                     (fn [^long base-offset ^long vector-size]
                       (let [transfter-pair (.getTransferPair z-index-selection-vector (.getAllocator z-index-selection-vector))]
                         (.splitAndTransfer transfter-pair base-offset vector-size)
-                        (.getTo transfter-pair))))))
+                        (.getTo transfter-pair)))
+                    cio/try-close)))
 
   (insert [this value]
     (throw (UnsupportedOperationException.)))
@@ -112,7 +114,12 @@
   (cardinality [this]
     (d/cardinality arrow-block-relation))
 
-  (relation-name [this]))
+  (relation-name [this])
+
+  AutoCloseable
+  (close [this]
+    (cio/try-close arrow-block-relation)
+    (cio/try-close z-index-arrow-block-relation)))
 
 (defn z-index-prefix-length ^long [^long hyper-quads path]
   (let [dims (cz/hyper-quads->dims hyper-quads)]

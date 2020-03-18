@@ -4,6 +4,7 @@
             [crux.datalog :as d]
             [crux.datalog.arrow :as da]
             [crux.datalog.hquad-tree :as dhq]
+            [crux.datalog.z-sorted-map :as dz]
             [crux.byte-keys :as cbk]))
 
 (declare with-each-tuple-factory with-and-without-var-ints)
@@ -802,13 +803,13 @@ perm(c, b).
 (defn- with-each-tuple-factory [f]
   (doseq [factory [#'d/new-sorted-set-relation
                    #'da/new-arrow-struct-relation
-                   #'dhq/new-z-sorted-map-relation
+                   #'dz/new-z-sorted-map-relation
                    #'dhq/new-hyper-quad-tree-relation]]
     (t/testing (:name (meta factory))
       (binding [d/*tuple-relation-factory* factory]
         (if (= factory #'dhq/new-hyper-quad-tree-relation)
           (doseq [leaf-tuple-factory [#'da/new-arrow-struct-relation
-                                      #'dhq/new-z-sorted-map-relation]]
+                                      #'dz/new-z-sorted-map-relation]]
             (t/testing (:name (meta leaf-tuple-factory))
               (binding [dhq/*default-options* {:crux.datalog.hquad-tree/leaf-tuple-relation-factory leaf-tuple-factory
                                                :crux.datalog.hquad-tree/leaf-size 4}]

@@ -22,7 +22,6 @@
            org.apache.arrow.memory.util.ArrowBufPointer
            io.netty.buffer.ArrowBuf
            io.netty.util.internal.PlatformDependent
-           clojure.lang.Indexed
            java.lang.AutoCloseable
            [java.lang.ref Cleaner Reference WeakReference]
            [java.io FileInputStream FileOutputStream InputStream OutputStream]
@@ -35,7 +34,7 @@
 
 (set! *unchecked-math* :warn-on-boxed)
 
-(def ^BufferAllocator default-allocator (RootAllocator.))
+(defonce ^BufferAllocator default-allocator (RootAllocator.))
 (defonce ^Cleaner buffer-cleaner (Cleaner/create))
 
 (def ^:private type->arrow-vector-spec
@@ -414,19 +413,22 @@
   (close [this]
     (set! (.-buffer this) nil)))
 
-(defrecord ArrowBufferRefAndRecordBatches [^Reference buffer-ref ^List record-batches])
+(deftype ArrowBufferRefAndRecordBatches [^Reference buffer-ref ^List record-batches])
+
+(definterface IArrowRecordBatchViewAccessor
+  (^crux.datalog.arrow.ArrowRecordBatchView getArrowRecordBatchView [^long idx]))
 
 (deftype ArrowFileView [buffer-pool ^String buffer-name ^:volatile-mutable ^ArrowBufferRefAndRecordBatches buffer-ref-and-record-batches]
-  Indexed
-  (nth [this n]
+  IArrowRecordBatchViewAccessor
+  (getArrowRecordBatchView [this idx]
     (if-let [buffer (and buffer-ref-and-record-batches (.get ^Reference (.buffer-ref buffer-ref-and-record-batches)))]
-      (->ArrowRecordBatchView (nth (.record-batches buffer-ref-and-record-batches) n) buffer)
+      (->ArrowRecordBatchView (nth (.record-batches buffer-ref-and-record-batches) idx) buffer)
       (let [new-buffer (bp/get-buffer buffer-pool buffer-name)
             new-buffer-ref-and-record-batches (ArrowBufferRefAndRecordBatches.
                                                (WeakReference. new-buffer)
                                                (read-arrow-record-batches new-buffer))]
         (set! (.-buffer-ref-and-record-batches this) new-buffer-ref-and-record-batches)
-        (->ArrowRecordBatchView (nth (.record-batches new-buffer-ref-and-record-batches) n) new-buffer))))
+        (->ArrowRecordBatchView (nth (.record-batches new-buffer-ref-and-record-batches) idx) new-buffer))))
 
   AutoCloseable
   (close [this]
@@ -439,10 +441,10 @@
 (defrecord ArrowBlockRelation [^ArrowFileView arrow-file ^long block-idx]
   d/Relation
   (table-scan [this db]
-    (d/table-scan (nth arrow-file block-idx) db))
+    (d/table-scan (.getArrowRecordBatchView arrow-file block-idx) db))
 
   (table-filter [this db var-bindings]
-    (d/table-filter (nth arrow-file block-idx) db var-bindings))
+    (d/table-filter (.getArrowRecordBatchView arrow-file block-idx) db var-bindings))
 
   (insert [this value]
     (throw (UnsupportedOperationException.)))
@@ -454,7 +456,7 @@
     (throw (UnsupportedOperationException.)))
 
   (cardinality [this]
-    (d/cardinality (nth arrow-file block-idx)))
+    (d/cardinality (.getArrowRecordBatchView arrow-file block-idx)))
 
   (relation-name [this]))
 

@@ -4,7 +4,7 @@
             [crux.byte-keys :as cbk]
             [crux.datalog :as d]
             [crux.io :as cio]
-            [crux.datalog.parser :as dp])
+            [crux.datalog.z-sorted-map :as dz])
   (:import [java.util Arrays ArrayList Comparator List]
            java.lang.AutoCloseable
            java.nio.ByteBuffer))
@@ -15,7 +15,7 @@
 (def ^:private ^{:tag 'long} root-level -1)
 (def ^:private ^{:tag 'long} initial-nodes-capacity 128)
 
-(declare insert-tuple insert-into-node walk-tree init-hyper-quads new-leaf var-bindings->z-range non-z-range-var-bindings)
+(declare insert-tuple insert-into-node walk-tree init-hyper-quads new-leaf)
 
 (defn- leaf-idx? [^long idx]
   (neg? idx))
@@ -29,111 +29,10 @@
 (defn- encode-leaf-idx ^long [^long idx]
   (- (inc idx)))
 
-(def ^:private z-wildcard-min-bytes (byte-array Long/BYTES (byte 0)))
-(def ^:private z-wildcard-max-bytes (byte-array Long/BYTES (byte -1)))
-(def ^:private z-wildcard-range [z-wildcard-min-bytes
-                                 z-wildcard-max-bytes])
-
-(defn tuple->z-address ^bytes [value]
-  (cz/bit-interleave (mapv cbk/->byte-key value)))
-
-(defn z-sorted-map-insert [this tuple]
-  (assoc this (tuple->z-address tuple) tuple))
-
-(defn z-sorted-map-delete [this tuple]
-  (dissoc this (tuple->z-address tuple)))
-
-(defn z-sorted-map-table-filter [this db var-bindings]
-  (let [[^bytes min-z ^bytes max-z :as z-range] (var-bindings->z-range var-bindings)
-        non-z-var-bindings (non-z-range-var-bindings var-bindings)
-        dims (count var-bindings)
-        after-max-z (some-> (subseq this > max-z) (first) (key))
-        s ((fn step [^bytes z]
-             (reduce
-              (fn [acc [^bytes k v]]
-                (cond
-                  (identical? k after-max-z)
-                  (reduced acc)
-
-                  (cz/in-z-range? min-z max-z k dims)
-                  (conj acc v)
-
-                  :else
-                  (if-let [^bytes bigmin (second (cz/z-range-search min-z max-z k dims))]
-                    (reduced (concat acc (step bigmin)))
-                    acc)))
-              []
-              (subseq this >= z)))
-           min-z)]
-    (d/table-filter s db non-z-var-bindings)))
-
-(def z-sorted-map-prototype
-  {'crux.datalog/insert
-   z-sorted-map-insert
-   'crux.datalog/delete
-   z-sorted-map-delete
-   'crux.datalog/table-filter
-   z-sorted-map-table-filter})
-
-(defn z-sorted-map? [m]
-  (and (map? m) (= z-sorted-map-table-filter ('crux.datalog/table-filter (meta m)))))
-
-(defn new-z-sorted-map-relation [relation-name]
-  (vary-meta (d/new-sorted-map-relation cbk/unsigned-bytes-comparator relation-name)
-             merge
-             z-sorted-map-prototype))
-
 (def ^:dynamic *default-options* {::leaf-size (* 128 1024)
-                                  ::leaf-tuple-relation-factory new-z-sorted-map-relation
+                                  ::leaf-tuple-relation-factory dz/new-z-sorted-map-relation
                                   ::post-process-children-after-split nil
                                   ::split-leaf-tuple-relation-factory nil})
-
-(defn- non-z-range-var-bindings [var-bindings]
-  (vec (for [var-binding var-bindings]
-         (if (dp/logic-var? var-binding)
-           (if (some (comp #{'!=} first) (:constraints (meta var-binding)))
-             var-binding
-             (with-meta var-binding nil))
-           var-binding))))
-
-(defn var-bindings->z-range [var-bindings]
-  (let [min+max (for [var-binding var-bindings]
-                  (if (dp/logic-var? var-binding)
-                    (if-let [constraints (:constraints (meta var-binding))]
-                      (reduce
-                       (fn [[min-z max-z] [op value]]
-                         [(case op
-                            (>= >) (let [value-bs (if (= '> op)
-                                                    (if (int? value)
-                                                      (cbk/->byte-key (inc ^long value))
-                                                      (cz/inc-unsigned-bytes (cbk/->byte-key value)))
-                                                    (cbk/->byte-key value))
-                                         diff (.compare cbk/unsigned-bytes-comparator value-bs min-z)]
-                                     (if (pos? diff)
-                                       value-bs
-                                       min-z))
-                            = (cbk/->byte-key value)
-                            min-z)
-                          (case op
-                            (<= <) (let [value-bs (if (= '< op)
-                                                    (if (int? value)
-                                                      (cbk/->byte-key (dec ^long value))
-                                                      (cz/dec-unsigned-bytes (cbk/->byte-key value)))
-                                                    (cbk/->byte-key value))
-                                         diff (.compare cbk/unsigned-bytes-comparator value-bs max-z)]
-                                     (if (pos? diff)
-                                       max-z
-                                       value-bs))
-                            = (cbk/->byte-key value)
-                            max-z)])
-                       [z-wildcard-min-bytes
-                        z-wildcard-max-bytes]
-                       constraints)
-                      [z-wildcard-min-bytes z-wildcard-max-bytes])
-                    (let [value-bs (cbk/->byte-key var-binding)]
-                      [value-bs value-bs])))]
-    [(cz/bit-interleave (mapv first min+max))
-     (cz/bit-interleave (mapv second min+max))]))
 
 (definterface INodesAccessor
   (^ints getNodes [])
@@ -158,10 +57,10 @@
                         options]
   d/Relation
   (table-scan [this db]
-    (walk-tree this #(d/table-scan % db) z-wildcard-range))
+    (walk-tree this #(d/table-scan % db) dz/z-wildcard-range))
 
   (table-filter [this db var-bindings]
-    (walk-tree this #(d/table-filter % db var-bindings) (var-bindings->z-range var-bindings)))
+    (walk-tree this #(d/table-filter % db var-bindings) (dz/var-bindings->z-range var-bindings)))
 
   (insert [this value]
     (doto this
@@ -374,7 +273,7 @@
             (Long/parseLong e)))]))
 
 (defn- insert-into-node [^HyperQuadTree tree path ^long parent-node-idx value]
-  (let [z-address (tuple->z-address value)
+  (let [z-address (dz/tuple->z-address value)
         dims (cz/hyper-quads->dims (.getHyperQuads tree))
         node-vector (.getNodes tree)]
     (loop [parent-node-idx parent-node-idx

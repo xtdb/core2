@@ -15,5 +15,6 @@
   :java-source-paths ["src"]
   :jvm-opts ["-Xmx2G"
              "-XX:MaxDirectMemorySize=2G"
-             "-Dio.netty.tryReflectionSetAccessible=true"]
+             "-Dio.netty.tryReflectionSetAccessible=true"
+             "-Darrow.memory.debug.allocator=true"]
   :global-vars {*warn-on-reflection* true})

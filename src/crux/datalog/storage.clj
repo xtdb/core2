@@ -70,9 +70,9 @@
    (dw/get-wal-relation wal-directory child-name)
    z-comparator))
 
-(defn- write-arrow-children-on-split [leaf new-children {:keys [buffer-pool object-store wal-directory
-                                                                crux.datalog.storage/z-index?] :as opts}]
-  (let [parent-name (d/relation-name leaf)
+(defn- write-arrow-children-on-split [old-leaf new-children {:keys [buffer-pool object-store wal-directory
+                                                                    crux.datalog.storage/z-index?] :as opts}]
+  (let [parent-name (d/relation-name old-leaf)
         buffer-name (str parent-name ".arrow")
         z-index-buffer-name  (str parent-name ".idx.arrow")
         arrow-file-view (da/new-arrow-file-view buffer-name buffer-pool)
@@ -96,7 +96,7 @@
               (os/put-object object-store z-index-buffer-name in))
             (finally
               (.delete z-index-tmp-file)))))
-      (d/truncate leaf)
+      (d/truncate old-leaf)
       (vec (for [[block-idx child] (map-indexed vector new-children)
                  :let [child (when child
                                (d/truncate child))

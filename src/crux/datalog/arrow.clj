@@ -430,6 +430,7 @@
             new-buffer-ref-and-record-batches (ArrowBufferRefAndRecordBatches.
                                                (WeakReference. new-buffer)
                                                (read-arrow-record-batches new-buffer))]
+        (.close this)
         (set! (.-buffer-ref-and-record-batches this) new-buffer-ref-and-record-batches)
         (->ArrowRecordBatchView (nth (.record-batches new-buffer-ref-and-record-batches) idx) new-buffer))))
 

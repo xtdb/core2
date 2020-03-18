@@ -291,6 +291,7 @@
          column-filters (unifiers->column-filters unifier-vector var-bindings)
          projection (d/projection var-bindings)
          vector-size (min *vector-size* (.getRowCount record-batch))]
+     (.register buffer-cleaner record-batch #(cio/try-close unifier-vector))
      (->> (for [start-idx (range 0 (.getRowCount record-batch) vector-size)
                 :let [start-idx (long start-idx)
                       record-batch (if (< (.getRowCount record-batch) (+ start-idx vector-size))

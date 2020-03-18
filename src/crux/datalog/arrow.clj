@@ -309,8 +309,9 @@
 
 (defn write-record-batches ^java.io.File [record-batches f]
   (let [schema (.getSchema ^VectorSchemaRoot (some identity record-batches))
+        allocator (record-batch-allocator (some identity record-batches))
         f (io/file f)]
-    (with-open [record-batch-to (VectorSchemaRoot/create schema *allocator*)
+    (with-open [record-batch-to (VectorSchemaRoot/create schema allocator)
                 out (.getChannel (FileOutputStream. f))
                 writer (ArrowFileWriter. record-batch-to nil out)]
       (let [loader (VectorLoader. record-batch-to)]

@@ -7,8 +7,8 @@
             [crux.datalog.z-sorted-map :as dz]
             [crux.byte-keys :as cbk]))
 
-(declare with-each-tuple-factory with-and-without-var-ints)
-(t/use-fixtures :each #'with-and-without-var-ints #'with-each-tuple-factory)
+(declare with-each-tuple-factory with-and-without-var-ints with-arena-allocator)
+(t/use-fixtures :each #'with-and-without-var-ints #'with-each-tuple-factory #'with-arena-allocator)
 
 (t/deftest test-triangle-join-query
   (let [triangle '[r(1, 3).
@@ -815,3 +815,8 @@ perm(c, b).
                                                :crux.datalog.hquad-tree/leaf-size 4}]
                 (f))))
           (f))))))
+
+(defn- with-arena-allocator [f]
+  (with-open [allocator (da/new-arena-allocator da/*allocator*)]
+    (binding [da/*allocator* allocator]
+      (f))))

@@ -577,3 +577,30 @@
       d/insert
       (new-arrow-struct-relation (d/relation-name this))
       (d/table-scan this nil)))))
+
+(defn new-arena-allocator
+  (^org.apache.arrow.memory.BufferAllocator [^BufferAllocator parent-allocator]
+   (new-arena-allocator parent-allocator 0))
+  (^org.apache.arrow.memory.BufferAllocator [^BufferAllocator parent-allocator ^long init-reservation]
+   (let [allocator-name (str (gensym 'arena-allocator))
+         allocator (.newChildAllocator parent-allocator allocator-name init-reservation (.getLimit parent-allocator))
+         reference-managers (atom #{})]
+     (reify BufferAllocator
+       (buffer [this size]
+         (doto (.buffer allocator size)
+           (->> (.getReferenceManager) (swap! reference-managers conj))))
+
+       (getAllocatedMemory [this]
+         (.getAllocatedMemory allocator))
+
+       (getEmpty [this]
+         (.getEmpty allocator))
+
+       (close [this]
+         (locking this
+           (.assertOpen allocator)
+           (doseq [^ReferenceManager reference-manager @reference-managers
+                   :let [ref-count (.getRefCount reference-manager)]
+                   :when (pos? ref-count)]
+             (.release reference-manager ref-count))
+           (.close allocator)))))))

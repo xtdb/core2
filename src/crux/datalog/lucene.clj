@@ -16,9 +16,6 @@
            (.utf8ToString)
            (edn/read-string)))
 
-(def ^:private ^"[B" wildcard-min-bytes (byte-array Long/BYTES (byte 0)))
-(def ^:private ^"[B" wildcard-max-bytes (byte-array Long/BYTES (byte -1)))
-
 (defn- var-bindings->query ^org.apache.lucene.search.Query [var-bindings]
   (.build
    ^BooleanQuery$Builder
@@ -30,29 +27,33 @@
            (fn [^BooleanQuery$Builder builder [op value]]
              (case op
                > (.add builder
-                       (BinaryPoint/newRangeQuery (str idx)
-                                                  (if (int? value)
-                                                    (cbk/->byte-key (inc ^long value))
-                                                    (cbk/inc-unsigned-bytes (cbk/->byte-key value)))
-                                                  wildcard-max-bytes)
+                       (let [lower (if (int? value)
+                                     (cbk/->byte-key (inc ^long value))
+                                     (cbk/inc-unsigned-bytes (cbk/->byte-key value)))]
+                         (BinaryPoint/newRangeQuery (str idx)
+                                                    lower
+                                                    (byte-array (alength lower) (byte -1))))
                        BooleanClause$Occur/MUST)
                >= (.add builder
-                        (BinaryPoint/newRangeQuery (str idx)
-                                                   (cbk/->byte-key value)
-                                                   wildcard-max-bytes)
+                        (let [lower (cbk/->byte-key value)]
+                          (BinaryPoint/newRangeQuery (str idx)
+                                                     lower
+                                                     (byte-array (alength lower) (byte -1))))
                         BooleanClause$Occur/MUST)
 
                < (.add builder
-                       (BinaryPoint/newRangeQuery (str idx)
-                                                  wildcard-min-bytes
-                                                  (if (int? value)
-                                                    (cbk/->byte-key (dec ^long value))
-                                                    (cbk/dec-unsigned-bytes (cbk/->byte-key value))))
+                       (let [upper (if (int? value)
+                                     (cbk/->byte-key (dec ^long value))
+                                     (cbk/dec-unsigned-bytes (cbk/->byte-key value)))]
+                         (BinaryPoint/newRangeQuery (str idx)
+                                                    (byte-array (alength upper) (byte 0))
+                                                    upper))
                        BooleanClause$Occur/MUST)
                <= (.add builder
-                        (BinaryPoint/newRangeQuery (str idx)
-                                                   wildcard-min-bytes
-                                                   (cbk/->byte-key value))
+                        (let [upper (cbk/->byte-key value)]
+                          (BinaryPoint/newRangeQuery (str idx)
+                                                     (byte-array (alength upper) (byte 0))
+                                                     upper))
                         BooleanClause$Occur/MUST)
                = (.add builder
                        (BinaryPoint/newExactQuery (str idx) (cbk/->byte-key v))

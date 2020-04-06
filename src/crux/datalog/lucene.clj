@@ -119,7 +119,7 @@
     (.close directory)))
 
 (defn new-lucene-relation
-  ([relation-name]
+  (^crux.datalog.lucene.LuceneRelation [relation-name]
    (new-lucene-relation (ByteBuffersDirectory.) relation-name))
-  ([^Directory directory relation-name]
+  (^crux.datalog.lucene.LuceneRelation [^Directory directory relation-name]
    (->LuceneRelation directory relation-name)))

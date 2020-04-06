@@ -11,7 +11,7 @@
            [org.apache.lucene.store Directory ByteBuffersDirectory]))
 
 (defn- doc->tuple [^Document doc]
-  (some->> (.getBinaryValue doc "_stored")
+  (some->> (.getBinaryValue doc "_source")
            (.utf8ToString)
            (edn/read-string)))
 
@@ -90,7 +90,7 @@
   (insert [this value]
     (with-open [idx-writer (IndexWriter. directory (IndexWriterConfig.))]
       (let [doc (Document.)]
-        (.add doc (StoredField. "_stored" (.getBytes (pr-str value))))
+        (.add doc (StoredField. "_source" (.getBytes (pr-str value))))
         (doseq [[idx v] (map-indexed vector value)]
           (.add doc (BinaryPoint. (str idx) (into-array [(cbk/->byte-key v)]))))
         (.addDocument idx-writer doc)))

@@ -6,7 +6,7 @@
   (:import java.lang.AutoCloseable
            java.nio.charset.StandardCharsets
            [org.apache.lucene.document Document BinaryPoint StoredField]
-           [org.apache.lucene.index DirectoryReader IndexableField IndexReader IndexWriter IndexWriterConfig]
+           [org.apache.lucene.index DirectoryReader IndexNotFoundException IndexReader IndexWriter IndexWriterConfig]
            [org.apache.lucene.search BooleanClause$Occur BooleanQuery BooleanQuery$Builder
             ConstantScoreQuery IndexSearcher MatchAllDocsQuery ScoreDoc ScoreMode Query]
            [org.apache.lucene.store Directory ByteBuffersDirectory]))
@@ -91,15 +91,19 @@
 (deftype LuceneRelation [^Directory directory name]
   d/Relation
   (table-scan [this db]
-    (with-open [idx-reader (DirectoryReader/open directory)]
-      (vec (search idx-reader (MatchAllDocsQuery.)))))
+    (try
+      (with-open [idx-reader (DirectoryReader/open directory)]
+        (vec (search idx-reader (MatchAllDocsQuery.))))
+      (catch IndexNotFoundException _)))
 
   (table-filter [this db var-bindings]
-    (with-open [idx-reader (DirectoryReader/open directory)]
-      (let [unify-tuple? (d/contains-duplicate-vars? var-bindings)]
-        (cond->> (search idx-reader (var-bindings->query var-bindings))
-          unify-tuple? (filter (partial d/unify var-bindings))
-          true vec))))
+    (try
+      (with-open [idx-reader (DirectoryReader/open directory)]
+        (let [unify-tuple? (d/contains-duplicate-vars? var-bindings)]
+          (cond->> (search idx-reader (var-bindings->query var-bindings))
+            unify-tuple? (filter (partial d/unify var-bindings))
+            true vec)))
+      (catch IndexNotFoundException _)))
 
   (insert [this value]
     (with-open [idx-writer (IndexWriter. directory (IndexWriterConfig.))]
@@ -122,8 +126,11 @@
     this)
 
   (cardinality [this]
-    (with-open [dir-reader (DirectoryReader/open directory)]
-      (.numDocs dir-reader)))
+    (try
+      (with-open [dir-reader (DirectoryReader/open directory)]
+        (.numDocs dir-reader))
+      (catch IndexNotFoundException _
+        0)))
 
   (relation-name [this]
     name)

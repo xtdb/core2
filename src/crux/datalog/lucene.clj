@@ -1,18 +1,23 @@
 (ns crux.datalog.lucene
   (:require [clojure.edn :as edn]
+            [crux.byte-keys :as cbk]
             [crux.datalog :as d]
             [crux.datalog.parser :as dp])
   (:import java.lang.AutoCloseable
-           [org.apache.lucene.document Document BinaryPoint DoublePoint Field$Store FloatPoint IntPoint LongPoint StringField StoredField]
-           [org.apache.lucene.index DirectoryReader IndexableField IndexReader IndexWriter IndexWriterConfig Term]
+           [org.apache.lucene.document Document BinaryPoint StoredField]
+           [org.apache.lucene.index DirectoryReader IndexableField IndexReader IndexWriter IndexWriterConfig]
            [org.apache.lucene.search BooleanClause$Occur BooleanQuery BooleanQuery$Builder
-            IndexSearcher MatchAllDocsQuery SimpleCollector Query TermQuery]
+            IndexSearcher MatchAllDocsQuery SimpleCollector Query]
            [org.apache.lucene.store Directory ByteBuffersDirectory]))
 
 (defn- doc->tuple [^Document doc]
   (some->> (.getBinaryValue doc "_stored")
            (.utf8ToString)
            (edn/read-string)))
+
+(def ^:private ^"[B" wildcard-min-bytes (byte-array Long/BYTES (byte 0)))
+(def ^:private ^"[B" wildcard-max-bytes (byte-array Long/BYTES (byte -1)))
+
 
 (defn- var-bindings->query ^org.apache.lucene.search.Query [var-bindings]
   (.build
@@ -24,18 +29,42 @@
           (reduce
            (fn [^BooleanQuery$Builder builder [op value]]
              (case op
-               < (.add builder (LongPoint/newRangeQuery (str idx) Long/MIN_VALUE (dec (long value))))
-               <= (.add builder (LongPoint/newRangeQuery (str idx) Long/MIN_VALUE (long value)))
-               > (.add builder (LongPoint/newRangeQuery (str idx) (inc (long value)) Long/MAX_VALUE))
-               >= (.add builder (LongPoint/newRangeQuery (str idx) (long value) Long/MAX_VALUE))
-               = (.add builder (TermQuery. (Term. (str idx) (str value))) BooleanClause$Occur/MUST)
-               != (.add builder (TermQuery. (Term. (str idx) (str value))) BooleanClause$Occur/MUST_NOT))
+               > (.add builder
+                       (BinaryPoint/newRangeQuery (str idx)
+                                                  (if (int? value)
+                                                    (cbk/->byte-key (inc ^long value))
+                                                    (cbk/inc-unsigned-bytes (cbk/->byte-key value)))
+                                                  wildcard-max-bytes)
+                       BooleanClause$Occur/MUST)
+               >= (.add builder
+                        (BinaryPoint/newRangeQuery (str idx)
+                                                   (cbk/->byte-key value)
+                                                   wildcard-max-bytes)
+                        BooleanClause$Occur/MUST)
+
+               < (.add builder
+                       (BinaryPoint/newRangeQuery (str idx)
+                                                  wildcard-min-bytes
+                                                  (if (int? value)
+                                                    (cbk/->byte-key (dec ^long value))
+                                                    (cbk/dec-unsigned-bytes (cbk/->byte-key value))))
+                       BooleanClause$Occur/MUST)
+               <= (.add builder
+                        (BinaryPoint/newRangeQuery (str idx)
+                                                   wildcard-min-bytes
+                                                   (cbk/->byte-key value))
+                        BooleanClause$Occur/MUST)
+               = (.add builder
+                       (BinaryPoint/newExactQuery (str idx) (into-array [(cbk/->byte-key v)]))
+                       BooleanClause$Occur/MUST)
+               != (.add builder
+                        (BinaryPoint/newExactQuery (str idx) (into-array [(cbk/->byte-key v)]))
+                        BooleanClause$Occur/MUST_NOT))
              builder)
            builder
            constraints)
           builder)
-        (.add builder
-              (TermQuery. (Term. (str idx) (str v)))
+        (.add builder (BinaryPoint/newExactQuery (str idx) (into-array [(cbk/->byte-key v)]))
               BooleanClause$Occur/MUST)))
     (BooleanQuery$Builder.)
     (map-indexed vector var-bindings))))
@@ -63,13 +92,7 @@
       (let [doc (Document.)]
         (.add doc (StoredField. "_stored" (.getBytes (pr-str value))))
         (doseq [[idx v] (map-indexed vector value)]
-          (.add doc (case (symbol (.getSimpleName (class v)))
-                      int (IntPoint. (str idx) ^int v)
-                      long (LongPoint. (str idx) ^long v)
-                      float (FloatPoint. (str idx) ^float v)
-                      double (DoublePoint. (str idx) ^double v)
-                      String (StringField. (str idx) ^String v Field$Store/NO)
-                      (BinaryPoint. (str idx) (into-array [(.getBytes (pr-str v))])))))
+          (.add doc (BinaryPoint. (str idx) (into-array [(cbk/->byte-key v)]))))
         (.addDocument idx-writer doc)))
     this)
 

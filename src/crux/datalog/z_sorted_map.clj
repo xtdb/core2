@@ -35,7 +35,7 @@
                             (>= >) (let [value-bs (if (= '> op)
                                                     (if (int? value)
                                                       (cbk/->byte-key (inc ^long value))
-                                                      (cz/inc-unsigned-bytes (cbk/->byte-key value)))
+                                                      (cbk/inc-unsigned-bytes (cbk/->byte-key value)))
                                                     (cbk/->byte-key value))
                                          diff (.compare cbk/unsigned-bytes-comparator value-bs min-z)]
                                      (if (pos? diff)
@@ -47,7 +47,7 @@
                             (<= <) (let [value-bs (if (= '< op)
                                                     (if (int? value)
                                                       (cbk/->byte-key (dec ^long value))
-                                                      (cz/dec-unsigned-bytes (cbk/->byte-key value)))
+                                                      (cbk/dec-unsigned-bytes (cbk/->byte-key value)))
                                                     (cbk/->byte-key value))
                                          diff (.compare cbk/unsigned-bytes-comparator value-bs max-z)]
                                      (if (pos? diff)

@@ -283,23 +283,3 @@
                           z-bit (bit-shift-left 1 (- (dec Byte/SIZE) z-bit-idx))]
                       (aset z z-byte-idx (byte (bit-or (aget z z-byte-idx) z-bit))))))))))))
     z))
-
-(defn inc-unsigned-bytes ^bytes [^bytes bs]
-  (loop [idx (dec (alength bs))]
-    (when-not (neg? idx)
-      (let [b (Byte/toUnsignedInt (aget bs idx))]
-        (if (= 0xff b)
-          (do (aset bs idx (byte 0))
-              (recur (dec idx)))
-          (doto bs
-            (aset idx (unchecked-byte (inc b)))))))))
-
-(defn dec-unsigned-bytes ^bytes [^bytes bs]
-  (loop [idx (dec (alength bs))]
-    (when-not (neg? idx)
-      (let [b (Byte/toUnsignedInt (aget bs idx))]
-        (if (zero? b)
-          (do (aset bs idx (byte 0xff))
-              (recur (dec idx)))
-          (doto bs
-            (aset idx (unchecked-byte (dec b)))))))))

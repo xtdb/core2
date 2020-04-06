@@ -149,3 +149,23 @@
   Object
   (->byte-key [this]
     (->byte-key (pr-str this))))
+
+(defn inc-unsigned-bytes ^bytes [^bytes bs]
+  (loop [idx (dec (alength bs))]
+    (when-not (neg? idx)
+      (let [b (Byte/toUnsignedInt (aget bs idx))]
+        (if (= 0xff b)
+          (do (aset bs idx (byte 0))
+              (recur (dec idx)))
+          (doto bs
+            (aset idx (unchecked-byte (inc b)))))))))
+
+(defn dec-unsigned-bytes ^bytes [^bytes bs]
+  (loop [idx (dec (alength bs))]
+    (when-not (neg? idx)
+      (let [b (Byte/toUnsignedInt (aget bs idx))]
+        (if (zero? b)
+          (do (aset bs idx (byte 0xff))
+              (recur (dec idx)))
+          (doto bs
+            (aset idx (unchecked-byte (dec b)))))))))

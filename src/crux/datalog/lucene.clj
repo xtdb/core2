@@ -61,8 +61,8 @@
   (insert [this value]
     (with-open [idx-writer (IndexWriter. directory (IndexWriterConfig.))]
       (let [doc (Document.)]
+        (.add doc (StoredField. "_stored" (.getBytes (pr-str value))))
         (doseq [[idx v] (map-indexed vector value)]
-          (.add doc (StoredField. "_stored" (.getBytes (pr-str v))))
           (.add doc (case (symbol (.getSimpleName (class v)))
                       int (IntPoint. (str idx) ^int v)
                       long (LongPoint. (str idx) ^long v)

@@ -1,28 +1,44 @@
 (ns crux.datalog.lucene
   (:require [clojure.edn :as edn]
-            [crux.datalog :as d])
+            [crux.datalog :as d]
+            [crux.datalog.parser :as dp])
   (:import java.lang.AutoCloseable
-           [org.apache.lucene.document Document StoredField]
+           [org.apache.lucene.document Document BinaryPoint DoublePoint Field$Store FloatPoint IntPoint LongPoint StringField StoredField]
            [org.apache.lucene.index DirectoryReader IndexableField IndexReader IndexWriter IndexWriterConfig Term]
            [org.apache.lucene.search BooleanClause$Occur BooleanQuery BooleanQuery$Builder
             IndexSearcher MatchAllDocsQuery SimpleCollector Query TermQuery]
            [org.apache.lucene.store Directory ByteBuffersDirectory]))
 
 (defn- doc->tuple [^Document doc]
-  (vec (for [^IndexableField f doc]
-         (or (.stringValue f)
-             (.numericValue f)
-             (some->> (.binaryValue f) (.utf8ToString) (edn/read-string))))))
+  (some->> (.getBinaryValue doc "_stored")
+           (.utf8ToString)
+           (edn/read-string)))
 
 (defn- var-bindings->query ^org.apache.lucene.search.Query [var-bindings]
   (.build
    ^BooleanQuery$Builder
-   (reduce (fn [^BooleanQuery$Builder builder [idx v]]
-             (.add builder
-                   (TermQuery. (Term. (str idx) (str v)))
-                   BooleanClause$Occur/MUST))
-           (BooleanQuery$Builder.)
-           (map-indexed vector var-bindings))))
+   (reduce
+    (fn [^BooleanQuery$Builder builder [idx v]]
+      (if (dp/logic-var?)
+        (if-let [constraints (:constraints (meta v))]
+          (reduce
+           (fn [^BooleanQuery$Builder builder [op value]]
+             (case op
+               < (.add builder (LongPoint/newRangeQuery (str idx) Long/MIN_VALUE (dec (long value))))
+               <= (.add builder (LongPoint/newRangeQuery (str idx) Long/MIN_VALUE (long value)))
+               > (.add builder (LongPoint/newRangeQuery (str idx) (inc (long value)) Long/MAX_VALUE))
+               >= (.add builder (LongPoint/newRangeQuery (str idx) (long value) Long/MAX_VALUE))
+               = (.add builder (TermQuery. (Term. (str idx) (str value))) BooleanClause$Occur/MUST)
+               != (.add builder (TermQuery. (Term. (str idx) (str value))) BooleanClause$Occur/MUST_NOT))
+             builder)
+           builder
+           constraints)
+          builder)
+        (.add builder
+              (TermQuery. (Term. (str idx) (str v)))
+              BooleanClause$Occur/MUST)))
+    (BooleanQuery$Builder.)
+    (map-indexed vector var-bindings))))
 
 (defn- search [^IndexReader idx-reader ^Query query]
   (let [searcher (IndexSearcher. idx-reader)
@@ -46,13 +62,14 @@
     (with-open [idx-writer (IndexWriter. directory (IndexWriterConfig.))]
       (let [doc (Document.)]
         (doseq [[idx v] (map-indexed vector value)]
+          (.add doc (StoredField. "_stored" (.getBytes (pr-str v))))
           (.add doc (case (symbol (.getSimpleName (class v)))
-                      int (StoredField. (str idx) ^int v)
-                      long (StoredField. (str idx) ^long v)
-                      float (StoredField. (str idx) ^float v)
-                      double (StoredField. (str idx) ^double v)
-                      String (StoredField. (str idx) ^String v)
-                      (StoredField. (str idx) (.getBytes (pr-str v))))))
+                      int (IntPoint. (str idx) ^int v)
+                      long (LongPoint. (str idx) ^long v)
+                      float (FloatPoint. (str idx) ^float v)
+                      double (DoublePoint. (str idx) ^double v)
+                      String (StringField. (str idx) ^String v Field$Store/NO)
+                      (BinaryPoint. (str idx) (into-array [(.getBytes (pr-str v))])))))
         (.addDocument idx-writer doc)))
     this)
 

@@ -4,10 +4,11 @@
             [crux.datalog :as d]
             [crux.datalog.parser :as dp])
   (:import java.lang.AutoCloseable
+           java.nio.charset.StandardCharsets
            [org.apache.lucene.document Document BinaryPoint StoredField]
            [org.apache.lucene.index DirectoryReader IndexableField IndexReader IndexWriter IndexWriterConfig]
            [org.apache.lucene.search BooleanClause$Occur BooleanQuery BooleanQuery$Builder
-            IndexSearcher MatchAllDocsQuery SimpleCollector Query]
+            ConstantScoreQuery IndexSearcher MatchAllDocsQuery ScoreMode SimpleCollector Query]
            [org.apache.lucene.store Directory ByteBuffersDirectory]))
 
 (defn- doc->tuple [^Document doc]
@@ -18,13 +19,12 @@
 (def ^:private ^"[B" wildcard-min-bytes (byte-array Long/BYTES (byte 0)))
 (def ^:private ^"[B" wildcard-max-bytes (byte-array Long/BYTES (byte -1)))
 
-
 (defn- var-bindings->query ^org.apache.lucene.search.Query [var-bindings]
   (.build
    ^BooleanQuery$Builder
    (reduce
     (fn [^BooleanQuery$Builder builder [idx v]]
-      (if (dp/logic-var?)
+      (if (dp/logic-var? v)
         (if-let [constraints (:constraints (meta v))]
           (reduce
            (fn [^BooleanQuery$Builder builder [op value]]
@@ -55,16 +55,17 @@
                                                    (cbk/->byte-key value))
                         BooleanClause$Occur/MUST)
                = (.add builder
-                       (BinaryPoint/newExactQuery (str idx) (into-array [(cbk/->byte-key v)]))
+                       (BinaryPoint/newExactQuery (str idx) (cbk/->byte-key v))
                        BooleanClause$Occur/MUST)
                != (.add builder
-                        (BinaryPoint/newExactQuery (str idx) (into-array [(cbk/->byte-key v)]))
+                        (BinaryPoint/newExactQuery (str idx) (cbk/->byte-key v))
                         BooleanClause$Occur/MUST_NOT))
              builder)
            builder
            constraints)
-          builder)
-        (.add builder (BinaryPoint/newExactQuery (str idx) (into-array [(cbk/->byte-key v)]))
+          (.add builder (MatchAllDocsQuery.) BooleanClause$Occur/MUST))
+        (.add builder
+              (BinaryPoint/newExactQuery (str idx) (cbk/->byte-key v))
               BooleanClause$Occur/MUST)))
     (BooleanQuery$Builder.)
     (map-indexed vector var-bindings))))
@@ -72,9 +73,14 @@
 (defn- search [^IndexReader idx-reader ^Query query]
   (let [searcher (IndexSearcher. idx-reader)
         docs (atom [])]
-    (.search searcher query (proxy [SimpleCollector] []
-                              (collect [doc]
-                                (swap! docs conj (doc->tuple (.doc searcher doc))))))
+    (.search searcher
+             (ConstantScoreQuery. query)
+             (proxy [SimpleCollector] []
+               (collect [doc]
+                 (swap! docs conj (doc->tuple (.doc searcher doc))))
+
+               (scoreMode []
+                 ScoreMode/COMPLETE_NO_SCORES)))
     @docs))
 
 (deftype LuceneRelation [^Directory directory name]
@@ -85,12 +91,14 @@
 
   (table-filter [this db var-bindings]
     (with-open [idx-reader (DirectoryReader/open directory)]
-      (search idx-reader (var-bindings->query var-bindings))))
+      (let [unify-tuple? (d/contains-duplicate-vars? var-bindings)]
+        (cond->> (search idx-reader (var-bindings->query var-bindings))
+          unify-tuple? (filter (partial d/unify var-bindings))))))
 
   (insert [this value]
     (with-open [idx-writer (IndexWriter. directory (IndexWriterConfig.))]
       (let [doc (Document.)]
-        (.add doc (StoredField. "_source" (.getBytes (pr-str value))))
+        (.add doc (StoredField. "_source" (.getBytes (pr-str value) StandardCharsets/UTF_8)))
         (doseq [[idx v] (map-indexed vector value)]
           (.add doc (BinaryPoint. (str idx) (into-array [(cbk/->byte-key v)]))))
         (.addDocument idx-writer doc)))

@@ -8,7 +8,7 @@
            [org.apache.lucene.document Document BinaryPoint StoredField]
            [org.apache.lucene.index DirectoryReader IndexableField IndexReader IndexWriter IndexWriterConfig]
            [org.apache.lucene.search BooleanClause$Occur BooleanQuery BooleanQuery$Builder
-            ConstantScoreQuery IndexSearcher MatchAllDocsQuery ScoreMode SimpleCollector Query]
+            ConstantScoreQuery IndexSearcher MatchAllDocsQuery ScoreDoc ScoreMode Query]
            [org.apache.lucene.store Directory ByteBuffersDirectory]))
 
 (defn- doc->tuple [^Document doc]
@@ -70,30 +70,36 @@
     (BooleanQuery$Builder.)
     (map-indexed vector var-bindings))))
 
-(defn- search [^IndexReader idx-reader ^Query query]
-  (let [searcher (IndexSearcher. idx-reader)
-        docs (atom [])]
-    (.search searcher
-             (ConstantScoreQuery. query)
-             (proxy [SimpleCollector] []
-               (collect [doc]
-                 (swap! docs conj (doc->tuple (.doc searcher doc))))
+(def ^:dynamic ^{:tag 'long} *page-size* 128)
 
-               (scoreMode []
-                 ScoreMode/COMPLETE_NO_SCORES)))
-    @docs))
+(defn- search [^IndexReader idx-reader ^Query query]
+  (let [searcher (IndexSearcher. idx-reader)]
+    ((fn step [after]
+        (lazy-seq
+         (when-let [score-docs (seq (.scoreDocs (if after
+                                                  (.searchAfter searcher
+                                                                after
+                                                                (ConstantScoreQuery. query)
+                                                                *page-size*)
+                                                  (.search searcher
+                                                           (ConstantScoreQuery. query)
+                                                           *page-size*))))]
+           (concat (for [^ScoreDoc score-doc score-docs]
+                     (doc->tuple (.doc searcher (.-doc score-doc))))
+                   (step (last score-docs)))))) nil)))
 
 (deftype LuceneRelation [^Directory directory name]
   d/Relation
   (table-scan [this db]
     (with-open [idx-reader (DirectoryReader/open directory)]
-      (search idx-reader (MatchAllDocsQuery.))))
+      (vec (search idx-reader (MatchAllDocsQuery.)))))
 
   (table-filter [this db var-bindings]
     (with-open [idx-reader (DirectoryReader/open directory)]
       (let [unify-tuple? (d/contains-duplicate-vars? var-bindings)]
         (cond->> (search idx-reader (var-bindings->query var-bindings))
-          unify-tuple? (filter (partial d/unify var-bindings))))))
+          unify-tuple? (filter (partial d/unify var-bindings))
+          true vec))))
 
   (insert [this value]
     (with-open [idx-writer (IndexWriter. directory (IndexWriterConfig.))]

@@ -1,7 +1,8 @@
 (ns crux.datalog.lucene
   (:require [clojure.edn :as edn]
             [crux.datalog :as d])
-  (:import [org.apache.lucene.document Document StoredField]
+  (:import java.lang.AutoCloseable
+           [org.apache.lucene.document Document StoredField]
            [org.apache.lucene.index DirectoryReader IndexableField IndexReader IndexWriter IndexWriterConfig Term]
            [org.apache.lucene.search BooleanClause$Occur BooleanQuery BooleanQuery$Builder
             IndexSearcher MatchAllDocsQuery SimpleCollector Query TermQuery]
@@ -71,7 +72,11 @@
       (.numDocs dir-reader)))
 
   (relation-name [this]
-    name))
+    name)
+
+  AutoCloseable
+  (close [_]
+    (.close directory)))
 
 (defn new-lucene-relation
   ([relation-name]

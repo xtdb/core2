@@ -5,10 +5,10 @@
             [crux.datalog.parser :as dp])
   (:import java.lang.AutoCloseable
            java.nio.charset.StandardCharsets
-           [org.apache.lucene.document Document BinaryPoint StoredField]
-           [org.apache.lucene.index DirectoryReader IndexNotFoundException IndexReader IndexWriter IndexWriterConfig]
+           [org.apache.lucene.document Document BinaryPoint Field$Store StringField StoredField]
+           [org.apache.lucene.index DirectoryReader IndexNotFoundException IndexReader IndexWriter IndexWriterConfig Term]
            [org.apache.lucene.search BooleanClause$Occur BooleanQuery BooleanQuery$Builder
-            ConstantScoreQuery IndexSearcher MatchAllDocsQuery ScoreDoc ScoreMode Query]
+            ConstantScoreQuery IndexSearcher MatchAllDocsQuery ScoreDoc ScoreMode Query TermRangeQuery TermQuery]
            [org.apache.lucene.store Directory ByteBuffersDirectory]))
 
 (defn- doc->tuple [^Document doc]
@@ -30,46 +30,55 @@
                (fn [^BooleanQuery$Builder builder [op value]]
                  (case op
                    > (.add builder
-                           (let [lower (if (int? value)
-                                         (cbk/->byte-key (inc ^long value))
-                                         (cbk/inc-unsigned-bytes (cbk/->byte-key value)))]
-                             (BinaryPoint/newRangeQuery (str idx)
-                                                        lower
-                                                        (byte-array (alength lower) (byte -1))))
+                           (if (number? value)
+                             (let [lower (cbk/inc-unsigned-bytes (cbk/->byte-key value))]
+                               (BinaryPoint/newRangeQuery (str idx)
+                                                          lower
+                                                          (byte-array (alength lower) (byte -1))))
+                             (TermRangeQuery/newStringRange (str idx) (str value) (str (unchecked-char (byte -1))) false true))
                            BooleanClause$Occur/MUST)
                    >= (.add builder
-                            (let [lower (cbk/->byte-key value)]
-                              (BinaryPoint/newRangeQuery (str idx)
-                                                         lower
-                                                         (byte-array (alength lower) (byte -1))))
+                            (if (number? value)
+                              (let [lower (cbk/->byte-key value)]
+                                (BinaryPoint/newRangeQuery (str idx)
+                                                           lower
+                                                           (byte-array (alength lower) (byte -1))))
+                              (TermRangeQuery/newStringRange (str idx) (str value) (str (unchecked-char (byte -1))) true true))
                             BooleanClause$Occur/MUST)
 
                    < (.add builder
-                           (let [upper (if (int? value)
-                                         (cbk/->byte-key (dec ^long value))
-                                         (cbk/dec-unsigned-bytes (cbk/->byte-key value)))]
-                             (BinaryPoint/newRangeQuery (str idx)
-                                                        (byte-array (alength upper) (byte 0))
-                                                        upper))
+                           (if (number? value)
+                             (let [upper (cbk/dec-unsigned-bytes (cbk/->byte-key value))]
+                               (BinaryPoint/newRangeQuery (str idx)
+                                                          (byte-array (alength upper) (byte 0))
+                                                          upper))
+                             (TermRangeQuery/newStringRange (str idx) "" (str value) true false))
                            BooleanClause$Occur/MUST)
                    <= (.add builder
-                            (let [upper (cbk/->byte-key value)]
-                              (BinaryPoint/newRangeQuery (str idx)
-                                                         (byte-array (alength upper) (byte 0))
-                                                         upper))
+                            (if (number? value)
+                              (let [upper (cbk/->byte-key value)]
+                                (BinaryPoint/newRangeQuery (str idx)
+                                                           (byte-array (alength upper) (byte 0))
+                                                           upper))
+                              (TermRangeQuery/newStringRange (str idx) "" (str value) true true))
                             BooleanClause$Occur/MUST)
                    = (.add builder
-                           (BinaryPoint/newExactQuery (str idx) (cbk/->byte-key v))
+                           (if (number? value)
+                             (BinaryPoint/newExactQuery (str idx) (cbk/->byte-key value))
+                             (TermQuery. (Term. (str idx) (str value))))
                            BooleanClause$Occur/MUST)
                    != (.add builder
-                            (BinaryPoint/newExactQuery (str idx) (cbk/->byte-key v))
-                            BooleanClause$Occur/MUST_NOT))
-                 builder)
-               builder
+                            (if (number? value)
+                              (BinaryPoint/newExactQuery (str idx) (cbk/->byte-key value))
+                              (TermQuery. (Term. (str idx) (str value))))
+                            BooleanClause$Occur/MUST_NOT)))
+               (.add builder (MatchAllDocsQuery.) BooleanClause$Occur/MUST)
                constraints)
               (.add builder (MatchAllDocsQuery.) BooleanClause$Occur/MUST))
             (.add builder
-                  (BinaryPoint/newExactQuery (str idx) (cbk/->byte-key v))
+                  (if (number? v)
+                    (BinaryPoint/newExactQuery (str idx) (cbk/->byte-key v))
+                    (TermQuery. (Term. (str idx) (str v))))
                   BooleanClause$Occur/MUST)))
         (BooleanQuery$Builder.)
         (map-indexed vector var-bindings))))))
@@ -103,10 +112,11 @@
   (table-filter [this db var-bindings]
     (try
       (with-open [idx-reader (DirectoryReader/open directory)]
-        (let [unify-tuple? (d/contains-duplicate-vars? var-bindings)]
-          (cond->> (search idx-reader (var-bindings->query var-bindings))
-            unify-tuple? (filter (partial d/unify var-bindings))
-            true vec)))
+        (let [projection (d/projection var-bindings)
+              unify-tuple? (d/contains-duplicate-vars? var-bindings)]
+          (vec (for [tuple (cond->> (search idx-reader (var-bindings->query var-bindings))
+                             unify-tuple? (filter (partial d/unify var-bindings)))]
+                 (d/project-tuple projection tuple)))))
       (catch IndexNotFoundException _)))
 
   (insert [this value]
@@ -115,7 +125,9 @@
         (let [doc (Document.)]
           (.add doc (StoredField. "_source" (.getBytes (pr-str value) StandardCharsets/UTF_8)))
           (doseq [[idx v] (map-indexed vector value)]
-            (.add doc (BinaryPoint. (str idx) (into-array [(cbk/->byte-key v)]))))
+            (.add doc (if (number? v)
+                        (BinaryPoint. (str idx) (into-array [(cbk/->byte-key v)]))
+                        (StringField. (str idx) (str v) Field$Store/NO))))
           (.addDocument idx-writer doc))))
     this)
 

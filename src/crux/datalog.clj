@@ -145,6 +145,13 @@
            :else
            var))))
 
+(defn project-tuple [projection tuple]
+  (mapv (fn [v p]
+          (case p
+            ::blank-var dp/blank-var
+            ::logic-var v
+            p)) tuple projection))
+
 (declare term->value)
 
 (defmulti ^:private new-bound-vars
@@ -524,11 +531,7 @@
       (for [tuple (seq this)
             :when (or (nil? var-bindings)
                       (unify tuple var-bindings))]
-        (mapv (fn [v p]
-                (case p
-                  ::blank-var dp/blank-var
-                  ::logic-var v
-                  p)) tuple projection))))
+        (project-tuple projection tuple))))
 
   (insert [this tuple]
     (conj this tuple))

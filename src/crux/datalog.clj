@@ -221,6 +221,12 @@
                         idx))
      :aggregate-ops aggregate-ops}))
 
+(defn var-constraints [var]
+  (:constraints (meta var)))
+
+(defn var-constraint-fn [var]
+  (:constraint-fn (meta var)))
+
 (defn new-constraint [var constraint-fn op value]
   (-> var
       (vary-meta update :constraints conj [op value])
@@ -435,7 +441,7 @@
                        (for [id (range)]
                          (symbol (str "crux.datalog/variable_" id))))
           smap (->> (for [[var memo-key] smap]
-                      [var [memo-key (:constraints (meta var))]])
+                      [var [memo-key (var-constraints var)]])
                     (into {}))]
      (replace smap var-bindings))])
 

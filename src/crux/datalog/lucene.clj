@@ -23,9 +23,9 @@
       (.build
        ^BooleanQuery$Builder
        (reduce
-        (fn [^BooleanQuery$Builder builder [idx v]]
-          (if (dp/logic-var? v)
-            (if-let [constraints (:constraints (meta v))]
+        (fn [^BooleanQuery$Builder builder [idx var-binding]]
+          (if (dp/logic-var? var-binding)
+            (if-let [constraints (d/var-constraints var-binding)]
               (reduce
                (fn [^BooleanQuery$Builder builder [op value]]
                  (case op
@@ -76,9 +76,9 @@
                constraints)
               (.add builder (MatchAllDocsQuery.) BooleanClause$Occur/MUST))
             (.add builder
-                  (if (number? v)
-                    (BinaryPoint/newExactQuery (str idx) (cbk/->byte-key v))
-                    (TermQuery. (Term. (str idx) (str v))))
+                  (if (number? var-binding)
+                    (BinaryPoint/newExactQuery (str idx) (cbk/->byte-key var-binding))
+                    (TermQuery. (Term. (str idx) (str var-binding))))
                   BooleanClause$Occur/MUST)))
         (BooleanQuery$Builder.)
         (map-indexed vector var-bindings))))))

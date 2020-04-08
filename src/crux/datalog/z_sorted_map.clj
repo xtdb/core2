@@ -20,7 +20,7 @@
 (defn- non-z-range-var-bindings [var-bindings]
   (vec (for [var-binding var-bindings]
          (if (dp/logic-var? var-binding)
-           (if (some (comp #{'!=} first) (:constraints (meta var-binding)))
+           (if (some (comp #{'!=} first) (d/var-constraints var-binding))
              var-binding
              (with-meta var-binding nil))
            var-binding))))
@@ -28,7 +28,7 @@
 (defn var-bindings->z-range [var-bindings]
   (let [min+max (for [var-binding var-bindings]
                   (if (dp/logic-var? var-binding)
-                    (if-let [constraints (:constraints (meta var-binding))]
+                    (if-let [constraints (d/var-constraints var-binding)]
                       (reduce
                        (fn [[min-z max-z] [op value]]
                          [(case op

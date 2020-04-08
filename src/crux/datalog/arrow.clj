@@ -64,7 +64,7 @@
   (reduce
    (fn [^StructVector struct [idx column-template]]
      (let [column-template (if-let [[[_ value]] (and (dp/logic-var? column-template)
-                                                     (:constraints (meta column-template)))]
+                                                     (d/var-constraints column-template))]
                              value
                              column-template)
            column-type (class column-template)
@@ -161,7 +161,7 @@
 
 (defn- insert-clojure-value-into-column [^ValueVector column ^long idx v]
   (if-let [[[_ v]] (and (dp/logic-var? v)
-                        (:constraints (meta v)))]
+                        (d/var-constraints v))]
     (set-column-value column idx (clojure->arrow v))
     (set-column-value column idx (clojure->arrow v))))
 
@@ -179,7 +179,7 @@
   (vec (for [[^ElementAddressableVector unify-column var-binding] (map vector unifier-vector var-bindings)]
          (cond
            (dp/logic-var? var-binding)
-           (if-let [constraint-fn (:constraint-fn (meta var-binding))]
+           (if-let [constraint-fn (d/var-constraint-fn var-binding)]
              (cond
                (and (instance? BaseIntVector unify-column)
                     (instance? LongPredicate constraint-fn))

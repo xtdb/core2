@@ -17,59 +17,62 @@
            (edn/read-string)))
 
 (defn- var-bindings->query ^org.apache.lucene.search.Query [var-bindings]
-  (.build
-   ^BooleanQuery$Builder
-   (reduce
-    (fn [^BooleanQuery$Builder builder [idx v]]
-      (if (dp/logic-var? v)
-        (if-let [constraints (:constraints (meta v))]
-          (reduce
-           (fn [^BooleanQuery$Builder builder [op value]]
-             (case op
-               > (.add builder
-                       (let [lower (if (int? value)
-                                     (cbk/->byte-key (inc ^long value))
-                                     (cbk/inc-unsigned-bytes (cbk/->byte-key value)))]
-                         (BinaryPoint/newRangeQuery (str idx)
-                                                    lower
-                                                    (byte-array (alength lower) (byte -1))))
-                       BooleanClause$Occur/MUST)
-               >= (.add builder
-                        (let [lower (cbk/->byte-key value)]
-                          (BinaryPoint/newRangeQuery (str idx)
-                                                     lower
-                                                     (byte-array (alength lower) (byte -1))))
-                        BooleanClause$Occur/MUST)
+  (binding [cbk/*use-var-ints?* false]
+    (if (empty? var-bindings)
+      (MatchAllDocsQuery.)
+      (.build
+       ^BooleanQuery$Builder
+       (reduce
+        (fn [^BooleanQuery$Builder builder [idx v]]
+          (if (dp/logic-var? v)
+            (if-let [constraints (:constraints (meta v))]
+              (reduce
+               (fn [^BooleanQuery$Builder builder [op value]]
+                 (case op
+                   > (.add builder
+                           (let [lower (if (int? value)
+                                         (cbk/->byte-key (inc ^long value))
+                                         (cbk/inc-unsigned-bytes (cbk/->byte-key value)))]
+                             (BinaryPoint/newRangeQuery (str idx)
+                                                        lower
+                                                        (byte-array (alength lower) (byte -1))))
+                           BooleanClause$Occur/MUST)
+                   >= (.add builder
+                            (let [lower (cbk/->byte-key value)]
+                              (BinaryPoint/newRangeQuery (str idx)
+                                                         lower
+                                                         (byte-array (alength lower) (byte -1))))
+                            BooleanClause$Occur/MUST)
 
-               < (.add builder
-                       (let [upper (if (int? value)
-                                     (cbk/->byte-key (dec ^long value))
-                                     (cbk/dec-unsigned-bytes (cbk/->byte-key value)))]
-                         (BinaryPoint/newRangeQuery (str idx)
-                                                    (byte-array (alength upper) (byte 0))
-                                                    upper))
-                       BooleanClause$Occur/MUST)
-               <= (.add builder
-                        (let [upper (cbk/->byte-key value)]
-                          (BinaryPoint/newRangeQuery (str idx)
-                                                     (byte-array (alength upper) (byte 0))
-                                                     upper))
-                        BooleanClause$Occur/MUST)
-               = (.add builder
-                       (BinaryPoint/newExactQuery (str idx) (cbk/->byte-key v))
-                       BooleanClause$Occur/MUST)
-               != (.add builder
-                        (BinaryPoint/newExactQuery (str idx) (cbk/->byte-key v))
-                        BooleanClause$Occur/MUST_NOT))
-             builder)
-           builder
-           constraints)
-          (.add builder (MatchAllDocsQuery.) BooleanClause$Occur/MUST))
-        (.add builder
-              (BinaryPoint/newExactQuery (str idx) (cbk/->byte-key v))
-              BooleanClause$Occur/MUST)))
-    (BooleanQuery$Builder.)
-    (map-indexed vector var-bindings))))
+                   < (.add builder
+                           (let [upper (if (int? value)
+                                         (cbk/->byte-key (dec ^long value))
+                                         (cbk/dec-unsigned-bytes (cbk/->byte-key value)))]
+                             (BinaryPoint/newRangeQuery (str idx)
+                                                        (byte-array (alength upper) (byte 0))
+                                                        upper))
+                           BooleanClause$Occur/MUST)
+                   <= (.add builder
+                            (let [upper (cbk/->byte-key value)]
+                              (BinaryPoint/newRangeQuery (str idx)
+                                                         (byte-array (alength upper) (byte 0))
+                                                         upper))
+                            BooleanClause$Occur/MUST)
+                   = (.add builder
+                           (BinaryPoint/newExactQuery (str idx) (cbk/->byte-key v))
+                           BooleanClause$Occur/MUST)
+                   != (.add builder
+                            (BinaryPoint/newExactQuery (str idx) (cbk/->byte-key v))
+                            BooleanClause$Occur/MUST_NOT))
+                 builder)
+               builder
+               constraints)
+              (.add builder (MatchAllDocsQuery.) BooleanClause$Occur/MUST))
+            (.add builder
+                  (BinaryPoint/newExactQuery (str idx) (cbk/->byte-key v))
+                  BooleanClause$Occur/MUST)))
+        (BooleanQuery$Builder.)
+        (map-indexed vector var-bindings))))))
 
 (def ^:dynamic ^{:tag 'long} *page-size* 128)
 
@@ -107,12 +110,13 @@
       (catch IndexNotFoundException _)))
 
   (insert [this value]
-    (with-open [idx-writer (IndexWriter. directory (IndexWriterConfig.))]
-      (let [doc (Document.)]
-        (.add doc (StoredField. "_source" (.getBytes (pr-str value) StandardCharsets/UTF_8)))
-        (doseq [[idx v] (map-indexed vector value)]
-          (.add doc (BinaryPoint. (str idx) (into-array [(cbk/->byte-key v)]))))
-        (.addDocument idx-writer doc)))
+    (binding [cbk/*use-var-ints?* false]
+      (with-open [idx-writer (IndexWriter. directory (IndexWriterConfig.))]
+        (let [doc (Document.)]
+          (.add doc (StoredField. "_source" (.getBytes (pr-str value) StandardCharsets/UTF_8)))
+          (doseq [[idx v] (map-indexed vector value)]
+            (.add doc (BinaryPoint. (str idx) (into-array [(cbk/->byte-key v)]))))
+          (.addDocument idx-writer doc))))
     this)
 
   (delete [this value]

@@ -31,13 +31,15 @@
 
 (defn byte-key->float ^Float [^bytes key]
   (let [x (-> (ByteBuffer/wrap key)
-              (.getInt))]
-    (Float/intBitsToFloat (bit-xor x (bit-or (bit-shift-right (bit-xor x Integer/MIN_VALUE) (dec Integer/SIZE)) Integer/MIN_VALUE)))))
+              (.getInt)
+              (dec))]
+    (Float/intBitsToFloat (bit-xor x (bit-or (bit-shift-right (bit-not x) (dec Integer/SIZE)) Integer/MIN_VALUE)))))
 
 (defn byte-key->double ^double [^bytes key]
   (let [x (-> (ByteBuffer/wrap key)
-              (.getLong))]
-    (Double/longBitsToDouble (bit-xor x (bit-or (bit-shift-right (bit-xor x Long/MIN_VALUE) (dec Long/SIZE)) Long/MIN_VALUE)))))
+              (.getLong)
+              (dec))]
+    (Double/longBitsToDouble (bit-xor x (bit-or (bit-shift-right (bit-not x) (dec Long/SIZE)) Long/MIN_VALUE)))))
 
 (defn byte-key->instant ^java.time.Instant [^bytes key]
   (Instant/ofEpochSecond 0 (byte-key->long key)))
@@ -124,7 +126,7 @@
   Float
   (->byte-key [this]
     (let [l (Float/floatToIntBits this)
-          l (bit-xor l (bit-or (bit-shift-right l (dec Integer/SIZE)) Integer/MIN_VALUE))]
+          l (inc (bit-xor l (bit-or (bit-shift-right l (dec Integer/SIZE)) Integer/MIN_VALUE)))]
       (-> (ByteBuffer/allocate Integer/BYTES)
           (.putInt l)
           (.array))))
@@ -132,7 +134,7 @@
   Double
   (->byte-key [this]
     (let [l (Double/doubleToLongBits this)
-          l (bit-xor l (bit-or (bit-shift-right l (dec Long/SIZE)) Long/MIN_VALUE))]
+          l (inc (bit-xor l (bit-or (bit-shift-right l (dec Long/SIZE)) Long/MIN_VALUE)))]
       (-> (ByteBuffer/allocate Long/BYTES)
           (.putLong l)
           (.array))))

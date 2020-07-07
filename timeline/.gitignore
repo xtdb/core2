@@ -1,0 +1,4 @@
+target
+.nrepl-port
+hs_err_pid*.log
+.lein-failures

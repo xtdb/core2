@@ -1,4 +1,5 @@
-(ns crux.timeline)
+(ns crux.timeline
+  (:import java.util.Comparator))
 
 (set! *unchecked-math* :warn-on-boxed)
 
@@ -32,4 +33,38 @@
      (let [p (quick-select a low hi (aget a hi))]
        (quick-sort a low (dec p))
        (quick-sort a (inc p) hi)))
+   a))
+
+(defn quick-select-o
+  ([^objects a x]
+   (quick-select-o (Comparator/naturalOrder) a 0 (dec (alength a)) x))
+  ([^Comparator comp ^objects a low hi x]
+   (let [low ^long low
+         hi ^long hi]
+     (loop [i low
+            j low]
+       (if (<= j hi)
+         (let [tmp (aget a j)]
+           (if (neg? (.compare comp tmp x))
+             (do (doto a
+                   (aset j (aget a i))
+                   (aset i tmp))
+                 (recur (inc i) (inc j)))
+             (recur i (inc j))))
+         (let [tmp (aget a hi)]
+           (doto a
+             (aset hi (aget a i))
+             (aset i tmp))
+           i))))))
+
+(defn quick-sort-o
+  ([^objects a]
+   (quick-sort-o (Comparator/naturalOrder) a 0 (dec (alength a))))
+  ([comp ^objects a]
+   (quick-sort-o comp a 0 (dec (alength a))))
+  ([comp ^objects a ^long low ^long hi]
+   (when (< low hi)
+     (let [^long p (quick-select-o comp a low hi (aget a hi))]
+       (quick-sort-o comp a low (dec p))
+       (quick-sort-o comp a (inc p) hi)))
    a))

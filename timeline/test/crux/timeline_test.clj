@@ -1,7 +1,24 @@
 (ns crux.timeline-test
   (:require [clojure.test :as t])
   (:import [io.airlift.tpch TpchColumn TpchColumnType TpchColumnType$Base TpchEntity TpchTable]
-           java.util.UUID))
+           java.util.Date))
+
+(defn uniform-long ^long [^long start ^long end]
+  (+ start (long (rand (- (inc end) start)))))
+
+(defn uniform-date ^java.util.Date [^Date start ^Date end]
+  (let [start-ms (.getTime start)]
+    (Date. (+ start-ms (uniform-long start-ms (.getTime end))))))
+
+(def table->pkey
+  {"part" ["p_partkey"]
+   "supplier" ["s_suppkey"]
+   "partsupp" ["ps_partkey" "ps_suppkey"]
+   "customer" ["c_custkey"]
+   "lineitem" ["l_orderkey" "l_partkey"]
+   "orders" ["o_orderkey"]
+   "nation" ["n_nationkey"]
+   "region" ["r_regionkey"]})
 
 (defn tpch-column->clj [^TpchColumn c ^TpchEntity e]
   (condp = (.getBase (.getType c))
@@ -17,12 +34,15 @@
     (.getDate c e)))
 
 (defn tpch-entity->doc [^TpchTable t ^TpchEntity e]
-  (persistent!
-   (reduce
-    (fn [acc ^TpchColumn c]
-      (assoc! acc (.getColumnName c) (tpch-column->clj c e)))
-    (transient {})
-    (.getColumns t))))
+  (let [doc (persistent!
+             (reduce
+              (fn [acc ^TpchColumn c]
+                (assoc! acc (.getColumnName c) (tpch-column->clj c e)))
+              (transient {})
+              (.getColumns t)))
+        table (.getTableName t)
+        pkey (select-keys doc (get table->pkey table))]
+    (with-meta doc {:table table :pkey pkey})))
 
 (defn tpch-table->docs [^TpchTable t scale-factor]
   (for [e (.createGenerator ^TpchTable t scale-factor 1 1)]

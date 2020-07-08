@@ -19,10 +19,30 @@
     (doto builder
       (.putBoolean k this)))
 
+  Byte
+  (clj->flex [this ^FlexBuffersBuilder builder k]
+    (doto builder
+      (.putInt ^String k ^int this)))
+
+  Short
+  (clj->flex [this ^FlexBuffersBuilder builder k]
+    (doto builder
+      (.putInt ^String k ^int this)))
+
+  Integer
+  (clj->flex [this ^FlexBuffersBuilder builder k]
+    (doto builder
+      (.putInt ^String k ^int this)))
+
   Long
   (clj->flex [this ^FlexBuffersBuilder builder k]
     (doto builder
       (.putInt ^String k ^long this)))
+
+  Float
+  (clj->flex [this ^FlexBuffersBuilder builder k]
+    (doto builder
+      (.putFloat ^String k ^float this)))
 
   Double
   (clj->flex [this ^FlexBuffersBuilder builder k]
@@ -60,7 +80,7 @@
   (cond
     (.isNull ref) nil
     (.isBoolean ref) (.asBoolean ref)
-    (.isInt ref) (.asInt ref)
+    (.isInt ref) (.asLong ref)
     (.isFloat ref) (.asFloat ref)
     (.isString ref) (.asString ref)
     (.isBlob ref) (.getBytes (.asBlob ref))
@@ -81,7 +101,7 @@
                           (recur (inc n) (conj! acc (flex->clj (.get v n))))
                           (persistent! acc))))
     :else
-    ref))
+    (throw (IllegalArgumentException. (str "Unsupported type: " (.getType ref))))))
 
 (defn read-flex->clj [^ByteBuffer b]
   (flex->clj (FlexBuffers/getRoot b)))

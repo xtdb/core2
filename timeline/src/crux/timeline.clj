@@ -1,7 +1,72 @@
 (ns crux.timeline
-  (:import java.util.Comparator))
+  (:import [java.util Comparator List Map]
+           java.nio.ByteBuffer
+           [com.google.flatbuffers FlexBuffers FlexBuffers$Reference FlexBuffersBuilder]))
 
 (set! *unchecked-math* :warn-on-boxed)
+
+(defn clj->flex
+  (^com.google.flatbuffers.FlexBuffersBuilder [^FlexBuffersBuilder builder x]
+   (clj->flex builder nil x))
+  (^com.google.flatbuffers.FlexBuffersBuilder [^FlexBuffersBuilder builder ^String k x]
+   (cond
+     (boolean? x)
+     (.putBoolean builder k x)
+     (int? x)
+     (.putInt builder k (long x))
+     (float? x)
+     (.putFloat builder k (double x))
+     (string? x)
+     (.putString builder k x)
+     (bytes? x)
+     (.putBlob builder k x)
+     (instance? List x)
+     (let [vector-ref (.startVector builder)]
+       (doseq [x x]
+         (clj->flex builder nil x))
+       (.endVector builder k vector-ref false false))
+     (instance? Map x)
+     (let [map-ref (.startMap builder)]
+       (doseq [[k v] x
+               :let [k (if (keyword? k)
+                         (subs (str k) 1)
+                         (str k))]]
+         (clj->flex builder k v))
+       (.endMap builder k map-ref)))
+   builder))
+
+(defn write-clj->flex ^ByteBuffer [x]
+  (.finish (clj->flex (FlexBuffersBuilder.) x)))
+
+(defn flex->clj [^FlexBuffers$Reference ref]
+  (cond
+    (.isNull ref) nil
+    (.isBoolean ref) (.asBoolean ref)
+    (.isInt ref) (.asInt ref)
+    (.isFloat ref) (.asFloat ref)
+    (.isString ref) (.asString ref)
+    (.isBlob ref) (.getBytes (.asBlob ref))
+    (.isMap ref) (let [m (.asMap ref)
+                       kv (.keys m)
+                       vv (.values m)]
+                   (loop [n 0
+                          acc (transient {})]
+                     (if (< n (.size kv))
+                       (recur (inc n) (assoc! acc
+                                              (keyword (str (.get kv n)))
+                                              (flex->clj (.get vv n))))
+                       (persistent! acc))))
+    (.isVector ref) (let [v (.asVector ref)]
+                      (loop [n 0
+                             acc (transient [])]
+                        (if (< n (.size v))
+                          (recur (inc n) (conj! acc (flex->clj (.get v n))))
+                          (persistent! acc))))
+    :else
+    ref))
+
+(defn read-flex->clj [^ByteBuffer b]
+  (flex->clj (FlexBuffers/getRoot b)))
 
 ;; Potentially useful for incremental index maintenance.
 

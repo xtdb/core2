@@ -46,8 +46,14 @@
   (^longs [^longs a]
    (quick-sort a 0 (dec (alength a))))
   (^longs [^longs a ^long low ^long hi]
-   (when (< low hi)
-     (let [left-right (three-way-partition a low hi (aget a hi))]
-       (quick-sort a low (dec (upper-int left-right)))
-       (quick-sort a (inc (lower-int left-right)) hi)))
-   a))
+   (if (< low hi)
+     (let [pivot (aget a hi)
+           left-right (three-way-partition a low hi pivot)
+           left (dec (upper-int left-right))
+           right (inc (lower-int left-right))]
+       (if (< (- hi right) (- left low))
+         (do (quick-sort a right hi)
+             (recur a low left))
+         (do (quick-sort a low left)
+             (recur a right hi))))
+     a)))

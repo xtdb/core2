@@ -5,66 +5,49 @@
 
 ;; Potentially useful for incremental index maintenance.
 
-(defn quick-select
-  (^long [^longs a ^long x]
-   (quick-select a 0 (dec (alength a)) x))
-  (^long [^longs a ^long low ^long hi ^long x]
+(defn upper-int ^long [^long x]
+  (unsigned-bit-shift-right x Integer/SIZE))
+
+(defn lower-int ^long [^long x]
+  (bit-and x (Integer/toUnsignedLong -1)))
+
+(defn two-ints-as-long ^long [^long x ^long y]
+  (bit-or (bit-shift-left x Integer/SIZE) y))
+
+(defn three-way-partition
+  (^long [^longs a ^long pivot]
+   (three-way-partition a 0 (dec (alength a)) pivot))
+  (^long [^longs a ^long low ^long hi ^long pivot]
    (loop [i low
-          j low]
-     (if (<= j hi)
-       (let [tmp (aget a j)]
-         (if (< tmp x)
+          j low
+          k (inc hi)]
+     (if (< j k)
+       (let [aj (aget a j)
+             diff (- aj pivot)]
+         (cond
+           (neg? diff)
            (do (doto a
                  (aset j (aget a i))
-                 (aset i tmp))
-               (recur (inc i) (inc j)))
-           (recur i (inc j))))
-       (let [tmp (aget a hi)]
-         (doto a
-           (aset hi (aget a i))
-           (aset i tmp))
-         i)))))
+                 (aset i aj))
+               (recur (inc i) (inc j) k))
+
+           (pos? diff)
+           (let [k (dec k)]
+             (doto a
+               (aset j (aget a k))
+               (aset k aj))
+             (recur i j k))
+
+           :else
+           (recur i (inc j) k)))
+       (two-ints-as-long i (dec k))))))
 
 (defn quick-sort
-  ([^longs a]
+  (^longs [^longs a]
    (quick-sort a 0 (dec (alength a))))
-  ([^longs a ^long low ^long hi]
+  (^longs [^longs a ^long low ^long hi]
    (when (< low hi)
-     (let [p (quick-select a low hi (aget a hi))]
-       (quick-sort a low (dec p))
-       (quick-sort a (inc p) hi)))
-   a))
-
-(defn quick-select-o
-  ([^objects a x]
-   (quick-select-o (Comparator/naturalOrder) a 0 (dec (alength a)) x))
-  ([^Comparator comp ^objects a low hi x]
-   (let [low ^long low
-         hi ^long hi]
-     (loop [i low
-            j low]
-       (if (<= j hi)
-         (let [tmp (aget a j)]
-           (if (neg? (.compare comp tmp x))
-             (do (doto a
-                   (aset j (aget a i))
-                   (aset i tmp))
-                 (recur (inc i) (inc j)))
-             (recur i (inc j))))
-         (let [tmp (aget a hi)]
-           (doto a
-             (aset hi (aget a i))
-             (aset i tmp))
-           i))))))
-
-(defn quick-sort-o
-  ([^objects a]
-   (quick-sort-o (Comparator/naturalOrder) a 0 (dec (alength a))))
-  ([comp ^objects a]
-   (quick-sort-o comp a 0 (dec (alength a))))
-  ([comp ^objects a ^long low ^long hi]
-   (when (< low hi)
-     (let [^long p (quick-select-o comp a low hi (aget a hi))]
-       (quick-sort-o comp a low (dec p))
-       (quick-sort-o comp a (inc p) hi)))
+     (let [left-right (three-way-partition a low hi (aget a hi))]
+       (quick-sort a low (dec (upper-int left-right)))
+       (quick-sort a (inc (lower-int left-right)) hi)))
    a))

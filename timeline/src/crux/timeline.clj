@@ -5,38 +5,56 @@
 
 (set! *unchecked-math* :warn-on-boxed)
 
-(defn clj->flex
-  (^com.google.flatbuffers.FlexBuffersBuilder [^FlexBuffersBuilder builder x]
-   (clj->flex builder nil x))
-  (^com.google.flatbuffers.FlexBuffersBuilder [^FlexBuffersBuilder builder ^String k x]
-   (cond
-     (boolean? x)
-     (.putBoolean builder k x)
-     (int? x)
-     (.putInt builder k (long x))
-     (float? x)
-     (.putFloat builder k (double x))
-     (string? x)
-     (.putString builder k x)
-     (bytes? x)
-     (.putBlob builder k x)
-     (instance? List x)
-     (let [vector-ref (.startVector builder)]
-       (doseq [x x]
-         (clj->flex builder nil x))
-       (.endVector builder k vector-ref false false))
-     (instance? Map x)
-     (let [map-ref (.startMap builder)]
-       (doseq [[k v] x
-               :let [k (if (keyword? k)
-                         (subs (str k) 1)
-                         (str k))]]
-         (clj->flex builder k v))
-       (.endMap builder k map-ref)))
-   builder))
+(defprotocol ClojureToFlex
+  (clj->flex ^com.google.flatbuffers.FlexBuffersBuilder [this ^FlexBuffersBuilder builder ^String k]))
+
+(extend-protocol ClojureToFlex
+  (class (byte-array 0))
+  (clj->flex [this ^FlexBuffersBuilder builder k]
+    (doto builder
+      (.putBlob k this)))
+
+  Boolean
+  (clj->flex [this ^FlexBuffersBuilder builder k]
+    (doto builder
+      (.putBoolean k this)))
+
+  Long
+  (clj->flex [this ^FlexBuffersBuilder builder k]
+    (doto builder
+      (.putInt ^String k ^long this)))
+
+  Double
+  (clj->flex [this ^FlexBuffersBuilder builder k]
+    (doto builder
+      (.putFloat ^String k ^double this)))
+
+  String
+  (clj->flex [this ^FlexBuffersBuilder builder k]
+    (doto builder
+      (.putString ^String k this)))
+
+  List
+  (clj->flex [this ^FlexBuffersBuilder builder k]
+    (let [vector-ref (.startVector builder)]
+      (doseq [x this]
+        (clj->flex x builder nil))
+      (.endVector builder k vector-ref false false)
+      builder))
+
+  Map
+  (clj->flex [this ^FlexBuffersBuilder builder k]
+    (let [map-ref (.startMap builder)]
+      (doseq [[k v] this
+              :let [k (if (keyword? k)
+                        (subs (str k) 1)
+                        (str k))]]
+        (clj->flex v builder k))
+      (.endMap builder k map-ref))
+    builder))
 
 (defn write-clj->flex ^ByteBuffer [x]
-  (.finish (clj->flex (FlexBuffersBuilder.) x)))
+  (.finish (clj->flex x (FlexBuffersBuilder.) nil)))
 
 (defn flex->clj [^FlexBuffers$Reference ref]
   (cond

@@ -1,6 +1,7 @@
 (ns crux.timeline
   (:import [java.util Comparator List Map]
            [java.nio ByteBuffer ByteOrder]
+           clojure.lang.MapEntry
            [com.google.flatbuffers FlexBuffers FlexBuffers$Key FlexBuffers$Reference FlexBuffersBuilder]))
 
 (set! *unchecked-math* :warn-on-boxed)
@@ -96,10 +97,11 @@
           (ByteBuffer/wrap ba))))))
 
 (defn read-sized-prefixed-buffers-seq [^ByteBuffer in]
-  ((fn step [in]
+  ((fn step [^ByteBuffer in]
      (lazy-seq
-      (when-let [x (read-size-prefixed-buffer in)]
-        (cons x (step in))))) in))
+      (let [position (.position in)]
+        (when-let [x (read-size-prefixed-buffer in)]
+          (cons (MapEntry/create position x) (step in)))))) in))
 
 (defn flex-key->clj [^FlexBuffers$Key k]
   (keyword (str k)))

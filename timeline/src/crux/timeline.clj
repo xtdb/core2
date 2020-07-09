@@ -1,6 +1,7 @@
 (ns crux.timeline
   (:import [java.util Comparator List Map]
            [java.nio ByteBuffer ByteOrder]
+           java.nio.charset.StandardCharsets
            [clojure.lang IReduceInit MapEntry]
            [com.google.flatbuffers FlexBuffers FlexBuffers$Key FlexBuffers$Map FlexBuffers$Reference FlexBuffersBuilder]))
 
@@ -153,15 +154,42 @@
     :else
     (throw (IllegalArgumentException. (str "Unsupported type: " (.getType ref))))))
 
-(defn get-flex [^FlexBuffers$Reference ref k]
+(defn get-flex ^com.google.flatbuffers.FlexBuffers$Reference [^FlexBuffers$Reference ref k]
   (cond
     (.isMap ref) (.get (.asMap ref) (clj->flex-key k))
     (or (.isVector ref)
         (.isTypedVector ref)) (.get (.asVector ref) k)))
 
-(defn project-column->clj [k pos+buffer]
-  (MapEntry/create (key pos+buffer)
-                   (flex->clj (get-flex (flex-root (val pos+buffer)) k))))
+(defn value-fits-inline? [^FlexBuffers$Reference ref]
+  (not (or (and (.isString ref)
+                (> (alength (.getBytes (.asString ref) StandardCharsets/UTF_8)) Long/BYTES))
+           (.isBlob ref))))
+
+(defn pos->key-reference-pos ^long [^long pos]
+  (bit-or Long/MIN_VALUE pos))
+
+(defn key-reference-pos? [^long pos]
+  (= Long/MIN_VALUE (bit-and Long/MIN_VALUE pos)))
+
+(defn key-reference-pos->pos ^long [^long pos]
+  (bit-xor Long/MIN_VALUE pos))
+
+(defn resolve-key-reference ^com.google.flatbuffers.FlexBuffers$Reference [^FlexBuffers$Reference parent pos+value]
+  (let [pos (key pos+value)
+        v (val pos+value)]
+    (when (and (key-reference-pos? pos) (.isMap parent))
+      (.get (.asMap parent) ^long v))))
+
+(defn project-column->clj
+  ([k pos+buffer]
+   (project-column->clj k false pos+buffer))
+  ([k references? pos+buffer]
+   (let [root (flex-root (val pos+buffer))
+         v (get-flex root k)]
+     (if (or (value-fits-inline? v) (not references?))
+       (MapEntry/create (key pos+buffer) (flex->clj v))
+       (MapEntry/create (pos->key-reference-pos (key pos+buffer))
+                        (flex-key->idx (.asMap root) k))))))
 
 (defn project-column->flex [k pos+buffer]
   (MapEntry/create (key pos+buffer)

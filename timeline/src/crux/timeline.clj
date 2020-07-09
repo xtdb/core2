@@ -163,7 +163,10 @@
 (defn value-fits-inline? [^FlexBuffers$Reference ref]
   (not (or (and (.isString ref)
                 (> (alength (.getBytes (.asString ref) StandardCharsets/UTF_8)) Long/BYTES))
-           (.isBlob ref))))
+           (.isBlob ref)
+           (.isVector ref)
+           (.isTypedVector ref)
+           (.isMap ref))))
 
 (defn pos->key-reference-pos ^long [^long pos]
   (bit-or Long/MIN_VALUE pos))

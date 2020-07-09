@@ -56,10 +56,14 @@
 
   List
   (clj->flex [this ^FlexBuffersBuilder builder k]
-    (let [vector-ref (.startVector builder)]
+    (let [[type :as types] (distinct (map class this))
+          typed? (and (= 1 (count types))
+                      (or (.isAssignableFrom Number type)
+                          (= Boolean type)))
+          vector-ref (.startVector builder)]
       (doseq [x this]
         (clj->flex x builder nil))
-      (.endVector builder k vector-ref false false)
+      (.endVector builder k vector-ref typed? false)
       builder))
 
   Map
@@ -94,12 +98,13 @@
                                               (keyword (str (.get kv n)))
                                               (flex->clj (.get vv n))))
                        (persistent! acc))))
-    (.isVector ref) (let [v (.asVector ref)]
-                      (loop [n 0
-                             acc (transient [])]
-                        (if (< n (.size v))
-                          (recur (inc n) (conj! acc (flex->clj (.get v n))))
-                          (persistent! acc))))
+    (or (.isTypedVector ref)
+        (.isVector ref)) (let [v (.asVector ref)]
+                           (loop [n 0
+                                  acc (transient [])]
+                             (if (< n (.size v))
+                               (recur (inc n) (conj! acc (flex->clj (.get v n))))
+                               (persistent! acc))))
     :else
     (throw (IllegalArgumentException. (str "Unsupported type: " (.getType ref))))))
 

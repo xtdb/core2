@@ -1,12 +1,17 @@
 (ns crux.timeline
   (:import [java.util Comparator List Map]
-           java.nio.ByteBuffer
-           [com.google.flatbuffers FlexBuffers FlexBuffers$Reference FlexBuffersBuilder]))
+           [java.nio ByteBuffer ByteOrder]
+           [com.google.flatbuffers FlexBuffers FlexBuffers$Key FlexBuffers$Reference FlexBuffersBuilder]))
 
 (set! *unchecked-math* :warn-on-boxed)
 
 (defprotocol ClojureToFlex
   (clj->flex ^com.google.flatbuffers.FlexBuffersBuilder [this ^FlexBuffersBuilder builder ^String k]))
+
+(defn clj->flex-key ^String [x]
+  (if (keyword? x)
+    (subs (str x) 1)
+    (str x)))
 
 (extend-protocol ClojureToFlex
   (class (byte-array 0))
@@ -70,15 +75,34 @@
   (clj->flex [this ^FlexBuffersBuilder builder k]
     (let [map-ref (.startMap builder)]
       (doseq [[k v] this
-              :let [k (if (keyword? k)
-                        (subs (str k) 1)
-                        (str k))]]
+              :let [k (clj->flex-key k)]]
         (clj->flex v builder k))
       (.endMap builder k map-ref))
     builder))
 
-(defn write-clj->flex ^ByteBuffer [x]
+(defn write-clj->flex ^java.nio.ByteBuffer [x]
   (.finish (clj->flex x (FlexBuffersBuilder.) nil)))
+
+(defn write-size-prefixed-buffer ^java.nio.ByteBuffer [^ByteBuffer out ^ByteBuffer bb]
+  (.putInt out (.limit bb))
+  (.put out bb))
+
+(defn read-size-prefixed-buffer ^java.nio.ByteBuffer [^ByteBuffer in]
+  (when (.remaining in)
+    (let [size (.getInt in)]
+      (when (pos? size)
+        (let [ba (byte-array size)]
+          (.get in ba)
+          (ByteBuffer/wrap ba))))))
+
+(defn read-sized-prefixed-buffers-seq [^ByteBuffer in]
+  ((fn step [in]
+     (lazy-seq
+      (when-let [x (read-size-prefixed-buffer in)]
+        (cons x (step in))))) in))
+
+(defn flex-key->clj [^FlexBuffers$Key k]
+  (keyword (str k)))
 
 (defn flex->clj [^FlexBuffers$Reference ref]
   (cond
@@ -95,7 +119,7 @@
                           acc (transient {})]
                      (if (< n (.size kv))
                        (recur (inc n) (assoc! acc
-                                              (keyword (str (.get kv n)))
+                                              (flex-key->clj (.get kv n))
                                               (flex->clj (.get vv n))))
                        (persistent! acc))))
     (or (.isTypedVector ref)
@@ -107,6 +131,12 @@
                                (persistent! acc))))
     :else
     (throw (IllegalArgumentException. (str "Unsupported type: " (.getType ref))))))
+
+(defn get-flex->clj [^FlexBuffers$Reference ref k]
+  (cond
+    (.isMap ref) (flex->clj (.get (.asMap ref) (clj->flex-key k)))
+    (or (.isVector ref)
+        (.isTypedVector ref)) (flex->clj (.get (.asVector ref) k))))
 
 (defn read-flex->clj [^ByteBuffer b]
   (flex->clj (FlexBuffers/getRoot b)))

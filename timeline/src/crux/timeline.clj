@@ -1,8 +1,8 @@
 (ns crux.timeline
   (:import [java.util Comparator List Map]
            [java.nio ByteBuffer ByteOrder]
-           clojure.lang.MapEntry
-           [com.google.flatbuffers FlexBuffers FlexBuffers$Key FlexBuffers$Reference FlexBuffersBuilder]))
+           [clojure.lang IReduceInit MapEntry]
+           [com.google.flatbuffers FlexBuffers FlexBuffers$Key FlexBuffers$Map FlexBuffers$Reference FlexBuffersBuilder]))
 
 (set! *unchecked-math* :warn-on-boxed)
 
@@ -81,7 +81,7 @@
       (.endMap builder k map-ref))
     builder))
 
-(defn write-clj->flex ^java.nio.ByteBuffer [x]
+(defn clj->flexbuffer ^java.nio.ByteBuffer [x]
   (.finish (clj->flex x (FlexBuffersBuilder.) nil)))
 
 (defn write-size-prefixed-buffer ^java.nio.ByteBuffer [^ByteBuffer out ^ByteBuffer bb]
@@ -96,15 +96,34 @@
           (.get in ba)
           (ByteBuffer/wrap ba))))))
 
-(defn read-sized-prefixed-buffers-seq [^ByteBuffer in]
-  ((fn step [^ByteBuffer in]
-     (lazy-seq
-      (let [position (.position in)]
-        (when-let [x (read-size-prefixed-buffer in)]
-          (cons (MapEntry/create position x) (step in)))))) in))
+(defn read-size-prefixed-buffers-reducible [^ByteBuffer in]
+  (reify IReduceInit
+    (reduce [this f init]
+      (loop [acc init]
+        (if (reduced? acc)
+          (unreduced acc)
+          (let [position (.position in)]
+            (if-let [x (read-size-prefixed-buffer in)]
+              (recur (f acc (MapEntry/create position x)))
+              (unreduced acc))))))))
+
+(defn flex-root ^com.google.flatbuffers.FlexBuffers$Reference [^ByteBuffer b]
+  (FlexBuffers/getRoot b))
 
 (defn flex-key->clj [^FlexBuffers$Key k]
   (keyword (str k)))
+
+(defn flex-key->idx ^long [^FlexBuffers$Map m k]
+  (let [k (clj->flex-key k)
+        kv (.keys m)]
+    (loop [n 0]
+      (cond
+        (= n (.size kv))
+        -1
+        (= k (str (.get kv n)))
+        n
+        :else
+        (recur (inc n))))))
 
 (defn flex->clj [^FlexBuffers$Reference ref]
   (cond
@@ -134,14 +153,22 @@
     :else
     (throw (IllegalArgumentException. (str "Unsupported type: " (.getType ref))))))
 
-(defn get-flex->clj [^FlexBuffers$Reference ref k]
+(defn get-flex [^FlexBuffers$Reference ref k]
   (cond
-    (.isMap ref) (flex->clj (.get (.asMap ref) (clj->flex-key k)))
+    (.isMap ref) (.get (.asMap ref) (clj->flex-key k))
     (or (.isVector ref)
-        (.isTypedVector ref)) (flex->clj (.get (.asVector ref) k))))
+        (.isTypedVector ref)) (.get (.asVector ref) k)))
 
-(defn read-flex->clj [^ByteBuffer b]
-  (flex->clj (FlexBuffers/getRoot b)))
+(defn project-column->clj [k pos+buffer]
+  (MapEntry/create (key pos+buffer)
+                   (flex->clj (get-flex (flex-root (val pos+buffer)) k))))
+
+(defn project-column->flex [k pos+buffer]
+  (MapEntry/create (key pos+buffer)
+                   (get-flex (flex-root (val pos+buffer)) k)))
+
+(defn flexbuffer->clj [^ByteBuffer b]
+  (flex->clj (flex-root b)))
 
 ;; Potentially useful for incremental index maintenance.
 
@@ -232,6 +259,16 @@
                    11                      8,
                    14                                  11,
                    17                                          13}})
+
+(comment
+  (let [out (.order (ByteBuffer/allocate 4096) ByteOrder/LITTLE_ENDIAN)]
+    (doseq [x (take 10 (crux.timeline-test/tpch-dbgen))]
+      (write-size-prefixed-buffer out (clj->flexbuffer x)))
+    [out
+     (into []
+           (map (partial project-column->clj :c_name))
+           (read-size-prefixed-buffers-reducible (.rewind out)))
+     (flexbuffer->clj (read-size-prefixed-buffer (.position (.rewind out) 2425)))]))
 
 ;; https://stratos.seas.harvard.edu/files/IKM_CIDR07.pdf
 

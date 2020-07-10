@@ -1,6 +1,9 @@
 (ns crux.timeline
+  (:require [clojure.java.io :as io])
   (:import [java.util Comparator List Map]
-           [java.nio ByteBuffer ByteOrder]
+           java.io.RandomAccessFile
+           [java.nio ByteBuffer ByteOrder MappedByteBuffer]
+           java.nio.channels.FileChannel$MapMode
            java.nio.charset.StandardCharsets
            [clojure.lang IReduceInit MapEntry]
            [com.google.flatbuffers FlexBuffers FlexBuffers$Key FlexBuffers$Map FlexBuffers$Reference FlexBuffersBuilder]))
@@ -86,7 +89,7 @@
   (.finish (clj->flex x (FlexBuffersBuilder.) nil)))
 
 (defn write-size-prefixed-buffer ^java.nio.ByteBuffer [^ByteBuffer out ^ByteBuffer bb]
-  (.putInt out (.limit bb))
+  (.putInt out (.remaining bb))
   (.put out bb))
 
 (defn read-size-prefixed-buffer ^java.nio.ByteBuffer [^ByteBuffer in]
@@ -94,7 +97,7 @@
     (let [size (.getInt in)]
       (when (pos? size)
         (let [position (.position in)
-              bb (.order (.slice in position size) ByteOrder/LITTLE_ENDIAN)]
+              bb (.slice in position size)]
           (.position in (+ size position))
           bb)))))
 
@@ -202,6 +205,15 @@
 (defn flexbuffer->clj [^ByteBuffer b]
   (flex->clj (flex-root b)))
 
+(defn round-up-to-next-multiple ^long [^long n ^long m]
+  (bit-and (+ n (dec m)) (bit-not (dec m))))
+
+(defn mmap-file ^java.nio.MappedByteBuffer [f size]
+  (with-open [raf (doto (RandomAccessFile. (io/file f) "rw")
+                    (.setLength size))
+              in (.getChannel raf)]
+    (.map in FileChannel$MapMode/READ_WRITE 0 (.size in))))
+
 ;; Potentially useful for incremental index maintenance.
 
 (defn upper-int ^long [^long x]
@@ -293,14 +305,16 @@
                    17                                          13}})
 
 (comment
-  (let [out (.order (ByteBuffer/allocate 4096) ByteOrder/LITTLE_ENDIAN)]
+  (let [out (mmap-file "foo.flex" 4096)]
     (doseq [x (take 10 (crux.timeline-test/tpch-dbgen))]
       (write-size-prefixed-buffer out (clj->flexbuffer x)))
+    (.force out)
     [out
      (into []
            (map (partial project-column->clj :c_name))
            (read-size-prefixed-buffers-reducible (.rewind out)))
-     (flexbuffer->clj (read-size-prefixed-buffer (.position (.rewind out) 2425)))]))
+     (some-> (read-size-prefixed-buffer (.position (.rewind out) 2425))
+             (flexbuffer->clj))]))
 
 ;; https://stratos.seas.harvard.edu/files/IKM_CIDR07.pdf
 

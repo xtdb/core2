@@ -90,12 +90,13 @@
   (.put out bb))
 
 (defn read-size-prefixed-buffer ^java.nio.ByteBuffer [^ByteBuffer in]
-  (when (.remaining in)
+  (when (.hasRemaining in)
     (let [size (.getInt in)]
       (when (pos? size)
-        (let [ba (byte-array size)]
-          (.get in ba)
-          (ByteBuffer/wrap ba))))))
+        (let [position (.position in)
+              bb (.order (.slice in position size) ByteOrder/LITTLE_ENDIAN)]
+          (.position in (+ size position))
+          bb)))))
 
 (defn read-size-prefixed-buffers-reducible [^ByteBuffer in]
   (reify IReduceInit

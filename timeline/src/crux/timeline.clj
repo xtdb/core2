@@ -172,6 +172,31 @@
            (.isTypedVector ref)
            (.isMap ref))))
 
+(def column-type-nil 0)
+(def column-type-boolean 1)
+(def column-type-long 2)
+(def column-type-double 3)
+(def column-type-string 4)
+(def column-type-bytes 5)
+
+(def ^{:tag 'long} column-type-bits 4)
+(def ^{:tag 'long} column-bytes-bits 4)
+(def ^{:tag 'long} column-idx-bits 8)
+(def ^{:tag 'long} column-pos-bits (- Long/SIZE column-type-bits column-bytes-bits column-idx-bits))
+
+(def fbt-type->column-type {FlexBuffers/FBT_NULL
+                            column-type-nil
+                            FlexBuffers/FBT_BOOL
+                            column-type-boolean
+                            FlexBuffers/FBT_INT
+                            column-type-long
+                            FlexBuffers/FBT_FLOAT
+                            column-type-double
+                            FlexBuffers/FBT_STRING
+                            column-type-string
+                            FlexBuffers/FBT_BLOB
+                            column-type-bytes})
+
 (defn pos->key-reference-pos ^long [^long pos]
   (bit-or Long/MIN_VALUE pos))
 

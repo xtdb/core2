@@ -164,14 +164,6 @@
     (or (.isVector ref)
         (.isTypedVector ref)) (.get (.asVector ref) k)))
 
-(defn value-fits-inline? [^FlexBuffers$Reference ref]
-  (not (or (and (.isString ref)
-                (> (alength (.getBytes (.asString ref) StandardCharsets/UTF_8)) Long/BYTES))
-           (.isBlob ref)
-           (.isVector ref)
-           (.isTypedVector ref)
-           (.isMap ref))))
-
 (def ^:const column-type-nil 0)
 (def ^:const column-type-boolean 1)
 (def ^:const column-type-long 2)
@@ -260,9 +252,12 @@
     :else
     (throw (IllegalArgumentException. "Unknown type: " (.getName (class x))))))
 
-(defn project-column [k pos+buffer]
-  (let [tuple-id (key pos+buffer)
-        root (flex-root (val pos+buffer))
+(defn ->map-entry ^clojure.lang.MapEntry [k v]
+  (MapEntry/create k v))
+
+(defn project-column [f k tuple-id+buffer]
+  (let [tuple-id (key tuple-id+buffer)
+        root (flex-root (val tuple-id+buffer))
         flex-v (get-flex root k)
         v (flex->clj flex-v)
         type (get fbt-type->column-type (.getType flex-v))]
@@ -271,18 +266,44 @@
       (let [bs (if (string? v)
                  (.getBytes ^String v StandardCharsets/UTF_8)
                  ^bytes v)]
-        (MapEntry/create (column-id tuple-id
-                                    (flex-key->idx (.asMap root) k)
-                                    (if (<= (alength bs) Long/BYTES)
-                                      (alength ^bytes bs)
-                                      0xf)
-                                    type)
-                         (bytes->long bs)))
-      (MapEntry/create (column-id tuple-id
-                                  (flex-key->idx (.asMap root) k)
-                                  0xf
-                                  type)
-                       (clj->eight-bytes v)))))
+        (f (column-id tuple-id
+                      (flex-key->idx (.asMap root) k)
+                      (if (<= (alength bs) Long/BYTES)
+                        (alength ^bytes bs)
+                        0xf)
+                      type)
+           (bytes->long bs)))
+      (f (column-id tuple-id
+                    (flex-key->idx (.asMap root) k)
+                    0xf
+                    type)
+         (clj->eight-bytes v)))))
+
+(defn put-column-absolute ^java.nio.ByteBuffer [^ByteBuffer column ^long idx ^long column-id ^long eight-bytes]
+  (let [idx (* (* Long/BYTES 2) idx)]
+    (-> column
+        (.putLong idx column-id)
+        (.putLong (+ idx Long/BYTES) eight-bytes))))
+
+(defn put-column ^java.nio.ByteBuffer [^ByteBuffer column ^long column-id ^long eight-bytes]
+  (-> column
+      (.putLong column-id)
+      (.putLong eight-bytes)))
+
+(defn get-column-absolute [^ByteBuffer tuple-buffer ^ByteBuffer column ^long idx]
+  (let [idx (* (* Long/BYTES 2) idx)
+        column-id (.getLong column idx)
+        eight-bytes (.getLong column (+ idx Long/BYTES))
+        type (column-id->type column-id)
+        bytes (column-id->bytes column-id)]
+    (if (and (= 0xf bytes)
+             (or (= column-type-string type)
+                 (= column-type-bytes type)))
+      (let [tuple-id (column-id->tuple-id column-id)
+            col-idx (column-id->idx column-id)
+            root (flex-root (read-size-prefixed-buffer (.position (.duplicate tuple-buffer) tuple-id)))]
+        (flex->clj (.get (.asMap root) col-idx)))
+      (eight-bytes->clj type bytes eight-bytes))))
 
 (defn flexbuffer->clj [^ByteBuffer b]
   (flex->clj (flex-root b)))
@@ -291,7 +312,8 @@
   (bit-and (+ n (dec m)) (bit-not (dec m))))
 
 (defn mmap-file ^java.nio.MappedByteBuffer [f size]
-  (with-open [raf (doto (RandomAccessFile. (io/file f) "rw")
+  (with-open [raf (doto (RandomAccessFile. (doto (io/file f)
+                                             (io/make-parents)) "rw")
                     (.setLength size))
               in (.getChannel raf)]
     (.map in FileChannel$MapMode/READ_WRITE 0 (.size in))))
@@ -387,13 +409,13 @@
                    17                                          13}})
 
 (comment
-  (let [out (mmap-file "foo.flex" 4096)]
+  (let [out (mmap-file "target/foo.flex" 4096)]
     (doseq [x (take 10 (crux.timeline-test/tpch-dbgen))]
       (write-size-prefixed-buffer out (clj->flexbuffer x)))
     (.force out)
     [out
      (into []
-           (map (partial project-column :c_name))
+           (map (partial project-column ->map-entry :c_name))
            (read-size-prefixed-buffers-reducible (.rewind out)))
      (some-> (read-size-prefixed-buffer (.position (.rewind out) 2425))
              (flexbuffer->clj))]))

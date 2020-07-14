@@ -282,7 +282,7 @@
                                   (flex-key->idx (.asMap root) k)
                                   0xf
                                   type)
-                       v))))
+                       (clj->eight-bytes v)))))
 
 (defn flexbuffer->clj [^ByteBuffer b]
   (flex->clj (flex-root b)))

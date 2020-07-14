@@ -1,6 +1,6 @@
 (ns crux.timeline
   (:require [clojure.java.io :as io])
-  (:import [java.util Comparator List Map]
+  (:import [java.util Arrays Comparator List Map]
            java.io.RandomAccessFile
            [java.nio ByteBuffer ByteOrder MappedByteBuffer]
            java.nio.channels.FileChannel$MapMode
@@ -179,14 +179,14 @@
 (def ^:const column-type-string 4)
 (def ^:const column-type-bytes 5)
 
-(def ^:const column-type-bits 4)
 (def ^:const column-type-bit-pos 0)
-(def ^:const column-bytes-bits 4)
+(def ^:const column-type-bits 4)
 (def ^:const column-bytes-bit-pos column-type-bits)
+(def ^:const column-bytes-bits 4)
+(def ^:const column-idx-bit-pos (+ column-bytes-bits column-bytes-bit-pos))
 (def ^:const column-idx-bits 8)
-(def ^:const column-idx-bit-pos (+ column-type-bits column-bytes-bits))
-(def ^:const column-tuple-id-bits (- Long/SIZE column-type-bits column-bytes-bits column-idx-bits))
-(def ^:const column-tuple-id-bit-pos (+ column-type-bits column-bytes-bits column-idx-bits))
+(def ^:const column-tuple-id-bit-pos (+ column-idx-bits column-idx-bit-pos))
+(def ^:const column-tuple-id-bits (- Long/SIZE column-tuple-id-bit-pos))
 
 (def fbt-type->column-type {FlexBuffers/FBT_NULL
                             column-type-nil
@@ -201,35 +201,88 @@
                             FlexBuffers/FBT_BLOB
                             column-type-bytes})
 
-(defn pos->key-reference-pos ^long [^long pos]
-  (bit-or Long/MIN_VALUE pos))
+(defn column-id ^long [^long tuple-id ^long idx ^long bytes ^long type]
+  (bit-or (bit-shift-left tuple-id column-tuple-id-bit-pos)
+          (bit-shift-left idx column-idx-bit-pos)
+          (bit-shift-left bytes column-bytes-bit-pos)
+          (bit-shift-left type column-type-bit-pos)))
 
-(defn key-reference-pos? [^long pos]
-  (= Long/MIN_VALUE (bit-and Long/MIN_VALUE pos)))
+(defn column-id->tuple-id ^long [^long id]
+  (bit-and (bit-shift-right id column-tuple-id-bit-pos)
+           (dec (bit-shift-left 1 column-tuple-id-bits))))
 
-(defn key-reference-pos->pos ^long [^long pos]
-  (bit-xor Long/MIN_VALUE pos))
+(defn column-id->idx ^long [^long id]
+  (bit-and (bit-shift-right id column-idx-bit-pos)
+           (dec (bit-shift-left 1 column-idx-bits))))
 
-(defn resolve-key-reference ^com.google.flatbuffers.FlexBuffers$Reference [^FlexBuffers$Reference parent pos+value]
-  (let [pos (key pos+value)
-        v (val pos+value)]
-    (when (and (key-reference-pos? pos) (.isMap parent))
-      (.get (.asMap parent) ^long v))))
+(defn column-id->bytes ^long [^long id]
+  (bit-and (bit-shift-right id column-bytes-bit-pos)
+           (dec (bit-shift-left 1 column-bytes-bits))))
 
-(defn project-column->clj
-  ([k pos+buffer]
-   (project-column->clj k false pos+buffer))
-  ([k references? pos+buffer]
-   (let [root (flex-root (val pos+buffer))
-         v (get-flex root k)]
-     (if (or (value-fits-inline? v) (not references?))
-       (MapEntry/create (key pos+buffer) (flex->clj v))
-       (MapEntry/create (pos->key-reference-pos (key pos+buffer))
-                        (flex-key->idx (.asMap root) k))))))
+(defn column-id->type ^long [^long id]
+  (bit-and (bit-shift-right id column-type-bit-pos)
+           (dec (bit-shift-left 1 column-type-bits))))
 
-(defn project-column->flex [k pos+buffer]
-  (MapEntry/create (key pos+buffer)
-                   (get-flex (flex-root (val pos+buffer)) k)))
+(defn column-id->map [^long id]
+  {:column/tuple-id (column-id->tuple-id id)
+   :column/idx (column-id->idx id)
+   :column/bytes (column-id->bytes id)
+   :column/type (column-id->type id)})
+
+(defn long->bytes ^bytes [^long bytes ^long x]
+  (Arrays/copyOf (.array (.putLong (.order (ByteBuffer/allocate Long/BYTES) ByteOrder/BIG_ENDIAN) x)) bytes))
+
+(defn bytes->long ^long [^bytes x]
+  (.getLong (.order (ByteBuffer/wrap (Arrays/copyOf x Long/BYTES)) ByteOrder/BIG_ENDIAN) 0))
+
+(defn eight-bytes->clj [^long type ^long bytes ^long x]
+  (cond
+    (= column-type-nil type) nil
+    (= column-type-boolean type) (= 1 x)
+    (= column-type-long type) x
+    (= column-type-double type) (Double/longBitsToDouble x)
+    (= column-type-bytes type)
+    (long->bytes bytes x)
+    (= column-type-string type)
+    (String. ^bytes (long->bytes bytes x) StandardCharsets/UTF_8)
+    :else
+    (throw (IllegalArgumentException. "Unknown type: " type))))
+
+(defn clj->eight-bytes ^long [x]
+  (cond
+    (nil? x) 0
+    (boolean? x) (if x 1 0)
+    (int? x) x
+    (float? x) (Double/doubleToLongBits x)
+    (bytes? x) (.getLong (.order (ByteBuffer/wrap x) ByteOrder/BIG_ENDIAN) 0)
+    (string? x)
+    (bytes->long (.getBytes ^String x StandardCharsets/UTF_8))
+    :else
+    (throw (IllegalArgumentException. "Unknown type: " (.getName (class x))))))
+
+(defn project-column [k pos+buffer]
+  (let [tuple-id (key pos+buffer)
+        root (flex-root (val pos+buffer))
+        flex-v (get-flex root k)
+        v (flex->clj flex-v)
+        type (get fbt-type->column-type (.getType flex-v))]
+    (if (or (.isBlob flex-v)
+            (.isString flex-v))
+      (let [bs (if (string? v)
+                 (.getBytes ^String v StandardCharsets/UTF_8)
+                 ^bytes v)]
+        (MapEntry/create (column-id tuple-id
+                                    (flex-key->idx (.asMap root) k)
+                                    (if (<= (alength bs) Long/BYTES)
+                                      (alength ^bytes bs)
+                                      0xf)
+                                    type)
+                         (bytes->long bs)))
+      (MapEntry/create (column-id tuple-id
+                                  (flex-key->idx (.asMap root) k)
+                                  0xf
+                                  type)
+                       v))))
 
 (defn flexbuffer->clj [^ByteBuffer b]
   (flex->clj (flex-root b)))
@@ -340,7 +393,7 @@
     (.force out)
     [out
      (into []
-           (map (partial project-column->clj :c_name))
+           (map (partial project-column :c_name))
            (read-size-prefixed-buffers-reducible (.rewind out)))
      (some-> (read-size-prefixed-buffer (.position (.rewind out) 2425))
              (flexbuffer->clj))]))

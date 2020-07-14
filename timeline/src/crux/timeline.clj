@@ -172,17 +172,21 @@
            (.isTypedVector ref)
            (.isMap ref))))
 
-(def column-type-nil 0)
-(def column-type-boolean 1)
-(def column-type-long 2)
-(def column-type-double 3)
-(def column-type-string 4)
-(def column-type-bytes 5)
+(def ^:const column-type-nil 0)
+(def ^:const column-type-boolean 1)
+(def ^:const column-type-long 2)
+(def ^:const column-type-double 3)
+(def ^:const column-type-string 4)
+(def ^:const column-type-bytes 5)
 
-(def ^{:tag 'long} column-type-bits 4)
-(def ^{:tag 'long} column-bytes-bits 4)
-(def ^{:tag 'long} column-idx-bits 8)
-(def ^{:tag 'long} column-pos-bits (- Long/SIZE column-type-bits column-bytes-bits column-idx-bits))
+(def ^:const column-type-bits 4)
+(def ^:const column-type-bit-pos 0)
+(def ^:const column-bytes-bits 4)
+(def ^:const column-bytes-bit-pos column-type-bits)
+(def ^:const column-idx-bits 8)
+(def ^:const column-idx-bit-pos (+ column-type-bits column-bytes-bits))
+(def ^:const column-tuple-id-bits (- Long/SIZE column-type-bits column-bytes-bits column-idx-bits))
+(def ^:const column-tuple-id-bit-pos (+ column-type-bits column-bytes-bits column-idx-bits))
 
 (def fbt-type->column-type {FlexBuffers/FBT_NULL
                             column-type-nil

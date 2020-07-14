@@ -227,7 +227,10 @@
   (Arrays/copyOf (.array (.putLong (.order (ByteBuffer/allocate Long/BYTES) ByteOrder/BIG_ENDIAN) x)) bytes))
 
 (defn bytes->long ^long [^bytes x]
-  (.getLong (.order (ByteBuffer/wrap (Arrays/copyOf x Long/BYTES)) ByteOrder/BIG_ENDIAN) 0))
+  (let [x (if (< (alength x) Long/BYTES)
+            (Arrays/copyOf x Long/BYTES)
+            x)]
+    (.getLong (.order (ByteBuffer/wrap x) ByteOrder/BIG_ENDIAN) 0)))
 
 (defn eight-bytes->clj [^long type ^long bytes ^long x]
   (cond
@@ -235,10 +238,8 @@
     (= column-type-boolean type) (= 1 x)
     (= column-type-long type) x
     (= column-type-double type) (Double/longBitsToDouble x)
-    (= column-type-bytes type)
-    (long->bytes bytes x)
-    (= column-type-string type)
-    (String. ^bytes (long->bytes bytes x) StandardCharsets/UTF_8)
+    (= column-type-string type) (String. ^bytes (long->bytes bytes x) StandardCharsets/UTF_8)
+    (= column-type-bytes type) (long->bytes bytes x)
     :else
     (throw (IllegalArgumentException. "Unknown type: " type))))
 
@@ -248,9 +249,8 @@
     (boolean? x) (if x 1 0)
     (int? x) x
     (float? x) (Double/doubleToLongBits x)
+    (string? x) (bytes->long (.getBytes ^String x StandardCharsets/UTF_8))
     (bytes? x) (.getLong (.order (ByteBuffer/wrap x) ByteOrder/BIG_ENDIAN) 0)
-    (string? x)
-    (bytes->long (.getBytes ^String x StandardCharsets/UTF_8))
     :else
     (throw (IllegalArgumentException. "Unknown type: " (.getName (class x))))))
 
@@ -273,7 +273,7 @@
          (f (column-id tuple-id
                        (flex-key->idx (.asMap root) k)
                        (if (<= (alength bs) Long/BYTES)
-                         (alength ^bytes bs)
+                         (alength bs)
                          0xf)
                        type)
             (bytes->long bs)))
@@ -353,6 +353,64 @@
             root ^FlexBuffers$Reference (tuple-lookup-fn tuple-id)]
         (flex->clj (.get (.asMap root) col-idx)))
       (eight-bytes->clj type bytes eight-bytes))))
+
+(defn compare-column-absolute-nil ^long [_ _ ^ByteBuffer column ^long idx]
+  (let [idx (* column-width idx)
+        column-id (.getLong column idx)
+        type (column-id->type column-id)]
+    (- column-type-nil type)))
+
+(defn compare-column-absolute-boolean ^long [^Boolean x _ ^ByteBuffer column ^long idx]
+  (let [idx (* column-width idx)
+        column-id (.getLong column idx)
+        type (column-id->type column-id)]
+    (if (not= column-type-boolean type)
+      (- column-type-boolean type)
+      (Long/compare (if x 1 0) (.getLong column (+ idx Long/BYTES))))))
+
+(defn compare-column-absolute-long ^long [^long x _ ^ByteBuffer column ^long idx]
+  (let [idx (* column-width idx)
+        column-id (.getLong column idx)
+        eight-bytes (.getLong column (+ idx Long/BYTES))
+        type (column-id->type column-id)]
+    (if (not= column-type-long type)
+      (- column-type-long type)
+      (Long/compare x eight-bytes))))
+
+(defn compare-column-absolute-double ^long [^double x _ ^ByteBuffer column ^long idx]
+  (let [idx (* column-width idx)
+        column-id (.getLong column idx)
+        type (column-id->type column-id)]
+    (if (not= column-type-double type)
+      (- column-type-double type)
+      (Double/compare x (Double/longBitsToDouble (.getLong column (+ idx Long/BYTES)))))))
+
+(defn compare-column-absolute-varlen ^long [^bytes x tuple-lookup-fn ^ByteBuffer column ^long idx]
+  (let [idx (* column-width idx)
+        column-id (.getLong column idx)]
+    (let [diff (Long/compareUnsigned (bytes->long x) (.getLong column (+ idx Long/BYTES)))]
+      (if (and (zero? diff) (= 0xf (column-id->bytes column-id)))
+        (let [tuple-id (column-id->tuple-id column-id)
+              col-idx (column-id->idx column-id)
+              root ^FlexBuffers$Reference (tuple-lookup-fn tuple-id)]
+          (Arrays/compareUnsigned x (.getBytes (.asBlob (.get (.asMap root) col-idx)))))
+        diff))))
+
+(defn compare-column-absolute-string ^long [^String x tuple-lookup-fn ^ByteBuffer column ^long idx]
+  (let [idx (* column-width idx)
+        column-id (.getLong column idx)
+        type (column-id->type column-id)]
+    (if (not= column-type-string type)
+      (- column-type-string type)
+      (compare-column-absolute-varlen tuple-lookup-fn column idx (.getBytes ^String x StandardCharsets/UTF_8)))))
+
+(defn compare-column-absolute-bytes ^long [^bytes x tuple-lookup-fn ^ByteBuffer column ^long idx]
+  (let [idx (* column-width idx)
+        column-id (.getLong column idx)
+        type (column-id->type column-id)]
+    (if (not= column-type-bytes type)
+      (- column-type-bytes type)
+      (compare-column-absolute-varlen tuple-lookup-fn column idx x))))
 
 (defn flexbuffer->clj [^ByteBuffer b]
   (flex->clj (flex-root b)))

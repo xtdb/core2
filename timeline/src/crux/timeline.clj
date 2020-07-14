@@ -319,6 +319,17 @@
       (.putLong column-id)
       (.putLong eight-bytes)))
 
+(defn swap-column ^java.nio.ByteBuffer [^ByteBuffer column ^long a-idx ^long b-idx]
+  (let [a-bs (byte-array column-width)
+        b-bs (byte-array column-width)
+        a-idx (* a-idx column-width)
+        b-idx (* b-idx column-width)]
+    (-> column
+        (.get a-idx a-bs)
+        (.get b-idx b-bs)
+        (.put a-idx b-bs)
+        (.put b-idx a-bs))))
+
 (defn column-size ^long [^ByteBuffer column]
   (quot (.position column) column-width))
 

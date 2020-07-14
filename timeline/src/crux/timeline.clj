@@ -182,6 +182,8 @@
 (def ^:const column-tuple-id-bit-pos (+ column-idx-bits column-idx-bit-pos))
 (def ^:const column-tuple-id-bits (- Long/SIZE column-tuple-id-bit-pos))
 
+(def ^:const column-varlen-bytes 0xf)
+
 (def fbt-type->column-type {FlexBuffers/FBT_NULL
                             column-type-nil
                             FlexBuffers/FBT_BOOL
@@ -274,12 +276,12 @@
                        (flex-key->idx (.asMap root) k)
                        (if (<= (alength bs) Long/BYTES)
                          (alength bs)
-                         0xf)
+                         column-varlen-bytes)
                        type)
             (bytes->long bs)))
        (f (column-id tuple-id
                      (flex-key->idx (.asMap root) k)
-                     0xf
+                     Long/BYTES
                      type)
           (clj->eight-bytes v))))))
 
@@ -345,7 +347,7 @@
         eight-bytes (.getLong column (+ idx Long/BYTES))
         type (column-id->type column-id)
         bytes (column-id->bytes column-id)]
-    (if (and (= 0xf bytes)
+    (if (and (= column-varlen-bytes bytes)
              (or (= column-type-string type)
                  (= column-type-bytes type)))
       (let [tuple-id (column-id->tuple-id column-id)
@@ -389,7 +391,7 @@
   (let [idx (* column-width idx)
         column-id (.getLong column idx)]
     (let [diff (Long/compareUnsigned (bytes->long x) (.getLong column (+ idx Long/BYTES)))]
-      (if (and (zero? diff) (= 0xf (column-id->bytes column-id)))
+      (if (and (zero? diff) (= column-varlen-bytes (column-id->bytes column-id)))
         (let [tuple-id (column-id->tuple-id column-id)
               col-idx (column-id->idx column-id)
               root ^FlexBuffers$Reference (tuple-lookup-fn tuple-id)]

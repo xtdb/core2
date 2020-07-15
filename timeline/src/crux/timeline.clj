@@ -354,21 +354,28 @@
       (flex->clj (column->flex tuple-lookup-fn column-id))
       (eight-bytes->clj type size (.getLong column (+ idx Long/BYTES))))))
 
-(definterface IColumnComparator
-  (^long compareColumn [^java.nio.ByteBuffer column ^long idx]))
+(definterface ILiteralColumnComparator
+  (^long compareAt [^clojure.lang.IFn tupleLookupFn ^java.nio.ByteBuffer column ^long idx]))
 
-(def ^crux.timeline.IColumnComparator nil-column-comparator
-  (reify IColumnComparator
-    (compareColumn [_ column idx]
+(definterface IColumnComparator
+  (^long compareAt [^clojure.lang.IFn tupleLookupFn
+                    ^java.nio.ByteBuffer columnA
+                    ^long idxA
+                    ^java.nio.ByteBuffer columnB
+                    ^long idxB]))
+
+(def ^crux.timeline.ILiteralColumnComparator nil-column-comparator
+  (reify ILiteralColumnComparator
+    (compareAt [_ _ column idx]
       (let [idx (* column-width idx)
             column-id (.getLong column idx)
             type (column-id->type column-id)]
         (- column-type-nil type)))))
 
-(defn boolean-column-comparator ^crux.timeline.IColumnComparator [^Boolean x]
+(defn boolean-column-comparator ^crux.timeline.ILiteralColumnComparator [^Boolean x]
   (let [x (if x 1 0)]
-    (reify IColumnComparator
-      (compareColumn [_ column idx]
+    (reify ILiteralColumnComparator
+      (compareAt [_ _ column idx]
         (let [idx (* column-width idx)
               column-id (.getLong column idx)
               type (column-id->type column-id)]
@@ -376,9 +383,9 @@
             (- column-type-boolean type)
             (Long/compare x (.getLong column (+ idx Long/BYTES)))))))))
 
-(defn long-column-comparator ^crux.timeline.IColumnComparator [^long x]
-  (reify IColumnComparator
-    (compareColumn [_ column idx]
+(defn long-column-comparator ^crux.timeline.ILiteralColumnComparator [^long x]
+  (reify ILiteralColumnComparator
+    (compareAt [_ _ column idx]
       (let [idx (* column-width idx)
             column-id (.getLong column idx)
             type (column-id->type column-id)]
@@ -386,9 +393,9 @@
           (- column-type-long type)
           (Long/compare x (.getLong column (+ idx Long/BYTES))))))))
 
-(defn double-column-comparator-column ^crux.timeline.IColumnComparator [^double x]
-  (reify IColumnComparator
-    (compareColumn [_ column idx]
+(defn double-column-comparator-column ^crux.timeline.ILiteralColumnComparator [^double x]
+  (reify ILiteralColumnComparator
+    (compareAt [_ _ column idx]
       (let [idx (* column-width idx)
             column-id (.getLong column idx)
             type (column-id->type column-id)]
@@ -396,10 +403,10 @@
           (- column-type-double type)
           (Double/compare x (.getDouble column (+ idx Long/BYTES))))))))
 
-(defn varlen-column-comparator ^crux.timeline.IColumnComparator [tuple-lookup-fn ^long column-type ^bytes x]
+(defn varlen-column-comparator ^crux.timeline.ILiteralColumnComparator [^long column-type ^bytes x]
   (let [x-eight-bytes (bytes->long x)]
-    (reify IColumnComparator
-      (compareColumn [_ column idx]
+    (reify ILiteralColumnComparator
+      (compareAt [_ tuple-lookup-fn column idx]
         (let [idx (* column-width idx)
               column-id (.getLong column idx)
               type (column-id->type column-id)]
@@ -411,22 +418,54 @@
                   (Arrays/compareUnsigned x (.getBytes (.asBlob ref))))
                 diff))))))))
 
-(defn string-column-comparator ^crux.timeline.IColumnComparator [tuple-lookup-fn ^String x]
-  (varlen-column-comparator tuple-lookup-fn column-type-string (.getBytes ^String x StandardCharsets/UTF_8)))
+(defn string-column-comparator ^crux.timeline.ILiteralColumnComparator [^String x]
+  (varlen-column-comparator column-type-string (.getBytes ^String x StandardCharsets/UTF_8)))
 
-(defn bytes-column-comparator ^crux.timeline.IColumnComparator [tuple-lookup-fn ^bytes x]
-  (varlen-column-comparator tuple-lookup-fn column-type-bytes x))
+(defn bytes-column-comparator ^crux.timeline.ILiteralColumnComparator [^bytes x]
+  (varlen-column-comparator column-type-bytes x))
 
-(defn ->column-comparator ^crux.timeline.IColumnComparator [tuple-lookup-fn x]
+(defn ->literal-column-comparator ^crux.timeline.ILiteralColumnComparator [x]
   (cond
     (nil? x) nil-column-comparator
     (boolean? x) (boolean-column-comparator x)
     (int? x) (long-column-comparator x)
     (float? x) (double-column-comparator-column x)
-    (string? x) (string-column-comparator tuple-lookup-fn x)
-    (bytes? x) (bytes-column-comparator tuple-lookup-fn x)
+    (string? x) (string-column-comparator x)
+    (bytes? x) (bytes-column-comparator x)
     :else
     (throw (IllegalArgumentException. "Unknown type: " (.getName (class x))))))
+
+(def column-comparator
+  (reify IColumnComparator
+    (compareAt [_ tuple-lookup-fn column-a idx-a column-b idx-b]
+      (let [idx-a (* column-width idx-a)
+            column-id-a (.getLong column-a idx-a)
+            type-a (column-id->type column-id-a)
+            idx-b (* column-width idx-b)
+            column-id-b (.getLong column-b idx-b)
+            type-b (column-id->type column-id-b)]
+        (cond
+          (not= type-a type-b)
+          (- type-a type-b)
+          (or (= column-type-boolean type-a)
+              (= column-type-long type-a))
+          (Long/compare (.getLong column-a (+ idx-a Long/BYTES))
+                        (.getLong column-b (+ idx-b Long/BYTES)))
+          (= column-type-double type-a)
+          (Double/compare (.getDouble column-a (+ idx-a Long/BYTES))
+                          (.getDouble column-b (+ idx-b Long/BYTES)))
+          (or (= column-type-string type-a)
+              (= column-type-bytes type-a))
+          (let [diff (Long/compareUnsigned (.getLong column-a (+ idx-a Long/BYTES))
+                                           (.getLong column-b (+ idx-b Long/BYTES)))]
+              (if (and (zero? diff) (= column-varlen-size (column-id->size column-id-a)))
+                (let [ref-a ^FlexBuffers$Reference (column->flex tuple-lookup-fn column-id-a)
+                      ref-b ^FlexBuffers$Reference (column->flex tuple-lookup-fn column-id-b)]
+                  (Arrays/compareUnsigned (.getBytes (.asBlob ref-a))
+                                          (.getBytes (.asBlob ref-b))))
+                diff))
+          :else
+          (throw (IllegalArgumentException. "Unknown type: " type-a)))))))
 
 (defn flexbuffer->clj [^ByteBuffer b]
   (flex->clj (flex-root b)))
@@ -457,12 +496,12 @@
     (aset 0 (upper-int x))
     (aset 1 (lower-int x))))
 
-(defn three-way-partition-column ^long [^ByteBuffer column ^long low ^long hi ^IColumnComparator pivot-comparator]
-  (loop [i low
-         j low
-         k (inc hi)]
+(defn three-way-partition-column ^Long [tuple-lookup-fn ^ByteBuffer column ^Long low ^Long hi ^ILiteralColumnComparator pivot-comparator]
+  (loop [i ^long low
+         j ^long low
+         k (inc ^long hi)]
     (if (< j k)
-      (let [diff (.compareColumn pivot-comparator column j)]
+      (let [diff (.compareAt pivot-comparator tuple-lookup-fn column j)]
         (cond
           (neg? diff)
           (do (swap-column column i j)
@@ -482,8 +521,8 @@
    (quick-sort-column tuple-lookup-fn column 0 (column-size column)))
   (^java.nio.ByteBuffer [tuple-lookup-fn ^longs column ^long low ^long hi]
    (if (< low hi)
-     (let [pivot-comparator (->column-comparator tuple-lookup-fn (get-column-absolute tuple-lookup-fn column hi))
-           left-right (three-way-partition-column column low hi pivot-comparator)
+     (let [pivot-comparator (->literal-column-comparator (get-column-absolute tuple-lookup-fn column hi))
+           left-right (three-way-partition-column tuple-lookup-fn column low hi pivot-comparator)
            left (dec (upper-int left-right))
            right (inc (lower-int left-right))]
        (if (< (- hi right) (- left low))
@@ -496,15 +535,15 @@
 (defn crack-column [tuple-lookup-fn {:index/keys [^ByteBuffer column pieces] :as index} at]
   (if (contains? pieces at)
     index
-    (let [pivot-comparator (->column-comparator tuple-lookup-fn at)]
+    (let [pivot-comparator (->literal-column-comparator at)]
       (->> (if (empty? pieces)
-             (three-way-partition-column column 0 (column-size column) pivot-comparator)
+             (three-way-partition-column tuple-lookup-fn column 0 (column-size column) pivot-comparator)
              (if-let [next-pieces (not-empty (subseq pieces >= at))]
                (let [[[_ ^long next-piece-pos]] next-pieces
                      [[_ prev-piece-pos]] (rsubseq pieces < at)]
-                 (three-way-partition-column column (or prev-piece-pos 0) (dec next-piece-pos) pivot-comparator))
+                 (three-way-partition-column tuple-lookup-fn column (or prev-piece-pos 0) (dec next-piece-pos) pivot-comparator))
                (let [[_ last-piece-pos] (last pieces)]
-                 (three-way-partition-column column last-piece-pos (dec (column-size column)) pivot-comparator))))
+                 (three-way-partition-column tuple-lookup-fn column last-piece-pos (dec (column-size column)) pivot-comparator))))
            (upper-int)
            (assoc-in index [:index/pieces at])))))
 

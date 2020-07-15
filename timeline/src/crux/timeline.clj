@@ -285,17 +285,6 @@
                      type)
           (clj->eight-bytes v))))))
 
-(defn ->project-column
-  (^java.nio.ByteBuffer [k ^ByteBuffer in]
-   (->project-column k in (ByteBuffer/allocateDirect 4096)))
-  (^java.nio.ByteBuffer [k ^ByteBuffer in ^ByteBuffer out]
-   (loop [col out
-          pos (.position in)]
-     (if-let [b (read-size-prefixed-buffer in)]
-       (recur (project-column (partial put-column col) k pos b)
-              (.position in))
-       col))))
-
 (defn put-column-absolute ^java.nio.ByteBuffer [^ByteBuffer column ^long idx ^long column-id ^long eight-bytes]
   (let [idx (* column-width idx)]
     (-> column
@@ -331,6 +320,17 @@
         (.get b-idx b-bs)
         (.put a-idx b-bs)
         (.put b-idx a-bs))))
+
+(defn ->project-column
+  (^java.nio.ByteBuffer [k ^ByteBuffer in]
+   (->project-column k in (ByteBuffer/allocateDirect 4096)))
+  (^java.nio.ByteBuffer [k ^ByteBuffer in ^ByteBuffer out]
+   (loop [col out
+          pos (.position in)]
+     (if-let [b (read-size-prefixed-buffer in)]
+       (recur (project-column (partial put-column col) k pos b)
+              (.position in))
+       col))))
 
 (defn column-size ^long [^ByteBuffer column]
   (quot (.position column) column-width))

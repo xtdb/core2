@@ -226,13 +226,13 @@
    :column/type (column-id->type id)})
 
 (defn long->bytes ^bytes [^long size ^long x]
-  (Arrays/copyOf (.array (.putLong (.order (ByteBuffer/allocate Long/BYTES) ByteOrder/BIG_ENDIAN) x)) size))
+  (Arrays/copyOf (.array (.putLong (ByteBuffer/allocate Long/BYTES) x)) size))
 
 (defn bytes->long ^long [^bytes x]
   (let [x (if (< (alength x) Long/BYTES)
             (Arrays/copyOf x Long/BYTES)
             x)]
-    (.getLong (.order (ByteBuffer/wrap x) ByteOrder/BIG_ENDIAN) 0)))
+    (.getLong (ByteBuffer/wrap x) 0)))
 
 (defn eight-bytes->clj [^long type ^long size ^long x]
   (cond
@@ -252,7 +252,7 @@
     (int? x) x
     (float? x) (Double/doubleToLongBits x)
     (string? x) (bytes->long (.getBytes ^String x StandardCharsets/UTF_8))
-    (bytes? x) (.getLong (.order (ByteBuffer/wrap x) ByteOrder/BIG_ENDIAN) 0)
+    (bytes? x) (bytes->long x)
     :else
     (throw (IllegalArgumentException. "Unknown type: " (.getName (class x))))))
 
@@ -307,15 +307,15 @@
       (.putLong eight-bytes)))
 
 (defn swap-column ^java.nio.ByteBuffer [^ByteBuffer column ^long a-idx ^long b-idx]
-  (let [a-bs (byte-array column-width)
-        b-bs (byte-array column-width)
-        a-idx (* a-idx column-width)
-        b-idx (* b-idx column-width)]
+  (let [a-idx (* a-idx column-width)
+        b-idx (* b-idx column-width)
+        a-column-id (.getLong column a-idx)
+        a-eight-bytes (.getLong column (+ a-idx Long/BYTES))]
     (-> column
-        (.get a-idx a-bs)
-        (.get b-idx b-bs)
-        (.put a-idx b-bs)
-        (.put b-idx a-bs))))
+        (.putLong a-idx (.getLong column b-idx))
+        (.putLong (+ a-idx Long/BYTES) (.getLong column (+ b-idx Long/BYTES)))
+        (.putLong b-idx a-column-id)
+        (.putLong (+ b-idx Long/BYTES) a-eight-bytes))))
 
 (defn ->project-column
   (^java.nio.ByteBuffer [k ^ByteBuffer in]

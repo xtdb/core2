@@ -6,7 +6,7 @@
            java.nio.channels.FileChannel$MapMode
            java.nio.charset.StandardCharsets
            [clojure.lang IReduceInit MapEntry]
-           [com.google.flatbuffers FlexBuffers FlexBuffers$Key FlexBuffers$Map FlexBuffers$Reference FlexBuffersBuilder]))
+           [com.google.flatbuffers FlexBuffers FlexBuffers$Blob FlexBuffers$Key FlexBuffers$Map FlexBuffers$Reference FlexBuffersBuilder]))
 
 (set! *unchecked-math* :warn-on-boxed)
 
@@ -256,6 +256,17 @@
     :else
     (throw (IllegalArgumentException. "Unknown type: " (.getName (class x))))))
 
+(defn blob->eight-bytes ^long [^FlexBuffers$Blob b]
+  (let [limit (min (.size b) Long/BYTES)]
+    (loop [idx 0
+           bit-idx (- Long/SIZE Byte/SIZE)
+           acc 0]
+      (if (= limit idx)
+        acc
+        (recur (inc idx)
+               (- bit-idx Byte/SIZE)
+               (bit-or acc (bit-shift-left (.get b idx) bit-idx)))))))
+
 (defn flex->eight-bytes ^long [^FlexBuffers$Reference x]
   (cond
     (.isNull x) 0
@@ -263,7 +274,7 @@
     (.isInt x) (.asLong x)
     (.isFloat x) (Double/doubleToLongBits (.asFloat x))
     (or (.isBlob x)
-        (.isString x)) (bytes->long (.getBytes (.asBlob x)))
+        (.isString x)) (blob->eight-bytes (.asBlob x))
     :else
     (throw (IllegalArgumentException. "Unknown type: " (.getType x)))))
 
@@ -278,14 +289,14 @@
          flex-v (get-flex root k)
          type (get fbt-type->column-type (.getType flex-v))]
      (if (or (.isBlob flex-v) (.isString flex-v))
-       (let [bs (.getBytes (.asBlob flex-v))]
+       (let [b (.asBlob flex-v)]
          (f (->column-id tuple-id
                          (flex-key->idx (.asMap root) k)
-                         (if (<= (alength bs) Long/BYTES)
-                           (alength bs)
+                         (if (<= (.size b) Long/BYTES)
+                           (.size b)
                            column-varlen-size)
                          type)
-            (bytes->long bs)))
+            (blob->eight-bytes b)))
        (f (->column-id tuple-id
                        (flex-key->idx (.asMap root) k)
                        Long/BYTES

@@ -156,7 +156,7 @@
                                (recur (inc n) (conj! acc (flex->clj (.get v n))))
                                (persistent! acc))))
     :else
-    (throw (IllegalArgumentException. (str "Unsupported type: " (.getType ref))))))
+    (throw (IllegalArgumentException. (str "Unknown type: " (.getType ref))))))
 
 (defn get-flex ^com.google.flatbuffers.FlexBuffers$Reference [^FlexBuffers$Reference ref k]
   (cond
@@ -256,6 +256,17 @@
     :else
     (throw (IllegalArgumentException. "Unknown type: " (.getName (class x))))))
 
+(defn flex->eight-bytes ^long [^FlexBuffers$Reference x]
+  (cond
+    (.isNull x) 0
+    (.isBoolean x) (if (.asBoolean x) 1 0)
+    (.isInt x) (.asLong x)
+    (.isFloat x) (Double/doubleToLongBits (.asFloat x))
+    (or (.isBlob x)
+        (.isString x)) (bytes->long (.getBytes (.asBlob x)))
+    :else
+    (throw (IllegalArgumentException. "Unknown type: " (.getType x)))))
+
 (defn ->map-entry ^clojure.lang.MapEntry [k v]
   (MapEntry/create k v))
 
@@ -279,7 +290,7 @@
                        (flex-key->idx (.asMap root) k)
                        Long/BYTES
                        type)
-          (clj->eight-bytes (flex->clj flex-v)))))))
+          (flex->eight-bytes flex-v))))))
 
 (defn put-column-absolute ^java.nio.ByteBuffer [^ByteBuffer column ^long idx ^long column-id ^long eight-bytes]
   (let [idx (* column-width idx)]

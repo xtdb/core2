@@ -502,6 +502,8 @@
               in (.getChannel raf)]
     (.map in FileChannel$MapMode/READ_WRITE 0 (.size in))))
 
+;; See example in figure 4.1 in abadi-column-stores.pdf page 49 / 242
+
 ;; Potentially useful for incremental index maintenance.
 
 (defn upper-int ^long [^long x]

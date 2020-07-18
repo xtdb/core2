@@ -596,17 +596,16 @@
 
 (defn binary-search ^long [tuple-lookup-fn ^ByteBuffer column ^RoaringBitmap boundaries ^ILiteralColumnComparator pivot-comparator]
   (loop [low 0
-         hi (dec (.getCardinality boundaries))
-         prev 0]
+         hi (dec (.getCardinality boundaries))]
     (let [mid (quot (+ hi low) 2)
           i (.select boundaries mid)]
       (if (<= low hi)
         (let [diff (.compareAt pivot-comparator tuple-lookup-fn column i)]
           (cond
             (neg? diff)
-            (recur low (dec mid) i)
+            (recur low (dec mid))
             (pos? diff)
-            (recur (inc mid) hi i)
+            (recur (inc mid) hi)
             :else
             mid))
         (- -1 mid)))))

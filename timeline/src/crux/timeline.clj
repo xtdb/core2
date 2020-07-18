@@ -523,6 +523,24 @@
     (aset 0 (upper-int x))
     (aset 1 (lower-int x))))
 
+;; NOTE: might not be used.
+;; https://stratos.seas.harvard.edu/files/IKM_CIDR07.pdf
+
+(defn crack-in-two-column ^Long [tuple-lookup-fn ^ByteBuffer column ^Long low ^Long hi ^ILiteralColumnComparator med-comparator]
+  (loop [x1 ^long low
+         x2 ^long hi]
+    (if (< x1 x2)
+      (if (neg? (.compareAt med-comparator tuple-lookup-fn column x1))
+        (recur (inc x1) x2)
+        (let [^long x2 (loop [x2 x2]
+                         (if (and (not (neg? (.compareAt med-comparator tuple-lookup-fn column x2)))
+                                  (> x2 x1))
+                           (recur (dec x2))
+                           x2))]
+          (swap-column column x1 x2)
+          (recur (inc x1) (dec x2))))
+      (two-ints-as-long x1 x2))))
+
 (defn three-way-partition-column ^Long [tuple-lookup-fn ^ByteBuffer column ^Long low ^Long hi ^ILiteralColumnComparator pivot-comparator]
   (loop [i ^long low
          j ^long low
@@ -658,25 +676,3 @@
        (column-capacity col)
        (column-size col)
        (get-column-absolute (partial buffer-tuple-lookup out) col 9)])))
-
-;; https://stratos.seas.harvard.edu/files/IKM_CIDR07.pdf
-
-;; Algorithm 1 CrackInTwo(c,posL,posH,med,inc)
-;; Physically reorganize the piece of column c between posL
-;; and posH such that all values lower than med are in a contiguous space. inc indicates whether med is inclusive or not,
-;; e.g., if inc = f alse then θ1 is “<” and θ2 is “>=”
-;; 1: x1 = point at position posL
-;; 2: x2 = point at position posH
-;; 3: while position(x1) < position(x2) do
-;; 4: if value(x1) θ1 med then
-;; 5: x1 = point at next position
-;; 6: else
-;; 7: while value(x2) θ2 med &&
-;; position(x2) > position(x1) do
-;; 8: x2 = point at previous position
-;; 9: end while
-;; 10: exchange(x1,x2)
-;; 11: x1 = point at next position
-;; 12: x2 = point at previous position
-;; 13: end if
-;; 14: end while

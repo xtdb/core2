@@ -459,7 +459,7 @@
     :else
     (throw (IllegalArgumentException. "Unknown type: " (.getName (class x))))))
 
-(def column-comparator
+(def ^IColumnComparator column-comparator
   (reify IColumnComparator
     (compareAt [_ tuple-lookup-fn column-a idx-a column-b idx-b]
       (let [idx-a (* column-width idx-a)
@@ -543,6 +543,17 @@
           (recur (inc x1) (dec x2))))
       (two-ints-as-long x1 x2))))
 
+(defn move-min-to-beginning ^long [tuple-lookup-fn ^ByteBuffer column ^long low ^long hi]
+  (loop [i (inc low)
+         min-idx low]
+    (if (< i hi)
+      (let [diff (.compareAt column-comparator tuple-lookup-fn column i column min-idx)]
+        (if (neg? diff)
+          (recur (inc i) i)
+          (recur (inc i) min-idx)))
+      (do (swap-column column low min-idx)
+          low))))
+
 (defn three-way-partition-column ^Long [tuple-lookup-fn ^ByteBuffer column ^Long low ^Long hi ^ILiteralColumnComparator pivot-comparator]
   (loop [i ^long low
          j ^long low
@@ -561,7 +572,10 @@
 
           :else
           (recur i (inc j) k)))
-      (two-ints-as-long i (dec k)))))
+      (let [k (dec k)]
+        (when (= i k)
+          (move-min-to-beginning tuple-lookup-fn i hi))
+        (two-ints-as-long i k)))))
 
 (defn quick-sort-column
   (^java.nio.ByteBuffer [tuple-lookup-fn ^ByteBuffer column]

@@ -6,6 +6,7 @@
            java.nio.channels.FileChannel$MapMode
            java.nio.charset.StandardCharsets
            [clojure.lang IReduceInit MapEntry]
+           org.roaringbitmap.RoaringBitmap
            [com.google.flatbuffers FlexBuffers FlexBuffers$Blob FlexBuffers$Key FlexBuffers$Map FlexBuffers$Reference FlexBuffersBuilder]))
 
 (set! *unchecked-math* :warn-on-boxed)
@@ -593,20 +594,43 @@
              (recur tuple-lookup-fn column right hi))))
      column)))
 
-(defn crack-column [tuple-lookup-fn {:index/keys [^ByteBuffer column pieces] :as index} at]
-  (if (contains? pieces at)
-    index
-    (let [pivot-comparator (->literal-column-comparator at)]
-      (->> (if (empty? pieces)
-             (three-way-partition-column tuple-lookup-fn column 0 (column-size column) pivot-comparator)
-             (if-let [next-pieces (not-empty (subseq pieces >= at))]
-               (let [[[_ ^long next-piece-pos]] next-pieces
-                     [[_ prev-piece-pos]] (rsubseq pieces < at)]
-                 (three-way-partition-column tuple-lookup-fn column (or prev-piece-pos 0) (dec next-piece-pos) pivot-comparator))
-               (let [[_ last-piece-pos] (last pieces)]
-                 (three-way-partition-column tuple-lookup-fn column last-piece-pos (dec (column-size column)) pivot-comparator))))
-           (upper-int)
-           (assoc-in index [:index/pieces at])))))
+(defn binary-search ^long [tuple-lookup-fn ^ByteBuffer column ^RoaringBitmap boundaries ^ILiteralColumnComparator pivot-comparator]
+  (loop [low 0
+         hi (dec (.getCardinality boundaries))
+         prev 0]
+    (let [mid (quot (+ hi low) 2)
+          i (.select boundaries mid)]
+      (if (<= low hi)
+        (let [diff (.compareAt pivot-comparator tuple-lookup-fn column i)]
+          (cond
+            (neg? diff)
+            (recur low (dec mid) i)
+            (pos? diff)
+            (recur (inc mid) hi i)
+            :else
+            mid))
+        (- -1 mid)))))
+
+(defn crack-column [tuple-lookup-fn {:index/keys [^ByteBuffer column ^RoaringBitmap boundaries] :as index} at]
+  (let [pivot-comparator (->literal-column-comparator at)
+        idx (binary-search tuple-lookup-fn column boundaries pivot-comparator)]
+    (if-not (neg? idx)
+      index
+      (let [idx (- -1 idx)
+            boundary (->> (if (.isEmpty boundaries)
+                            (three-way-partition-column tuple-lookup-fn column 0 (column-size column) pivot-comparator)
+                            (if (< idx (.getCardinality boundaries))
+                              (let [next-piece-pos (.select boundaries idx)
+                                    prev-piece-pos (.select boundaries (dec idx))]
+                                (three-way-partition-column tuple-lookup-fn column (or prev-piece-pos 0) (dec next-piece-pos) pivot-comparator))
+                              (let [last-piece-pos (.last boundaries)]
+                                (three-way-partition-column tuple-lookup-fn column last-piece-pos (dec (column-size column)) pivot-comparator))))
+                          (upper-int))]
+        (.add boundaries boundary)
+        index))))
+
+(defn ->column-index [^ByteBuffer column]
+  {:index/column column :index/boundaries (RoaringBitmap.)})
 
 (defn three-way-partition
   (^long [^longs a ^long pivot]
@@ -670,7 +694,7 @@
   {:index/column column :index/pieces (sorted-map)})
 
 (comment
-  (-> (->index (long-array [13 16 4 9 2 12 7 1 19 3 14 11 8 6]))
+  (-> (->array-index (long-array [13 16 4 9 2 12 7 1 19 3 14 11 8 6]))
       (crack-array 11)
       (crack-array 14)
       (crack-array 8)

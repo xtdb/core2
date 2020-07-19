@@ -251,7 +251,7 @@
   {:column/tuple-id (column-id->tuple-id id)
    :column/key-idx (column-id->key-idx id)
    :column/size (column-id->size id)
-   :column/type (get column-type->kw (column-id->type id))})
+   :column/type (column-id->type id)})
 
 (defn long->bytes ^bytes [^long size ^long x]
   (Arrays/copyOf (.array (.putLong (ByteBuffer/allocate Long/BYTES) x)) size))
@@ -385,10 +385,11 @@
 (defn get-column-absolute->map [tuple-lookup-fn ^ByteBuffer column ^long idx]
   (let [{:column/keys [tuple-id key-idx] :as m} (column-id->map (.getLong column (* column-width idx)))
         t ^FlexBuffers$Reference (tuple-lookup-fn tuple-id)]
-    (assoc m
-           :column/value (get-column-absolute tuple-lookup-fn column idx)
-           :column/key (flex-key-idx->clj (.asMap t) key-idx)
-           :column/tuple (flex->clj t))))
+    (-> m
+        (assoc :column/value (get-column-absolute tuple-lookup-fn column idx)
+               :column/key (flex-key-idx->clj (.asMap t) key-idx)
+               :column/tuple (flex->clj t))
+        (update :column/type column-type->kw))))
 
 (defn column->clj [tuple-lookup-fn column]
   (for [idx (range (column-size column))]

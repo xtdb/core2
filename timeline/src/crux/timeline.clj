@@ -509,8 +509,6 @@
 ;; TODO: implement ripple updates and cutter joins from
 ;;       StratosIdreosDBcrackingThesis.pdf
 
-;; Potentially useful for incremental index maintenance.
-
 (defn upper-int ^long [^long x]
   (unsigned-bit-shift-right x Integer/SIZE))
 

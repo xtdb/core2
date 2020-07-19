@@ -104,6 +104,9 @@
 (defn flex-key->clj [^FlexBuffers$Key k]
   (keyword (str k)))
 
+(defn flex-key-idx->clj [^FlexBuffers$Map m ^long key-idx]
+  (flex-key->clj (.get (.keys m) key-idx)))
+
 (defn flex-key->idx ^long [^FlexBuffers$Map m k]
   (let [k (clj->flex-key k)
         kv (.keys m)]
@@ -380,8 +383,12 @@
       (eight-bytes->clj type size (.getLong column (+ idx Long/BYTES))))))
 
 (defn get-column-absolute->map [tuple-lookup-fn ^ByteBuffer column ^long idx]
-  (assoc (column-id->map (.getLong column (* column-width idx)))
-         :column/value (get-column-absolute tuple-lookup-fn column idx)))
+  (let [{:column/keys [tuple-id key-idx] :as m} (column-id->map (.getLong column (* column-width idx)))
+        t ^FlexBuffers$Reference (tuple-lookup-fn tuple-id)]
+    (assoc m
+           :column/value (get-column-absolute tuple-lookup-fn column idx)
+           :column/key (flex-key-idx->clj (.asMap t) key-idx)
+           :column/tuple (flex->clj t))))
 
 (defn column->clj [tuple-lookup-fn column]
   (for [idx (range (column-size column))]

@@ -344,10 +344,10 @@
 
 (defn ->project-column
   (^java.nio.ByteBuffer [k ^ByteBuffer in]
-   (->project-column k in (ByteBuffer/allocateDirect 4096)))
-  (^java.nio.ByteBuffer [k ^ByteBuffer in ^ByteBuffer out]
+   (->project-column k in (ByteBuffer/allocateDirect 4096) 0))
+  (^java.nio.ByteBuffer [k ^ByteBuffer in ^ByteBuffer out ^long start-position]
    (loop [column out
-          position 0]
+          position start-position]
      (if-let [b (read-size-prefixed-buffer in position)]
        (recur (project-column column k position b)
               (+ position Integer/BYTES (.capacity ^ByteBuffer b)))

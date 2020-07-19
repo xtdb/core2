@@ -584,7 +584,7 @@
 (defn quick-sort-column
   (^java.nio.ByteBuffer [tuple-lookup-fn ^ByteBuffer column]
    (quick-sort-column tuple-lookup-fn column 0 (dec (column-size column))))
-  (^java.nio.ByteBuffer [tuple-lookup-fn ^longs column ^long low ^long hi]
+  (^java.nio.ByteBuffer [tuple-lookup-fn ^ByteBuffer column ^long low ^long hi]
    (if (< low hi)
      (let [pivot-comparator (->literal-column-comparator (get-column-absolute tuple-lookup-fn column hi))
            left-right (three-way-partition-column tuple-lookup-fn column low hi pivot-comparator)
@@ -597,7 +597,7 @@
              (recur tuple-lookup-fn column right hi))))
      column)))
 
-(defn binary-search ^long [tuple-lookup-fn ^ByteBuffer column ^RoaringBitmap boundaries ^ILiteralColumnComparator pivot-comparator]
+(defn binary-search ^long [{:index/keys [^ByteBuffer column ^RoaringBitmap boundaries] :as index} tuple-lookup-fn ^ILiteralColumnComparator pivot-comparator]
   (if (.isEmpty boundaries)
     -1
     (loop [low 0
@@ -617,22 +617,26 @@
 
 (defn crack-column [{:index/keys [^ByteBuffer column ^RoaringBitmap boundaries] :as index} tuple-lookup-fn at]
   (let [pivot-comparator (->literal-column-comparator at)
-        idx (binary-search tuple-lookup-fn column boundaries pivot-comparator)]
+        idx (binary-search index tuple-lookup-fn pivot-comparator)]
     (if-not (neg? idx)
       index
       (let [next-idx (- (inc idx))
-            boundary (->> (if (.isEmpty boundaries)
-                            (three-way-partition-column tuple-lookup-fn column 0 (dec (column-size column)) pivot-comparator)
-                            (if (< next-idx (.getCardinality boundaries))
-                              (let [next-piece-pos (.select boundaries next-idx)
-                                    prev-idx (dec next-idx)
-                                    prev-piece-pos (if-not (neg? prev-idx)
-                                                     (.select boundaries prev-idx)
-                                                     0)]
-                                (three-way-partition-column tuple-lookup-fn column prev-piece-pos (dec next-piece-pos) pivot-comparator))
-                              (let [last-piece-pos (.last boundaries)]
-                                (three-way-partition-column tuple-lookup-fn column last-piece-pos (dec (column-size column)) pivot-comparator))))
-                          (upper-int))]
+            left-right (cond
+                         (.isEmpty boundaries)
+                         (three-way-partition-column tuple-lookup-fn column 0 (dec (column-size column)) pivot-comparator)
+
+                         (< next-idx (.getCardinality boundaries))
+                         (let [next-piece-pos (.select boundaries next-idx)
+                               prev-idx (dec next-idx)
+                               prev-piece-pos (if-not (neg? prev-idx)
+                                                (.select boundaries prev-idx)
+                                                0)]
+                           (three-way-partition-column tuple-lookup-fn column prev-piece-pos (dec next-piece-pos) pivot-comparator))
+
+                         :else
+                         (let [last-piece-pos (.last boundaries)]
+                           (three-way-partition-column tuple-lookup-fn column last-piece-pos (dec (column-size column)) pivot-comparator)))
+            boundary (upper-int left-right)]
         (.add boundaries boundary)
         index))))
 
@@ -660,8 +664,7 @@
       [out
        (column-capacity col)
        (column-size col)
-       (let [{:index/keys [column
-                           boundaries]}
+       (let [{:index/keys [column boundaries]}
              (-> (->column-index col)
                  (crack-column tuple-lookup-fn 11)
                  (crack-column tuple-lookup-fn 14)

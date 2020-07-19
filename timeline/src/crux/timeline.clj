@@ -195,7 +195,7 @@
 (def ^:const column-size-bits 4)
 (def ^:const column-key-idx-bit-pos (+ column-size-bits column-size-bit-pos))
 (def ^:const column-key-idx-bits 8)
-(def ^:const column-tuple-id-bit-pos (+ column-idx-bits column-key-idx-bit-pos))
+(def ^:const column-tuple-id-bit-pos (+ column-key-idx-bits column-key-idx-bit-pos))
 (def ^:const column-tuple-id-bits (- Long/SIZE column-tuple-id-bit-pos))
 
 (def ^:const column-varlen-size 0xf)

@@ -178,29 +178,38 @@
 (def ^:const column-type-bits 4)
 (def ^:const column-size-bit-pos column-type-bits)
 (def ^:const column-size-bits 4)
-(def ^:const column-idx-bit-pos (+ column-size-bits column-size-bit-pos))
-(def ^:const column-idx-bits 8)
-(def ^:const column-tuple-id-bit-pos (+ column-idx-bits column-idx-bit-pos))
+(def ^:const column-key-idx-bit-pos (+ column-size-bits column-size-bit-pos))
+(def ^:const column-key-idx-bits 8)
+(def ^:const column-tuple-id-bit-pos (+ column-idx-bits column-key-idx-bit-pos))
 (def ^:const column-tuple-id-bits (- Long/SIZE column-tuple-id-bit-pos))
 
 (def ^:const column-varlen-size 0xf)
 
-(def fbt-type->column-type {FlexBuffers/FBT_NULL
-                            column-type-nil
-                            FlexBuffers/FBT_BOOL
-                            column-type-boolean
-                            FlexBuffers/FBT_INT
-                            column-type-long
-                            FlexBuffers/FBT_FLOAT
-                            column-type-double
-                            FlexBuffers/FBT_STRING
-                            column-type-string
-                            FlexBuffers/FBT_BLOB
-                            column-type-bytes})
+(def ^:const fbt-type->column-type
+  {FlexBuffers/FBT_NULL
+   column-type-nil
+   FlexBuffers/FBT_BOOL
+   column-type-boolean
+   FlexBuffers/FBT_INT
+   column-type-long
+   FlexBuffers/FBT_FLOAT
+   column-type-double
+   FlexBuffers/FBT_STRING
+   column-type-string
+   FlexBuffers/FBT_BLOB
+   column-type-bytes})
 
-(defn ->column-id ^long [^long tuple-id ^long idx ^long size ^long type]
+(def ^:const column-type->kw
+  {column-type-nil :column.type/nil
+   column-type-boolean :column.type/boolean
+   column-type-long :column.type/long
+   column-type-double :column.type/double
+   column-type-string :column.type/string
+   column-type-bytes :column.type/bytes})
+
+(defn ->column-id ^long [^long tuple-id ^long key-idx ^long size ^long type]
   (bit-or (bit-shift-left tuple-id column-tuple-id-bit-pos)
-          (bit-shift-left idx column-idx-bit-pos)
+          (bit-shift-left key-idx column-key-idx-bit-pos)
           (bit-shift-left size column-size-bit-pos)
           (bit-shift-left type column-type-bit-pos)))
 
@@ -208,9 +217,9 @@
   (bit-and (bit-shift-right id column-tuple-id-bit-pos)
            (dec (bit-shift-left 1 column-tuple-id-bits))))
 
-(defn column-id->idx ^long [^long id]
-  (bit-and (bit-shift-right id column-idx-bit-pos)
-           (dec (bit-shift-left 1 column-idx-bits))))
+(defn column-id->key-idx ^long [^long id]
+  (bit-and (bit-shift-right id column-key-idx-bit-pos)
+           (dec (bit-shift-left 1 column-key-idx-bits))))
 
 (defn column-id->size ^long [^long id]
   (bit-and (bit-shift-right id column-size-bit-pos)
@@ -222,9 +231,9 @@
 
 (defn column-id->map [^long id]
   {:column/tuple-id (column-id->tuple-id id)
-   :column/idx (column-id->idx id)
+   :column/key-idx (column-id->key-idx id)
    :column/size (column-id->size id)
-   :column/type (column-id->type id)})
+   :column/type (get column-type->kw (column-id->type id))})
 
 (defn long->bytes ^bytes [^long size ^long x]
   (Arrays/copyOf (.array (.putLong (ByteBuffer/allocate Long/BYTES) x)) size))
@@ -364,9 +373,9 @@
 
 (defn column->flex ^com.google.flatbuffers.FlexBuffers$Reference [tuple-lookup-fn ^long column-id]
   (let [tuple-id (column-id->tuple-id column-id)
-        col-idx (column-id->idx column-id)
+        key-idx (column-id->key-idx column-id)
         root ^FlexBuffers$Reference (tuple-lookup-fn tuple-id)]
-    (.get (.asMap root) col-idx)))
+    (.get (.asMap root) key-idx)))
 
 (defn get-column-absolute [tuple-lookup-fn ^ByteBuffer column ^long idx]
   (let [idx (* column-width idx)
@@ -378,6 +387,14 @@
                  (= column-type-bytes type)))
       (flex->clj (column->flex tuple-lookup-fn column-id))
       (eight-bytes->clj type size (.getLong column (+ idx Long/BYTES))))))
+
+(defn get-column-absolute->clj [tuple-lookup-fn ^ByteBuffer column ^long idx]
+  (assoc (column-id->map (.getLong column (* column-width idx)))
+         :column/value (get-column-absolute tuple-lookup-fn column idx)))
+
+(defn column->clj [tuple-lookup-fn column]
+  (for [idx (range (column-size column))]
+    (get-column-absolute->clj tuple-lookup-fn column idx)))
 
 (definterface ILiteralColumnComparator
   (^long compareAt [^clojure.lang.IFn tupleLookupFn ^java.nio.ByteBuffer column ^long idx]))
@@ -544,7 +561,7 @@
           (recur (inc x1) (dec x2))))
       (two-ints-as-long x1 x2))))
 
-(defn move-min-to-beginning ^long [tuple-lookup-fn ^ByteBuffer column ^long low ^long hi]
+(defn find-min-idx ^long [tuple-lookup-fn ^ByteBuffer column ^long low ^long hi]
   (loop [i (inc low)
          min-idx low]
     (if (< i hi)
@@ -552,8 +569,7 @@
         (if (neg? diff)
           (recur (inc i) i)
           (recur (inc i) min-idx)))
-      (do (swap-column column low min-idx)
-          low))))
+      min-idx)))
 
 (defn three-way-partition-column ^Long [tuple-lookup-fn ^ByteBuffer column ^Long low ^Long hi ^ILiteralColumnComparator pivot-comparator]
   (loop [i ^long low
@@ -573,10 +589,11 @@
 
           :else
           (recur i (inc j) k)))
-      (let [k (dec k)]
-        (when (= i k)
-          (move-min-to-beginning tuple-lookup-fn i hi))
-        (two-ints-as-long i k)))))
+      (if (= i k)
+        (let [min-idx (find-min-idx tuple-lookup-fn column i hi)
+              pivot-comparator (->literal-column-comparator (get-column-absolute tuple-lookup-fn column min-idx))]
+          (three-way-partition-column tuple-lookup-fn column low hi pivot-comparator))
+        (two-ints-as-long i (dec k))))))
 
 (defn quick-sort-column
   (^java.nio.ByteBuffer [tuple-lookup-fn ^ByteBuffer column]
@@ -610,14 +627,16 @@
             mid))
         (- -1 mid)))))
 
-(defn crack-column [tuple-lookup-fn {:index/keys [^ByteBuffer column ^RoaringBitmap boundaries] :as index} at]
+(defn crack-column [{:index/keys [^ByteBuffer column ^RoaringBitmap boundaries] :as index} tuple-lookup-fn at]
   (let [pivot-comparator (->literal-column-comparator at)
-        idx (binary-search tuple-lookup-fn column boundaries pivot-comparator)]
+        idx (if (.isEmpty boundaries)
+              -1
+              (binary-search tuple-lookup-fn column boundaries pivot-comparator))]
     (if-not (neg? idx)
       index
       (let [idx (- -1 idx)
             boundary (->> (if (.isEmpty boundaries)
-                            (three-way-partition-column tuple-lookup-fn column 0 (column-size column) pivot-comparator)
+                            (three-way-partition-column tuple-lookup-fn column 0 (dec (column-size column)) pivot-comparator)
                             (if (< idx (.getCardinality boundaries))
                               (let [next-piece-pos (.select boundaries idx)
                                     prev-piece-pos (.select boundaries (dec idx))]
@@ -714,4 +733,21 @@
       [out
        (column-capacity col)
        (column-size col)
-       (get-column-absolute (partial buffer-tuple-lookup out) col 9)])))
+       (get-column-absolute (partial buffer-tuple-lookup out) col 9)]))
+
+
+  (let [out (mmap-file "target/bar.flex" 4096)]
+    (doseq [x (for [x [13 16 4 9 2 12 7 1 19 3 14 11 8 6]]
+                {:x x})]
+      (write-size-prefixed-buffer out (clj->flexbuffer x)))
+    (.force out)
+    (let [col (->project-column :x (.rewind out))
+          tuple-lookup-fn (partial buffer-tuple-lookup out)]
+      [out
+       (column-capacity col)
+       (column-size col)
+       (-> (->column-index col)
+           (crack-column tuple-lookup-fn 11)
+           (crack-column tuple-lookup-fn 14)
+           (crack-column tuple-lookup-fn 8)
+           (crack-column tuple-lookup-fn 17))])))

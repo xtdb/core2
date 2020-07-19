@@ -506,8 +506,8 @@
 
 ;; See example in figure 4.1 in abadi-column-stores.pdf page 49 / 242
 
-;; TODO: implement ripple updates and cutter joins from
-;;       StratosIdreosDBcrackingThesis.pdf
+;; TODO: implement complete (MCI) or ripple (MRI) updates and cutter
+;;       joins from StratosIdreosDBcrackingThesis.pdf
 
 (defn upper-int ^long [^long x]
   (unsigned-bit-shift-right x Integer/SIZE))

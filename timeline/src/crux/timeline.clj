@@ -101,9 +101,6 @@
           (.position in (+ size position))
           bb)))))
 
-(defn flex-root ^com.google.flatbuffers.FlexBuffers$Reference [^ByteBuffer b]
-  (FlexBuffers/getRoot b))
-
 (defn flex-key->clj [^FlexBuffers$Key k]
   (keyword (str k)))
 
@@ -147,11 +144,41 @@
     :else
     (throw (IllegalArgumentException. (str "Unknown type: " (.getType ref))))))
 
+(defn flex-root ^com.google.flatbuffers.FlexBuffers$Reference [^ByteBuffer b]
+  (FlexBuffers/getRoot b))
+
+(defn flexbuffer->clj [^ByteBuffer b]
+  (flex->clj (flex-root b)))
+
 (defn get-flex ^com.google.flatbuffers.FlexBuffers$Reference [^FlexBuffers$Reference ref k]
   (cond
     (.isMap ref) (.get (.asMap ref) (clj->flex-key k))
     (or (.isVector ref)
         (.isTypedVector ref)) (.get (.asVector ref) k)))
+
+(defn round-up-to-next-multiple ^long [^long n ^long m]
+  (bit-and (+ n (dec m)) (bit-not (dec m))))
+
+(defn mmap-file ^java.nio.MappedByteBuffer [f size]
+  (with-open [raf (doto (RandomAccessFile. (doto (io/file f)
+                                             (io/make-parents)) "rw")
+                    (.setLength size))
+              in (.getChannel raf)]
+    (.map in FileChannel$MapMode/READ_WRITE 0 (.size in))))
+
+(defn realloc
+  (^java.nio.ByteBuffer [^ByteBuffer b]
+   (realloc b (* 2 (.capacity b))))
+  (^java.nio.ByteBuffer [^ByteBuffer b ^long new-capacity]
+   (let [new-buffer (if (.isDirect b)
+                      (ByteBuffer/allocateDirect new-capacity)
+                      (ByteBuffer/allocate new-capacity))]
+     (.put new-buffer (.flip b)))))
+
+(defn ensure-remaining-size ^java.nio.ByteBuffer [^ByteBuffer b ^long size]
+  (if (>= (.remaining b) size)
+    b
+    (realloc b)))
 
 (def ^:const column-width (* Long/BYTES 2))
 
@@ -315,20 +342,6 @@
                                type)
                   (flex->eight-bytes flex-v)))))
 
-(defn realloc
-  (^java.nio.ByteBuffer [^ByteBuffer b]
-   (realloc b (* 2 (.capacity b))))
-  (^java.nio.ByteBuffer [^ByteBuffer b ^long new-capacity]
-   (let [new-buffer (if (.isDirect b)
-                      (ByteBuffer/allocateDirect new-capacity)
-                      (ByteBuffer/allocate new-capacity))]
-     (.put new-buffer (.flip b)))))
-
-(defn ensure-remaining-size ^java.nio.ByteBuffer [^ByteBuffer b ^long size]
-  (if (>= (.remaining b) size)
-    b
-    (realloc b)))
-
 (defn ->project-column
   (^java.nio.ByteBuffer [k ^ByteBuffer in]
    (->project-column k in (ByteBuffer/allocateDirect 4096)))
@@ -490,19 +503,6 @@
                 diff))
           :else
           (throw (IllegalArgumentException. "Unknown type: " type-a)))))))
-
-(defn flexbuffer->clj [^ByteBuffer b]
-  (flex->clj (flex-root b)))
-
-(defn round-up-to-next-multiple ^long [^long n ^long m]
-  (bit-and (+ n (dec m)) (bit-not (dec m))))
-
-(defn mmap-file ^java.nio.MappedByteBuffer [f size]
-  (with-open [raf (doto (RandomAccessFile. (doto (io/file f)
-                                             (io/make-parents)) "rw")
-                    (.setLength size))
-              in (.getChannel raf)]
-    (.map in FileChannel$MapMode/READ_WRITE 0 (.size in))))
 
 ;; See example in figure 4.1 in abadi-column-stores.pdf page 49 / 242
 

@@ -547,24 +547,6 @@
     (aset 0 (upper-int x))
     (aset 1 (lower-int x))))
 
-;; NOTE: might not be used.
-;; https://stratos.seas.harvard.edu/files/IKM_CIDR07.pdf
-
-(defn crack-in-two-column ^Long [tuple-lookup-fn ^ByteBuffer column ^Long low ^Long hi ^ILiteralColumnComparator med-comparator]
-  (loop [x1 ^long low
-         x2 ^long hi]
-    (if (< x1 x2)
-      (if (neg? (.compareAt med-comparator tuple-lookup-fn column x1))
-        (recur (inc x1) x2)
-        (let [^long x2 (loop [x2 x2]
-                         (if (and (not (neg? (.compareAt med-comparator tuple-lookup-fn column x2)))
-                                  (> x2 x1))
-                           (recur (dec x2))
-                           x2))]
-          (swap-column column x1 x2)
-          (recur (inc x1) (dec x2))))
-      (two-ints-as-long x1 x2))))
-
 (defn find-min-idx ^long [tuple-lookup-fn ^ByteBuffer column ^long low ^long hi]
   (loop [i (inc low)
          min-idx low]
@@ -656,80 +638,6 @@
 
 (defn ->column-index [^ByteBuffer column]
   {:index/column column :index/boundaries (FastRankRoaringBitmap.)})
-
-(defn three-way-partition
-  (^long [^longs a ^long pivot]
-   (three-way-partition a 0 (dec (alength a)) pivot))
-  (^long [^longs a ^long low ^long hi ^long pivot]
-   (loop [i low
-          j low
-          k (inc hi)]
-     (if (< j k)
-       (let [aj (aget a j)
-             diff (- aj pivot)]
-         (cond
-           (neg? diff)
-           (do (doto a
-                 (aset j (aget a i))
-                 (aset i aj))
-               (recur (inc i) (inc j) k))
-
-           (pos? diff)
-           (let [k (dec k)]
-             (doto a
-               (aset j (aget a k))
-               (aset k aj))
-             (recur i j k))
-
-           :else
-           (recur i (inc j) k)))
-       (two-ints-as-long i (dec k))))))
-
-(defn quick-sort
-  (^longs [^longs a]
-   (quick-sort a 0 (dec (alength a))))
-  (^longs [^longs a ^long low ^long hi]
-   (if (< low hi)
-     (let [pivot (aget a hi)
-           left-right (three-way-partition a low hi pivot)
-           left (dec (upper-int left-right))
-           right (inc (lower-int left-right))]
-       (if (< (- hi right) (- left low))
-         (do (quick-sort a right hi)
-             (recur a low left))
-         (do (quick-sort a low left)
-             (recur a right hi))))
-     a)))
-
-(defn crack-array [{:index/keys [^longs column pieces] :as index} ^long at]
-  (if (contains? pieces at)
-    index
-    (->> (if (empty? pieces)
-           (three-way-partition column at)
-           (if-let [next-pieces (not-empty (subseq pieces >= at))]
-             (let [[[_ ^long next-piece-pos]] next-pieces
-                   [[_ prev-piece-pos]] (rsubseq pieces < at)]
-               (three-way-partition column (or prev-piece-pos 0) (dec next-piece-pos) at))
-             (let [[_ last-piece-pos] (last pieces)]
-               (three-way-partition column last-piece-pos (dec (alength column)) at))))
-         (upper-int)
-         (assoc-in index [:index/pieces at]))))
-
-(defn ->index [column]
-  {:index/column column :index/pieces (sorted-map)})
-
-(comment
-  (-> (->array-index (long-array [13 16 4 9 2 12 7 1 19 3 14 11 8 6]))
-      (crack-array 11)
-      (crack-array 14)
-      (crack-array 8)
-      (crack-array 17))
-
-  #:index{:column [6, 4, 3, 2, 7, 1, 8, 9, 11, 13, 12, 14, 16, 19],
-          :pieces {8                 6,
-                   11                      8,
-                   14                                  11,
-                   17                                          13}})
 
 (comment
   (let [out (mmap-file "target/foo.flex" 4096)]

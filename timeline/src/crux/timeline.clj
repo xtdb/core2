@@ -5,7 +5,6 @@
            [java.nio ByteBuffer ByteOrder MappedByteBuffer]
            java.nio.channels.FileChannel$MapMode
            java.nio.charset.StandardCharsets
-           [clojure.lang IReduceInit MapEntry]
            [org.roaringbitmap FastRankRoaringBitmap RoaringBitmap]
            [com.google.flatbuffers FlexBuffers FlexBuffers$Blob FlexBuffers$Key FlexBuffers$Map FlexBuffers$Reference FlexBuffersBuilder]))
 
@@ -101,17 +100,6 @@
               bb (.slice in position size)]
           (.position in (+ size position))
           bb)))))
-
-(defn read-size-prefixed-buffers-reducible [^ByteBuffer in]
-  (reify IReduceInit
-    (reduce [this f init]
-      (loop [acc init]
-        (if (reduced? acc)
-          (unreduced acc)
-          (let [position (.position in)]
-            (if-let [x (read-size-prefixed-buffer in)]
-              (recur (f acc (MapEntry/create position x)))
-              (unreduced acc))))))))
 
 (defn flex-root ^com.google.flatbuffers.FlexBuffers$Reference [^ByteBuffer b]
   (FlexBuffers/getRoot b))
@@ -288,51 +276,6 @@
     :else
     (throw (IllegalArgumentException. "Unknown type: " (.getType x)))))
 
-(defn ->map-entry ^clojure.lang.MapEntry [k v]
-  (MapEntry/create k v))
-
-(defn project-column
-  ([f k tuple-id+buffer]
-   (project-column f k (key tuple-id+buffer) (val tuple-id+buffer)))
-  ([f k tuple-id buffer]
-   (let [root (flex-root buffer)
-         flex-v (get-flex root k)
-         type (get fbt-type->column-type (.getType flex-v))]
-     (if (or (.isBlob flex-v) (.isString flex-v))
-       (let [b (.asBlob flex-v)]
-         (f (->column-id tuple-id
-                         (flex-key->idx (.asMap root) k)
-                         (if (<= (.size b) Long/BYTES)
-                           (.size b)
-                           column-varlen-size)
-                         type)
-            (blob->eight-bytes b)))
-       (f (->column-id tuple-id
-                       (flex-key->idx (.asMap root) k)
-                       Long/BYTES
-                       type)
-          (flex->eight-bytes flex-v))))))
-
-(defn put-column-absolute ^java.nio.ByteBuffer [^ByteBuffer column ^long idx ^long column-id ^long eight-bytes]
-  (let [idx (* column-width idx)]
-    (-> column
-        (.putLong idx column-id)
-        (.putLong (+ idx Long/BYTES) eight-bytes))))
-
-(defn realloc
-  (^java.nio.ByteBuffer [^ByteBuffer b]
-   (realloc b (* 2 (.capacity b))))
-  (^java.nio.ByteBuffer [^ByteBuffer b ^long new-capacity]
-   (let [new-buffer (if (.isDirect b)
-                      (ByteBuffer/allocateDirect new-capacity)
-                      (ByteBuffer/allocate new-capacity))]
-     (.put new-buffer (.flip b)))))
-
-(defn ensure-remaining-size ^java.nio.ByteBuffer [^ByteBuffer b ^long size]
-  (if (>= (.remaining b) size)
-    b
-    (realloc b)))
-
 (defn put-column ^java.nio.ByteBuffer [^ByteBuffer column ^long column-id ^long eight-bytes]
   (-> ^java.nio.ByteBuffer (ensure-remaining-size column column-width)
       (.putLong column-id)
@@ -351,16 +294,51 @@
           (.putLong b-idx a-column-id)
           (.putLong (+ b-idx Long/BYTES) a-eight-bytes)))))
 
+(defn project-column [^ByteBuffer column k tuple-id buffer]
+  (let [root (flex-root buffer)
+        flex-v (get-flex root k)
+        type (get fbt-type->column-type (.getType flex-v))]
+    (if (or (.isBlob flex-v) (.isString flex-v))
+      (let [b (.asBlob flex-v)]
+        (put-column column
+                    (->column-id tuple-id
+                                 (flex-key->idx (.asMap root) k)
+                                 (if (<= (.size b) Long/BYTES)
+                                   (.size b)
+                                   column-varlen-size)
+                                 type)
+                    (blob->eight-bytes b)))
+      (put-column column
+                  (->column-id tuple-id
+                               (flex-key->idx (.asMap root) k)
+                               Long/BYTES
+                               type)
+                  (flex->eight-bytes flex-v)))))
+
+(defn realloc
+  (^java.nio.ByteBuffer [^ByteBuffer b]
+   (realloc b (* 2 (.capacity b))))
+  (^java.nio.ByteBuffer [^ByteBuffer b ^long new-capacity]
+   (let [new-buffer (if (.isDirect b)
+                      (ByteBuffer/allocateDirect new-capacity)
+                      (ByteBuffer/allocate new-capacity))]
+     (.put new-buffer (.flip b)))))
+
+(defn ensure-remaining-size ^java.nio.ByteBuffer [^ByteBuffer b ^long size]
+  (if (>= (.remaining b) size)
+    b
+    (realloc b)))
+
 (defn ->project-column
   (^java.nio.ByteBuffer [k ^ByteBuffer in]
    (->project-column k in (ByteBuffer/allocateDirect 4096)))
   (^java.nio.ByteBuffer [k ^ByteBuffer in ^ByteBuffer out]
-   (loop [col out
+   (loop [column out
           pos (.position in)]
      (if-let [b (read-size-prefixed-buffer in)]
-       (recur (project-column (partial put-column col) k pos b)
+       (recur (project-column column k pos b)
               (.position in))
-       col))))
+       column))))
 
 (defn column-size ^long [^ByteBuffer column]
   (quot (.position column) column-width))

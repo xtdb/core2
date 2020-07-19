@@ -88,18 +88,15 @@
 (defn clj->flexbuffer ^java.nio.ByteBuffer [x]
   (.finish (clj->flex x (FlexBuffersBuilder.) nil)))
 
-(defn write-size-prefixed-buffer ^java.nio.ByteBuffer [^ByteBuffer out ^ByteBuffer bb]
-  (.putInt out (.remaining bb))
-  (.put out bb))
+(defn write-size-prefixed-buffer ^java.nio.ByteBuffer [^ByteBuffer out ^ByteBuffer b]
+  (.putInt out (.remaining b))
+  (.put out b))
 
-(defn read-size-prefixed-buffer ^java.nio.ByteBuffer [^ByteBuffer in]
-  (when (.hasRemaining in)
-    (let [size (.getInt in)]
+(defn read-size-prefixed-buffer ^java.nio.ByteBuffer [^ByteBuffer in ^long position]
+  (when (<= (+ position Integer/BYTES) (.capacity in))
+    (let [size (.getInt in position)]
       (when (pos? size)
-        (let [position (.position in)
-              bb (.slice in position size)]
-          (.position in (+ size position))
-          bb)))))
+        (.slice in (+ position Integer/BYTES) size)))))
 
 (defn flex-key->clj [^FlexBuffers$Key k]
   (keyword (str k)))
@@ -350,10 +347,10 @@
    (->project-column k in (ByteBuffer/allocateDirect 4096)))
   (^java.nio.ByteBuffer [k ^ByteBuffer in ^ByteBuffer out]
    (loop [column out
-          pos (.position in)]
-     (if-let [b (read-size-prefixed-buffer in)]
-       (recur (project-column column k pos b)
-              (.position in))
+          position 0]
+     (if-let [b (read-size-prefixed-buffer in position)]
+       (recur (project-column column k position b)
+              (+ position Integer/BYTES (.capacity ^ByteBuffer b)))
        column))))
 
 (defn column-size ^long [^ByteBuffer column]
@@ -363,7 +360,7 @@
   (quot (.capacity column) column-width))
 
 (defn buffer-tuple-lookup ^com.google.flatbuffers.FlexBuffers$Reference [^ByteBuffer tuple-buffer ^long tuple-id]
-  (flex-root (read-size-prefixed-buffer (.position (.duplicate tuple-buffer) tuple-id))))
+  (flex-root (read-size-prefixed-buffer tuple-buffer tuple-id)))
 
 (defn column->flex ^com.google.flatbuffers.FlexBuffers$Reference [tuple-lookup-fn ^long column-id]
   (let [tuple-id (column-id->tuple-id column-id)
@@ -371,7 +368,7 @@
         root ^FlexBuffers$Reference (tuple-lookup-fn tuple-id)]
     (.get (.asMap root) key-idx)))
 
-(defn get-column-absolute [tuple-lookup-fn ^ByteBuffer column ^long idx]
+(defn get-column [tuple-lookup-fn ^ByteBuffer column ^long idx]
   (let [idx (* column-width idx)
         column-id (.getLong column idx)
         type (column-id->type column-id)
@@ -382,22 +379,22 @@
       (flex->clj (column->flex tuple-lookup-fn column-id))
       (eight-bytes->clj type size (.getLong column (+ idx Long/BYTES))))))
 
-(defn get-column-absolute->map [tuple-lookup-fn ^ByteBuffer column ^long idx]
+(defn get-column->map [tuple-lookup-fn ^ByteBuffer column ^long idx]
   (let [{:column/keys [tuple-id key-idx] :as m} (column-id->map (.getLong column (* column-width idx)))
         t ^FlexBuffers$Reference (tuple-lookup-fn tuple-id)]
     (-> m
-        (assoc :column/value (get-column-absolute tuple-lookup-fn column idx)
+        (assoc :column/value (get-column tuple-lookup-fn column idx)
                :column/key (flex-key-idx->clj (.asMap t) key-idx)
                :column/tuple (flex->clj t))
         (update :column/type column-type->kw))))
 
 (defn column->clj [tuple-lookup-fn column]
   (for [idx (range (column-size column))]
-    (get-column-absolute tuple-lookup-fn column idx)))
+    (get-column tuple-lookup-fn column idx)))
 
 (defn column->maps [tuple-lookup-fn column]
   (for [idx (range (column-size column))]
-    (get-column-absolute->map tuple-lookup-fn column idx)))
+    (get-column->map tuple-lookup-fn column idx)))
 
 (definterface ILiteralColumnComparator
   (^long compareAt [^clojure.lang.IFn tupleLookupFn ^java.nio.ByteBuffer column ^long idx]))
@@ -561,7 +558,7 @@
           (recur i (inc j) k)))
       (if (= i k)
         (let [min-idx (find-min-idx tuple-lookup-fn column i hi)
-              pivot-comparator (->literal-column-comparator (get-column-absolute tuple-lookup-fn column min-idx))]
+              pivot-comparator (->literal-column-comparator (get-column tuple-lookup-fn column min-idx))]
           (three-way-partition-column tuple-lookup-fn column i hi pivot-comparator))
         (two-ints-as-long i (dec k))))))
 
@@ -570,7 +567,7 @@
    (quick-sort-column tuple-lookup-fn column 0 (dec (column-size column))))
   (^java.nio.ByteBuffer [tuple-lookup-fn ^ByteBuffer column ^long low ^long hi]
    (if (< low hi)
-     (let [pivot-comparator (->literal-column-comparator (get-column-absolute tuple-lookup-fn column hi))
+     (let [pivot-comparator (->literal-column-comparator (get-column tuple-lookup-fn column hi))
            left-right (three-way-partition-column tuple-lookup-fn column low hi pivot-comparator)
            left (dec (upper-int left-right))
            right (inc (lower-int left-right))]
@@ -632,18 +629,18 @@
     (doseq [x (take 10 (crux.timeline-test/tpch-dbgen))]
       (write-size-prefixed-buffer out (clj->flexbuffer x)))
     (.force out)
-    (let [col (->project-column :c_acctbal (.rewind out))]
+    (let [col (->project-column :c_acctbal out)]
       [out
        (column-capacity col)
        (column-size col)
-       (get-column-absolute (partial buffer-tuple-lookup out) col 9)]))
+       (get-column (partial buffer-tuple-lookup out) col 9)]))
 
   (let [out (mmap-file "target/bar.flex" 4096)]
     (doseq [x (for [x [13 16 4 9 2 12 7 1 19 3 14 11 8 6]]
                 {:x x})]
       (write-size-prefixed-buffer out (clj->flexbuffer x)))
     (.force out)
-    (let [col (->project-column :x (.rewind out))
+    (let [col (->project-column :x out)
           tuple-lookup-fn (partial buffer-tuple-lookup out)]
       [out
        (column-capacity col)

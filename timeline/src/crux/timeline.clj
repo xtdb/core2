@@ -699,4 +699,27 @@
 
   [[6 4 3 2 7 1 8 9 11 13 12 14 16 19]
    (doto (FastRankRoaringBitmap.)
-     (.add (int-array [6 8 11 13])))])
+     (.add (int-array [6 8 11 13])))]
+
+  ;; page 74, 4.3 Updates / Insertions
+  ;; StratosIdreosDBcrackingThesis.pdf
+  (let [out (mmap-file (doto (io/file "target/baz.flex")
+                         (.delete)) 4096)]
+    (doseq [x (for [x [3 2 9 8 7 15 35 19 37 56 43 60 58 89 59 97 95 91 99]]
+                {:x x})]
+      (write-size-prefixed-buffer out (clj->flexbuffer x)))
+    (.force out)
+    (let [col (->project-column :x out)
+          tuple-lookup-fn (partial buffer-tuple-lookup out)]
+      [out
+       (column-capacity col)
+       (column-size col)
+       (let [index (->column-index col :x)
+             position (.position out)]
+         (doto (:index/boundaries index)
+           (.add (int-array [5 9 11 15])))
+         (write-size-prefixed-buffer out (clj->flexbuffer {:x 17}))
+         (let [{:index/keys [column boundaries] :as index}
+               (update-column-index index tuple-lookup-fn out position)]
+           [(column->clj tuple-lookup-fn column)
+            boundaries]))])))

@@ -638,13 +638,13 @@
               diff (.compareAt column-comparator tuple-lookup-fn column piece-pos column idx)]
           (if (neg? diff)
             index
-            (let [idx (loop [first-value-pos (inc piece-pos)]
-                        (if (and (zero? (.compareAt column-comparator tuple-lookup-fn column piece-pos column first-value-pos))
-                                 (< first-value-pos idx))
-                          (recur (inc first-value-pos))
+            (let [idx (loop [after-min-value-pos (inc piece-pos)]
+                        (if (and (zero? (.compareAt column-comparator tuple-lookup-fn column piece-pos column after-min-value-pos))
+                                 (< after-min-value-pos idx))
+                          (recur (inc after-min-value-pos))
                           (do (when-not (= piece-pos idx)
                                 (-> column
-                                    (swap-column piece-pos first-value-pos)
+                                    (swap-column piece-pos after-min-value-pos)
                                     (swap-column piece-pos idx))
                                 (when (pos? diff)
                                   (doto boundaries

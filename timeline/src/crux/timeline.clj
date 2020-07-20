@@ -494,7 +494,7 @@
             type-b (column-id->type column-id-b)]
         (cond
           (not= type-a type-b)
-          (- type-a type-b)
+          (Long/compare type-a type-b)
           (or (= column-type-boolean type-a)
               (= column-type-long type-a))
           (Long/compare (.getLong column-a (+ idx-a Long/BYTES))
@@ -653,7 +653,7 @@
                               piece-pos)))]
               (recur (dec boundary-idx) (long idx)))))))))
 
-(defn update-column-index [{:index/keys [^ByteBuffer column attribute ^RoaringBitmap boundaries] :as index} tuple-lookup-fn ^ByteBuffer in ^long start-position]
+(defn update-column-index [{:index/keys [^ByteBuffer column attribute] :as index} tuple-lookup-fn ^ByteBuffer in ^long start-position]
   (let [prev-end-idx (column-size column)
         column (->project-column attribute in column start-position)]
     (loop [index (assoc index :index/column column)

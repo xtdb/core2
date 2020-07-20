@@ -321,11 +321,15 @@
           (.putLong b-idx a-column-id)
           (.putLong (+ b-idx Long/BYTES) a-eight-bytes)))))
 
-(defn project-column [^ByteBuffer column k tuple-id buffer]
+(defn project-column ^java.nio.ByteBuffer [^ByteBuffer column k tuple-id buffer]
   (let [root (flex-root buffer)
         flex-v (get-flex root k)
         type (get fbt-type->column-type (.getType flex-v))]
-    (if (or (.isBlob flex-v) (.isString flex-v))
+    (cond
+      (.isNull flex-v)
+      column
+
+      (or (.isBlob flex-v) (.isString flex-v))
       (let [b (.asBlob flex-v)]
         (put-column column
                     (->column-id tuple-id
@@ -335,6 +339,8 @@
                                    column-varlen-size)
                                  type)
                     (blob->eight-bytes b)))
+
+      :else
       (put-column column
                   (->column-id tuple-id
                                (flex-key->idx (.asMap root) k)

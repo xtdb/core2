@@ -537,7 +537,7 @@
 (defn find-min-idx ^long [tuple-lookup-fn ^ByteBuffer column ^long low ^long hi]
   (loop [i (inc low)
          min-idx low]
-    (if (< i hi)
+    (if (<= i hi)
       (let [diff (.compareAt column-comparator tuple-lookup-fn column i column min-idx)]
         (if (neg? diff)
           (recur (inc i) i)
@@ -642,6 +642,7 @@
         (let [piece-pos (.select boundaries boundary-idx)
               diff (.compareAt column-comparator tuple-lookup-fn column piece-pos column idx)]
           (if (neg? diff)
+            index
             (let [idx (loop [first-value-pos (inc piece-pos)]
                         (if (and (zero? (.compareAt column-comparator tuple-lookup-fn column piece-pos column first-value-pos))
                                  (< first-value-pos idx))
@@ -650,12 +651,12 @@
                                 (-> column
                                     (swap-column piece-pos first-value-pos)
                                     (swap-column piece-pos idx))
-                                (doto boundaries
-                                  (.remove piece-pos)
-                                  (.add (inc piece-pos))))
+                                (when (pos? diff)
+                                  (doto boundaries
+                                    (.remove piece-pos)
+                                    (.add (inc piece-pos)))))
                               piece-pos)))]
-              (recur (dec boundary-idx) (long idx)))
-            index))))))
+              (recur (dec boundary-idx) (long idx)))))))))
 
 (defn update-column-index [{:index/keys [^ByteBuffer column attribute ^RoaringBitmap boundaries] :as index} tuple-lookup-fn ^ByteBuffer in ^long start-position]
   (let [prev-end-idx (column-size column)
@@ -714,12 +715,18 @@
       [out
        (column-capacity col)
        (column-size col)
-       (let [index (->column-index col :x)
+       (let [index (-> (->column-index col :x)
+                       (crack-column tuple-lookup-fn 13)
+                       (crack-column tuple-lookup-fn 42)
+                       (crack-column tuple-lookup-fn 57)
+                       (crack-column tuple-lookup-fn 91))
              position (.position out)]
-         (doto (:index/boundaries index)
-           (.add (int-array [5 9 11 15])))
          (write-size-prefixed-buffer out (clj->flexbuffer {:x 17}))
          (let [{:index/keys [column boundaries] :as index}
                (update-column-index index tuple-lookup-fn out position)]
            [(column->clj tuple-lookup-fn column)
-            boundaries]))])))
+            boundaries]))]))
+
+  [[3 2 9 8 7 15 37 35 19 17 43 56 58 60 89 59 91 95 99 97]
+   (doto (FastRankRoaringBitmap.)
+     (.add (int-array [5 10 12 16])))])

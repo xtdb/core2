@@ -647,8 +647,9 @@
                                  (< first-value-pos idx))
                           (recur (inc first-value-pos))
                           (do (when-not (= piece-pos idx)
-                                (swap-column column piece-pos first-value-pos)
-                                (swap-column column piece-pos idx)
+                                (-> column
+                                    (swap-column piece-pos first-value-pos)
+                                    (swap-column piece-pos idx))
                                 (doto boundaries
                                   (.remove piece-pos)
                                   (.add (inc piece-pos))))

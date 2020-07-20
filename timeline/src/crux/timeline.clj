@@ -515,11 +515,6 @@
           :else
           (throw (IllegalArgumentException. "Unknown type: " type-a)))))))
 
-;; See example in figure 4.1 in abadi-column-stores.pdf page 49 / 242
-
-;; TODO: implement complete (MCI) or ripple (MRI) updates and cutter
-;;       joins from StratosIdreosDBcrackingThesis.pdf
-
 (defn upper-int ^long [^long x]
   (unsigned-bit-shift-right x Integer/SIZE))
 
@@ -667,6 +662,9 @@
         (recur (update-column-index-at index tuple-lookup-fn idx)
                (inc idx))
         index))))
+
+;; TODO: implement cutter joins from StratosIdreosDBcrackingThesis.pdf
+;; See also example in figure 4.1 in abadi-column-stores.pdf page 49 / 242
 
 (comment
   (let [out (mmap-file "target/foo.flex" 4096)]

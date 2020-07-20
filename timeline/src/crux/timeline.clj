@@ -679,6 +679,8 @@
        (column-size col)
        (get-column (partial buffer-tuple-lookup out) col 9)]))
 
+  ;; page 49, 3.2 Selection Cracking
+  ;; StratosIdreosDBcrackingThesis.pdf
   (let [out (mmap-file "target/bar.flex" 4096)]
     (doseq [x (for [x [13 16 4 9 2 12 7 1 19 3 14 11 8 6]]
                 {:x x})]
@@ -729,4 +731,37 @@
 
   [[3 2 9 8 7 15 37 35 19 17 43 56 58 60 89 59 91 95 99 97]
    (doto (FastRankRoaringBitmap.)
-     (.add (int-array [5 10 12 16])))])
+     (.add (int-array [5 10 12 16])))]
+
+  ;; page 80, 4.3.3 Updates / Merge Algorithms
+  ;; Initial State and After MC (12 is in wrong piece in the pdf)
+  ;; StratosIdreosDBcrackingThesis.pdf
+  (let [out (mmap-file (doto (io/file "target/boz.flex")
+                         (.delete)) 4096)]
+    (doseq [x (for [x [2 3 7 8 9 15 19 35 37 43 56 58 59 60 89 91 95 97 99]]
+                {:x x})]
+      (write-size-prefixed-buffer out (clj->flexbuffer x)))
+    (.force out)
+    (let [col (->project-column :x out)
+          tuple-lookup-fn (partial buffer-tuple-lookup out)]
+      [out
+       (column-capacity col)
+       (column-size col)
+       (let [index (-> (->column-index col :x)
+                       (crack-column tuple-lookup-fn 2)
+                       (crack-column tuple-lookup-fn 13)
+                       (crack-column tuple-lookup-fn 42)
+                       (crack-column tuple-lookup-fn 57)
+                       (crack-column tuple-lookup-fn 91))
+             position (.position out)]
+         (doseq [x (for [x [4 5 12 18 45 53 62 68 77 83 94 98]]
+                     {:x x})]
+           (write-size-prefixed-buffer out (clj->flexbuffer x)))
+         (let [{:index/keys [column boundaries] :as index}
+               (update-column-index index tuple-lookup-fn out position)]
+           [(column->clj tuple-lookup-fn column)
+            boundaries]))]))
+
+  [[2 7 8 9 3 4 5 12 15 35 37 19 18 43 56 45 53 58 59 60 89 62 68 77 83 91 97 99 95 94 98]
+   (doto (FastRankRoaringBitmap.)
+     (.add (int-array [0 8 13 17 25])))])

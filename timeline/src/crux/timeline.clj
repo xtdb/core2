@@ -627,8 +627,44 @@
         (.add boundaries boundary)
         index))))
 
-(defn ->column-index [^ByteBuffer column]
-  {:index/column column :index/boundaries (FastRankRoaringBitmap.)})
+(defn ->column-index [^ByteBuffer column attribute]
+  {:index/column column
+   :index/attribute attribute
+   :index/boundaries (FastRankRoaringBitmap.)})
+
+(defn update-column-index-at [{:index/keys [^ByteBuffer column ^RoaringBitmap boundaries] :as index} tuple-lookup-fn ^long idx]
+  (if (.isEmpty boundaries)
+    index
+    (loop [boundary-idx (dec (.getCardinality boundaries))
+           idx idx]
+      (if (neg? boundary-idx)
+        index
+        (let [piece-pos (.select boundaries boundary-idx)
+              diff (.compareAt column-comparator tuple-lookup-fn column piece-pos column idx)]
+          (if (neg? diff)
+            (let [idx (loop [first-value-pos (inc piece-pos)]
+                        (if (and (zero? (.compareAt column-comparator tuple-lookup-fn column piece-pos column first-value-pos))
+                                 (< first-value-pos idx))
+                          (recur (inc first-value-pos))
+                          (do (when-not (= piece-pos idx)
+                                (swap-column column piece-pos first-value-pos)
+                                (swap-column column piece-pos idx)
+                                (doto boundaries
+                                  (.remove piece-pos)
+                                  (.add (inc piece-pos))))
+                              piece-pos)))]
+              (recur (dec boundary-idx) (long idx)))
+            index))))))
+
+(defn update-column-index [{:index/keys [^ByteBuffer column attribute ^RoaringBitmap boundaries] :as index} tuple-lookup-fn ^ByteBuffer in ^long start-position]
+  (let [prev-end-idx (column-size column)
+        column (->project-column attribute in column start-position)]
+    (loop [index (assoc index :index/column column)
+           idx prev-end-idx]
+      (if (< idx (column-size column))
+        (recur (update-column-index-at index tuple-lookup-fn idx)
+               (inc idx))
+        index))))
 
 (comment
   (let [out (mmap-file "target/foo.flex" 4096)]
@@ -652,7 +688,7 @@
        (column-capacity col)
        (column-size col)
        (let [{:index/keys [column boundaries]}
-             (-> (->column-index col)
+             (-> (->column-index col :x)
                  (crack-column tuple-lookup-fn 11)
                  (crack-column tuple-lookup-fn 14)
                  (crack-column tuple-lookup-fn 8)

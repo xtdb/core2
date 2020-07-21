@@ -152,7 +152,9 @@
 
 (defn get-flex ^com.google.flatbuffers.FlexBuffers$Reference [^FlexBuffers$Reference ref k]
   (cond
-    (.isMap ref) (.get (.asMap ref) (clj->flex-key k))
+    (.isMap ref) (if (int? k)
+                   (.get (.asMap ref) ^long k)
+                   (.get (.asMap ref) (clj->flex-key k)))
     (or (.isVector ref)
         (.isTypedVector ref)) (.get (.asVector ref) k)))
 
@@ -324,6 +326,10 @@
 (defn project-column ^java.nio.ByteBuffer [^ByteBuffer column k tuple-id buffer]
   (let [root (flex-root buffer)
         flex-v (get-flex root k)
+        key-idx (if (and (.isMap root)
+                         (not (int? k)))
+                  (flex-key->idx (.asMap root) k)
+                  k)
         type (get fbt-type->column-type (.getType flex-v))]
     (cond
       (.isNull flex-v)
@@ -333,7 +339,7 @@
       (let [b (.asBlob flex-v)]
         (put-column column
                     (->column-id tuple-id
-                                 (flex-key->idx (.asMap root) k)
+                                 key-idx
                                  (if (<= (.size b) Long/BYTES)
                                    (.size b)
                                    column-varlen-size)
@@ -343,7 +349,7 @@
       :else
       (put-column column
                   (->column-id tuple-id
-                               (flex-key->idx (.asMap root) k)
+                               key-idx
                                Long/BYTES
                                type)
                   (flex->eight-bytes flex-v)))))
@@ -372,7 +378,7 @@
   (let [tuple-id (column-id->tuple-id column-id)
         key-idx (column-id->key-idx column-id)
         root ^FlexBuffers$Reference (tuple-lookup-fn tuple-id)]
-    (.get (.asMap root) key-idx)))
+    (get-flex root key-idx)))
 
 (defn get-column [tuple-lookup-fn ^ByteBuffer column ^long idx]
   (let [idx (* column-width idx)
@@ -387,12 +393,12 @@
 
 (defn get-column->map [tuple-lookup-fn ^ByteBuffer column ^long idx]
   (let [{:column/keys [tuple-id key-idx] :as m} (column-id->map (.getLong column (* column-width idx)))
-        t ^FlexBuffers$Reference (tuple-lookup-fn tuple-id)]
-    (-> m
-        (assoc :column/value (get-column tuple-lookup-fn column idx)
-               :column/key (flex-key-idx->clj (.asMap t) key-idx)
-               :column/tuple (flex->clj t))
-        (update :column/type column-type->kw))))
+        tuple ^FlexBuffers$Reference (tuple-lookup-fn tuple-id)]
+    (cond-> (-> m
+                (assoc :column/value (get-column tuple-lookup-fn column idx)
+                       :column/tuple (flex->clj tuple))
+                (update :column/type column-type->kw))
+      (.isMap tuple) (assoc :column/key (flex-key-idx->clj (.asMap tuple) key-idx)))))
 
 (defn column->clj [tuple-lookup-fn column]
   (for [idx (range (column-size column))]

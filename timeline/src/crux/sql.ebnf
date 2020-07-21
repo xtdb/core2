@@ -101,7 +101,7 @@ exists-exp = 'EXISTS' table-subquery
 
 unique-exp = 'UNIQUE' table-subquery
 
-(* Lexer *)
+(* Literals *)
 
 table-name = #"\w+"
 range-variable-name = #"\w+"

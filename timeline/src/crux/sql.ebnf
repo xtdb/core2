@@ -91,9 +91,7 @@ in-exp = row-exp ['NOT'] 'IN' table-subquery
 
 match-exp = row-exp 'MATCH' ['UNIQUE'] table-subquery
 
-scalar-comp-op = simple-comp-op
-
-all-or-any-exp = row-exp scalar-comp-op all-or-any table-subquery
+all-or-any-exp = row-exp simple-comp-op all-or-any table-subquery
 
 all-or-any = 'ALL' | 'ANY' | 'SOME'
 

@@ -4,5 +4,5 @@
 
 (def sql
   (insta/parser (io/resource "crux/sql.ebnf")
-   :auto-whitespace :comma
+   :auto-whitespace :standard
    :string-ci true))

@@ -780,6 +780,9 @@
 ;; https://github.com/bkiers/sqlite-parser/blob/master/src/main/antlr4/nl/bigo/sqliteparser/SQLite.g4
 ;; https://www.sqlite.org/lang_select.html
 
+;; SQL BNF from the spec:
+;; https://ronsavage.github.io/SQL/
+
 ;; statement:
 ;;       setStatement
 ;;   |   resetStatement

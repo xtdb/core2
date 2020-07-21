@@ -776,6 +776,10 @@
 ;; See also Date, SQL and Relational Theory, p. 455-458, A Simplified
 ;; BNF Grammar
 
+;; SQLite grammar:
+;; https://github.com/bkiers/sqlite-parser/blob/master/src/main/antlr4/nl/bigo/sqliteparser/SQLite.g4
+;; https://www.sqlite.org/lang_select.html
+
 ;; statement:
 ;;       setStatement
 ;;   |   resetStatement

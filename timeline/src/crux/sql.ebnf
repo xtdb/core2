@@ -8,19 +8,19 @@ name-intro = table-name 'AS' table-subquery
 
 table-subquery = subquery
 
-subquery = '(' nonjoin-exp ')'
+subquery = <'('> nonjoin-exp <')'>
 
 nonjoin-exp = nonjoin-term
             | nonjoin-exp 'UNION' ['DISTINCT'] ['CORRESPONDING'] nonjoin-term
             | nonjoin-exp 'EXCEPT' ['DISTINCT'] ['CORRESPONDING'] nonjoin-term
 
 nonjoin-term = nonjoin-primary
-             | nonjoin-term 'INTERSECT' ['DISTINCT'] ['CORRESPONDING'] nonjoin-primary
+              | nonjoin-term 'INTERSECT' ['DISTINCT'] ['CORRESPONDING'] nonjoin-primary
 
 nonjoin-primary = 'TABLE' table-name
                 | table-selector
                 | select-exp
-                | '(' nonjoin-exp ')'
+                | <'('> nonjoin-exp <')'>
 
 table-selector = 'VALUES' row-exp (',' row-exp)*
 
@@ -28,7 +28,7 @@ row-exp = scalar-exp
         | row-selector
         | row-subquery
 
-row-selector = ['ROW'] '(' scalar-exp (',' scalar-exp)* ')'
+row-selector = ['ROW'] <'('> scalar-exp (',' scalar-exp)* <')'>
 
 row-subquery = subquery
 
@@ -44,17 +44,17 @@ select-item = scalar-exp ['AS' column-name]
 table-spec = table-name ['AS' range-variable-name]
            | ['LATERAL'] table-subquery 'AS' range-variable-name
            | join-exp
-           | '(' join-exp ')'
+           | <'('> join-exp <')'>
 
 join-exp = table-spec 'CROSS JOIN' table-spec
          | table-spec 'NATURAL JOIN' table-spec
          | table-spec 'JOIN' table-spec 'ON' boolean-exp
-         | table-spec 'JOIN' table-spec 'USING' '(' column-name (',' column-name)* ')'
+         | table-spec 'JOIN' table-spec 'USING' <'('> column-name (',' column-name)* <')'>
 
 (* Boolean Expressions *)
 
 boolean-exp = boolean-term
-           | boolean-exp 'OR' boolean-term
+            | boolean-exp 'OR' boolean-term
 
 boolean-term = boolean-factor
              | boolean-term 'AND' boolean-factor
@@ -65,7 +65,7 @@ boolean-primary = boolean-literal
                 | boolean-variable-name
                 | boolean-column-name
                 | condition
-                | '(' boolean-exp ')'
+                | <'('> boolean-exp <')'>
 
 boolean-literal = 'TRUE' | 'FALSE'
 
@@ -87,7 +87,7 @@ between-exp = row-exp ['NOT'] 'BETWEEN' row-exp 'AND' row-exp
 like-exp = scalar-exp ['NOT'] 'LIKE' scalar-exp ['ESCAPE' scalar-exp]
 
 in-exp = row-exp ['NOT'] 'IN' table-subquery
-       | row-exp ['NOT'] 'IN' '(' row-exp (',' row-exp)* ')'
+       | row-exp ['NOT'] 'IN' <'('> row-exp (',' row-exp)* <')'>
 
 match-exp = row-exp 'MATCH' ['UNIQUE'] table-subquery
 

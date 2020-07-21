@@ -560,7 +560,9 @@
       (if (= i k)
         (let [min-idx (find-min-idx tuple-lookup-fn column i hi)
               pivot-comparator (->literal-column-comparator (get-column tuple-lookup-fn column min-idx))]
-          (three-way-partition-column tuple-lookup-fn column i hi pivot-comparator))
+          (if (= min-idx i)
+            (two-ints-as-long i (dec k))
+            (three-way-partition-column tuple-lookup-fn column i hi pivot-comparator)))
         (two-ints-as-long i (dec k))))))
 
 (defn quick-sort-column
@@ -619,7 +621,8 @@
                          (let [last-piece-pos (.last boundaries)]
                            (three-way-partition-column tuple-lookup-fn column last-piece-pos (dec (column-size column)) pivot-comparator)))
             boundary (upper-int left-right)]
-        (.add boundaries boundary)
+        (when (< boundary (column-size column))
+          (.add boundaries boundary))
         index))))
 
 (defn ->column-index [^ByteBuffer column attribute]
@@ -665,6 +668,9 @@
 
 ;; TODO: implement cutter joins from StratosIdreosDBcrackingThesis.pdf
 ;; See also example in figure 4.1 in abadi-column-stores.pdf page 49 / 242
+
+;; SQL 2011 grammar:
+;; https://jakewheat.github.io/sql-overview/sql-2011-foundation-grammar.html
 
 (comment
   (let [out (mmap-file "target/foo.flex" 4096)]

@@ -32,7 +32,7 @@ row-selector = ['ROW'] '(' scalar-exp (',' scalar-exp)* ')'
 
 row-subquery = subquery
 
-select-exp = 'SELECT' ['DISTINCT'] ['*'] select-item (',' select-item)*
+select-exp = 'SELECT' ['DISTINCT'] ['*' | select-item (',' select-item)*]
                'FROM' table-spec (',' table-spec)*
                   ['WHERE' boolean-exp]
                     ['GROUP BY' column-name (',' column-name)*]

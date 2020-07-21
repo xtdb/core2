@@ -8,7 +8,8 @@
                  [org.slf4j/slf4j-api "1.7.29"]
                  [org.clojure/spec.alpha "0.2.176"]
                  [com.google.flatbuffers/flatbuffers-java "1.12.0"]
-                 [org.roaringbitmap/RoaringBitmap "0.9.0"]]
+                 [org.roaringbitmap/RoaringBitmap "0.9.0"]
+                 [instaparse "1.4.10"]]
   :profiles {:uberjar {:dependencies [[ch.qos.logback/logback-classic "1.2.3"]]}
              :dev {:dependencies [[ch.qos.logback/logback-classic "1.2.3"]
                                   [io.airlift.tpch/tpch "0.10"]]}}

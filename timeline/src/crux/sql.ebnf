@@ -102,13 +102,19 @@ unique-exp = 'UNIQUE' table-subquery
 (* Literals *)
 
 table-name = identifier
+
 range-variable-name = identifier
+
 boolean-variable-name = identifier
+
 boolean-column-name = identifier
+
 column-name = identifier
+
 scalar-exp = identifier | numeric-literal | string-literal | boolean-literal
 
 numeric-literal = #"[-+]?\d*\.?\d+(E[-+]?\d+)?"
+
 string-literal = #"('.*')*"
 
 identifier = #"[a-zA-Z_][\w.]*"

@@ -4,7 +4,7 @@
 
 (def parse-sql
   (insta/parser (io/resource "crux/sql.ebnf")
-   :auto-whitespace (insta/parser "whitespace = #'\\s+' | #'\\s*--[^\r\n]*'")
+   :auto-whitespace (insta/parser "whitespace = #'\\s+' | #'\\s*--[^\r\n]*' | #'\\s*/[*].*([*]/\\s*|$)'")
    :string-ci true))
 
 ;; High level SQL grammar, from

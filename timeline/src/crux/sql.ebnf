@@ -61,9 +61,9 @@ boolean-term = boolean-factor
 
 boolean-factor = ['NOT'] boolean-primary
 
-boolean-primary = boolean-variable-name
+boolean-primary = boolean-literal
+                | boolean-variable-name
                 | boolean-column-name
-                | boolean-literal
                 | condition
                 | <'('> boolean-exp <')'>
 
@@ -117,4 +117,4 @@ numeric-literal = #"[-+]?\d*\.?\d+(E[-+]?\d+)?"
 
 string-literal = #"('.*')*"
 
-identifier = #"[a-zA-Z_][\w.]*"
+identifier = !boolean-literal #"[a-zA-Z_][\w.]*"

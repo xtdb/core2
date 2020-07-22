@@ -2,7 +2,7 @@
 
 with-exp = [with-spec] nonjoin-exp
 
-with-spec = 'WITH' name-intro (',' name-intro)*
+with-spec = 'WITH' name-intro (<','> name-intro)*
 
 name-intro = table-name 'AS' table-subquery
 
@@ -22,20 +22,20 @@ nonjoin-primary = 'TABLE' table-name
                 | select-exp
                 | <'('> nonjoin-exp <')'>
 
-table-selector = 'VALUES' row-exp (',' row-exp)*
+table-selector = 'VALUES' row-exp (<','> row-exp)*
 
 row-exp = scalar-exp
         | row-selector
         | row-subquery
 
-row-selector = ['ROW'] <'('> scalar-exp (',' scalar-exp)* <')'>
+row-selector = ['ROW'] <'('> scalar-exp (<','> scalar-exp)* <')'>
 
 row-subquery = subquery
 
-select-exp = 'SELECT' ['DISTINCT'] ['*' | select-item (',' select-item)*]
-               'FROM' table-spec (',' table-spec)*
+select-exp = 'SELECT' ['DISTINCT'] ['*' | select-item (<','> select-item)*]
+               'FROM' table-spec (<','> table-spec)*
                   ['WHERE' boolean-exp]
-                    ['GROUP BY' column-name (',' column-name)*]
+                    ['GROUP BY' column-name (<','> column-name)*]
                       ['HAVING' boolean-exp]
 
 select-item = scalar-exp ['AS' column-name]
@@ -49,7 +49,7 @@ table-spec = table-name ['AS' range-variable-name]
 join-exp = table-spec 'CROSS JOIN' table-spec
          | table-spec 'NATURAL JOIN' table-spec
          | table-spec 'JOIN' table-spec 'ON' boolean-exp
-         | table-spec 'JOIN' table-spec 'USING' <'('> column-name (',' column-name)* <')'>
+         | table-spec 'JOIN' table-spec 'USING' <'('> column-name (<','> column-name)* <')'>
 
 (* Boolean Expressions *)
 
@@ -87,7 +87,7 @@ between-exp = row-exp ['NOT'] 'BETWEEN' row-exp 'AND' row-exp
 like-exp = scalar-exp ['NOT'] 'LIKE' scalar-exp ['ESCAPE' scalar-exp]
 
 in-exp = row-exp ['NOT'] 'IN' table-subquery
-       | row-exp ['NOT'] 'IN' <'('> row-exp (',' row-exp)* <')'>
+       | row-exp ['NOT'] 'IN' <'('> row-exp (<','> row-exp)* <')'>
 
 match-exp = row-exp 'MATCH' ['UNIQUE'] table-subquery
 

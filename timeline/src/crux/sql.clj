@@ -22,3 +22,5 @@
 
 ;; RelaX - relational algebra calculator
 ;; https://dbis-uibk.github.io/relax/
+
+;; https://www.academia.edu/2280992/Translating_SQL_Into_Relational_Algebra_Optimization_Semantics_and_Equivalence_of_SQL_Queries

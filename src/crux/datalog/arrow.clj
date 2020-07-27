@@ -20,8 +20,8 @@
            [org.apache.arrow.flatbuf Message RecordBatch]
            org.apache.arrow.memory.ReferenceManager
            org.apache.arrow.memory.util.ArrowBufPointer
-           io.netty.buffer.ArrowBuf
-           io.netty.util.internal.PlatformDependent
+           org.apache.arrow.memory.ArrowBuf
+           org.apache.arrow.memory.util.MemoryUtil
            java.lang.AutoCloseable
            [java.lang.ref Cleaner Reference WeakReference]
            [java.io FileInputStream FileOutputStream InputStream OutputStream]
@@ -334,8 +334,7 @@
       (ArrowBuf. this
                  nil
                  length
-                 (+ (.memoryAddress source-buffer) index)
-                 (zero? length)))
+                 (+ (.memoryAddress source-buffer) index)))
 
     (retain [this])
 
@@ -356,14 +355,13 @@
         (getTransferredBuffer [this]
           source-buffer)))))
 
-(defn- arrow-buf-view ^io.netty.buffer.ArrowBuf [^ByteBuffer nio-buffer]
+(defn- arrow-buf-view ^org.apache.arrow.memory.ArrowBuf [^ByteBuffer nio-buffer]
   (when-not (.isDirect nio-buffer)
     (throw (IllegalArgumentException. (str "not a direct buffer: " nio-buffer))))
   (ArrowBuf. nio-view-reference-manager
              nil
              (.capacity nio-buffer)
-             (PlatformDependent/directBufferAddress nio-buffer)
-             (zero? (.capacity nio-buffer))))
+             (MemoryUtil/getByteBufferAddress nio-buffer)))
 
 (defn- arrow-record-batch-view ^org.apache.arrow.vector.ipc.message.ArrowRecordBatch [^ArrowBlock block ^ByteBuffer nio-buffer]
   (let [prefix-size (if (= (.getInt nio-buffer (.getOffset block)) MessageSerializer/IPC_CONTINUATION_TOKEN)

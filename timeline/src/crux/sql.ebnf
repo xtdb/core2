@@ -116,6 +116,8 @@ factor = ['-' | '+'] scalar-exp
 
 routine-invocation = identifier  <'('> scalar-exp (<','> scalar-exp)* <')'>
 
+extract-exp = 'EXTRACT' <'('> non-second-datetime-field 'FROM' scalar-exp <')'>
+
 case-exp = 'CASE' [scalar-exp]
              'WHEN' boolean-exp
                'THEN' scalar-exp
@@ -131,10 +133,12 @@ scalar-exp = identifier
            | numeric-literal
            | string-literal
            | date-literal
+           | interval-literal
            | boolean-literal
            | set-function-spec
            | numeric-value-exp
            | routine-invocation
+           | extract-exp
            | case-exp
 
 (* Literals *)
@@ -156,5 +160,9 @@ numeric-literal = #"[-+]?\d*\.?\d+(E[-+]?\d+)?"
 string-literal = #"('.*?')+"
 
 date-literal = 'DATE' #"'\d+-\d+-\d+'"
+
+interval-literal = 'INTERVAL' #"'\d+'" non-second-datetime-field
+
+non-second-datetime-field = 'DAY' | 'YEAR' | 'MONTH' | 'HOUR' | 'MINUTE'
 
 identifier = !boolean-literal #"[a-zA-Z_][\w.]*"

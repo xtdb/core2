@@ -4,8 +4,12 @@
 
 (def parse-sql
   (insta/parser (io/resource "crux/sql.ebnf")
-   :auto-whitespace (insta/parser "whitespace = #'\\s+' | #'\\s*--[^\r\n]*' | #'\\s*/[*].*([*]/\\s*|$)'")
+   :auto-whitespace (insta/parser "whitespace = #'\\s+' | #'\\s*--[^\r\n]*\\s*' | #'\\s*/[*].*([*]/\\s*|$)'")
    :string-ci true))
+
+(comment
+  (for [q (map inc (range 22))]
+    (parse-sql (slurp (io/resource (format "io/airlift/tpch/queries/q%d.sql" q))))))
 
 ;; High level SQL grammar, from
 ;; https://calcite.apache.org/docs/reference.html

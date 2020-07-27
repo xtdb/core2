@@ -37,12 +37,14 @@ select-exp = 'SELECT' ['DISTINCT'] ['*' | select-item (<','> select-item)*]
                   ['WHERE' boolean-exp]
                     ['GROUP BY' column-name (<','> column-name)*]
                       ['HAVING' boolean-exp]
+                        ['ORDER BY' sort-spec (<','> sort-spec)*]
+                          ['LIMIT' #"\d+"]
 
-select-item = scalar-exp ['AS' column-name]
+select-item = scalar-exp [['AS'] column-name]
             | range-variable-name
 
-table-spec = table-name ['AS' range-variable-name]
-           | ['LATERAL'] table-subquery 'AS' range-variable-name
+table-spec = table-name [['AS'] range-variable-name]
+           | ['LATERAL'] table-subquery ['AS'] range-variable-name
            | join-exp
            | <'('> join-exp <')'>
 
@@ -50,6 +52,8 @@ join-exp = table-spec 'CROSS JOIN' table-spec
          | table-spec 'NATURAL JOIN' table-spec
          | table-spec 'JOIN' table-spec 'ON' boolean-exp
          | table-spec 'JOIN' table-spec 'USING' <'('> column-name (<','> column-name)* <')'>
+
+sort-spec = column-name ['DESC' | 'ASC']
 
 (* Boolean Expressions *)
 
@@ -66,8 +70,6 @@ boolean-primary = boolean-literal
                 | boolean-column-name
                 | condition
                 | <'('> boolean-exp <')'>
-
-boolean-literal = 'TRUE' | 'FALSE'
 
 condition = simple-comparison-exp
           | between-exp
@@ -99,6 +101,42 @@ exists-exp = 'EXISTS' table-subquery
 
 unique-exp = 'UNIQUE' table-subquery
 
+(* Expressions *)
+
+numeric-value-exp = term
+                  | numeric-value-exp '+' term
+                  | numeric-value-exp '-' term
+
+term = factor
+     | term '*' factor
+     | term '/' factor
+
+factor = ['-' | '+'] scalar-exp
+       | <'('> numeric-value-exp <')'>
+
+routine-invocation = identifier  <'('> scalar-exp (<','> scalar-exp)* <')'>
+
+case-exp = 'CASE' [scalar-exp]
+             'WHEN' boolean-exp
+               'THEN' scalar-exp
+                 ['ELSE' scalar-exp]
+                   'END'
+
+set-function-spec = 'COUNT' <'('> '*' <')'>
+                  | set-function-type <'('> ['DISTINCT' | 'ALL'] scalar-exp <')'>
+
+set-function-type = 'AVG' | 'MAX' | 'MIN' | 'SUM' | 'COUNT'
+
+scalar-exp = identifier
+           | numeric-literal
+           | string-literal
+           | date-literal
+           | boolean-literal
+           | set-function-spec
+           | numeric-value-exp
+           | routine-invocation
+           | case-exp
+
 (* Literals *)
 
 table-name = identifier
@@ -111,10 +149,12 @@ boolean-column-name = identifier
 
 column-name = identifier
 
-scalar-exp = identifier | numeric-literal | string-literal | boolean-literal
+boolean-literal = 'TRUE' | 'FALSE'
 
 numeric-literal = #"[-+]?\d*\.?\d+(E[-+]?\d+)?"
 
-string-literal = #"('.*')*"
+string-literal = #"('.*?')+"
+
+date-literal = 'DATE' #"'\d+-\d+-\d+'"
 
 identifier = !boolean-literal #"[a-zA-Z_][\w.]*"

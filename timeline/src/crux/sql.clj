@@ -20,6 +20,9 @@
 ;; SQL BNF from the spec:
 ;; https://ronsavage.github.io/SQL/
 
+;; https://github.com/epfldata/dblab/blob/develop/components/src/main/scala/ch/epfl/data/dblab/frontend/parser/SQLAST.scala
+;; https://github.com/epfldata/dblab/blob/develop/components/src/main/scala/ch/epfl/data/dblab/frontend/parser/SQLParser.scala
+
 ;; RelaX - relational algebra calculator
 ;; https://dbis-uibk.github.io/relax/
 

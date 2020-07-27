@@ -15,7 +15,7 @@ nonjoin-exp = nonjoin-term
             | nonjoin-exp 'EXCEPT' ['DISTINCT'] ['CORRESPONDING'] nonjoin-term
 
 nonjoin-term = nonjoin-primary
-              | nonjoin-term 'INTERSECT' ['DISTINCT'] ['CORRESPONDING'] nonjoin-primary
+             | nonjoin-term 'INTERSECT' ['DISTINCT'] ['CORRESPONDING'] nonjoin-primary
 
 nonjoin-primary = 'TABLE' table-name
                 | table-selector

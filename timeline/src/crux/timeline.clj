@@ -1,7 +1,8 @@
 (ns crux.timeline
   (:require [clojure.java.io :as io])
-  (:import [java.util Arrays Comparator List Map]
+  (:import [java.util Arrays Comparator Date List Map]
            java.io.RandomAccessFile
+           java.lang.reflect.Method
            [java.nio ByteBuffer ByteOrder MappedByteBuffer]
            java.nio.channels.FileChannel$MapMode
            java.nio.charset.StandardCharsets
@@ -17,6 +18,10 @@
   (if (keyword? x)
     (subs (str x) 1)
     (str x)))
+
+(def ^:private ^Method putUInt
+  (doto (.getDeclaredMethod FlexBuffersBuilder "putUInt" (into-array Class [String Long/TYPE]))
+    (.setAccessible true)))
 
 (extend-protocol ClojureToFlex
   (class (byte-array 0))
@@ -58,6 +63,15 @@
   (clj->flex [this ^FlexBuffersBuilder builder k]
     (doto builder
       (.putFloat ^String k ^double this)))
+
+  Date
+  (clj->flex [this ^FlexBuffersBuilder builder k]
+    (.invoke putUInt
+             builder
+             (doto (object-array 2)
+               (aset 0 k)
+               (aset 1 (Long/valueOf (.getTime this)))))
+    builder)
 
   String
   (clj->flex [this ^FlexBuffersBuilder builder k]
@@ -121,6 +135,7 @@
     (.isNull ref) nil
     (.isBoolean ref) (.asBoolean ref)
     (.isInt ref) (.asLong ref)
+    (.isUInt ref) (Date. (.asUInt ref))
     (.isFloat ref) (.asFloat ref)
     (.isString ref) (.asString ref)
     (.isBlob ref) (.getBytes (.asBlob ref))
@@ -190,6 +205,7 @@
 (def ^:const column-type-double 3)
 (def ^:const column-type-string 4)
 (def ^:const column-type-bytes 5)
+(def ^:const column-type-date 6)
 
 (def ^:const column-type-bit-pos 0)
 (def ^:const column-type-bits 4)
@@ -211,6 +227,8 @@
    column-type-long
    FlexBuffers/FBT_FLOAT
    column-type-double
+   FlexBuffers/FBT_UINT
+   column-type-date
    FlexBuffers/FBT_STRING
    column-type-string
    FlexBuffers/FBT_BLOB
@@ -222,7 +240,8 @@
    column-type-long :column.type/long
    column-type-double :column.type/double
    column-type-string :column.type/string
-   column-type-bytes :column.type/bytes})
+   column-type-bytes :column.type/bytes
+   column-type-date :column.type/date})
 
 (defn ->column-id ^long [^long tuple-id ^long key-idx ^long size ^long type]
   (bit-or (bit-shift-left tuple-id column-tuple-id-bit-pos)
@@ -269,6 +288,7 @@
     (= column-type-double type) (Double/longBitsToDouble x)
     (= column-type-string type) (String. ^bytes (long->bytes size x) StandardCharsets/UTF_8)
     (= column-type-bytes type) (long->bytes size x)
+    (= column-type-date type) (Date. x)
     :else
     (throw (IllegalArgumentException. "Unknown type: " type))))
 
@@ -278,6 +298,7 @@
     (boolean? x) (if x 1 0)
     (int? x) x
     (float? x) (Double/doubleToLongBits x)
+    (inst? x) (inst-ms x)
     (string? x) (bytes->long (.getBytes ^String x StandardCharsets/UTF_8))
     (bytes? x) (bytes->long x)
     :else
@@ -299,6 +320,7 @@
     (.isNull x) 0
     (.isBoolean x) (if (.asBoolean x) 1 0)
     (.isInt x) (.asLong x)
+    (.isUInt x) (.asUInt x)
     (.isFloat x) (Double/doubleToLongBits (.asFloat x))
     (or (.isBlob x)
         (.isString x)) (blob->eight-bytes (.asBlob x))
@@ -447,7 +469,7 @@
           (Long/compare type column-type-long)
           (Long/compare (.getLong column (+ idx Long/BYTES)) x))))))
 
-(defn double-column-comparator-column ^crux.timeline.ILiteralColumnComparator [^double x]
+(defn double-column-comparator ^crux.timeline.ILiteralColumnComparator [^double x]
   (reify ILiteralColumnComparator
     (compareAt [_ _ column idx]
       (let [idx (* column-width idx)
@@ -456,6 +478,9 @@
         (if (not= column-type-double type)
           (Long/compare type column-type-double)
           (Double/compare (.getDouble column (+ idx Long/BYTES)) x))))))
+
+(defn long-column-comparator ^crux.timeline.ILiteralColumnComparator [x]
+  (long-column-comparator (inst-ms x)))
 
 (defn varlen-column-comparator ^crux.timeline.ILiteralColumnComparator [^long column-type ^bytes x]
   (let [x-eight-bytes (bytes->long x)]
@@ -483,7 +508,8 @@
     (nil? x) nil-column-comparator
     (boolean? x) (boolean-column-comparator x)
     (int? x) (long-column-comparator x)
-    (float? x) (double-column-comparator-column x)
+    (float? x) (double-column-comparator x)
+    (inst? x) (date-column-comparator x)
     (string? x) (string-column-comparator x)
     (bytes? x) (bytes-column-comparator x)
     :else
@@ -502,7 +528,8 @@
           (not= type-a type-b)
           (Long/compare type-a type-b)
           (or (= column-type-boolean type-a)
-              (= column-type-long type-a))
+              (= column-type-long type-a)
+              (= column-type-date type-a))
           (Long/compare (.getLong column-a (+ idx-a Long/BYTES))
                         (.getLong column-b (+ idx-b Long/BYTES)))
           (= column-type-double type-a)

@@ -479,7 +479,7 @@
           (Long/compare type column-type-double)
           (Double/compare (.getDouble column (+ idx Long/BYTES)) x))))))
 
-(defn long-column-comparator ^crux.timeline.ILiteralColumnComparator [x]
+(defn date-column-comparator ^crux.timeline.ILiteralColumnComparator [x]
   (long-column-comparator (inst-ms x)))
 
 (defn varlen-column-comparator ^crux.timeline.ILiteralColumnComparator [^long column-type ^bytes x]

@@ -87,15 +87,11 @@ sort-spec = column-name [desc | asc]
 
 (* Boolean Expressions *)
 
-or = <'OR'>
-
-and = <'AND'>
-
-boolean-or = boolean-exp <or> boolean-term
+boolean-or = boolean-exp <'OR'> boolean-term
 
 <boolean-exp> = boolean-term | boolean-or
 
-boolean-and = boolean-term <and> boolean-factor
+boolean-and = boolean-term <'AND'> boolean-factor
 
 <boolean-term> = boolean-factor | boolean-and
 

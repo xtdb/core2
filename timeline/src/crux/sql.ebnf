@@ -4,7 +4,9 @@
 
 with-spec = <'WITH'> name-intro (<','> name-intro)*
 
-<name-intro> = table-name <'AS'> table-subquery
+<as> = <'AS'>
+
+<name-intro> = table-name <as> table-subquery
 
 <table-subquery> = subquery
 
@@ -57,13 +59,13 @@ limit = <'LIMIT'> unsigned-numeric-literal
 
 select-exp = select from [where] [group-by] [having] [order-by] [limit]
 
-select-item = scalar-exp [[<'AS'>] column-name]
+select-item = scalar-exp [[<as>] column-name]
             | range-variable-name
 
 lateral = <'LATERAL'>
 
-table-spec = table-name [[<'AS'>] range-variable-name]
-           | [lateral] table-subquery [<'AS'>] range-variable-name
+table-spec = table-name [[<as>] range-variable-name]
+           | [lateral] table-subquery [<as>] range-variable-name
            | join-exp
            | <'('> join-exp <')'>
 

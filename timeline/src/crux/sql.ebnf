@@ -150,8 +150,10 @@ between-exp = row-exp [not] <'BETWEEN'> row-exp <'AND'> row-exp
 
 like-exp = scalar-exp [not] <'LIKE'> scalar-exp [<'ESCAPE'> scalar-exp]
 
-in-exp = row-exp [not] <'IN'> table-subquery
-       | row-exp [not] <'IN'> <'('> row-exp (<','> row-exp)* <')'>
+in = <'IN'>
+
+in-exp = row-exp [not] <in> table-subquery
+       | row-exp [not] <in> <'('> row-exp (<','> row-exp)* <')'>
 
 unique = <'UNIQUE'>
 
@@ -169,7 +171,7 @@ some = <'SOME'>
 
 exists-exp = <'EXISTS'> table-subquery
 
-unique-exp = <'UNIQUE'> table-subquery
+unique-exp = <unique> table-subquery
 
 (* Expressions *)
 

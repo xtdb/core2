@@ -237,15 +237,15 @@ count = <'COUNT'>
 
 (* Literals *)
 
-table-name = identifier
+<table-name> = identifier
 
-range-variable-name = identifier
+<range-variable-name> = identifier
 
-boolean-variable-name = identifier
+<boolean-variable-name> = identifier
 
-boolean-column-name = identifier
+<boolean-column-name> = identifier
 
-column-name = identifier
+<column-name> = identifier
 
 true = <'TRUE'>
 

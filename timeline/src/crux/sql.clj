@@ -29,8 +29,8 @@
 (defn parse-identifier [x]
   (symbol x))
 
-(defn parse-boolean [x]
-  (Boolean/parseBoolean x))
+(defn parse-boolean [[x]]
+  (= :true x))
 
 (defn parse-like-pattern [x & [escape]]
   (let [pattern (parse-string x)

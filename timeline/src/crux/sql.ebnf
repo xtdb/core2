@@ -120,7 +120,7 @@ eq = <'='>
 
 lt = <'<'>
 
-lg = <'<='>
+le = <'<='>
 
 gt = <'>'>
 
@@ -132,7 +132,7 @@ comp-eq = row-exp <eq> row-exp
 
 comp-lt = row-exp <lt> row-exp
 
-comp-lg = row-exp <lg> row-exp
+comp-le = row-exp <le> row-exp
 
 comp-gt = row-exp <gt> row-exp
 
@@ -140,9 +140,9 @@ comp-ge = row-exp <ge> row-exp
 
 comp-ne = row-exp <ne> row-exp
 
-<simple-comparison-exp> = comp-eq | comp-lt |  comp-lg | comp-gt | comp-ge | comp-ne
+<simple-comparison-exp> = comp-eq | comp-lt |  comp-le | comp-gt | comp-ge | comp-ne
 
-<simple-comp-op> = eq | lt | lg | gt | ge | ne
+<simple-comp-op> = eq | lt | le | gt | ge | ne
 
 between-exp = row-exp [not] <'BETWEEN'> row-exp <'AND'> row-exp
 

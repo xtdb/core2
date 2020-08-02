@@ -1,145 +1,233 @@
 (* Table Expressions *)
 
-with-exp = [with-spec] nonjoin-exp
+<with-exp> = [with-spec] nonjoin-exp
 
-with-spec = 'WITH' name-intro (<','> name-intro)*
+with-spec = <'WITH'> name-intro (<','> name-intro)*
 
-name-intro = table-name 'AS' table-subquery
+<name-intro> = table-name <'AS'> table-subquery
 
-table-subquery = subquery
+<table-subquery> = subquery
 
-subquery = <'('> nonjoin-exp <')'>
+<subquery> = <'('> nonjoin-exp <')'>
 
-nonjoin-exp = nonjoin-term
-            | nonjoin-exp 'UNION' ['DISTINCT'] ['CORRESPONDING'] nonjoin-term
-            | nonjoin-exp 'EXCEPT' ['DISTINCT'] ['CORRESPONDING'] nonjoin-term
+distinct = <'DISTINCT'>
 
-nonjoin-term = nonjoin-primary
-             | nonjoin-term 'INTERSECT' ['DISTINCT'] ['CORRESPONDING'] nonjoin-primary
+corresponding = <'CORRESPONDING'>
 
-nonjoin-primary = 'TABLE' table-name
-                | table-selector
-                | select-exp
-                | <'('> nonjoin-exp <')'>
+union = nonjoin-exp <'UNION'> [distinct] [corresponding] nonjoin-term
 
-table-selector = 'VALUES' row-exp (<','> row-exp)*
+except = nonjoin-exp <'EXCEPT'> [distinct] [corresponding] nonjoin-term
 
-row-exp = scalar-exp
-        | row-selector
-        | row-subquery
+<nonjoin-exp> = nonjoin-term | union | except
 
-row-selector = ['ROW'] <'('> scalar-exp (<','> scalar-exp)* <')'>
+intersect = nonjoin-term <'INTERSECT'> [distinct] [corresponding] nonjoin-primary
 
-row-subquery = subquery
+<nonjoin-term> = nonjoin-primary | intersect
 
-select-exp = 'SELECT' ['DISTINCT'] ['*' | select-item (<','> select-item)*]
-               'FROM' table-spec (<','> table-spec)*
-                  ['WHERE' boolean-exp]
-                    ['GROUP BY' column-name (<','> column-name)*]
-                      ['HAVING' boolean-exp]
-                        ['ORDER BY' sort-spec (<','> sort-spec)*]
-                          ['LIMIT' #"\d+"]
+table-exp = <'TABLE'> table-name
 
-select-item = scalar-exp [['AS'] column-name]
+<nonjoin-primary> = table-exp
+                  | table-selector
+                  | select-exp
+                  | <'('> nonjoin-exp <')'>
+
+table-selector = <'VALUES'> row-exp (<','> row-exp)*
+
+<row-exp> = scalar-exp | row-selector | row-subquery
+
+row-selector = [<'ROW'>] <'('> scalar-exp (<','> scalar-exp)* <')'>
+
+<row-subquery> = subquery
+
+star = <'*'>
+
+select = <'SELECT'> [distinct] [star | select-item (<','> select-item)*]
+
+from = <'FROM'> table-spec (<','> table-spec)*
+
+where = <'WHERE'> boolean-exp
+
+group-by = <'GROUP BY'> column-name (<','> column-name)*
+
+having = <'HAVING'> boolean-exp
+
+order-by = <'ORDER BY'> sort-spec (<','> sort-spec)*
+
+limit = <'LIMIT'> #"\d+"
+
+select-exp = select from [where] [group-by] [having] [order-by] [limit]
+
+select-item = scalar-exp [[<'AS'>] column-name]
             | range-variable-name
 
-table-spec = table-name [['AS'] range-variable-name]
-           | ['LATERAL'] table-subquery ['AS'] range-variable-name
+lateral = <'LATERAL'>
+
+table-spec = table-name [[<'AS'>] range-variable-name]
+           | [lateral] table-subquery [<'AS'>] range-variable-name
            | join-exp
            | <'('> join-exp <')'>
 
-join-exp = table-spec 'CROSS JOIN' table-spec
-         | table-spec 'NATURAL JOIN' table-spec
-         | table-spec 'JOIN' table-spec 'ON' boolean-exp
-         | table-spec 'JOIN' table-spec 'USING' <'('> column-name (<','> column-name)* <')'>
+cross-join = table-spec <'CROSS JOIN'> table-spec
 
-sort-spec = column-name ['DESC' | 'ASC']
+natural-join = table-spec <'NATURAL JOIN'> table-spec
+
+join-on = table-spec <'JOIN'> table-spec <'ON'> boolean-exp
+
+join-using = table-spec <'JOIN'> table-spec <'USING'> <'('> column-name (<','> column-name)* <')'>
+
+<join-exp> = cross-join | natural-join | join-on | join-using
+
+desc = <'DESC'>
+
+asc = <'ASC'>
+
+sort-spec = column-name [desc | asc]
 
 (* Boolean Expressions *)
 
-boolean-exp = boolean-term
-            | boolean-exp 'OR' boolean-term
+or = <'OR'>
 
-boolean-term = boolean-factor
-             | boolean-term 'AND' boolean-factor
+and = <'AND'>
 
-boolean-factor = ['NOT'] boolean-primary
+boolean-or = boolean-exp <or> boolean-term
 
-boolean-primary = boolean-literal
-                | boolean-variable-name
-                | boolean-column-name
-                | condition
-                | <'('> boolean-exp <')'>
+<boolean-exp> = boolean-term | boolean-or
 
-condition = simple-comparison-exp
-          | between-exp
-          | like-exp
-          | in-exp
-          | match-exp
-          | all-or-any-exp
-          | exists-exp
-          | unique-exp
+boolean-and = boolean-term <and> boolean-factor
 
-simple-comparison-exp = row-exp simple-comp-op row-exp
+<boolean-term> = boolean-factor | boolean-and
 
-simple-comp-op = '=' | '<' | '<=' | '>' | '>=' | '<>'
+not = <'NOT'>
 
-between-exp = row-exp ['NOT'] 'BETWEEN' row-exp 'AND' row-exp
+boolean-not = <not> boolean-primary
 
-like-exp = scalar-exp ['NOT'] 'LIKE' scalar-exp ['ESCAPE' scalar-exp]
+<boolean-factor> = boolean-not | boolean-primary
 
-in-exp = row-exp ['NOT'] 'IN' table-subquery
-       | row-exp ['NOT'] 'IN' <'('> row-exp (<','> row-exp)* <')'>
+<boolean-primary> = boolean-literal
+                  | boolean-variable-name
+                  | boolean-column-name
+                  | condition
+                  | <'('> boolean-exp <')'>
 
-match-exp = row-exp 'MATCH' ['UNIQUE'] table-subquery
+<condition> = simple-comparison-exp
+            | between-exp
+            | like-exp
+            | in-exp
+            | match-exp
+            | all-or-any-exp
+            | exists-exp
+            | unique-exp
+
+eq = <'='>
+
+lt = <'<'>
+
+lg = <'<='>
+
+gt = <'>'>
+
+ge = <'>='>
+
+ne = <'<>'>
+
+comp-eq = row-exp <eq> row-exp
+
+comp-lt = row-exp <lt> row-exp
+
+comp-lg = row-exp <lg> row-exp
+
+comp-gt = row-exp <gt> row-exp
+
+comp-ge = row-exp <ge> row-exp
+
+comp-ne = row-exp <ne> row-exp
+
+<simple-comparison-exp> = comp-eq | comp-lt |  comp-lg | comp-gt | comp-ge | comp-ne
+
+<simple-comp-op> = eq | lt | lg | gt | ge | ne
+
+between-exp = row-exp [not] <'BETWEEN'> row-exp <'AND'> row-exp
+
+like-exp = scalar-exp [not] <'LIKE'> scalar-exp [<'ESCAPE'> scalar-exp]
+
+in-exp = row-exp [not] <'IN'> table-subquery
+       | row-exp [not] <'IN'> <'('> row-exp (<','> row-exp)* <')'>
+
+unique = <'UNIQUE'>
+
+match-exp = row-exp <'MATCH'> [unique] table-subquery
 
 all-or-any-exp = row-exp simple-comp-op all-or-any table-subquery
 
-all-or-any = 'ALL' | 'ANY' | 'SOME'
+all = <'ALL'>
 
-exists-exp = 'EXISTS' table-subquery
+any = <'ANY'>
 
-unique-exp = 'UNIQUE' table-subquery
+some = <'SOME'>
+
+<all-or-any> = all | any | some
+
+exists-exp = <'EXISTS'> table-subquery
+
+unique-exp = <'UNIQUE'> table-subquery
 
 (* Expressions *)
 
-numeric-value-exp = term
-                  | numeric-value-exp '+' term
-                  | numeric-value-exp '-' term
+numeric-plus = numeric-value-exp <'+'> term
 
-term = factor
-     | term '*' factor
-     | term '/' factor
+numeric-minus = numeric-value-exp <'-'> term
 
-factor = ['-' | '+'] scalar-exp
-       | <'('> numeric-value-exp <')'>
+<numeric-value-exp> = term
+                    | numeric-plus
+                    | numeric-minus
+
+numeric-multiply = term <'*'> factor
+
+numeric-divide = term <'/'> factor
+
+<term> = factor
+       | numeric-multiply
+       | numeric-divide
+
+<factor> = ['-' | '+'] scalar-exp
+         | <'('> numeric-value-exp <')'>
 
 routine-invocation = identifier  <'('> scalar-exp (<','> scalar-exp)* <')'>
 
-extract-exp = 'EXTRACT' <'('> non-second-datetime-field 'FROM' scalar-exp <')'>
+extract-exp = <'EXTRACT'> <'('> non-second-datetime-field <'FROM'> scalar-exp <')'>
 
-case-exp = 'CASE' [scalar-exp]
-             'WHEN' boolean-exp
-               'THEN' scalar-exp
-                 ['ELSE' scalar-exp]
-                   'END'
+case-exp = <'CASE'> [scalar-exp]
+             <'WHEN'> boolean-exp
+               <'THEN'> scalar-exp
+                 [<'ELSE'> scalar-exp]
+                   <'END'>
 
-set-function-spec = 'COUNT' <'('> '*' <')'>
-                  | set-function-type <'('> ['DISTINCT' | 'ALL'] scalar-exp <')'>
+set-function-spec = count <'('> star <')'>
+                  | set-function-type <'('> [distinct | all] scalar-exp <')'>
 
-set-function-type = 'AVG' | 'MAX' | 'MIN' | 'SUM' | 'COUNT'
+avg = <'AVG'>
 
-scalar-exp = identifier
-           | numeric-literal
-           | string-literal
-           | date-literal
-           | interval-literal
-           | boolean-literal
-           | set-function-spec
-           | numeric-value-exp
-           | routine-invocation
-           | extract-exp
-           | case-exp
+max = <'MAX'>
+
+min = <'MIN'>
+
+sum = <'SUM'>
+
+count = <'COUNT'>
+
+<set-function-type> = avg | max | min | sum | count
+
+<scalar-exp> = identifier
+             | numeric-literal
+             | string-literal
+             | date-literal
+             | interval-literal
+             | boolean-literal
+             | set-function-spec
+             | numeric-value-exp
+             | routine-invocation
+             | extract-exp
+             | case-exp
 
 (* Literals *)
 
@@ -153,16 +241,30 @@ boolean-column-name = identifier
 
 column-name = identifier
 
-boolean-literal = 'TRUE' | 'FALSE'
+true = <'TRUE'>
+
+false = <'FALSE'>
+
+boolean-literal = true | false
 
 numeric-literal = #"[-+]?\d*\.?\d+(E[-+]?\d+)?"
 
 string-literal = #"('.*?')+"
 
-date-literal = 'DATE' #"'\d+-\d+-\d+'"
+date-literal = <'DATE'> #"'\d+-\d+-\d+'"
 
-interval-literal = 'INTERVAL' #"'\d+'" non-second-datetime-field
+interval-literal = <'INTERVAL'> #"'\d+'" non-second-datetime-field
 
-non-second-datetime-field = 'DAY' | 'YEAR' | 'MONTH' | 'HOUR' | 'MINUTE'
+day = <'DAY'>
+
+year = <'YEAR'>
+
+month = <'MONTH'>
+
+hour = <'HOUR'>
+
+minute = <'MINUTE'>
+
+<non-second-datetime-field> = day | year | month | hour | minute
 
 identifier = !boolean-literal #"[a-zA-Z_][\w.]*"

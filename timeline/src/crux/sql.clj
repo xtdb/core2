@@ -1,11 +1,49 @@
 (ns crux.sql
-  (:require [clojure.java.io :as io]
-            [instaparse.core :as insta]))
+  (:require [clojure.edn :as edn]
+            [clojure.java.io :as io]
+            [clojure.instant :as i]
+            [instaparse.core :as insta])
+  (:import [java.time Duration Period]))
+
+(defn parse-string [x]
+  (clojure.string/replace (subs x 1 (dec (count x)))
+                          "''"
+                          "'"))
+
+(defn parse-date [x]
+  (i/read-instant-date (parse-string x)))
+
+(defn parse-number [x]
+  (edn/read-string x))
+
+(defn parse-interval [x [field]]
+  (let [x (parse-number (parse-string x))]
+    (case field
+      :year (Period/ofYears x)
+      :month (Period/ofMonths x)
+      :day (Period/ofDays x)
+      :hour (Duration/ofHours x)
+      :minute (Duration/ofMinutes x))))
+
+(defn parse-identifier [x]
+  (symbol x))
+
+(defn parse-boolean [x]
+  (Boolean/parseBoolean x))
 
 (def parse-sql
   (insta/parser (io/resource "crux/sql.ebnf")
    :auto-whitespace (insta/parser "whitespace = #'\\s+' | #'\\s*--[^\r\n]*\\s*' | #'\\s*/[*].*([*]/\\s*|$)'")
    :string-ci true))
+
+(def literal-transform
+  {:boolean-literal parse-boolean
+   :numeric-literal parse-number
+   :unsigned-numeric-literal parse-number
+   :date-literal parse-date
+   :interval-literal parse-interval
+   :string-literal parse-string
+   :identifier parse-identifier})
 
 (comment
   (for [q (map inc (range 22))]

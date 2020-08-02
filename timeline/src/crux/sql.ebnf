@@ -53,7 +53,7 @@ having = <'HAVING'> boolean-exp
 
 order-by = <'ORDER BY'> sort-spec (<','> sort-spec)*
 
-limit = <'LIMIT'> #"\d+"
+limit = <'LIMIT'> unsigned-numeric-literal
 
 select-exp = select from [where] [group-by] [having] [order-by] [limit]
 
@@ -152,8 +152,10 @@ like-exp = scalar-exp [not] <'LIKE'> scalar-exp [<'ESCAPE'> scalar-exp]
 
 in = <'IN'>
 
+in-value-list = row-exp (<','> row-exp)*
+
 in-exp = row-exp [not] <in> table-subquery
-       | row-exp [not] <in> <'('> row-exp (<','> row-exp)* <')'>
+       | row-exp [not] <in> <'('> in-value-list <')'>
 
 unique = <'UNIQUE'>
 
@@ -250,6 +252,8 @@ false = <'FALSE'>
 boolean-literal = true | false
 
 numeric-literal = #"[-+]?\d*\.?\d+(E[-+]?\d+)?"
+
+unsigned-numeric-literal = #"\d+"
 
 string-literal = #"('.*?')+"
 

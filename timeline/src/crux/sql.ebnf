@@ -148,7 +148,9 @@ comp-ne = row-exp <ne> row-exp
 
 between-exp = row-exp [not] <'BETWEEN'> row-exp <'AND'> row-exp
 
-like-exp = scalar-exp [not] <'LIKE'> scalar-exp [<'ESCAPE'> scalar-exp]
+like-pattern = #"('.*?')+" [<'ESCAPE'> #"'\S'"]
+
+like-exp = scalar-exp [not] <'LIKE'> like-pattern
 
 in = <'IN'>
 

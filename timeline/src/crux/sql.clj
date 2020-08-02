@@ -2,13 +2,14 @@
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.instant :as i]
+            [clojure.string :as s]
             [instaparse.core :as insta])
   (:import [java.time Duration Period]))
 
 (defn parse-string [x]
-  (clojure.string/replace (subs x 1 (dec (count x)))
-                          "''"
-                          "'"))
+  (s/replace (subs x 1 (dec (count x)))
+             "''"
+             "'"))
 
 (defn parse-date [x]
   (i/read-instant-date (parse-string x)))
@@ -31,6 +32,28 @@
 (defn parse-boolean [x]
   (Boolean/parseBoolean x))
 
+(defn parse-like-pattern [x & [escape]]
+  (let [pattern (parse-string x)
+        escape (or (some-> escape (parse-string)) "\\")
+        regex (if (= "\\" escape)
+                (-> pattern
+                    (s/replace #"([^\\]|^)(_)" "$1.")
+                    (s/replace #"([^\\]|^)(%)" "$1.*")
+                    (s/replace "\\_" "_")
+                    (s/replace "\\%" "%"))
+                (-> pattern
+                    (s/replace (re-pattern (str "([^"
+                                                escape
+                                                "]|^)(_)"))
+                               "$1.")
+                    (s/replace (re-pattern (str "([^"
+                                                escape
+                                                "]|^)(%)"))
+                               "$1.*")
+                    (s/replace (str escape "_") "_")
+                    (s/replace (str escape "%") "%")))]
+    (re-pattern regex)))
+
 (def parse-sql
   (insta/parser (io/resource "crux/sql.ebnf")
    :auto-whitespace (insta/parser "whitespace = #'\\s+' | #'\\s*--[^\r\n]*\\s*' | #'\\s*/[*].*([*]/\\s*|$)'")
@@ -43,6 +66,7 @@
    :date-literal parse-date
    :interval-literal parse-interval
    :string-literal parse-string
+   :like-pattern parse-like-pattern
    :identifier parse-identifier})
 
 (comment

@@ -33,16 +33,17 @@
     TpchColumnType$Base/DATE
     (.getDate c e)))
 
+(defn tpch-doc->pkey [doc]
+  (select-keys doc (get table->pkey (get (meta doc) :table))))
+
 (defn tpch-entity->doc [^TpchTable t ^TpchEntity e]
   (let [doc (persistent!
              (reduce
               (fn [acc ^TpchColumn c]
                 (assoc! acc (.getColumnName c) (tpch-column->clj c e)))
               (transient {})
-              (.getColumns t)))
-        table (.getTableName t)
-        pkey (select-keys doc (get table->pkey table))]
-    (with-meta doc {:table table :pkey pkey})))
+              (.getColumns t)))]
+    (with-meta doc {:table (.getTableName t)})))
 
 (defn tpch-table->docs [^TpchTable t scale-factor]
   (for [e (.createGenerator ^TpchTable t scale-factor 1 1)]

@@ -21,7 +21,7 @@
    "region" ["r_regionkey"]})
 
 (defn tpch-column->clj [^TpchColumn c ^TpchEntity e]
-  (condp = (.getBase (.getType c))
+  (condp identical? (.getBase (.getType c))
     TpchColumnType$Base/IDENTIFIER
     (.getIdentifier c e)
     TpchColumnType$Base/INTEGER

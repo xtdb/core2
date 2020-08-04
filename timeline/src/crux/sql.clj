@@ -139,7 +139,11 @@
    :numeric-divide (fn [x y]
                      (if (and (number? x) (number? y))
                        (/ x y)
-                       [:numeric-divide x y]))})
+                       [:numeric-divide x y]))
+   :between-exp (fn [v x y]
+                  [:boolean-and
+                   [:comp-ge v x]
+                   [:comp-le v y]])})
 
 (comment
   (for [q (map inc (range 22))]

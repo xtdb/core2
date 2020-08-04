@@ -4,7 +4,9 @@
             [clojure.instant :as i]
             [clojure.string :as s]
             [instaparse.core :as insta])
-  (:import [java.time Duration Period]))
+  (:import java.util.Date
+           [java.time Duration Period ZoneOffset]
+           java.time.temporal.TemporalAmount))
 
 (defn parse-string [x]
   (s/replace (subs x 1 (dec (count x)))
@@ -56,8 +58,8 @@
 
 (def parse-sql
   (insta/parser (io/resource "crux/sql.ebnf")
-   :auto-whitespace (insta/parser "whitespace = #'\\s+' | #'\\s*--[^\r\n]*\\s*' | #'\\s*/[*].*([*]/\\s*|$)'")
-   :string-ci true))
+                :auto-whitespace (insta/parser "whitespace = #'\\s+' | #'\\s*--[^\r\n]*\\s*' | #'\\s*/[*].*([*]/\\s*|$)'")
+                :string-ci true))
 
 (def literal-transform
   {:boolean-literal parse-boolean
@@ -68,6 +70,76 @@
    :string-literal parse-string
    :like-pattern parse-like-pattern
    :identifier parse-identifier})
+
+(def constant-folding-transform
+  {:boolean-not (fn [x]
+                  (if (boolean? x)
+                    (not x)
+                    [:boolean-not x]))
+   :boolean-and (fn [x y]
+                  (if (and (boolean? x) (boolean? y))
+                    (and x y)
+                    [:boolean-and x y]))
+   :boolean-or (fn [x y]
+                 (if (and (boolean? x) (boolean? y))
+                   (or x y)
+                   [:boolean-or x y]))
+   :comp-eq (fn [x y]
+              (if (or (symbol? x)
+                      (symbol? y))
+                [:comp-eq x y]
+                (= x y)))
+   :comp-lt (fn [x y]
+              (if (or (symbol? x)
+                      (symbol? y))
+                [:comp-lt x y]
+                (neg? (compare x y))))
+   :comp-le (fn [x y]
+              (if (or (symbol? x)
+                      (symbol? y))
+                [:comp-le x y]
+                (not (pos? (compare x y)))))
+   :comp-gt (fn [x y]
+              (if (or (symbol? x)
+                      (symbol? y))
+                [:comp-gt x y]
+                (pos? (compare x y))))
+   :comp-ge (fn [x y]
+              (if (or (symbol? x)
+                      (symbol? y))
+                [:comp-ge x y]
+                (not (neg? (compare x y)))))
+   :comp-ne (fn [x y]
+              (if (or (symbol? x)
+                      (symbol? y))
+                [:comp-ne x y]
+                (not= x y)))
+   :numeric-minus (fn [x y]
+                    (cond
+                      (and (instance? Date x)
+                           (instance? TemporalAmount y))
+                      (Date/from (.toInstant (.minus (.atOffset (.toInstant ^Date x) ZoneOffset/UTC) ^TemporalAmount y)))
+                      (and (number? x) (number? y))
+                      (- x y)
+                      :else
+                      [:numeric-minus x y]))
+   :numeric-plus (fn [x y]
+                   (cond
+                     (and (instance? Date x)
+                          (instance? TemporalAmount y))
+                     (Date/from (.toInstant (.plus (.atOffset (.toInstant ^Date x) ZoneOffset/UTC) ^TemporalAmount y)))
+                     (and (number? x) (number? y))
+                     (+ x y)
+                     :else
+                     [:numeric-plus x y]))
+   :numeric-multiply (fn [x y]
+                       (if (and (number? x) (number? y))
+                         (* x y)
+                         [:numeric-multiply x y]))
+   :numeric-divide (fn [x y]
+                     (if (and (number? x) (number? y))
+                       (/ x y)
+                       [:numeric-divide x y]))})
 
 (comment
   (for [q (map inc (range 22))]

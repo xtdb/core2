@@ -57,7 +57,9 @@ order-by = <'ORDER BY'> sort-spec (<','> sort-spec)*
 
 limit = <'LIMIT'> unsigned-numeric-literal
 
-select-exp = select from [where] [group-by] [having] [order-by] [limit]
+offset = <'OFFSET'> unsigned-numeric-literal
+
+select-exp = select from [where] [group-by] [having] [order-by] [limit] [offset]
 
 select-item = scalar-exp [[<as>] column-name]
             | range-variable-name

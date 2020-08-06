@@ -201,9 +201,8 @@ routine-invocation = identifier  <'('> scalar-exp (<','> scalar-exp)* <')'>
 extract-exp = <'EXTRACT'> <'('> non-second-datetime-field <'FROM'> scalar-exp <')'>
 
 case-exp = <'CASE'> [scalar-exp]
-             <'WHEN'> boolean-exp
-               <'THEN'> scalar-exp
-                 [<'ELSE'> scalar-exp]
+             (<'WHEN'> boolean-exp <'THEN'> scalar-exp )+
+                [<'ELSE'> scalar-exp]
                    <'END'>
 
 set-function-spec = count <'('> star <')'>

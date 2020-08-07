@@ -226,6 +226,7 @@ count = <'COUNT'>
              | numeric-literal
              | string-literal
              | date-literal
+             | timestamp-literal
              | interval-literal
              | boolean-literal
              | set-function-spec
@@ -258,7 +259,9 @@ unsigned-numeric-literal = #"\d+"
 
 string-literal = #"('.*?')+"
 
-date-literal = <'DATE'> #"'\d+-\d+-\d+'"
+date-literal = <'DATE'> #"'\d\d\d\d-\d\d-\d\d'"
+
+timestamp-literal = <'TIMESTAMP'> #"'\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d(\.\d\d\d\d)?'"
 
 interval-literal = <'INTERVAL'> #"'\d+'" non-second-datetime-field
 

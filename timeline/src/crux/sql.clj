@@ -16,7 +16,7 @@
              "'"))
 
 (defn parse-date [x]
-  (i/read-instant-date (parse-string x)))
+  (i/read-instant-date (s/replace (parse-string x) " " "T")))
 
 (defn parse-number [x]
   (edn/read-string x))
@@ -68,6 +68,7 @@
    :numeric-literal parse-number
    :unsigned-numeric-literal parse-number
    :date-literal parse-date
+   :timestamp-literal parse-date
    :interval-literal parse-interval
    :string-literal parse-string
    :like-pattern parse-like-pattern
@@ -142,10 +143,15 @@
                      (if (and (number? x) (number? y))
                        (/ x y)
                        [:numeric-divide x y]))
-   :between-exp (fn [v x y]
-                  [:boolean-and
-                   [:comp-ge v x]
-                   [:comp-le v y]])})
+   :between-exp (fn
+                  ([v x y]
+                   [:boolean-and
+                    [:comp-ge v x]
+                    [:comp-le v y]])
+                  ([v not x y]
+                   [:boolean-or
+                    [:comp-lt v x]
+                    [:comp-gt v y]]))})
 
 (comment
   (for [q (map inc (range 22))]

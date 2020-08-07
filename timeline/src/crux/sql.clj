@@ -8,7 +8,7 @@
   (:import [java.util Comparator Date]
            java.util.function.Function
            [java.time Duration Period ZoneOffset]
-           java.time.temporal.TemporalAmount))
+           [java.time.temporal ChronoField TemporalAmount]))
 
 (defn parse-string [x]
   (s/replace (subs x 1 (dec (count x)))
@@ -152,6 +152,56 @@
                    [:boolean-or
                     [:comp-lt v x]
                     [:comp-gt v y]]))})
+
+(def codegen-transform
+  {:boolean-not (fn [x]
+                  `(not ~x))
+   :boolean-and (fn [x y]
+                  `(and ~x ~y))
+   :boolean-or (fn [x y]
+                 `(or ~x ~y))
+   :comp-eq (fn [x y]
+              `(= ~x ~y))
+   :comp-ne (fn [x y]
+              `(not= ~x ~y))
+   :comp-lt (fn [x y]
+              (if (or (number? x) (number? y))
+                `(< ~x ~y)
+                `(neg? (compare ~x ~y))))
+   :comp-le (fn [x y]
+              (if (or (number? x) (number? y))
+                `(<= ~x ~y)
+                `(not (pos? (compare ~x ~y)))))
+   :comp-gt (fn [x y]
+              (if (or (number? x) (number? y))
+                `(> ~x ~y)
+                `(pos? (compare ~x ~y))))
+   :comp-ge (fn [x y]
+              (if (or (number? x) (number? y))
+                `(>= ~x ~y)
+                `(not (neg? (compare ~x ~y)))))
+   :numeric-plus (fn [x y]
+                   `(+ ~x ~y))
+   :numeric-minus (fn [x y]
+                    `(- ~x ~y))
+   :numeric-multiply (fn [x y]
+                       `(* ~x ~y))
+   :numeric-divide (fn [x y]
+                     `(/ ~x ~y))
+   :like-exp (fn [x pattern]
+               `(boolean (re-find ~pattern ~x)))
+   :case-exp (fn [cond then else]
+               `(if ~cond ~then ~else))
+   :extract-exp (fn [[field] x]
+                  `(.get (.atOffset (.toInstant ~x) ZoneOffset/UTC)
+                         ~(case field
+                            :year `ChronoField/YEAR
+                            :month `ChronoField/MONTH_OF_YEAR
+                            :day `ChronoField/DAY_OF_MONTH
+                            :hour `ChronoField/HOUR_OF_DAY
+                            :minute `ChronoField/MINUTE_OF_HOUR)))
+   :routine-invocation (fn [f & args]
+                         `(~f ~@args))})
 
 (comment
   (for [q (map inc (range 22))]

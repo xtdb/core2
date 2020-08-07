@@ -1,6 +1,7 @@
 (ns crux.timeline-test
-  (:require [clojure.test :as t])
-  (:import [io.airlift.tpch TpchColumn TpchColumnType TpchColumnType$Base TpchEntity TpchTable]
+  (:require [clojure.test :as t]
+            [clojure.instant :as i])
+  (:import [io.airlift.tpch GenerateUtils TpchColumn TpchColumnType TpchColumnType$Base TpchEntity TpchTable]
            java.util.Date))
 
 (defn uniform-long ^long [^long start ^long end]
@@ -31,7 +32,7 @@
     TpchColumnType$Base/DOUBLE
     (.getDouble c e)
     TpchColumnType$Base/DATE
-    (.getDate c e)))
+    (i/read-instant-date (GenerateUtils/formatDate (.getDate c e)))))
 
 (defn tpch-doc->pkey [doc]
   (select-keys doc (get table->pkey (get (meta doc) :table))))

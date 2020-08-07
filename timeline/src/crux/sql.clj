@@ -2,6 +2,7 @@
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.instant :as i]
+            [clojure.set :as set]
             [clojure.string :as s]
             [instaparse.core :as insta])
   (:import java.util.Date
@@ -173,3 +174,53 @@
 
 ;; https://github.com/epfldata/dblab/blob/develop/components/src/main/scala/ch/epfl/data/dblab/queryengine/push/Operators.scala
 ;; https://github.com/epfldata/dblab/blob/develop/components/src/main/scala/ch/epfl/data/dblab/queryengine/volcano/Operators.scala
+
+
+(comment
+  (def db (->> (for [[t ts] (group-by (comp :table meta) (crux.timeline-test/tpch-dbgen 0.01))]
+                 [t (set ts)])
+               (into {})))
+
+  ;; See https://github.com/cwida/duckdb/tree/master/third_party/dbgen/answers
+
+  ;; (parse-sql (slurp (io/resource (format "io/airlift/tpch/queries/q%d.sql" 1))))
+
+  (defn tpch-01 [{:strs [lineitem] :as db}]
+    (->> (set/select (fn [{:strs [l_shipdate]}]
+                       (not (pos? (compare l_shipdate #inst "1998-09-02T00:00:00.000-00:00"))))
+                     lineitem)
+         (group-by (fn [{:strs [l_returnflag l_linestatus]}]
+                     [l_returnflag l_linestatus]))
+         (into #{} (map (fn [[{:strs [l_returnflag l_linestatus]} ts]]
+                          {"l_returnflag" l_returnflag
+                           "l_linestatus" l_linestatus
+                           "sum_qty" (reduce (fn [acc {:strs [l_quantity]}]
+                                               (+ acc l_quantity))
+                                             0 ts)
+                           "sum_base_price" (reduce (fn [acc {:strs [l_extendedprice]}]
+                                                      (+ acc l_extendedprice))
+                                                    0 ts)
+                           "sum_disc_price" (reduce (fn [acc {:strs [l_extendedprice l_discount]}]
+                                                      (+ acc (* l_extendedprice
+                                                                (- 1 l_discount))))
+                                                    0 ts)
+                           "sum_charge" (reduce (fn [acc  {:strs [l_extendedprice l_discount l_tax]}]
+                                                  (+ (* l_extendedprice
+                                                        (- 1 l_discount)
+                                                        (+ 1 l_tax))))
+                                                0 ts)
+                           "avg_qty" (/ (reduce (fn [acc {:strs [l_quantity]}]
+                                                  (+ acc l_quantity))
+                                                0 ts)
+                                        (count ts))
+                           "avg_price" (/ (reduce (fn [acc {:strs [l_extendedprice]}]
+                                                    (+ acc l_extendedprice))
+                                                  0 ts)
+                                          (count ts))
+                           "avg_disc" (/ (reduce (fn [acc {:strs [l_discount]}]
+                                                   (+ acc l_discount))
+                                                 0 ts)
+                                         (count ts))
+                           "count_order" (count ts)})))
+         (sort-by (fn [{:strs [l_returnflag l_linestatus]}]
+                    [l_returnflag l_linestatus])))))

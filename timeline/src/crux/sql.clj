@@ -5,7 +5,8 @@
             [clojure.set :as set]
             [clojure.string :as s]
             [instaparse.core :as insta])
-  (:import java.util.Date
+  (:import [java.util Comparator Date]
+           java.util.function.Function
            [java.time Duration Period ZoneOffset]
            java.time.temporal.TemporalAmount))
 
@@ -186,41 +187,105 @@
   ;; (parse-sql (slurp (io/resource (format "io/airlift/tpch/queries/q%d.sql" 1))))
 
   (defn tpch-01 [{:strs [lineitem] :as db}]
-    (->> (set/select (fn [{:strs [l_shipdate]}]
-                       (not (pos? (compare l_shipdate #inst "1998-09-02T00:00:00.000-00:00"))))
-                     lineitem)
+    ;; :select-exp
+    (->> (set/select
+          #_[:where
+             [:comp-le
+              [:identifier "l_shipdate"]
+              [:numeric-minus
+               [:date-literal "'1998-12-01'"]
+               [:interval-literal "'90'" [:day]]]]]
+          (fn [{:strs [l_shipdate]}]
+            (not (pos? (compare l_shipdate #inst "1998-09-02T00:00:00.000-00:00"))))
+          #_[:from [:table-spec [:identifier "lineitem"]]]
+          lineitem)
+         #_[:group-by
+            [:identifier "l_returnflag"]
+            [:identifier "l_linestatus"]]
          (group-by (fn [{:strs [l_returnflag l_linestatus]}]
                      [l_returnflag l_linestatus]))
-         (into #{} (map (fn [[{:strs [l_returnflag l_linestatus]} ts]]
-                          {"l_returnflag" l_returnflag
+         (vals)
+         ;; :select
+         (into #{} (map (fn [[{:strs [l_returnflag l_linestatus]} :as ts]]
+                          {#_[:select-item [:identifier "l_returnflag"]]
+                           "l_returnflag" l_returnflag
+                           #_[:select-item [:identifier "l_linestatus"]]
                            "l_linestatus" l_linestatus
+                           #_[:select-item
+                              [:set-function-spec [:sum] [:identifier "l_quantity"]]
+                              [:identifier "sum_qty"]]
                            "sum_qty" (reduce (fn [acc {:strs [l_quantity]}]
                                                (+ acc l_quantity))
                                              0 ts)
+                           #_[:select-item
+                              [:set-function-spec [:sum] [:identifier "l_extendedprice"]]
+                              [:identifier "sum_base_price"]]
                            "sum_base_price" (reduce (fn [acc {:strs [l_extendedprice]}]
                                                       (+ acc l_extendedprice))
                                                     0 ts)
+                           #_[:select-item
+                              [:set-function-spec
+                               [:sum]
+                               [:numeric-multiply
+                                [:identifier "l_extendedprice"]
+                                [:numeric-minus
+                                 [:numeric-literal "1"]
+                                 [:identifier "l_discount"]]]]
+                              [:identifier "sum_disc_price"]]
                            "sum_disc_price" (reduce (fn [acc {:strs [l_extendedprice l_discount]}]
                                                       (+ acc (* l_extendedprice
                                                                 (- 1 l_discount))))
                                                     0 ts)
+                           #_[:select-item
+                              [:set-function-spec
+                               [:sum]
+                               [:numeric-multiply
+                                [:numeric-multiply
+                                 [:identifier "l_extendedprice"]
+                                 [:numeric-minus
+                                  [:numeric-literal "1"]
+                                  [:identifier "l_discount"]]]
+                                [:numeric-plus [:numeric-literal "1"] [:identifier "l_tax"]]]]
+                              [:identifier "sum_charge"]]
                            "sum_charge" (reduce (fn [acc  {:strs [l_extendedprice l_discount l_tax]}]
                                                   (+ (* l_extendedprice
                                                         (- 1 l_discount)
                                                         (+ 1 l_tax))))
                                                 0 ts)
+                           #_[:select-item
+                              [:set-function-spec [:avg] [:identifier "l_quantity"]]
+                              [:identifier "avg_qty"]]
                            "avg_qty" (/ (reduce (fn [acc {:strs [l_quantity]}]
                                                   (+ acc l_quantity))
                                                 0 ts)
                                         (count ts))
+                           #_[:select-item
+                              [:set-function-spec [:avg] [:identifier "l_extendedprice"]]
+                              [:identifier "avg_price"]]
                            "avg_price" (/ (reduce (fn [acc {:strs [l_extendedprice]}]
                                                     (+ acc l_extendedprice))
                                                   0 ts)
                                           (count ts))
+                           #_[:select-item
+                              [:set-function-spec [:avg] [:identifier "l_discount"]]
+                              [:identifier "avg_disc"]]
                            "avg_disc" (/ (reduce (fn [acc {:strs [l_discount]}]
                                                    (+ acc l_discount))
                                                  0 ts)
                                          (count ts))
+                           #_[:select-item
+                              [:set-function-spec [:count] [:star]]
+                              [:identifier "count_order"]]
                            "count_order" (count ts)})))
-         (sort-by (fn [{:strs [l_returnflag l_linestatus]}]
-                    [l_returnflag l_linestatus])))))
+         #_[:order-by
+            [:sort-spec [:identifier "l_returnflag"]]
+            [:sort-spec [:identifier "l_linestatus"]]]
+         (sort (-> (Comparator/comparing
+                    (reify Function
+                      (apply [_ {:strs [l_returnflag]}]
+                        l_returnflag)))
+                   (.thenComparing
+                    (Comparator/comparing
+                     (reify Function
+                       (apply [_ {:strs [l_linestatus]}]
+                         l_linestatus)))))))))

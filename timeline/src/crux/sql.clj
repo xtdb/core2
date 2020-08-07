@@ -201,7 +201,11 @@
                             :hour `ChronoField/HOUR_OF_DAY
                             :minute `ChronoField/MINUTE_OF_HOUR)))
    :routine-invocation (fn [f & args]
-                         `(~f ~@args))})
+                         (case f
+                           (substr
+                            substring) (let [[x start length] args]
+                                         `(subs ~x (dec ~start) (+ (dec ~start) ~length)))
+                           `(~f ~@args)))})
 
 (comment
   (for [q (map inc (range 22))]

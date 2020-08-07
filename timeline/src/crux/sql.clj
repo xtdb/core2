@@ -143,6 +143,10 @@
                      (if (and (number? x) (number? y))
                        (/ x y)
                        [:numeric-divide x y]))
+   :numeric-modulo (fn [x y]
+                     (if (and (number? x) (number? y))
+                       (rem x y)
+                       [:numeric-modulo x y]))
    :between-exp (fn
                   ([v x y]
                    [:boolean-and
@@ -188,6 +192,8 @@
                        `(* ~x ~y))
    :numeric-divide (fn [x y]
                      `(/ ~x ~y))
+   :numeric-modulo (fn [x y]
+                     `(rem ~x ~y))
    :like-exp (fn [x pattern]
                `(boolean (re-find ~pattern ~x)))
    :case-exp (fn [cond then else]

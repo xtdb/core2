@@ -191,9 +191,12 @@ numeric-multiply = term <'*'> factor
 
 numeric-divide = term <'/'> factor
 
+numeric-modulo = term <'%'> factor
+
 <term> = factor
        | numeric-multiply
        | numeric-divide
+       | numeric-modulo
 
 <factor> = ['-' | '+'] scalar-exp
          | <'('> numeric-value-exp <')'>

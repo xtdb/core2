@@ -359,7 +359,7 @@
         result (into [] (take 10) result)]
     result))
 
-(defn tpch-04 [{:strs [orders] :as db}]
+(defn tpch-04 [{:strs [orders lineitem] :as db}]
   #_ [:where
       [:boolean-and
        [:boolean-and
@@ -388,6 +388,16 @@
                                   (not-empty)
                                   (boolean)))
                            result)
+
+        ;; using join:
+
+        ;; result (set/join result
+        ;;                  (-> (set/select (fn [{:strs [l_commitdate l_receiptdate]}]
+        ;;                                    (neg? (compare l_commitdate l_receiptdate)))
+        ;;                                  lineitem)
+        ;;                      (set/project ["l_orderkey"]))
+        ;;                  {"o_orderkey" "l_orderkey"})
+
         #_[:group-by o_orderpriority]
         result (->> (group-by (fn [{:strs [o_orderpriority]}]
                                 [o_orderpriority])

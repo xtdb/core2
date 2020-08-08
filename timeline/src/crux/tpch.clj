@@ -86,8 +86,9 @@
                                 [l_returnflag l_linestatus])
                               result)
                     (vals)
+                    (remove empty?)
                     ;; :select
-                    (into #{} (map (fn [[{:strs [l_returnflag l_linestatus]} :as result]]
+                    (into #{} (map (fn [[{:strs [l_returnflag l_linestatus]} :as group]]
                                      {#_[:select-item [:identifier "l_returnflag"]]
                                       "l_returnflag" l_returnflag
                                       #_[:select-item [:identifier "l_linestatus"]]
@@ -97,13 +98,13 @@
                                          [:identifier "sum_qty"]]
                                       "sum_qty" (reduce (fn [acc {:strs [l_quantity]}]
                                                           (+ acc l_quantity))
-                                                        0 result)
+                                                        0 group)
                                       #_[:select-item
                                          [:set-function-spec [:sum] [:identifier "l_extendedprice"]]
                                          [:identifier "sum_base_price"]]
                                       "sum_base_price" (reduce (fn [acc {:strs [l_extendedprice]}]
                                                                  (+ acc l_extendedprice))
-                                                               0 result)
+                                                               0 group)
                                       #_[:select-item
                                          [:set-function-spec
                                           [:sum]
@@ -116,7 +117,7 @@
                                       "sum_disc_price" (reduce (fn [acc {:strs [l_extendedprice l_discount]}]
                                                                  (+ acc (* l_extendedprice
                                                                            (- 1 l_discount))))
-                                                               0 result)
+                                                               0 group)
                                       #_[:select-item
                                          [:set-function-spec
                                           [:sum]
@@ -132,32 +133,32 @@
                                                              (+ acc (* l_extendedprice
                                                                        (- 1 l_discount)
                                                                        (+ 1 l_tax))))
-                                                           0 result)
+                                                           0 group)
                                       #_[:select-item
                                          [:set-function-spec [:avg] [:identifier "l_quantity"]]
                                          [:identifier "avg_qty"]]
                                       "avg_qty" (/ (reduce (fn [acc {:strs [l_quantity]}]
                                                              (+ acc l_quantity))
-                                                           0 result)
-                                                   (count result))
+                                                           0 group)
+                                                   (count group))
                                       #_[:select-item
                                          [:set-function-spec [:avg] [:identifier "l_extendedprice"]]
                                          [:identifier "avg_price"]]
                                       "avg_price" (/ (reduce (fn [acc {:strs [l_extendedprice]}]
                                                                (+ acc l_extendedprice))
-                                                             0 result)
-                                                     (count result))
+                                                             0 group)
+                                                     (count group))
                                       #_[:select-item
                                          [:set-function-spec [:avg] [:identifier "l_discount"]]
                                          [:identifier "avg_disc"]]
                                       "avg_disc" (/ (reduce (fn [acc {:strs [l_discount]}]
                                                               (+ acc l_discount))
-                                                            0 result)
-                                                    (count result))
+                                                            0 group)
+                                                    (count group))
                                       #_[:select-item
                                          [:set-function-spec [:count] [:star]]
                                          [:identifier "count_order"]]
-                                      "count_order" (count result)}))))
+                                      "count_order" (count group)}))))
         #_[:order-by
            [:sort-spec [:identifier "l_returnflag"]]
            [:sort-spec [:identifier "l_linestatus"]]]
@@ -222,18 +223,31 @@
                                          part)
                              {"ps_partkey" "p_partkey"}))
         result (set/select (fn [{:strs [ps_supplycost p_partkey]}]
-                             (= ps_supplycost (->> (-> (set/select (fn [{:strs [r_name]}]
-                                                                     (= r_name "EUROPE"))
-                                                                   region)
-                                                       (set/join nation {"r_regionkey" "n_regionkey"})
-                                                       (set/join supplier {"n_nationkey" "s_nationkey"})
-                                                       (set/join (set/select (fn [{:strs [ps_partkey]}]
-                                                                               (= ps_partkey p_partkey))
-                                                                             partsupp)
-                                                                 {"s_suppkey" "ps_suppkey"}))
-                                                   (reduce (fn [acc {:strs [ps_supplycost]}]
-                                                             (min acc ps_supplycost))
-                                                           Long/MAX_VALUE))))
+                             (= ps_supplycost
+                                (->> ((fn [{:strs [region nation supplier partsupp] :as db}]
+                                        (let [result (-> (set/select (fn [{:strs [r_name]}]
+                                                                       (= r_name "EUROPE"))
+                                                                     region)
+                                                         (set/join nation {"r_regionkey" "n_regionkey"})
+                                                         (set/join supplier {"n_nationkey" "s_nationkey"})
+                                                         (set/join (set/select (fn [{:strs [ps_partkey]}]
+                                                                                 (= ps_partkey p_partkey))
+                                                                               partsupp)
+                                                                   {"s_suppkey" "ps_suppkey"}))
+                                              result (->> (group-by (fn [{:strs []}]
+                                                                      [])
+                                                                    result)
+                                                          (vals)
+                                                          (remove empty?)
+                                                          (into #{} (map (fn [[{:strs []} :as group]]
+                                                                           {"min_ps_supplycost"
+                                                                            (reduce (fn [acc {:strs [ps_supplycost]}]
+                                                                                      (min acc ps_supplycost))
+                                                                                    Long/MAX_VALUE group)}))))]
+                                          result))
+                                      db)
+                                     (ffirst)
+                                     (val))))
                            result)
         #_[:select
            [:select-item s_acctbal]
@@ -258,27 +272,89 @@
            [:sort-spec n_name]
            [:sort-spec s_name]
            [:sort-spec p_partkey]]
-        result (vec (sort (-> (.reversed
-                               (Comparator/comparing
-                                (reify Function
-                                  (apply [_ {:strs [s_acctbal]}]
-                                    s_acctbal))))
-                              (.thenComparing
-                               (Comparator/comparing
-                                (reify Function
-                                  (apply [_ {:strs [n_name]}]
-                                    n_name))))
-                              (.thenComparing
-                               (Comparator/comparing
-                                (reify Function
-                                  (apply [_ {:strs [s_name]}]
-                                    s_name))))
-                              (.thenComparing
-                               (Comparator/comparing
-                                (reify Function
-                                  (apply [_ {:strs [p_partkey]}]
-                                    p_partkey)))))
-                          result))
+        result (sort (-> (.reversed
+                          (Comparator/comparing
+                           (reify Function
+                             (apply [_ {:strs [s_acctbal]}]
+                               s_acctbal))))
+                         (.thenComparing
+                          (Comparator/comparing
+                           (reify Function
+                             (apply [_ {:strs [n_name]}]
+                               n_name))))
+                         (.thenComparing
+                          (Comparator/comparing
+                           (reify Function
+                             (apply [_ {:strs [s_name]}]
+                               s_name))))
+                         (.thenComparing
+                          (Comparator/comparing
+                           (reify Function
+                             (apply [_ {:strs [p_partkey]}]
+                               p_partkey)))))
+                     result)
         #_[:limit 100]
-        result (subvec result 0 (min (count result) 100))]
+        result (into [] (take 100) result)]
+    result))
+
+(defn tpch-03 [{:strs [customer orders lineitem] :as db}]
+  (let [#_[:where
+           [:boolean-and
+            [:boolean-and
+             [:boolean-and
+              [:boolean-and
+               [:comp-eq c_mktsegment "BUILDING"]
+               [:comp-eq c_custkey o_custkey]]
+              [:comp-eq l_orderkey o_orderkey]]
+             [:comp-lt o_orderdate #inst "1995-03-15T00:00:00.000-00:00"]]
+            [:comp-gt l_shipdate #inst "1995-03-15T00:00:00.000-00:00"]]]
+        result (-> (set/select (fn [{:strs [l_shipdate]}]
+                                 (pos? (compare l_shipdate #inst "1995-03-15T00:00:00.000-00:00")))
+                               lineitem)
+                   (set/join (set/select (fn [{:strs [o_orderdate]}]
+                                           (neg? (compare o_orderdate #inst "1995-03-15T00:00:00.000-00:00")))
+                                         orders)
+                             {"l_orderkey" "o_orderkey"})
+                   (set/join (set/select (fn [{:strs [c_mktsegment]}]
+                                           (= c_mktsegment "BUILDING"))
+                                         customer)
+                             {"o_custkey" "c_custkey"}))
+        #_[:group-by l_orderkey o_orderdate o_shippriority]
+        result (->> (group-by (fn [{:strs [l_orderkey o_orderdate o_shippriority]}]
+                                [l_orderkey o_orderdate o_shippriority])
+                              result)
+                    (vals)
+                    (remove empty?)
+                    #_[:select
+                       [:select-item l_orderkey]
+                       [:select-item
+                        [:set-function-spec
+                         [:sum]
+                         [:numeric-multiply
+                          l_extendedprice
+                          [:numeric-minus 1 l_discount]]]
+                        revenue]
+                       [:select-item o_orderdate]
+                       [:select-item o_shippriority]]
+                    (into #{} (map (fn [[{:strs [l_orderkey o_orderdate o_shippriority]} :as group]]
+                                     {"l_orderkey" l_orderkey
+                                      "o_orderdate" o_orderdate
+                                      "o_shippriority" o_shippriority
+                                      "revenue" (reduce (fn [acc {:strs [l_extendedprice l_discount]}]
+                                                          (+ acc (* l_extendedprice (- 1 l_discount))))
+                                                        0 group)}))))
+        #_[:order-by [:sort-spec revenue [:desc]] [:sort-spec o_orderdate]]
+        result (sort (-> (.reversed
+                          (Comparator/comparing
+                           (reify Function
+                             (apply [_ {:strs [revenue]}]
+                               revenue))))
+                         (.thenComparing
+                          (Comparator/comparing
+                           (reify Function
+                             (apply [_ {:strs [o_orderdate]}]
+                               o_orderdate)))))
+                     result)
+        #_[:limit 10]
+        result (into [] (take 10) result)]
     result))

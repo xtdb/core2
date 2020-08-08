@@ -309,7 +309,9 @@
    :case (fn [cond then else]
            `(if ~cond ~then ~else))
    :extract (fn [field x]
-              `(.get (.atOffset (.toInstant ~x) ZoneOffset/UTC)
+              `(.get (.atOffset (.toInstant ~(if (symbol? x)
+                                               (with-meta x {:tag `Date})
+                                               x)) ZoneOffset/UTC)
                      ~(case field
                         :year `ChronoField/YEAR
                         :month `ChronoField/MONTH_OF_YEAR

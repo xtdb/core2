@@ -358,3 +358,53 @@
         #_[:limit 10]
         result (into [] (take 10) result)]
     result))
+
+(defn tpch-04 [{:strs [orders] :as db}]
+  #_ [:where
+      [:boolean-and
+       [:boolean-and
+        [:comp-ge o_orderdate #inst "1993-07-01T00:00:00.000-00:00"]
+        [:comp-lt o_orderdate #inst "1993-10-01T00:00:00.000-00:00"]]
+       [:exists-exp
+        [:select-exp
+         [:select [:star]]
+         [:from [:table-spec lineitem]]
+         [:where
+          [:boolean-and
+           [:comp-eq l_orderkey o_orderkey]
+           [:comp-lt l_commitdate l_receiptdate]]]]]]]
+  (let [result (-> (set/select (fn [{:strs [o_orderdate]}]
+                                 (and (not (neg? (compare o_orderdate #inst "1993-07-01T00:00:00.000-00:00")))
+                                      (neg? (compare o_orderdate #inst "1993-10-01T00:00:00.000-00:00"))))
+                               orders))
+        result (set/select (fn [{:strs [o_orderkey]}]
+                             (->> ((fn [{:strs [lineitem] :as db}]
+                                     (let [result (-> (set/select (fn [{:strs [l_orderkey l_commitdate l_receiptdate]}]
+                                                                    (and (= l_orderkey o_orderkey)
+                                                                         (neg? (compare l_commitdate l_receiptdate))))
+                                                                  lineitem))]
+                                       result))
+                                   db)
+                                  (not-empty)
+                                  (boolean)))
+                           result)
+        #_[:group-by o_orderpriority]
+        result (->> (group-by (fn [{:strs [o_orderpriority]}]
+                                [o_orderpriority])
+                              result)
+                    (vals)
+                    (remove empty?)
+                    #_[:select
+                       [:select-item o_orderpriority]
+                       [:select-item [:set-function-spec [:count] [:star]] order_count]]
+                    (into #{} (map (fn [[{:strs [o_orderpriority]} :as group]]
+                                     {"o_orderpriority" o_orderpriority
+                                      "order_count" (count group)}))))
+
+        #_[:order-by [:sort-spec o_orderpriority]]
+        result (sort (-> (Comparator/comparing
+                          (reify Function
+                            (apply [_ {:strs [o_orderpriority]}]
+                              o_orderpriority))))
+                     result)]
+    result))

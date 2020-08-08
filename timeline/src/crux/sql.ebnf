@@ -227,6 +227,7 @@ count = <'COUNT'>
 
 <scalar-exp> = identifier
              | numeric-literal
+             | decimal-literal
              | string-literal
              | date-literal
              | timestamp-literal
@@ -257,6 +258,8 @@ false = <'FALSE'>
 boolean-literal = true | false
 
 numeric-literal = #"[-+]?\d*\.?\d+(E[-+]?\d+)?"
+
+decimal-literal = <'DECIMAL'> <"'"> numeric-literal <"'">
 
 unsigned-numeric-literal = #"\d+"
 

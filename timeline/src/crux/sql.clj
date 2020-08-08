@@ -66,6 +66,7 @@
   {:boolean-literal parse-boolean
    :numeric-literal parse-number
    :unsigned-numeric-literal parse-number
+   :decimal-literal identity
    :date-literal parse-date
    :timestamp-literal parse-date
    :interval-literal parse-interval
@@ -114,6 +115,11 @@
                 [:in-exp x y])
                ([x not y]
                 [:boolean-not [:in-exp x y]]))
+   :in-value-list hash-set
+   :routine-invocation (fn [f & args]
+                         (case f
+                           'date (apply i/read-instant-date args)
+                           (vec (cons :routine-invocation (cons f args)))))
    :between-exp (fn
                   ([v x y]
                    [:boolean-and
@@ -156,7 +162,9 @@
 (def normalize-transform
   (merge
    {:table-spec (fn [x & [y]]
-                  [x (or y x)])
+                  (if (vector? x)
+                    x
+                    [x (or y x)]))
     :select-item (fn [x & [y]]
                    [x (or y (if (symbol? x)
                               (symbol-suffix x)
@@ -174,8 +182,32 @@
                          (contains? acc k)
                          (update k first)))
                      select [:where :having :offset :limit])))}
-   (let [constants [:count :sum :avg :min :max :star :asc :desc]]
+   (let [constants [:count :sum :avg :min :max :star :distinct :asc :desc :year :month :day :hour :minute]]
      (zipmap constants (map constantly constants)))))
+
+(def simplify-transform
+  (->> (for [[x y] {:like-exp :like
+                    :in-exp :in
+                    :case-exp :case
+                    :exists-exp :exists
+                    :extract-exp :extract
+                    :numeric-multiply :*
+                    :numeric-divide :/
+                    :numeric-plus :+
+                    :numeric-minus :-
+                    :numeric-modulo :%
+                    :boolean-and :and
+                    :boolean-or :or
+                    :boolean-not :not
+                    :comp-eq :=
+                    :comp-ne :<>
+                    :comp-lt :<
+                    :comp-le :<=
+                    :comp-gt :>
+                    :comp-ge :>=}]
+         [x (fn [& args]
+              (vec (cons y args)))])
+       (into {})))
 
 (defn qualify-transform [column->tables]
   {:identifier (fn [x]
@@ -226,7 +258,7 @@
                `(boolean (re-find ~pattern ~x)))
    :case-exp (fn [cond then else]
                `(if ~cond ~then ~else))
-   :extract-exp (fn [[field] x]
+   :extract-exp (fn [field x]
                   `(.get (.atOffset (.toInstant ~x) ZoneOffset/UTC)
                          ~(case field
                             :year `ChronoField/YEAR

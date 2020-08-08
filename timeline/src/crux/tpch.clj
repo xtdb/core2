@@ -1,0 +1,284 @@
+(ns crux.tpch
+  (:require [clojure.instant :as i]
+            [clojure.set :as set])
+  (:import [io.airlift.tpch GenerateUtils TpchColumn TpchColumnType TpchColumnType$Base TpchEntity TpchTable]
+           [java.util Comparator Date]
+           java.util.function.Function))
+
+(defn uniform-long ^long [^long start ^long end]
+  (+ start (long (rand (- (inc end) start)))))
+
+(defn uniform-date ^java.util.Date [^Date start ^Date end]
+  (let [start-ms (.getTime start)]
+    (Date. (+ start-ms (uniform-long start-ms (.getTime end))))))
+
+(def table->pkey
+  {"part" ["p_partkey"]
+   "supplier" ["s_suppkey"]
+   "partsupp" ["ps_partkey" "ps_suppkey"]
+   "customer" ["c_custkey"]
+   "lineitem" ["l_orderkey" "l_partkey"]
+   "orders" ["o_orderkey"]
+   "nation" ["n_nationkey"]
+   "region" ["r_regionkey"]})
+
+(defn tpch-column->clj [^TpchColumn c ^TpchEntity e]
+  (condp identical? (.getBase (.getType c))
+    TpchColumnType$Base/IDENTIFIER
+    (.getIdentifier c e)
+    TpchColumnType$Base/INTEGER
+    (.getInteger c e)
+    TpchColumnType$Base/VARCHAR
+    (.getString c e)
+    TpchColumnType$Base/DOUBLE
+    (.getDouble c e)
+    TpchColumnType$Base/DATE
+    (i/read-instant-date (GenerateUtils/formatDate (.getDate c e)))))
+
+(defn tpch-doc->pkey [table doc]
+  (select-keys doc (get table->pkey table)))
+
+(defn tpch-entity->doc [^TpchTable t ^TpchEntity e]
+  (persistent!
+   (reduce
+    (fn [acc ^TpchColumn c]
+      (assoc! acc (.getColumnName c) (tpch-column->clj c e)))
+    (transient {})
+    (.getColumns t))))
+
+(defn tpch-table->docs [^TpchTable t scale-factor]
+  (for [e (.createGenerator ^TpchTable t scale-factor 1 1)]
+    (tpch-entity->doc t e)))
+
+;; 0.05 = 7500 customers, 75000 orders, 299814 lineitems, 10000 part, 40000 partsupp, 500 supplier, 25 nation, 5 region
+;; first happens to be customers (;; 150000)
+(defn tpch-dbgen
+  ([]
+   (tpch-dbgen 0.05))
+  ([scale-factor]
+   (->> (for [^TpchTable t (TpchTable/getTables)]
+          [(.getTableName t)
+           (set (for [doc (tpch-table->docs t scale-factor)]
+                  doc))])
+        (into {}))))
+
+  ;; See https://github.com/cwida/duckdb/tree/master/third_party/dbgen/answers
+
+(defonce db-sf-0_01 (tpch-dbgen 0.01))
+
+(defn tpch-01 [{:strs [lineitem] :as db}]
+  ;; :select-exp
+  (let [result (set/select
+                #_[:where
+                   [:comp-le
+                    [:identifier "l_shipdate"]
+                    [:numeric-minus
+                     [:date-literal "'1998-12-01'"]
+                     [:interval-literal "'90'" [:day]]]]]
+                (fn [{:strs [l_shipdate]}]
+                  (not (pos? (compare l_shipdate #inst "1998-09-02T00:00:00.000-00:00"))))
+                #_[:from [:table-spec [:identifier "lineitem"]]]
+                lineitem)
+        #_[:group-by
+           [:identifier "l_returnflag"]
+           [:identifier "l_linestatus"]]
+        result (->> (group-by (fn [{:strs [l_returnflag l_linestatus]}]
+                                [l_returnflag l_linestatus])
+                              result)
+                    (vals)
+                    ;; :select
+                    (into #{} (map (fn [[{:strs [l_returnflag l_linestatus]} :as result]]
+                                     {#_[:select-item [:identifier "l_returnflag"]]
+                                      "l_returnflag" l_returnflag
+                                      #_[:select-item [:identifier "l_linestatus"]]
+                                      "l_linestatus" l_linestatus
+                                      #_[:select-item
+                                         [:set-function-spec [:sum] [:identifier "l_quantity"]]
+                                         [:identifier "sum_qty"]]
+                                      "sum_qty" (reduce (fn [acc {:strs [l_quantity]}]
+                                                          (+ acc l_quantity))
+                                                        0 result)
+                                      #_[:select-item
+                                         [:set-function-spec [:sum] [:identifier "l_extendedprice"]]
+                                         [:identifier "sum_base_price"]]
+                                      "sum_base_price" (reduce (fn [acc {:strs [l_extendedprice]}]
+                                                                 (+ acc l_extendedprice))
+                                                               0 result)
+                                      #_[:select-item
+                                         [:set-function-spec
+                                          [:sum]
+                                          [:numeric-multiply
+                                           [:identifier "l_extendedprice"]
+                                           [:numeric-minus
+                                            [:numeric-literal "1"]
+                                            [:identifier "l_discount"]]]]
+                                         [:identifier "sum_disc_price"]]
+                                      "sum_disc_price" (reduce (fn [acc {:strs [l_extendedprice l_discount]}]
+                                                                 (+ acc (* l_extendedprice
+                                                                           (- 1 l_discount))))
+                                                               0 result)
+                                      #_[:select-item
+                                         [:set-function-spec
+                                          [:sum]
+                                          [:numeric-multiply
+                                           [:numeric-multiply
+                                            [:identifier "l_extendedprice"]
+                                            [:numeric-minus
+                                             [:numeric-literal "1"]
+                                             [:identifier "l_discount"]]]
+                                           [:numeric-plus [:numeric-literal "1"] [:identifier "l_tax"]]]]
+                                         [:identifier "sum_charge"]]
+                                      "sum_charge" (reduce (fn [acc  {:strs [l_extendedprice l_discount l_tax]}]
+                                                             (+ acc (* l_extendedprice
+                                                                       (- 1 l_discount)
+                                                                       (+ 1 l_tax))))
+                                                           0 result)
+                                      #_[:select-item
+                                         [:set-function-spec [:avg] [:identifier "l_quantity"]]
+                                         [:identifier "avg_qty"]]
+                                      "avg_qty" (/ (reduce (fn [acc {:strs [l_quantity]}]
+                                                             (+ acc l_quantity))
+                                                           0 result)
+                                                   (count result))
+                                      #_[:select-item
+                                         [:set-function-spec [:avg] [:identifier "l_extendedprice"]]
+                                         [:identifier "avg_price"]]
+                                      "avg_price" (/ (reduce (fn [acc {:strs [l_extendedprice]}]
+                                                               (+ acc l_extendedprice))
+                                                             0 result)
+                                                     (count result))
+                                      #_[:select-item
+                                         [:set-function-spec [:avg] [:identifier "l_discount"]]
+                                         [:identifier "avg_disc"]]
+                                      "avg_disc" (/ (reduce (fn [acc {:strs [l_discount]}]
+                                                              (+ acc l_discount))
+                                                            0 result)
+                                                    (count result))
+                                      #_[:select-item
+                                         [:set-function-spec [:count] [:star]]
+                                         [:identifier "count_order"]]
+                                      "count_order" (count result)}))))
+        #_[:order-by
+           [:sort-spec [:identifier "l_returnflag"]]
+           [:sort-spec [:identifier "l_linestatus"]]]
+        result (sort (-> (Comparator/comparing
+                          (reify Function
+                            (apply [_ {:strs [l_returnflag]}]
+                              l_returnflag)))
+                         (.thenComparing
+                          (Comparator/comparing
+                           (reify Function
+                             (apply [_ {:strs [l_linestatus]}]
+                               l_linestatus)))))
+                     result)]
+    result))
+
+(defn tpch-02 [{:strs [part supplier partsupp nation region] :as db}]
+  ;; :select-exp
+  #_[:where
+     [:boolean-and
+      [:boolean-and
+       [:boolean-and
+        [:boolean-and
+         [:boolean-and
+          [:boolean-and
+           [:boolean-and
+            [:comp-eq p_partkey ps_partkey]
+            [:comp-eq s_suppkey ps_suppkey]]
+           [:comp-eq p_size 15]]
+          [:like-exp p_type #".*BRASS"]]
+         [:comp-eq s_nationkey n_nationkey]]
+        [:comp-eq n_regionkey r_regionkey]]
+       [:comp-eq r_name "EUROPE"]]
+      [:comp-eq
+       ps_supplycost
+       [:select-exp
+        [:select
+         [:select-item [:set-function-spec [:min] ps_supplycost]]]
+        [:from
+         [:table-spec partsupp]
+         [:table-spec supplier]
+         [:table-spec nation]
+         [:table-spec region]]
+        [:where
+         [:boolean-and
+          [:boolean-and
+           [:boolean-and
+            [:boolean-and
+             [:comp-eq p_partkey ps_partkey]
+             [:comp-eq s_suppkey ps_suppkey]]
+            [:comp-eq s_nationkey n_nationkey]]
+           [:comp-eq n_regionkey r_regionkey]]
+          [:comp-eq r_name "EUROPE"]]]]]]]
+  (let [result (-> (set/select (fn [{:strs [r_name]}]
+                                 (= r_name "EUROPE"))
+                               region)
+                   (set/join nation {"r_regionkey" "n_regionkey"})
+                   (set/join supplier {"n_nationkey" "s_nationkey"})
+                   (set/join partsupp {"s_suppkey" "ps_suppkey"})
+                   (set/join (set/select (fn [{:strs [p_size p_type]}]
+                                           (and (= p_size 15)
+                                                (boolean (re-find #".*BRASS" p_type))))
+                                         part)
+                             {"ps_partkey" "p_partkey"}))
+        result (set/select (fn [{:strs [ps_supplycost p_partkey]}]
+                             (= ps_supplycost (->> (-> (set/select (fn [{:strs [r_name]}]
+                                                                     (= r_name "EUROPE"))
+                                                                   region)
+                                                       (set/join nation {"r_regionkey" "n_regionkey"})
+                                                       (set/join supplier {"n_nationkey" "s_nationkey"})
+                                                       (set/join (set/select (fn [{:strs [ps_partkey]}]
+                                                                               (= ps_partkey p_partkey))
+                                                                             partsupp)
+                                                                 {"s_suppkey" "ps_suppkey"}))
+                                                   (reduce (fn [acc {:strs [ps_supplycost]}]
+                                                             (min acc ps_supplycost))
+                                                           Long/MAX_VALUE))))
+                           result)
+        #_[:select
+           [:select-item s_acctbal]
+           [:select-item s_name]
+           [:select-item n_name]
+           [:select-item p_partkey]
+           [:select-item p_mfgr]
+           [:select-item s_address]
+           [:select-item s_phone]
+           [:select-item s_comment]]
+        result (->> (set/project result ["s_acctbal"
+                                         "s_name"
+                                         "n_name"
+                                         "p_partkey"
+                                         "p_mfgr"
+                                         "s_address"
+                                         "s_phone"
+                                         "s_comment"])
+                    (remove empty?))
+        #_[:order-by
+           [:sort-spec s_acctbal [:desc]]
+           [:sort-spec n_name]
+           [:sort-spec s_name]
+           [:sort-spec p_partkey]]
+        result (vec (sort (-> (.reversed
+                               (Comparator/comparing
+                                (reify Function
+                                  (apply [_ {:strs [s_acctbal]}]
+                                    s_acctbal))))
+                              (.thenComparing
+                               (Comparator/comparing
+                                (reify Function
+                                  (apply [_ {:strs [n_name]}]
+                                    n_name))))
+                              (.thenComparing
+                               (Comparator/comparing
+                                (reify Function
+                                  (apply [_ {:strs [s_name]}]
+                                    s_name))))
+                              (.thenComparing
+                               (Comparator/comparing
+                                (reify Function
+                                  (apply [_ {:strs [p_partkey]}]
+                                    p_partkey)))))
+                          result))
+        #_[:limit 100]
+        result (subvec result 0 (min (count result) 100))]
+    result))

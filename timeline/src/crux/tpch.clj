@@ -90,7 +90,9 @@
          {c #{name}})
        (apply merge-with set/union)))
 
-  ;; See https://github.com/cwida/duckdb/tree/master/third_party/dbgen/answers
+;; See https://github.com/cwida/duckdb/tree/master/third_party/dbgen/answers
+
+;; https://db.in.tum.de/teaching/ws2021/queryopt/?lang=en
 
 (defonce db-sf-0_01 (tpch-dbgen 0.01))
 

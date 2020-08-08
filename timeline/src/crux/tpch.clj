@@ -90,6 +90,9 @@
          {c #{name}})
        (apply merge-with set/union)))
 
+(defn table-columns [db table]
+  (set (keys (:columns (meta (get db table))))))
+
 ;; See https://github.com/cwida/duckdb/tree/master/third_party/dbgen/answers
 
 ;; https://db.in.tum.de/teaching/ws2021/queryopt/?lang=en

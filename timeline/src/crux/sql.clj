@@ -162,9 +162,13 @@
   (symbol (s/replace x #"\..+$" "")))
 
 (defn normalize-where [where]
-  (if (= :and (first where))
-    (rest where)
-    [where]))
+  (cond
+    (set? where)
+    where
+    (= :and (first where))
+    (set (rest where))
+    :else
+    #{where}))
 
 (defn find-joins [where]
   (->> (for [x (normalize-where where)
@@ -177,7 +181,8 @@
          [(symbol-prefix a)
           (symbol-prefix b)
           {(symbol-suffix a)
-           (symbol-suffix b)}])))
+           (symbol-suffix b)}
+          x])))
 
 (defn join-order [db joins]
   (sort-by (fn [[x y]]
@@ -185,13 +190,20 @@
                 (count (get db (str y)))))
            joins))
 
-(defn find-selections [where]
+(defn find-selections-for-attrs [where known-attrs]
+  (let [known-attrs (set (map symbol known-attrs))]
+    (set (for [x (normalize-where where)
+               :when (set/superset? known-attrs (set (map symbol-suffix (filter symbol? x))))]
+           x))))
+
+(defn find-base-selections [where]
   (->> (for [x (normalize-where where)
              :when (and (= 3 (count x))
-                        (= 1 (count (distinct (map symbol-prefix (filter symbol? x))))))
+                        (= 1 (count (distinct (map symbol-prefix (filter symbol? x)))))
+                        (not-any? map? x))
              :let [[a] (filter symbol? x)]]
-         {(symbol-prefix a) [x]})
-       (apply merge-with (comp vec concat))))
+         {(symbol-prefix a) #{x}})
+       (apply merge-with set/union)))
 
 (def normalize-transform
   (merge

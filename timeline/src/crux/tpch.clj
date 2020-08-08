@@ -22,12 +22,25 @@
    "nation" ["n_nationkey"]
    "region" ["r_regionkey"]})
 
+(defn tpch-column->type [^TpchColumn c]
+  (condp identical? (.getBase (.getType c))
+    TpchColumnType$Base/IDENTIFIER
+    Long
+    TpchColumnType$Base/INTEGER
+    Long
+    TpchColumnType$Base/VARCHAR
+    String
+    TpchColumnType$Base/DOUBLE
+    Double
+    TpchColumnType$Base/DATE
+    Date))
+
 (defn tpch-column->clj [^TpchColumn c ^TpchEntity e]
   (condp identical? (.getBase (.getType c))
     TpchColumnType$Base/IDENTIFIER
     (.getIdentifier c e)
     TpchColumnType$Base/INTEGER
-    (.getInteger c e)
+    (long (.getInteger c e))
     TpchColumnType$Base/VARCHAR
     (.getString c e)
     TpchColumnType$Base/DOUBLE
@@ -37,6 +50,12 @@
 
 (defn tpch-doc->pkey [table doc]
   (select-keys doc (get table->pkey table)))
+
+(defn tpch-table->columns [^TpchTable table]
+  (->> (for [^TpchColumn c (.getColumns table)]
+         [(.getColumnName c)
+          (tpch-column->type c)])
+       (into {})))
 
 (defn tpch-entity->doc [^TpchTable t ^TpchEntity e]
   (persistent!
@@ -56,11 +75,20 @@
   ([]
    (tpch-dbgen 0.05))
   ([scale-factor]
-   (->> (for [^TpchTable t (TpchTable/getTables)]
-          [(.getTableName t)
-           (set (for [doc (tpch-table->docs t scale-factor)]
-                  doc))])
+   (->> (for [^TpchTable t (TpchTable/getTables)
+              :let [table-name (.getTableName t)]]
+          [table-name
+           (with-meta (set (for [doc (tpch-table->docs t scale-factor)]
+                             doc))
+             {:name table-name
+              :columns (tpch-table->columns t)})])
         (into {}))))
+
+(defn build-column->tables [db]
+  (->> (for [{:keys [name columns]} (map meta (vals db))
+             c (keys columns)]
+         {c #{name}})
+       (apply merge-with set/union)))
 
   ;; See https://github.com/cwida/duckdb/tree/master/third_party/dbgen/answers
 

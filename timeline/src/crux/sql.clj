@@ -268,59 +268,59 @@
                    (symbol x)))})
 
 (def codegen-transform
-  {:boolean-not (fn [x]
-                  `(not ~x))
-   :boolean-and (fn [& xs]
-                  `(and ~@xs))
-   :boolean-or (fn [& xs]
-                 `(or ~@xs))
-   :comp-eq (fn [x y]
-              `(= ~x ~y))
-   :comp-ne (fn [x y]
-              `(not= ~x ~y))
-   :comp-lt (fn [x y]
-              (if (or (number? x) (number? y))
-                `(< ~x ~y)
-                `(neg? (compare ~x ~y))))
-   :comp-le (fn [x y]
-              (if (or (number? x) (number? y))
-                `(<= ~x ~y)
-                `(not (pos? (compare ~x ~y)))))
-   :comp-gt (fn [x y]
-              (if (or (number? x) (number? y))
-                `(> ~x ~y)
-                `(pos? (compare ~x ~y))))
-   :comp-ge (fn [x y]
-              (if (or (number? x) (number? y))
-                `(>= ~x ~y)
-                `(not (neg? (compare ~x ~y)))))
-   :numeric-plus (fn [x y]
-                   `(+ ~x ~y))
-   :numeric-minus (fn [x y]
-                    `(- ~x ~y))
-   :numeric-multiply (fn [x y]
-                       `(* ~x ~y))
-   :numeric-divide (fn [x y]
-                     `(/ ~x ~y))
-   :numeric-modulo (fn [x y]
-                     `(rem ~x ~y))
-   :like-exp (fn [x pattern]
-               `(boolean (re-find ~pattern ~x)))
-   :case-exp (fn [cond then else]
-               `(if ~cond ~then ~else))
-   :extract-exp (fn [field x]
-                  `(.get (.atOffset (.toInstant ~x) ZoneOffset/UTC)
-                         ~(case field
-                            :year `ChronoField/YEAR
-                            :month `ChronoField/MONTH_OF_YEAR
-                            :day `ChronoField/DAY_OF_MONTH
-                            :hour `ChronoField/HOUR_OF_DAY
-                            :minute `ChronoField/MINUTE_OF_HOUR)))
+  {:not (fn [x]
+          `(not ~x))
+   :and (fn [& xs]
+          `(and ~@xs))
+   :or (fn [& xs]
+         `(or ~@xs))
+   := (fn [x y]
+        `(= ~x ~y))
+   :<> (fn [x y]
+         `(not= ~x ~y))
+   :< (fn [x y]
+        (if (or (number? x) (number? y))
+          `(< ~x ~y)
+          `(neg? (compare ~x ~y))))
+   :<= (fn [x y]
+         (if (or (number? x) (number? y))
+           `(<= ~x ~y)
+           `(not (pos? (compare ~x ~y)))))
+   :> (fn [x y]
+        (if (or (number? x) (number? y))
+          `(> ~x ~y)
+          `(pos? (compare ~x ~y))))
+   :>= (fn [x y]
+         (if (or (number? x) (number? y))
+           `(>= ~x ~y)
+           `(not (neg? (compare ~x ~y)))))
+   :+ (fn [x y]
+        `(+ ~x ~y))
+   :- (fn [x y]
+        `(- ~x ~y))
+   :* (fn [x y]
+        `(* ~x ~y))
+   :/ (fn [x y]
+        `(/ ~x ~y))
+   :% (fn [x y]
+        `(rem ~x ~y))
+   :like (fn [x pattern]
+           `(boolean (re-find ~pattern ~x)))
+   :case (fn [cond then else]
+           `(if ~cond ~then ~else))
+   :extract (fn [field x]
+              `(.get (.atOffset (.toInstant ~x) ZoneOffset/UTC)
+                     ~(case field
+                        :year `ChronoField/YEAR
+                        :month `ChronoField/MONTH_OF_YEAR
+                        :day `ChronoField/DAY_OF_MONTH
+                        :hour `ChronoField/HOUR_OF_DAY
+                        :minute `ChronoField/MINUTE_OF_HOUR)))
    :routine-invocation (fn [f & args]
                          (case f
                            (substr
                             substring) (let [[x start length] args]
-                                         `(subs ~x (dec ~start) (+ (dec ~start) ~length)))
+                            `(subs ~x (dec ~start) (+ (dec ~start) ~length)))
                            `(~f ~@args)))})
 
 (comment

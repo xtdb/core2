@@ -74,49 +74,7 @@
    :identifier parse-identifier})
 
 (def constant-folding-transform
-  {:boolean-not (fn [x]
-                  (if (boolean? x)
-                    (not x)
-                    [:boolean-not x]))
-   :boolean-and (fn [x y]
-                  (if (and (boolean? x) (boolean? y))
-                    (and x y)
-                    [:boolean-and x y]))
-   :boolean-or (fn [x y]
-                 (if (and (boolean? x) (boolean? y))
-                   (or x y)
-                   [:boolean-or x y]))
-   :comp-eq (fn [x y]
-              (if (or (symbol? x)
-                      (symbol? y))
-                [:comp-eq x y]
-                (= x y)))
-   :comp-lt (fn [x y]
-              (if (or (symbol? x)
-                      (symbol? y))
-                [:comp-lt x y]
-                (neg? (compare x y))))
-   :comp-le (fn [x y]
-              (if (or (symbol? x)
-                      (symbol? y))
-                [:comp-le x y]
-                (not (pos? (compare x y)))))
-   :comp-gt (fn [x y]
-              (if (or (symbol? x)
-                      (symbol? y))
-                [:comp-gt x y]
-                (pos? (compare x y))))
-   :comp-ge (fn [x y]
-              (if (or (symbol? x)
-                      (symbol? y))
-                [:comp-ge x y]
-                (not (neg? (compare x y)))))
-   :comp-ne (fn [x y]
-              (if (or (symbol? x)
-                      (symbol? y))
-                [:comp-ne x y]
-                (not= x y)))
-   :numeric-minus (fn [x y]
+  {:numeric-minus (fn [x y]
                     (cond
                       (and (instance? Date x)
                            (instance? TemporalAmount y))
@@ -146,6 +104,16 @@
                      (if (and (number? x) (number? y))
                        (rem x y)
                        [:numeric-modulo x y]))
+   :like-exp (fn
+               ([x pattern]
+                [:like-exp x pattern])
+               ([x not pattern]
+                [:boolean-not [:like-exp x pattern]]))
+   :in-exp (fn
+               ([x y]
+                [:in-exp x y])
+               ([x not y]
+                [:boolean-not [:in-exp x y]]))
    :between-exp (fn
                   ([v x y]
                    [:boolean-and
@@ -156,13 +124,74 @@
                     [:comp-lt v x]
                     [:comp-gt v y]]))})
 
+(def nary-transform
+  {:boolean-and (fn [x y]
+                  (cond
+                    (and (vector? x)
+                         (= :boolean-and (first x))
+                         (vector? y)
+                         (= :boolean-and (first y)))
+                    (apply conj x (rest y))
+                    (and (vector? x)
+                         (= :boolean-and (first x)))
+                    (conj x y)
+                    :else
+                    [:boolean-and x y]))
+   :boolean-or (fn [x y]
+                 (cond
+                   (and (vector? x)
+                        (= :boolean-or (first x))
+                        (vector? y)
+                        (= :boolean-or (first y)))
+                   (apply conj x (rest y))
+                   (and (vector? x)
+                        (= :boolean-or (first x)))
+                   (conj x y)
+                   :else
+                   [:boolean-or x y]))})
+
+(defn symbol-suffix [x]
+  (symbol (s/replace x #"^.+\." "")))
+
+(def normalize-transform
+  (merge
+   {:table-spec (fn [x & [y]]
+                  [x (or y x)])
+    :select-item (fn [x & [y]]
+                   [x (or y (if (symbol? x)
+                              (symbol-suffix x)
+                              (gensym "column_")))])
+    :sort-spec (fn [x & [dir]]
+                 [x (or dir :asc)])
+    :set-function-spec (fn [& args]
+                         (vec args))
+    :select-exp (fn [& args]
+                  (let [select (zipmap (map first args)
+                                       (map (comp vec rest) args))]
+                    (reduce
+                     (fn [acc k]
+                       (cond-> acc
+                         (contains? acc k)
+                         (update k first)))
+                     select [:where :having :offset :limit])))}
+   (let [constants [:count :sum :avg :min :max :star :asc :desc]]
+     (zipmap constants (map constantly constants)))))
+
+(defn qualify-transform [column->tables]
+  {:identifier (fn [x]
+                 (if-let [ts (get column->tables (name x))]
+                   (if (= 1 (count ts))
+                     (symbol (str (first ts) "." (name x)))
+                     (throw (IllegalArgumentException. (str "Column not unique:" x))))
+                   (symbol x)))})
+
 (def codegen-transform
   {:boolean-not (fn [x]
                   `(not ~x))
-   :boolean-and (fn [x y]
-                  `(and ~x ~y))
-   :boolean-or (fn [x y]
-                 `(or ~x ~y))
+   :boolean-and (fn [& xs]
+                  `(and ~@xs))
+   :boolean-or (fn [& xs]
+                 `(or ~@xs))
    :comp-eq (fn [x y]
               `(= ~x ~y))
    :comp-ne (fn [x y]
@@ -214,7 +243,17 @@
 
 (comment
   (for [q (map inc (range 22))]
-    (parse-sql (slurp (io/resource (format "io/airlift/tpch/queries/q%d.sql" q))))))
+    (parse-sql (slurp (io/resource (format "io/airlift/tpch/queries/q%d.sql" q)))))
+
+  (reduce
+   (fn [acc transform-map]
+     (insta/transform transform-map acc))
+   (parse-sql (slurp (io/resource (format "io/airlift/tpch/queries/q%d.sql" 16))))
+   [(qualify-transform (crux.tpch/build-column->tables crux.tpch/db-sf-0_01))
+    literal-transform
+    constant-folding-transform
+    nary-transform
+    normalize-transform]))
 
 ;; High level SQL grammar, from
 ;; https://calcite.apache.org/docs/reference.html

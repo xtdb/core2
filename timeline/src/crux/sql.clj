@@ -158,6 +158,41 @@
 (defn symbol-suffix [x]
   (symbol (s/replace x #"^.+\." "")))
 
+(defn symbol-prefix [x]
+  (symbol (s/replace x #"\..+$" "")))
+
+(defn normalize-where [where]
+  (if (= :and (first where))
+    (rest where)
+    [where]))
+
+(defn find-joins [where]
+  (->> (for [x (normalize-where where)
+             :when (= := (first x))
+             :let [[_ a b] x]
+             :when (and (symbol? a)
+                        (symbol? b)
+                        (not= (symbol-prefix a)
+                              (symbol-prefix b)))]
+         [(symbol-prefix a)
+          (symbol-prefix b)
+          {(symbol-suffix a)
+           (symbol-suffix b)}])))
+
+(defn join-order [db joins]
+  (sort-by (fn [[x y]]
+             (* (count (get db (str x)))
+                (count (get db (str y)))))
+           joins))
+
+(defn find-selections [where]
+  (->> (for [x (normalize-where where)
+             :when (and (= 3 (count x))
+                        (= 1 (count (distinct (map symbol-prefix (filter symbol? x))))))
+             :let [[a] (filter symbol? x)]]
+         {(symbol-prefix a) [x]})
+       (apply merge-with (comp vec concat))))
+
 (def normalize-transform
   (merge
    {:table-spec (fn [x & [y]]

@@ -3,6 +3,7 @@
             [clojure.java.io :as io]
             [clojure.instant :as i]
             [clojure.string :as s]
+            [clojure.walk :as w]
             [instaparse.core :as insta])
   (:import [java.util Comparator Date]
            java.util.function.Function
@@ -218,18 +219,20 @@
     :sort-spec (fn [x & [dir]]
                  [x (or dir :asc)])
     :set-function-spec (fn [& args]
-                         (vec args))
-    :select-exp (fn [& args]
-                  (let [select (zipmap (map first args)
-                                       (map (comp vec rest) args))]
-                    (reduce
-                     (fn [acc k]
-                       (cond-> acc
-                         (contains? acc k)
-                         (update k first)))
-                     select [:where :having :offset :limit])))}
+                         (vec args))}
    (let [constants [:count :sum :avg :min :max :star :distinct :asc :desc :year :month :day :hour :minute]]
      (zipmap constants (map constantly constants)))))
+
+(def map-transform
+  {:select-exp (fn [& args]
+                 (let [select (zipmap (map first args)
+                                      (map (comp vec rest) args))]
+                   (reduce
+                    (fn [acc k]
+                      (cond-> acc
+                        (contains? acc k)
+                        (update k first)))
+                    select [:where :having :offset :limit])))})
 
 (def simplify-transform
   (->> (for [[x y] {:like-exp :like
@@ -266,6 +269,22 @@
                      (symbol (str (first ts) "." (name x)))
                      (throw (IllegalArgumentException. (str "Column not unique:" x))))
                    (symbol x)))})
+
+(defn remove-symbol-prefixes [x]
+  (w/postwalk #(if (and (symbol? %) (nil? (namespace %)))
+                 (symbol-suffix %)
+                 %) x))
+
+(defn find-symbol-suffixes [x]
+  (let [acc (volatile! #{})]
+    (w/postwalk #(do (when (and (symbol? %) (nil? (namespace %)))
+                       (vswap! acc conj (symbol-suffix %)))
+                     %) x)
+    @acc))
+
+(defn where-predicate [x]
+  `(fn [{:strs ~(vec (find-symbol-suffixes x))}]
+     ~(remove-symbol-prefixes x)))
 
 (def codegen-transform
   {:not (fn [x]
@@ -323,7 +342,40 @@
                            (substr
                             substring) (let [[x start length] args]
                             `(subs ~x (dec ~start) (+ (dec ~start) ~length)))
-                           `(~f ~@args)))})
+                           `(~f ~@args)))
+   :sum (fn [x]
+          `(fn [group#]
+             (reduce
+              (fn [acc# {:strs ~(vec (find-symbol-suffixes x))}]
+                (+ acc# ~(remove-symbol-prefixes x)))
+              0 group#)))
+   :avg (fn [x]
+          `(fn [group#]
+             (/ (reduce
+                 (fn [acc# {:strs ~(vec (find-symbol-suffixes x))}]
+                   (+ acc# ~(remove-symbol-prefixes x)))
+                 0 group#)
+                (count group#))))
+   :min (fn [x]
+          `(fn [group#]
+             (reduce
+              (fn [acc# {:strs ~(vec (find-symbol-suffixes x))}]
+                (min acc# ~(remove-symbol-prefixes x)))
+              Long/MAX_VALUE group#)))
+   :max (fn [x]
+          `(fn [group#]
+             (reduce
+              (fn [acc# {:strs ~(vec (find-symbol-suffixes x))}]
+                (max acc# ~(remove-symbol-prefixes x)))
+              Long/MIN_VALUE group#)))
+   :count (fn [x]
+            (if (= :star x)
+              `(fn [group#]
+                 (count group#))
+              `(fn [group#]
+                 (count (map (fn [{:strs ~(vec (find-symbol-suffixes x))}]
+                               ~(remove-symbol-prefixes x))
+                             group#)))))})
 
 (comment
   (for [q (map inc (range 22))]
@@ -337,7 +389,8 @@
     literal-transform
     constant-folding-transform
     nary-transform
-    normalize-transform]))
+    normalize-transform
+    map-transform]))
 
 ;; High level SQL grammar, from
 ;; https://calcite.apache.org/docs/reference.html

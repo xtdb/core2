@@ -192,7 +192,8 @@
                     :extract-exp :extract
                     :match-exp :match
                     :unique-exp :unique
-                    :all-or-any-exp :all-or-any
+                    :all-exp :all
+                    :any-exp :any
                     :numeric-multiply :*
                     :numeric-divide :/
                     :numeric-plus :+

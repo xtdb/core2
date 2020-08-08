@@ -163,15 +163,13 @@ unique = <'UNIQUE'>
 
 match-exp = row-exp <'MATCH'> [unique] table-subquery
 
-all-or-any-exp = row-exp simple-comp-op all-or-any table-subquery
-
 all = <'ALL'>
 
-any = <'ANY'>
+all-exp = row-exp simple-comp-op <all> table-subquery
 
-some = <'SOME'>
+any-exp = row-exp simple-comp-op <('ANY' | 'SOME')> table-subquery
 
-<all-or-any> = all | any | some
+<all-or-any-exp> = all-exp | any-exp
 
 exists-exp = <'EXISTS'> table-subquery
 

@@ -66,7 +66,6 @@
   {:boolean-literal parse-boolean
    :numeric-literal parse-number
    :unsigned-numeric-literal parse-number
-   :decimal-literal identity
    :date-literal parse-date
    :timestamp-literal parse-date
    :interval-literal parse-interval
@@ -191,6 +190,9 @@
                     :case-exp :case
                     :exists-exp :exists
                     :extract-exp :extract
+                    :match-exp :match
+                    :unique-exp :unique
+                    :all-or-any-exp :all-or-any
                     :numeric-multiply :*
                     :numeric-divide :/
                     :numeric-plus :+

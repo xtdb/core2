@@ -259,7 +259,7 @@ boolean-literal = true | false
 
 numeric-literal = #"[-+]?\d*\.?\d+(E[-+]?\d+)?"
 
-decimal-literal = <'DECIMAL'> <"'"> numeric-literal <"'">
+<decimal-literal> = <'DECIMAL'> <"'"> numeric-literal <"'">
 
 unsigned-numeric-literal = #"\d+"
 

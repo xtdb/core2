@@ -381,12 +381,23 @@
     q
     (assoc q :group-by [])))
 
+(def ^:dynamic *known-vars* #{})
+
+(declare codegen-query)
+
 (defn codegen-predicate
   ([pred]
-   (codegen-predicate pred #{}))
-  ([pred known-vars]
-   `(fn [{:strs ~(vec (remove known-vars (find-symbol-suffixes pred)))}]
-      ~(insta/transform codegen-transform (remove-symbol-prefixes pred)))))
+   (codegen-predicate pred #{} {}))
+  ([pred known-vars db-var]
+   (binding [*known-vars* (set/union *known-vars* known-vars)]
+     `(fn [{:strs ~(vec (remove *known-vars* (find-symbol-suffixes pred)))}]
+        ~(binding [*known-vars* (set/union *known-vars* (find-symbol-suffixes pred))]
+           (remove-symbol-prefixes
+            (w/postwalk #(if (and (map? %)
+                                  (contains? % :select))
+                           `(->> (~(codegen-query %) ~db-var) (ffirst) (val))
+                           %)
+                        (insta/transform codegen-transform pred))))))))
 
 (defn codegen-from-where
   ([query]
@@ -394,6 +405,8 @@
   ([{:keys [from where]} db known-vars]
    (let [known-tables (set (map second from))
          joins (find-joins where known-tables)
+         joined-tables (set (mapcat #(take 2 %) joins))
+         unjoined-tables (set/difference known-tables joined-tables)
          join-selections (set (map last joins))
          where (set/difference (normalize-where where) join-selections)
          base-selections (find-base-selections where)
@@ -402,13 +415,17 @@
          result-var (gensym 'result)
          add-base-selection (fn [x]
                               (if-let [selection (get base-selections x)]
-                                (list `set/select (codegen-predicate (vec (cons :and selection)) known-vars) x)
+                                (list `set/select (codegen-predicate (vec (cons :and selection)) known-vars db-var) x)
                                 x))]
      `(fn [~(->> (for [[table as] from]
                    [as (str table)])
                  (into {:as db-var}))]
         ~(cond->> `(as-> #{}
                        ~result-var
+                       ~@(when (seq unjoined-tables)
+                           (cons (add-base-selection (first unjoined-tables))
+                                 (for [table (rest unjoined-tables)]
+                                   `(set/join ~result-var ~(add-base-selection table)))))
                        ~@(first
                           (reduce
                            (fn [[acc joined-rels] [l r using]]
@@ -427,7 +444,7 @@
                                 (conj joined-rels l r)]))
                            [[] #{}]
                            (join-order db joins))))
-           (not-empty final-selection) (list `set/select (codegen-predicate (vec (cons :and final-selection)) known-vars)))))))
+           (not-empty final-selection) (list `set/select (codegen-predicate (vec (cons :and final-selection)) known-vars db-var)))))))
 
 (defn codegen-select [{:keys [select]}]
   `(fn [result#]
@@ -480,6 +497,20 @@
                          (when limit
                            [`(take ~limit)])))
              result#))))
+
+(defn codegen-query
+  ([query]
+   (codegen-query query {} (set/union *known-vars* #{})))
+  ([query db known-vars]
+   (let [{:keys [select from where group-by order-by offset limit] :as query} (maybe-add-group-by query)]
+     (let [db-var (gensym 'db)]
+       `(fn [~db-var]
+          (->> ~db-var
+               ~@(cond-> [(list (codegen-from-where query db known-vars))]
+                   group-by (conj (list (codegen-group-by query)))
+                   (nil? group-by) (conj (list (codegen-select query)))
+                   order-by (conj (list (codegen-order-by query)))
+                   (or offset limit) (conj (list (codegen-offset-limit query))))))))))
 
 (comment
   (for [q (map inc (range 22))]

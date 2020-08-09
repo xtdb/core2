@@ -422,7 +422,8 @@
                                   (contains? joined-rels l)
                                   (conj acc `(set/join ~result-var ~(add-base-selection r) ~using))
                                   :else
-                                  (conj acc `(set/join ~(add-base-selection l) ~(add-base-selection r) ~using)))
+                                  (conj acc (cond->> `(set/join ~(add-base-selection l) ~(add-base-selection r) ~using)
+                                              (not-empty joined-rels) (list 'set/join result-var))))
                                 (conj joined-rels l r)]))
                            [[] #{}]
                            (join-order db joins))))

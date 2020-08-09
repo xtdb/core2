@@ -163,6 +163,9 @@
 (defn symbol-prefix [x]
   (symbol (s/replace x #"\..+$" "")))
 
+(defn symbol-with-prefix? [x]
+  (boolean (re-find #"\." (str x))))
+
 (defn normalize-where [where]
   (cond
     (set? where)
@@ -278,11 +281,24 @@
                  (symbol-suffix %)
                  %) x))
 
-(defn find-symbol-suffixes [x]
+(defn find-free-vars [x known-tables]
   (let [acc (volatile! #{})]
-    (w/postwalk #(do (when (and (symbol? %) (nil? (namespace %)))
+    (w/postwalk #(do (when (and (symbol? %) (nil? (namespace %))
+                                (symbol-with-prefix? %)
+                                (not (contains? known-tables (symbol-prefix %))))
                        (vswap! acc conj (symbol-suffix %)))
                      %) x)
+    @acc))
+
+(defn find-symbol-suffixes [x]
+  (let [acc (volatile! #{})]
+    (w/prewalk #(do (when (and (symbol? %) (nil? (namespace %)))
+                      (vswap! acc conj (symbol-suffix %)))
+                    (if (and (map? %)
+                             (contains? % :select))
+                      (let [known-tables (set (map second (:from %)))]
+                        (vswap! acc set/union (find-free-vars % known-tables)))
+                      %)) x)
     @acc))
 
 (def codegen-transform

@@ -283,10 +283,6 @@
                      %) x)
     @acc))
 
-(defn where-predicate [x]
-  `(fn [{:strs ~(vec (find-symbol-suffixes x))}]
-     ~(remove-symbol-prefixes x)))
-
 (def codegen-transform
   {:not (fn [x]
           `(not ~x))
@@ -377,6 +373,11 @@
                  (count (map (fn [{:strs ~(vec (find-symbol-suffixes x))}]
                                ~(remove-symbol-prefixes x))
                              group#)))))})
+
+(defn maybe-add-group-by [{:keys [group-by select] :as q}]
+  (if (or group-by (every? symbol? (map first select)))
+    q
+    (assoc q :group-by [])))
 
 (defn codegen-predicate [pred]
   `(fn [{:strs ~(vec (find-symbol-suffixes pred))}]

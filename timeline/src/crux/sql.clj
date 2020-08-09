@@ -2,6 +2,7 @@
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.instant :as i]
+            [clojure.set :as set]
             [clojure.string :as s]
             [clojure.walk :as w]
             [instaparse.core :as insta])
@@ -377,6 +378,62 @@
                                ~(remove-symbol-prefixes x))
                              group#)))))})
 
+(defn codegen-predicate [pred]
+  `(fn [{:strs ~(vec (find-symbol-suffixes pred))}]
+     ~(insta/transform codegen-transform (remove-symbol-prefixes pred))))
+
+(defn codegen-select [{:keys [select]}]
+  `(fn [result#]
+     (->> (set/project result# ~(for [[_ as] select]
+                                  (str (symbol-suffix as))))
+          (remove empty?))))
+
+(defn codegen-group-by [{:keys [select group-by having]}]
+  (when group-by
+    (let [result-var (gensym 'result)
+          group-var (gensym 'group)]
+      `(fn [~result-var]
+         ~(cond->> `(->> (group-by (fn [{:strs ~(mapv symbol-suffix group-by)}]
+                                     ~(mapv symbol-suffix group-by))
+                                   ~result-var)
+                         (vals)
+                         (remove empty?)
+                         (into #{} (map (fn [[{:strs ~(mapv symbol-suffix group-by)} :as ~group-var]]
+                                          (hash-map
+                                           ~@(->> (for [[exp as] select]
+                                                    [(str (symbol-suffix as))
+                                                     (if (symbol? exp)
+                                                       (symbol-suffix exp)
+                                                       `(~(insta/transform codegen-transform (remove-symbol-prefixes exp))
+                                                         ~group-var))])
+                                                  (reduce into [])))))))
+            having (list `set/select (codegen-predicate having)))))))
+
+(defn codegen-order-by [{:keys [order-by]}]
+  (when order-by
+    `(fn [result#]
+       (sort (-> ~@(reduce
+                    (fn [acc [col dir]]
+                      (cond->> `(Comparator/comparing
+                                 (reify Function
+                                   (apply [_# {:strs [~(symbol-suffix col)]}]
+                                     ~(symbol-suffix col))))
+                        (= :desc dir) (list '.reversed)
+                        (not-empty acc) (list '.thenComparing)
+                        true (conj acc)))
+                    []
+                    order-by)) result#))))
+
+(defn codegen-offset-limit [{:keys [offset limit] :as query}]
+  (when (or offset limit)
+    `(fn [result#]
+       (into [] (comp ~@(concat
+                         (when offset
+                           [`(drop ~offset)])
+                         (when limit
+                           [`(take ~limit)])))
+             result#))))
+
 (comment
   (for [q (map inc (range 22))]
     (parse-sql (slurp (io/resource (format "io/airlift/tpch/queries/q%d.sql" q)))))
@@ -389,6 +446,7 @@
     literal-transform
     constant-folding-transform
     nary-transform
+    simplify-transform
     normalize-transform
     map-transform]))
 

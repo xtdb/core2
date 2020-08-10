@@ -449,34 +449,39 @@
                              (if-let [selection (get base-table->selection x)]
                                (list `set/select (codegen-predicate (vec (cons :and selection)) ctx) x)
                                x))]
-    `(fn [~(->> (for [[table as] from]
+    `(fn [~(->> (for [[table as] from
+                      :when (not (sub-query? table))]
                   [as (str table)])
                 (into {:as db-var}))]
-       ~(cond->> `(as-> #{}
-                      ~result-var
-                    ~@(when (seq unjoined-tables)
-                        (cons (add-base-selection (first unjoined-tables))
-                              (for [table (rest unjoined-tables)]
-                                `(set/join ~result-var ~(add-base-selection table)))))
-                    ~@(first
-                       (reduce
-                        (fn [[acc joined-rels] {:keys [lhs rhs using]}]
-                          (let [using (->> (for [[lc rc] using]
-                                             [(str (symbol-suffix lc))
-                                              (str (symbol-suffix rc))])
-                                           (into {}))]
-                            [(cond
-                               (contains? joined-rels rhs)
-                               (conj acc `(set/join ~(add-base-selection lhs) ~result-var ~using))
-                               (contains? joined-rels lhs)
-                               (conj acc `(set/join ~result-var ~(add-base-selection rhs) ~using))
-                               :else
-                               (conj acc (cond->> `(set/join ~(add-base-selection lhs) ~(add-base-selection rhs) ~using)
-                                           (not-empty joined-rels) (list 'set/join result-var))))
-                             (conj joined-rels lhs rhs)]))
-                        [[] #{}]
-                        (calculate-join-order db joins))))
-          (not-empty final-selection) (list `set/select (codegen-predicate (vec (cons :and final-selection)) ctx))))))
+       (let [~@(for [[table as] from
+                     :when (sub-query? table)]
+                 (cond-> [as (codegen-query table ctx)]
+                   (get base-table->selection as) (conj as (add-base-selection as))))]
+         (cond->> `(as-> #{}
+                       ~result-var
+                       ~@(when (seq unjoined-tables)
+                           (cons (add-base-selection (first unjoined-tables))
+                                 (for [table (rest unjoined-tables)]
+                                   `(set/join ~result-var ~(add-base-selection table)))))
+                       ~@(first
+                          (reduce
+                           (fn [[acc joined-rels] {:keys [lhs rhs using]}]
+                             (let [using (->> (for [[lc rc] using]
+                                                [(str (symbol-suffix lc))
+                                                 (str (symbol-suffix rc))])
+                                              (into {}))]
+                               [(cond
+                                  (contains? joined-rels rhs)
+                                  (conj acc `(set/join ~(add-base-selection lhs) ~result-var ~using))
+                                  (contains? joined-rels lhs)
+                                  (conj acc `(set/join ~result-var ~(add-base-selection rhs) ~using))
+                                  :else
+                                  (conj acc (cond->> `(set/join ~(add-base-selection lhs) ~(add-base-selection rhs) ~using)
+                                              (not-empty joined-rels) (list 'set/join result-var))))
+                                (conj joined-rels lhs rhs)]))
+                           [[] #{}]
+                           (calculate-join-order db joins))))
+           (not-empty final-selection) (list `set/select (codegen-predicate (vec (cons :and final-selection)) ctx)))))))
 
 (defn codegen-select [{:keys [select]} _]
   `(fn [result#]

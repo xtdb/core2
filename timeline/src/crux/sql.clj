@@ -580,12 +580,18 @@
                       order-by (conj (list (codegen-order-by query ctx)))
                       (or offset limit) (conj (list (codegen-offset-limit query ctx))))))))))
 
-(defn parse-and-transform [sql]
+(defn build-column->tables [db]
+  (->> (for [{:keys [name columns]} (map meta (vals db))
+             c (keys columns)]
+         {c #{name}})
+       (apply merge-with set/union)))
+
+(defn parse-and-transform [sql db]
   (reduce
    (fn [acc transform-map]
      (insta/transform transform-map acc))
    (parse-sql sql)
-   [(qualify-transform (crux.tpch/build-column->tables crux.tpch/db-sf-0_01))
+   [(qualify-transform (build-column->tables db))
     literal-transform
     constant-folding-transform
     nary-transform
@@ -596,7 +602,7 @@
   ([sql]
    (codegen-sql sql {}))
   ([sql db]
-   (let [with-exp (parse-and-transform sql)
+   (let [with-exp (parse-and-transform sql db)
          nonjoin-exp (last with-exp)
          with-spec (when (= 3 (count with-exp))
                      (second with-exp))

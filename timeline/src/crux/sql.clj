@@ -81,6 +81,8 @@
                       (and (instance? Date x)
                            (instance? TemporalAmount y))
                       (Date/from (.toInstant (.minus (.atOffset (.toInstant ^Date x) ZoneOffset/UTC) ^TemporalAmount y)))
+                      (and (double? x) (double? y))
+                      (double (- (bigdec x) (bigdec y)))
                       (and (number? x) (number? y))
                       (- x y)
                       :else
@@ -90,6 +92,8 @@
                      (and (instance? Date x)
                           (instance? TemporalAmount y))
                      (Date/from (.toInstant (.plus (.atOffset (.toInstant ^Date x) ZoneOffset/UTC) ^TemporalAmount y)))
+                     (and (double? x) (double? y))
+                     (double (+ (bigdec x) (bigdec y)))
                      (and (number? x) (number? y))
                      (+ x y)
                      :else
@@ -239,6 +243,8 @@
     where
     (= :and (first where))
     (set (rest where))
+    (nil? where)
+    #{}
     :else
     #{where}))
 
@@ -304,7 +310,7 @@
     @acc))
 
 (defn maybe-sub-query [x]
-  (if (sub-query? x)
+  (if (::sub-query x)
     `(->> ~x (ffirst) (val))
     x))
 
@@ -427,11 +433,15 @@
   `(fn [{:strs ~(vec (remove known-vars (find-symbol-suffixes pred)))}]
      ~(let [ctx (update ctx :known-vars set/union (find-symbol-suffixes pred))]
         (remove-symbol-prefixes
-         (insta/transform codegen-transform
-                          (w/postwalk #(if (sub-query? %)
-                                         `(~(codegen-query % ctx) ~db-var)
-                                         %)
-                                      pred))))))
+         (w/postwalk #(if-let [sub-query (::sub-query %)]
+                        `(~(codegen-query sub-query ctx) ~db-var)
+                        %)
+                     (insta/transform
+                      codegen-transform
+                      (w/postwalk #(if (sub-query? %)
+                                     {::sub-query %}
+                                     %)
+                                  pred)))))))
 
 (defn codegen-from-where [{:keys [from where]} {:keys [db known-vars] :as ctx}]
   (let [known-tables (find-known-tables from)

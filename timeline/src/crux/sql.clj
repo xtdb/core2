@@ -157,6 +157,8 @@
                    :else
                    [:boolean-or x y]))})
 
+(declare symbol-suffix)
+
 (def normalize-transform
   (merge
    {:table-spec (fn [x & [y]]

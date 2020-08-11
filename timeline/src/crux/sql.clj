@@ -169,7 +169,7 @@
   (merge
    {:table-spec (fn [x & [y]]
                   (if (vector? x)
-                    x
+                    [x y]
                     [x (or y x)]))
     :select-item (fn [x & [y]]
                    [x (or y (if (symbol? x)
@@ -297,7 +297,7 @@
     @acc))
 
 (defn find-known-tables [from]
-  (set (map second from)))
+  (set (filter symbol? (map second from))))
 
 (defn find-symbol-suffixes [x]
   (let [acc (volatile! #{})]
@@ -463,10 +463,11 @@
                       :when (not (sub-query? table))]
                   [as (str table)])
                 (into {:as db-var}))]
-       (let [~@(for [[table as] from
-                     :when (sub-query? table)]
-                 (cond-> [as (codegen-query table ctx)]
-                   (get base-table->selection as) (conj as (add-base-selection as))))]
+       (let [~@(->> (for [[table as] from
+                          :when (sub-query? table)]
+                      (cond-> [as (list (codegen-query table ctx) db-var)]
+                        (get base-table->selection as) (conj as (add-base-selection as))))
+                    (reduce into []))]
          ~(cond->> `(as-> #{}
                         ~result-var
                         ~@(when (seq unjoined-tables)
@@ -523,7 +524,7 @@
                             (when having
                               [`(filter (fn [{:strs ~(vec (find-symbol-suffixes having))}]
                                           ~(insta/transform codegen-transform (remove-symbol-prefixes having))))])
-                            [`(map (fn [[{:strs ~(mapv symbol-suffix group-by)} :as ~group-var]]
+                            [`(map (fn [[{:strs ~(vec (find-symbol-suffixes select))} :as ~group-var]]
                                      (hash-map
                                       ~@(->> (for [[exp as] select]
                                                [(str (symbol-suffix as))
@@ -602,8 +603,9 @@
          db-var (gensym 'db)
          ctx {:db db :known-vars #{}}]
      `(fn [~db-var]
-        (let [~@(for [[table-name table-subquery] with-spec]
-                  [table-name (list (codegen-query table-subquery ctx) db-var)])]
+        (let [~@(->> (for [[table-name table-subquery] with-spec]
+                       [table-name (list (codegen-query table-subquery ctx) db-var)])
+                     (reduce into []))]
           (~(codegen-query nonjoin-exp ctx) ~db-var))))))
 
 (defn compile-sql [sql db]

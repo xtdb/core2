@@ -366,8 +366,8 @@
             `(every? #(~@(insta/transform codegen-transform [op x '%]))
                      (map (comp val first) ~y))))
    :any (fn [[x op] y]
-          `(any? #(~@(insta/transform codegen-transform [op x '%]))
-                 (map (comp val first) ~y)))
+          `(boolean (some #(~@(insta/transform codegen-transform [op x '%]))
+                          (map (comp val first) ~y))))
    :like (fn [x pattern]
            `(boolean (re-find ~pattern ~x)))
    :case (fn [cond then else]

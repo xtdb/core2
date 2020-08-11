@@ -1,6 +1,6 @@
 (* Table Expressions *)
 
-<with-exp> = [with-spec] nonjoin-exp
+with-exp = [with-spec] nonjoin-exp
 
 with-spec = <'WITH'> name-intro (<','> name-intro)*
 

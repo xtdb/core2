@@ -282,11 +282,6 @@
          {(symbol-prefix a) #{x}})
        (apply merge-with set/union)))
 
-(defn remove-symbol-prefixes [x]
-  (w/postwalk #(if (and (symbol? %) (nil? (namespace %)))
-                 (with-meta (symbol-suffix %) (meta %))
-                 %) x))
-
 (defn find-free-vars [x known-tables]
   (let [acc (volatile! #{})]
     (w/postwalk #(do (when (and (symbol? %) (nil? (namespace %))
@@ -425,41 +420,44 @@
 (defmethod codegen-sql :sum [[_ x] {:keys [group-var] :as ctx}]
   `(reduce
     (fn [acc# {:strs ~(vec (find-symbol-suffixes x))}]
-      (+ acc# ~(remove-symbol-prefixes (maybe-sub-query x ctx))))
+      (+ acc# ~(maybe-sub-query x ctx)))
     0 ~group-var))
 
 (defmethod codegen-sql :avg [[_ x] {:keys [group-var] :as ctx}]
   `(/ (reduce
        (fn [acc# {:strs ~(vec (find-symbol-suffixes x))}]
-         (+ acc# ~(remove-symbol-prefixes (maybe-sub-query x ctx))))
+         (+ acc# ~(maybe-sub-query x ctx)))
        0 ~group-var)
       (count ~group-var)))
 
 (defmethod codegen-sql :min [[_ x] {:keys [group-var] :as ctx}]
   `(reduce
     (fn [acc# {:strs ~(vec (find-symbol-suffixes x))}]
-      (min acc# ~(remove-symbol-prefixes (maybe-sub-query x ctx))))
+      (min acc# ~(maybe-sub-query x ctx)))
     Long/MAX_VALUE ~group-var))
 
 (defmethod codegen-sql :max [[_ x] {:keys [group-var] :as ctx}]
   `(reduce
     (fn [acc# {:strs ~(vec (find-symbol-suffixes x))}]
-      (max acc# ~(remove-symbol-prefixes (maybe-sub-query x ctx))))
+      (max acc# ~(maybe-sub-query x ctx)))
     Long/MIN_VALUE ~group-var))
 
 (defmethod codegen-sql :count [[_ x] {:keys [group-var] :as ctx}]
   (if (= :star x)
     `(count ~group-var)
     `(count (map (fn [{:strs ~(vec (find-symbol-suffixes x))}]
-                   ~(remove-symbol-prefixes (maybe-sub-query x ctx)))
+                   ~(maybe-sub-query x ctx))
                  ~group-var))))
 
-(defmethod codegen-sql :default [x _] x)
+(defmethod codegen-sql :default [x _]
+  (if (and (symbol? x) (nil? (namespace x)))
+    (with-meta (symbol-suffix x) (meta x))
+    x))
 
 (defn codegen-predicate [pred {:keys [known-vars db-var] :as ctx}]
   `(fn [{:strs ~(vec (remove known-vars (find-symbol-suffixes pred)))}]
      ~(let [ctx (update ctx :known-vars set/union (find-symbol-suffixes pred))]
-        (remove-symbol-prefixes (codegen-sql pred ctx)))))
+        (codegen-sql pred ctx))))
 
 (defn codegen-from-where [{:keys [from where]} {:keys [db db-var result-var known-vars] :as ctx}]
   (let [known-tables (find-known-tables from)
@@ -519,7 +517,7 @@
                               [(str (symbol-suffix as))
                                (if (symbol? exp)
                                  (symbol-suffix exp)
-                                 (remove-symbol-prefixes (codegen-sql exp ctx)))])
+                                 (codegen-sql exp ctx))])
                             (reduce into [])))))
              ~result-var)))
 
@@ -537,7 +535,7 @@
                           (when having
                             (let [ctx (update ctx :known-vars set/union (find-symbol-suffixes having))]
                               [`(filter (fn [{:strs ~(vec (find-symbol-suffixes having)) :as ~group-var}]
-                                          ~(remove-symbol-prefixes (codegen-sql having ctx))))]))
+                                          ~(codegen-sql having ctx)))]))
                           (let [ctx (update ctx :known-vars set/union (find-symbol-suffixes select))]
                             [`(map (fn [[{:strs ~(vec (find-symbol-suffixes select))} :as ~group-var]]
                                      (hash-map
@@ -545,7 +543,7 @@
                                                [(str (symbol-suffix as))
                                                 (if (symbol? exp)
                                                   (symbol-suffix exp)
-                                                  (remove-symbol-prefixes (codegen-sql exp ctx)))])
+                                                  (codegen-sql exp ctx))])
                                              (reduce into [])))))]))))))))
 
 (defn codegen-order-by [{:keys [order-by]} {:keys [result-var]}]

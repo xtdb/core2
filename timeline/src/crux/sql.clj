@@ -523,53 +523,50 @@
              ~result-var)))
 
 (defn codegen-group-by [{:keys [select group-by having]} {:keys [result-var] :as ctx}]
-  (when group-by
-    (let [group-var (gensym 'group)
-          ctx (assoc ctx :group-var group-var)]
-      `(->> (group-by (fn [{:strs ~(mapv symbol-suffix group-by)}]
-                        ~(mapv symbol-suffix group-by))
-                      ~result-var)
-            (vals)
-            (remove empty?)
-            (into #{} (comp
-                       ~@(concat
-                          (when having
-                            (let [ctx (update ctx :known-vars set/union (find-symbol-suffixes having))]
-                              [`(filter (fn [{:strs ~(vec (find-symbol-suffixes having)) :as ~group-var}]
-                                          ~(codegen-sql having ctx)))]))
-                          (let [ctx (update ctx :known-vars set/union (find-symbol-suffixes select))]
-                            [`(map (fn [[{:strs ~(vec (find-symbol-suffixes select))} :as ~group-var]]
-                                     (hash-map
-                                      ~@(->> (for [[exp as] select]
-                                               [(str (symbol-suffix as))
-                                                (if (symbol? exp)
-                                                  (symbol-suffix exp)
-                                                  (codegen-sql exp ctx))])
-                                             (reduce into [])))))]))))))))
+  (let [group-var (gensym 'group)
+        ctx (assoc ctx :group-var group-var)]
+    `(->> (group-by (fn [{:strs ~(mapv symbol-suffix group-by)}]
+                      ~(mapv symbol-suffix group-by))
+                    ~result-var)
+          (vals)
+          (remove empty?)
+          (into #{} (comp
+                     ~@(concat
+                        (when having
+                          (let [ctx (update ctx :known-vars set/union (find-symbol-suffixes having))]
+                            [`(filter (fn [{:strs ~(vec (find-symbol-suffixes having)) :as ~group-var}]
+                                        ~(codegen-sql having ctx)))]))
+                        (let [ctx (update ctx :known-vars set/union (find-symbol-suffixes select))]
+                          [`(map (fn [[{:strs ~(vec (find-symbol-suffixes select))} :as ~group-var]]
+                                   (hash-map
+                                    ~@(->> (for [[exp as] select]
+                                             [(str (symbol-suffix as))
+                                              (if (symbol? exp)
+                                                (symbol-suffix exp)
+                                                (codegen-sql exp ctx))])
+                                           (reduce into [])))))])))))))
 
 (defn codegen-order-by [{:keys [order-by]} {:keys [result-var]}]
-  (when order-by
-    `(sort (-> ~@(reduce
-                  (fn [acc [col dir]]
-                    (cond->> `(Comparator/comparing
-                               (reify Function
-                                 (apply [_# {:strs [~(symbol-suffix col)]}]
-                                   ~(symbol-suffix col))))
-                      (= :desc dir) (list '.reversed)
-                      (not-empty acc) (list '.thenComparing)
-                      true (conj acc)))
-                  []
-                  order-by))
-           ~result-var)))
+  `(sort (-> ~@(reduce
+                (fn [acc [col dir]]
+                  (cond->> `(Comparator/comparing
+                             (reify Function
+                               (apply [_# {:strs [~(symbol-suffix col)]}]
+                                 ~(symbol-suffix col))))
+                    (= :desc dir) (list '.reversed)
+                    (not-empty acc) (list '.thenComparing)
+                    true (conj acc)))
+                []
+                order-by))
+         ~result-var))
 
 (defn codegen-offset-limit [{:keys [offset limit]} {:keys [result-var]}]
-  (when (or offset limit)
-    `(into [] (comp ~@(concat
-                       (when offset
-                         [`(drop ~offset)])
-                       (when limit
-                         [`(take ~limit)])))
-           ~result-var)))
+  `(into [] (comp ~@(concat
+                     (when offset
+                       [`(drop ~offset)])
+                     (when limit
+                       [`(take ~limit)])))
+         ~result-var))
 
 (defn maybe-add-group-by [{:keys [group-by select] :as q}]
   (if (or group-by (= [:star] select) (every? symbol? (map first select)))

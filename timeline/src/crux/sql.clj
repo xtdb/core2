@@ -561,6 +561,8 @@
                            [`(take ~limit)])))
              result#))))
 
+(defmulti codegen-sql (fn [[ast-type] _] ast-type))
+
 (defmethod codegen-sql :select-exp [query {:keys [db-var] :as ctx}]
   (let [{:keys [group-by order-by offset limit] :as query} (maybe-add-group-by (query->map query))]
     `(->> ~db-var
@@ -569,8 +571,6 @@
               (nil? group-by) (conj (list (codegen-select query ctx)))
               order-by (conj (list (codegen-order-by query ctx)))
               (or offset limit) (conj (list (codegen-offset-limit query ctx)))))))
-
-(defmulti codegen-sql (fn [[ast-type] _] ast-type))
 
 (defmethod codegen-sql :union [[_ lhs rhs] ctx]
   `(set/union ~(codegen-sql lhs ctx) ~(codegen-sql rhs ctx)))

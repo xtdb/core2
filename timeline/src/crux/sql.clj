@@ -284,7 +284,7 @@
 
 (defn remove-symbol-prefixes [x]
   (w/postwalk #(if (and (symbol? %) (nil? (namespace %)))
-                 (symbol-suffix %)
+                 (with-meta (symbol-suffix %) (meta %))
                  %) x))
 
 (defn find-free-vars [x known-tables]
@@ -309,140 +309,150 @@
                       %)) x)
     @acc))
 
-(defn maybe-sub-query [x]
-  (if (::sub-query x)
-    `(->> ~x (ffirst) (val))
-    x))
+(defmulti codegen-sql (fn [x _]
+                        (if (vector? x)
+                          (first x)
+                          :default)))
 
-(def codegen-transform
-  {:not (fn [x]
-          `(not ~x))
-   :and (fn [& xs]
-          `(and ~@xs))
-   :or (fn [& xs]
-         `(or ~@xs))
-   := (fn [x y]
-        `(= ~(maybe-sub-query x) ~(maybe-sub-query y)))
-   :<> (fn [x y]
-         `(not= ~(maybe-sub-query x) ~(maybe-sub-query y)))
-   :< (fn [x y]
-        (if (or (number? x) (number? y))
-          `(< ~(maybe-sub-query x) ~(maybe-sub-query y))
-          `(neg? (compare ~(maybe-sub-query x) ~(maybe-sub-query y)))))
-   :<= (fn [x y]
-         (if (or (number? x) (number? y))
-           `(<= ~(maybe-sub-query x) ~(maybe-sub-query y))
-           `(not (pos? (compare ~(maybe-sub-query x) ~(maybe-sub-query y))))))
-   :> (fn [x y]
-        (if (or (number? x) (number? y))
-          `(> ~(maybe-sub-query x) ~(maybe-sub-query y))
-          `(pos? (compare ~(maybe-sub-query x) ~(maybe-sub-query y)))))
-   :>= (fn [x y]
-         (if (or (number? x) (number? y))
-           `(>= ~(maybe-sub-query x) ~(maybe-sub-query y))
-           `(not (neg? (compare ~(maybe-sub-query x) ~(maybe-sub-query y))))))
-   :+ (fn [x y]
-        `(+ ~x ~y))
-   :- (fn [x y]
-        `(- ~x ~y))
-   :* (fn [x y]
-        `(* ~x ~y))
-   :/ (fn [x y]
-        `(/ ~x ~y))
-   :% (fn [x y]
-        `(rem ~x ~y))
-   :exists (fn [x]
-             `(not-empty ~x))
-   :unique (fn [x]
-             `(apply distinct? ~x))
-   :in (fn [x y]
-         (if (sub-query? y)
-           `(some #{x} y)
-           `(contains? y x)))
-   :all (fn [[x op] y]
-          (let [var-sym (gensym 'var)]
-            `(every? #(~@(insta/transform codegen-transform [op x '%]))
-                     (map (comp val first) ~y))))
-   :any (fn [[x op] y]
-          `(boolean (some #(~@(insta/transform codegen-transform [op x '%]))
-                          (map (comp val first) ~y))))
-   :like (fn [x pattern]
-           `(boolean (re-find ~pattern ~x)))
-   :case (fn [cond then else]
-           `(if ~cond ~then ~else))
-   :extract (fn [field x]
-              `(.get (.atOffset (.toInstant ~(if (symbol? x)
-                                               (with-meta x {:tag `Date})
-                                               x)) ZoneOffset/UTC)
-                     ~(case field
-                        :year `ChronoField/YEAR
-                        :month `ChronoField/MONTH_OF_YEAR
-                        :day `ChronoField/DAY_OF_MONTH
-                        :hour `ChronoField/HOUR_OF_DAY
-                        :minute `ChronoField/MINUTE_OF_HOUR)))
-   :routine-invocation (fn [f & args]
-                         (case f
-                           (substr
-                            substring) (let [[x start length] args]
-                            `(subs ~x (dec ~start) (+ (dec ~start) ~length)))
-                           `(~f ~@args)))
-   :sum (fn [x]
-          `(fn [group#]
-             (reduce
-              (fn [acc# {:strs ~(vec (find-symbol-suffixes x))}]
-                (+ acc# ~(remove-symbol-prefixes x)))
-              0 group#)))
-   :avg (fn [x]
-          `(fn [group#]
-             (/ (reduce
-                 (fn [acc# {:strs ~(vec (find-symbol-suffixes x))}]
-                   (+ acc# ~(remove-symbol-prefixes x)))
-                 0 group#)
-                (count group#))))
-   :min (fn [x]
-          `(fn [group#]
-             (reduce
-              (fn [acc# {:strs ~(vec (find-symbol-suffixes x))}]
-                (min acc# ~(remove-symbol-prefixes x)))
-              Long/MAX_VALUE group#)))
-   :max (fn [x]
-          `(fn [group#]
-             (reduce
-              (fn [acc# {:strs ~(vec (find-symbol-suffixes x))}]
-                (max acc# ~(remove-symbol-prefixes x)))
-              Long/MIN_VALUE group#)))
-   :count (fn [x]
-            (if (= :star x)
-              `(fn [group#]
-                 (count group#))
-              `(fn [group#]
-                 (count (map (fn [{:strs ~(vec (find-symbol-suffixes x))}]
-                               ~(remove-symbol-prefixes x))
-                             group#)))))})
+(defn maybe-sub-query [x ctx]
+  (if (sub-query? x)
+    `(->> ~(codegen-sql x ctx) (ffirst) (val))
+    (codegen-sql x ctx)))
 
-(defn maybe-add-group-by [{:keys [group-by select] :as q}]
-  (if (or group-by (= [:star] select) (every? symbol? (map first select)))
-    q
-    (assoc q :group-by [])))
+(defmethod codegen-sql :not fn [[_ x] ctx]
+  `(not ~(codegen-sql x ctx)))
 
-(declare codegen-sql)
+(defmethod codegen-sql :and [[_ & xs] ctx]
+  `(and ~@(for [x xs]
+            (codegen-sql x ctx))))
 
-(defn codegen-exp [exp {:keys [known-vars db-var] :as ctx}]
-  (remove-symbol-prefixes
-   (w/postwalk #(if-let [sub-query (::sub-query %)]
-                  (codegen-sql sub-query ctx)
-                  %)
-               (insta/transform
-                codegen-transform
-                (w/postwalk #(if (sub-query? %)
-                               {::sub-query %}
-                               %)
-                            exp)))))
+(defmethod codegen-sql :or [[_ & xs] ctx]
+  `(or ~@(for [x xs]
+           (codegen-sql x ctx))))
+
+(defmethod codegen-sql := [[_ x y] ctx]
+  `(= ~(maybe-sub-query x ctx) ~(maybe-sub-query y ctx)))
+
+(defmethod codegen-sql :<> [[_ x y] ctx]
+  `(not= ~(maybe-sub-query x ctx) ~(maybe-sub-query y ctx)))
+
+(defmethod codegen-sql :< [[_ x y] ctx]
+  (if (or (number? x) (number? y))
+    `(< ~(maybe-sub-query x ctx) ~(maybe-sub-query y ctx))
+    `(neg? (compare ~(maybe-sub-query x ctx) ~(maybe-sub-query y ctx)))))
+
+(defmethod codegen-sql :<= [[_ x y] ctx]
+  (if (or (number? x) (number? y))
+    `(<= ~(maybe-sub-query x ctx) ~(maybe-sub-query y ctx))
+    `(not (pos? (compare ~(maybe-sub-query x ctx) ~(maybe-sub-query y ctx))))))
+
+(defmethod codegen-sql :> [[_ x y] ctx]
+  (if (or (number? x) (number? y))
+    `(> ~(maybe-sub-query x ctx) ~(maybe-sub-query y ctx))
+    `(pos? (compare ~(maybe-sub-query x ctx) ~(maybe-sub-query y ctx)))))
+
+(defmethod codegen-sql :>= [[_ x y] ctx]
+  (if (or (number? x) (number? y))
+    `(>= ~(maybe-sub-query x ctx) ~(maybe-sub-query y ctx))
+    `(not (neg? (compare ~(maybe-sub-query x ctx) ~(maybe-sub-query y ctx))))))
+
+(defmethod codegen-sql :+ [[_ x y] ctx]
+  `(+ ~(maybe-sub-query x ctx) ~(maybe-sub-query y ctx)))
+
+(defmethod codegen-sql :- [[_ x y] ctx]
+  `(- ~(maybe-sub-query x ctx) ~(maybe-sub-query y ctx)))
+
+(defmethod codegen-sql :* [[_ x y] ctx]
+  `(* ~(maybe-sub-query x ctx) ~(maybe-sub-query y ctx)))
+
+(defmethod codegen-sql :/ [[_ x y] ctx]
+  `(/ ~(maybe-sub-query x ctx) ~(maybe-sub-query y ctx)))
+
+(defmethod codegen-sql :% [[_ x y] ctx]
+  `(rem ~(maybe-sub-query x ctx) ~(maybe-sub-query y ctx)))
+
+(defmethod codegen-sql :exists [[_ x] ctx]
+  `(not-empty ~x))
+
+(defmethod codegen-sql :unique [[_ x] ctx]
+  `(apply distinct? ~x))
+
+(defmethod codegen-sql :in [[_ x y] ctx]
+  (if (sub-query? y)
+    `(some #{x} y)
+    `(contains? y x)))
+
+(defmethod codegen-sql :all [[_ x op y] ctx]
+  (let [var-sym (gensym 'var)]
+    `(every? #(~@(codegen-sql [op x '%] ctx))
+             (map (comp val first) ~y))))
+
+(defmethod codegen-sql :any [[_ x op y] ctx]
+  `(boolean (some #(~@(codegen-sql [op x '%] ctx))
+                  (map (comp val first) ~y))))
+
+(defmethod codegen-sql :like [[_ x pattern] ctx]
+  `(boolean (re-find ~pattern ~(maybe-sub-query x ctx))))
+
+(defmethod codegen-sql :case [[_ cond then else] ctx]
+  `(if ~cond ~then ~else))
+
+(defmethod codegen-sql :extract [[_ field x] ctx]
+  `(.get (.atOffset (.toInstant ~(if (symbol? x)
+                                   (with-meta x {:tag `Date})
+                                   x)) ZoneOffset/UTC)
+         ~(case field
+            :year `ChronoField/YEAR
+            :month `ChronoField/MONTH_OF_YEAR
+            :day `ChronoField/DAY_OF_MONTH
+            :hour `ChronoField/HOUR_OF_DAY
+            :minute `ChronoField/MINUTE_OF_HOUR)))
+
+(defmethod codegen-sql :routine-invocation [[_ f & args] ctx]
+  (case f
+    (substr
+     substring) (let [[x start length] args]
+                  `(subs ~x (dec ~start) (+ (dec ~start) ~length)))
+    `(~f ~@args)))
+
+(defmethod codegen-sql :sum [[_ x] {:keys [group-var] :as ctx}]
+  `(reduce
+    (fn [acc# {:strs ~(vec (find-symbol-suffixes x))}]
+      (+ acc# ~(remove-symbol-prefixes (codegen-sql x ctx))))
+    0 ~group-var))
+
+(defmethod codegen-sql :avg [[_ x] {:keys [group-var] :as ctx}]
+  `(/ (reduce
+       (fn [acc# {:strs ~(vec (find-symbol-suffixes x))}]
+         (+ acc# ~(remove-symbol-prefixes (codegen-sql x ctx))))
+       0 ~group-var)
+      (count ~group-var)))
+
+(defmethod codegen-sql :min [[_ x] {:keys [group-var] :as ctx}]
+  `(reduce
+    (fn [acc# {:strs ~(vec (find-symbol-suffixes x))}]
+      (min acc# ~(remove-symbol-prefixes (codegen-sql x ctx))))
+    Long/MAX_VALUE ~group-var))
+
+(defmethod codegen-sql :max [[_ x] {:keys [group-var] :as ctx}]
+  `(reduce
+    (fn [acc# {:strs ~(vec (find-symbol-suffixes x))}]
+      (max acc# ~(remove-symbol-prefixes (codegen-sql x ctx))))
+    Long/MIN_VALUE ~group-var))
+
+(defmethod codegen-sql :count [[_ x] {:keys [group-var] :as ctx}]
+  (if (= :star x)
+    `(count ~group-var)
+    `(count (map (fn [{:strs ~(vec (find-symbol-suffixes x))}]
+                   ~(remove-symbol-prefixes (codegen-sql x ctx)))
+                 ~group-var))))
+
+(defmethod codegen-sql :default [x _] x)
 
 (defn codegen-predicate [pred {:keys [known-vars db-var] :as ctx}]
   `(fn [{:strs ~(vec (remove known-vars (find-symbol-suffixes pred)))}]
      ~(let [ctx (update ctx :known-vars set/union (find-symbol-suffixes pred))]
-        (codegen-exp pred ctx))))
+        (remove-symbol-prefixes (codegen-sql pred ctx)))))
 
 (defn codegen-from-where [{:keys [from where]} {:keys [db db-var known-vars] :as ctx}]
   (let [known-tables (find-known-tables from)
@@ -493,7 +503,7 @@
                             (calculate-join-order db joins))))
             (not-empty final-selection) (list `set/select (codegen-predicate (vec (cons :and final-selection)) ctx)))))))
 
-(defn codegen-select [{:keys [select]} _]
+(defn codegen-select [{:keys [select]} ctx]
   `~(if (= [:star] select)
       `identity
       `(fn [result#]
@@ -504,7 +514,7 @@
                                 [(str (symbol-suffix as))
                                  (if (symbol? exp)
                                    (symbol-suffix exp)
-                                   `~(insta/transform codegen-transform (remove-symbol-prefixes exp)))])
+                                   (remove-symbol-prefixes (codegen-sql exp ctx)))])
                               (reduce into [])))))
                result#))))
 
@@ -524,7 +534,7 @@
                             (when having
                               (let [ctx (update ctx :known-vars set/union (find-symbol-suffixes having))]
                                 [`(filter (fn [{:strs ~(vec (find-symbol-suffixes having)) :as ~group-var}]
-                                            ~(codegen-exp having ctx)))]))
+                                            ~(remove-symbol-prefixes (codegen-sql having ctx))))]))
                             (let [ctx (update ctx :known-vars set/union (find-symbol-suffixes select))]
                               [`(map (fn [[{:strs ~(vec (find-symbol-suffixes select))} :as ~group-var]]
                                        (hash-map
@@ -532,8 +542,7 @@
                                                  [(str (symbol-suffix as))
                                                   (if (symbol? exp)
                                                     (symbol-suffix exp)
-                                                    `(~(codegen-exp exp ctx)
-                                                      ~group-var))])
+                                                    (remove-symbol-prefixes (codegen-sql exp ctx)))])
                                                (reduce into [])))))])))))))))
 
 (defn codegen-order-by [{:keys [order-by]} _]
@@ -561,7 +570,10 @@
                            [`(take ~limit)])))
              result#))))
 
-(defmulti codegen-sql (fn [[ast-type] _] ast-type))
+(defn maybe-add-group-by [{:keys [group-by select] :as q}]
+  (if (or group-by (= [:star] select) (every? symbol? (map first select)))
+    q
+    (assoc q :group-by [])))
 
 (defmethod codegen-sql :select-exp [query {:keys [db-var] :as ctx}]
   (let [{:keys [group-by order-by offset limit] :as query} (maybe-add-group-by (query->map query))]

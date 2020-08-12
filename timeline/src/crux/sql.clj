@@ -314,8 +314,6 @@
     `(->> ~x (ffirst) (val))
     x))
 
-(declare codegen-query)
-
 (def codegen-transform
   {:not (fn [x]
           `(not ~x))
@@ -427,14 +425,14 @@
     q
     (assoc q :group-by [])))
 
-(declare codegen-query)
+(declare codegen-sql)
 
 (defn codegen-predicate [pred {:keys [known-vars db-var] :as ctx}]
   `(fn [{:strs ~(vec (remove known-vars (find-symbol-suffixes pred)))}]
      ~(let [ctx (update ctx :known-vars set/union (find-symbol-suffixes pred))]
         (remove-symbol-prefixes
          (w/postwalk #(if-let [sub-query (::sub-query %)]
-                        (codegen-query sub-query ctx)
+                        (codegen-sql sub-query ctx)
                         %)
                      (insta/transform
                       codegen-transform
@@ -463,7 +461,7 @@
                 (into {:as db-var}))]
        (let [~@(->> (for [[table as] from
                           :when (sub-query? table)]
-                      (cond-> [as (codegen-query table ctx)]
+                      (cond-> [as (codegen-sql table ctx)]
                         (get base-table->selection as) (conj as (add-base-selection as))))
                     (reduce into []))]
          ~(cond->> `(as-> #{}
@@ -557,23 +555,37 @@
                            [`(take ~limit)])))
              result#))))
 
-(defn codegen-query [[query-type :as query] {:keys [db-var] :as ctx}]
-  (case query-type
-    (:union :except :intersect)
-    (let [[query-type lhs rhs] query]
-      `(~(get {:union `set/union
-               :except `set/difference
-               :intersect `set/intersection})
-        ~(codegen-query lhs ctx)
-        ~(codegen-query rhs ctx)))
-    :select-exp
-    (let [{:keys [group-by order-by offset limit] :as query} (maybe-add-group-by (query->map query))]
-      `(->> ~db-var
-            ~@(cond-> [(list (codegen-from-where query ctx))]
-                group-by (conj (list (codegen-group-by query ctx)))
-                (nil? group-by) (conj (list (codegen-select query ctx)))
-                order-by (conj (list (codegen-order-by query ctx)))
-                (or offset limit) (conj (list (codegen-offset-limit query ctx))))))))
+(defmethod codegen-sql :select-exp [query {:keys [db-var] :as ctx}]
+  (let [{:keys [group-by order-by offset limit] :as query} (maybe-add-group-by (query->map query))]
+    `(->> ~db-var
+          ~@(cond-> [(list (codegen-from-where query ctx))]
+              group-by (conj (list (codegen-group-by query ctx)))
+              (nil? group-by) (conj (list (codegen-select query ctx)))
+              order-by (conj (list (codegen-order-by query ctx)))
+              (or offset limit) (conj (list (codegen-offset-limit query ctx)))))))
+
+(defmulti codegen-sql (fn [[ast-type] _] ast-type))
+
+(defmethod codegen-sql :union [[_ lhs rhs] ctx]
+  `(set/union ~(codegen-sql lhs ctx) ~(codegen-sql rhs ctx)))
+
+(defmethod codegen-sql :except [[_ lhs rhs] ctx]
+  `(set/difference ~(codegen-sql lhs ctx) ~(codegen-sql rhs ctx)))
+
+(defmethod codegen-sql :intersect [[_ lhs rhs] ctx]
+  `(set/intersect ~(codegen-sql lhs ctx) ~(codegen-sql rhs ctx)))
+
+(defmethod codegen-sql :with-exp [with-exp {:keys [db] :as ctx}]
+  (let [nonjoin-exp (last with-exp)
+        with-spec (when (= 3 (count with-exp))
+                    (second with-exp))
+        db-var (gensym 'db)
+        ctx {:db db :db-var db-var :known-vars #{}}]
+    `(fn [~db-var]
+       (let [~@(->> (for [[table-name table-subquery] with-spec]
+                      [table-name (codegen-sql table-subquery ctx)])
+                    (reduce into []))]
+         ~(codegen-sql nonjoin-exp ctx)))))
 
 (defn build-column->tables [db]
   (->> (for [{:keys [name columns]} (map meta (vals db))
@@ -593,24 +605,8 @@
     simplify-transform
     normalize-transform]))
 
-(defn codegen-sql
-  ([sql]
-   (codegen-sql sql {}))
-  ([sql db]
-   (let [with-exp (parse-and-transform sql db)
-         nonjoin-exp (last with-exp)
-         with-spec (when (= 3 (count with-exp))
-                     (second with-exp))
-         db-var (gensym 'db)
-         ctx {:db db :db-var db-var :known-vars #{}}]
-     `(fn [~db-var]
-        (let [~@(->> (for [[table-name table-subquery] with-spec]
-                       [table-name (codegen-query table-subquery ctx)])
-                     (reduce into []))]
-          ~(codegen-query nonjoin-exp ctx))))))
-
 (defn compile-sql [sql db]
-  (eval (codegen-sql sql db)))
+  (eval (codegen-sql (parse-and-transform sql db) {:db db})))
 
 (defn execute-sql [sql db]
   ((compile-sql sql db) db))

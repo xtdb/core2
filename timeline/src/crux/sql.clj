@@ -374,8 +374,8 @@
 
 (defmethod codegen-sql :in [[_ x y] ctx]
   (if (sub-query? y)
-    `(some #{~(maybe-sub-query x ctx)} ~(codegen-sql y ctx))
-    `(contains? ~(codegen-sql y ctx) ~(codegen-sql x ctx))))
+    `(some #{~(maybe-sub-query x ctx)} (map (comp val first) ~(codegen-sql y ctx)))
+    `(contains? ~(codegen-sql y ctx) ~(maybe-sub-query x ctx))))
 
 (defmethod codegen-sql :all [[_ x op y] ctx]
   `(every? #(~@(codegen-sql [op x '%] ctx))
@@ -475,7 +475,8 @@
     `(let [~(->> (for [[table as] from
                        :when (not (sub-query? table))]
                    [as (str table)])
-                 (into {})) ~db-var
+                 (into {}))
+           ~db-var
            ~@(->> (for [[table as] from
                         :when (sub-query? table)]
                     (cond-> [as (codegen-sql table ctx)]

@@ -372,35 +372,38 @@
   `(rem ~(maybe-sub-query x ctx) ~(maybe-sub-query y ctx)))
 
 (defmethod codegen-sql :exists [[_ x] ctx]
-  `(not-empty ~x))
+  `(not-empty ~(codegen-sql x ctx)))
 
 (defmethod codegen-sql :unique [[_ x] ctx]
-  `(apply distinct? ~x))
+  `(apply distinct? ~(codegen-sql x ctx)))
 
 (defmethod codegen-sql :in [[_ x y] ctx]
   (if (sub-query? y)
-    `(some #{x} y)
-    `(contains? y x)))
+    `(some #{~(maybe-sub-query x ctx)} ~(codegen-sql y ctx))
+    `(contains? ~(codegen-sql y ctx) ~(codegen-sql x ctx))))
 
 (defmethod codegen-sql :all [[_ x op y] ctx]
-  (let [var-sym (gensym 'var)]
-    `(every? #(~@(codegen-sql [op x '%] ctx))
-             (map (comp val first) ~y))))
+  `(every? #(~@(codegen-sql [op x '%] ctx))
+           (map (comp val first) ~(codegen-sql y ctx))))
 
 (defmethod codegen-sql :any [[_ x op y] ctx]
   `(boolean (some #(~@(codegen-sql [op x '%] ctx))
-                  (map (comp val first) ~y))))
+                  (map (comp val first) ~(codegen-sql y ctx)))))
 
 (defmethod codegen-sql :like [[_ x pattern] ctx]
   `(boolean (re-find ~pattern ~(maybe-sub-query x ctx))))
 
 (defmethod codegen-sql :case [[_ cond then else] ctx]
-  `(if ~cond ~then ~else))
+  `(if ~(maybe-sub-query cond ctx)
+     ~(maybe-sub-query then ctx)
+     ~(maybe-sub-query else ctx)))
 
 (defmethod codegen-sql :extract [[_ field x] ctx]
-  `(.get (.atOffset (.toInstant ~(if (symbol? x)
-                                   (with-meta x {:tag `Date})
-                                   x)) ZoneOffset/UTC)
+  `(.get (.atOffset (.toInstant ~(maybe-sub-query
+                                  (if (symbol? x)
+                                    (with-meta x {:tag `Date})
+                                    x)
+                                  ctx)) ZoneOffset/UTC)
          ~(case field
             :year `ChronoField/YEAR
             :month `ChronoField/MONTH_OF_YEAR
@@ -412,39 +415,43 @@
   (case f
     (substr
      substring) (let [[x start length] args]
-                  `(subs ~x (dec ~start) (+ (dec ~start) ~length)))
-    `(~f ~@args)))
+                  `(let [start# (maybe-sub-query start ctx)]
+                     (subs ~(maybe-sub-query x ctx)
+                           (dec start#)
+                           (+ (dec start#) ~(maybe-sub-query length ctx)))))
+    `(~f ~@(for [arg args]
+             (maybe-sub-query arg ctx)))))
 
 (defmethod codegen-sql :sum [[_ x] {:keys [group-var] :as ctx}]
   `(reduce
     (fn [acc# {:strs ~(vec (find-symbol-suffixes x))}]
-      (+ acc# ~(remove-symbol-prefixes (codegen-sql x ctx))))
+      (+ acc# ~(remove-symbol-prefixes (maybe-sub-query x ctx))))
     0 ~group-var))
 
 (defmethod codegen-sql :avg [[_ x] {:keys [group-var] :as ctx}]
   `(/ (reduce
        (fn [acc# {:strs ~(vec (find-symbol-suffixes x))}]
-         (+ acc# ~(remove-symbol-prefixes (codegen-sql x ctx))))
+         (+ acc# ~(remove-symbol-prefixes (maybe-sub-query x ctx))))
        0 ~group-var)
       (count ~group-var)))
 
 (defmethod codegen-sql :min [[_ x] {:keys [group-var] :as ctx}]
   `(reduce
     (fn [acc# {:strs ~(vec (find-symbol-suffixes x))}]
-      (min acc# ~(remove-symbol-prefixes (codegen-sql x ctx))))
+      (min acc# ~(remove-symbol-prefixes (maybe-sub-query x ctx))))
     Long/MAX_VALUE ~group-var))
 
 (defmethod codegen-sql :max [[_ x] {:keys [group-var] :as ctx}]
   `(reduce
     (fn [acc# {:strs ~(vec (find-symbol-suffixes x))}]
-      (max acc# ~(remove-symbol-prefixes (codegen-sql x ctx))))
+      (max acc# ~(remove-symbol-prefixes (maybe-sub-query x ctx))))
     Long/MIN_VALUE ~group-var))
 
 (defmethod codegen-sql :count [[_ x] {:keys [group-var] :as ctx}]
   (if (= :star x)
     `(count ~group-var)
     `(count (map (fn [{:strs ~(vec (find-symbol-suffixes x))}]
-                   ~(remove-symbol-prefixes (codegen-sql x ctx)))
+                   ~(remove-symbol-prefixes (maybe-sub-query x ctx)))
                  ~group-var))))
 
 (defmethod codegen-sql :default [x _] x)
@@ -454,7 +461,7 @@
      ~(let [ctx (update ctx :known-vars set/union (find-symbol-suffixes pred))]
         (remove-symbol-prefixes (codegen-sql pred ctx)))))
 
-(defn codegen-from-where [{:keys [from where]} {:keys [db db-var known-vars] :as ctx}]
+(defn codegen-from-where [{:keys [from where]} {:keys [db db-var result-var known-vars] :as ctx}]
   (let [known-tables (find-known-tables from)
         joins (find-joins where known-tables)
         joined-tables (set (mapcat #(map % [:lhs :rhs]) joins))
@@ -463,112 +470,107 @@
         where (set/difference (normalize-where where) join-selections)
         base-table->selection (find-base-table->selections where)
         final-selection (set/difference where (reduce set/union (vals base-table->selection)))
-        result-var (gensym 'result)
         add-base-selection (fn [x]
                              (if-let [selection (get base-table->selection x)]
                                (list `set/select (codegen-predicate (vec (cons :and selection)) ctx) x)
                                x))]
-    `(fn [~(->> (for [[table as] from
-                      :when (not (sub-query? table))]
-                  [as (str table)])
-                (into {:as db-var}))]
-       (let [~@(->> (for [[table as] from
-                          :when (sub-query? table)]
-                      (cond-> [as (codegen-sql table ctx)]
-                        (get base-table->selection as) (conj as (add-base-selection as))))
-                    (reduce into []))]
-         ~(cond->> `(as-> #{}
-                        ~result-var
-                        ~@(when (seq unjoined-tables)
-                            (cons (add-base-selection (first unjoined-tables))
-                                  (for [table (rest unjoined-tables)]
-                                    `(set/join ~result-var ~(add-base-selection table)))))
-                        ~@(first
-                           (reduce
-                            (fn [[acc joined-rels] {:keys [lhs rhs using]}]
-                              (let [using (->> (for [[lc rc] using]
-                                                 [(str (symbol-suffix lc))
-                                                  (str (symbol-suffix rc))])
-                                               (into {}))]
-                                [(cond
-                                   (contains? joined-rels rhs)
-                                   (conj acc `(set/join ~(add-base-selection lhs) ~result-var ~using))
-                                   (contains? joined-rels lhs)
-                                   (conj acc `(set/join ~result-var ~(add-base-selection rhs) ~using))
-                                   :else
-                                   (conj acc (cond->> `(set/join ~(add-base-selection lhs) ~(add-base-selection rhs) ~using)
-                                               (not-empty joined-rels) (list 'set/join result-var))))
-                                 (conj joined-rels lhs rhs)]))
-                            [[] #{}]
-                            (calculate-join-order db joins))))
-            (not-empty final-selection) (list `set/select (codegen-predicate (vec (cons :and final-selection)) ctx)))))))
+    `(let [~(->> (for [[table as] from
+                       :when (not (sub-query? table))]
+                   [as (str table)])
+                 (into {})) ~db-var
+           ~@(->> (for [[table as] from
+                        :when (sub-query? table)]
+                    (cond-> [as (codegen-sql table ctx)]
+                      (get base-table->selection as) (conj as (add-base-selection as))))
+                  (reduce into []))]
+       ~(cond->> `(as-> #{}
+                      ~result-var
+                    ~@(when (seq unjoined-tables)
+                        (cons (add-base-selection (first unjoined-tables))
+                              (for [table (rest unjoined-tables)]
+                                `(set/join ~result-var ~(add-base-selection table)))))
+                    ~@(first
+                       (reduce
+                        (fn [[acc joined-rels] {:keys [lhs rhs using]}]
+                          (let [using (->> (for [[lc rc] using]
+                                             [(str (symbol-suffix lc))
+                                              (str (symbol-suffix rc))])
+                                           (into {}))]
+                            [(cond
+                               (contains? joined-rels rhs)
+                               (conj acc `(set/join ~(add-base-selection lhs) ~result-var ~using))
+                               (contains? joined-rels lhs)
+                               (conj acc `(set/join ~result-var ~(add-base-selection rhs) ~using))
+                               :else
+                               (conj acc (cond->> `(set/join ~(add-base-selection lhs) ~(add-base-selection rhs) ~using)
+                                           (not-empty joined-rels) (list 'set/join result-var))))
+                             (conj joined-rels lhs rhs)]))
+                        [[] #{}]
+                        (calculate-join-order db joins))))
+          (not-empty final-selection) (list `set/select (codegen-predicate (vec (cons :and final-selection)) ctx))))))
 
-(defn codegen-select [{:keys [select]} ctx]
+(defn codegen-select [{:keys [select]} {:keys [result-var] :as ctx}]
   `~(if (= [:star] select)
       `identity
-      `(fn [result#]
-         (into #{}
-               (map (fn [{:strs ~(vec (find-symbol-suffixes select))}]
-                      (hash-map
-                       ~@(->> (for [[exp as] select]
-                                [(str (symbol-suffix as))
-                                 (if (symbol? exp)
-                                   (symbol-suffix exp)
-                                   (remove-symbol-prefixes (codegen-sql exp ctx)))])
-                              (reduce into [])))))
-               result#))))
+      `(into #{}
+             (map (fn [{:strs ~(vec (find-symbol-suffixes select))}]
+                    (hash-map
+                     ~@(->> (for [[exp as] select]
+                              [(str (symbol-suffix as))
+                               (if (symbol? exp)
+                                 (symbol-suffix exp)
+                                 (remove-symbol-prefixes (codegen-sql exp ctx)))])
+                            (reduce into [])))))
+             ~result-var)))
 
-(defn codegen-group-by [{:keys [select group-by having]} ctx]
+(defn codegen-group-by [{:keys [select group-by having]} {:keys [result-var] :as ctx}]
   (when group-by
-    (let [result-var (gensym 'result)
-          group-var (gensym 'group)
+    (let [group-var (gensym 'group)
           ctx (assoc ctx :group-var group-var)]
-      `(fn [~result-var]
-         (->> (group-by (fn [{:strs ~(mapv symbol-suffix group-by)}]
-                          ~(mapv symbol-suffix group-by))
-                        ~result-var)
-              (vals)
-              (remove empty?)
-              (into #{} (comp
-                         ~@(concat
-                            (when having
-                              (let [ctx (update ctx :known-vars set/union (find-symbol-suffixes having))]
-                                [`(filter (fn [{:strs ~(vec (find-symbol-suffixes having)) :as ~group-var}]
-                                            ~(remove-symbol-prefixes (codegen-sql having ctx))))]))
-                            (let [ctx (update ctx :known-vars set/union (find-symbol-suffixes select))]
-                              [`(map (fn [[{:strs ~(vec (find-symbol-suffixes select))} :as ~group-var]]
-                                       (hash-map
-                                        ~@(->> (for [[exp as] select]
-                                                 [(str (symbol-suffix as))
-                                                  (if (symbol? exp)
-                                                    (symbol-suffix exp)
-                                                    (remove-symbol-prefixes (codegen-sql exp ctx)))])
-                                               (reduce into [])))))])))))))))
+      `(->> (group-by (fn [{:strs ~(mapv symbol-suffix group-by)}]
+                        ~(mapv symbol-suffix group-by))
+                      ~result-var)
+            (vals)
+            (remove empty?)
+            (into #{} (comp
+                       ~@(concat
+                          (when having
+                            (let [ctx (update ctx :known-vars set/union (find-symbol-suffixes having))]
+                              [`(filter (fn [{:strs ~(vec (find-symbol-suffixes having)) :as ~group-var}]
+                                          ~(remove-symbol-prefixes (codegen-sql having ctx))))]))
+                          (let [ctx (update ctx :known-vars set/union (find-symbol-suffixes select))]
+                            [`(map (fn [[{:strs ~(vec (find-symbol-suffixes select))} :as ~group-var]]
+                                     (hash-map
+                                      ~@(->> (for [[exp as] select]
+                                               [(str (symbol-suffix as))
+                                                (if (symbol? exp)
+                                                  (symbol-suffix exp)
+                                                  (remove-symbol-prefixes (codegen-sql exp ctx)))])
+                                             (reduce into [])))))]))))))))
 
-(defn codegen-order-by [{:keys [order-by]} _]
+(defn codegen-order-by [{:keys [order-by]} {:keys [result-var]}]
   (when order-by
-    `(fn [result#]
-       (sort (-> ~@(reduce
-                    (fn [acc [col dir]]
-                      (cond->> `(Comparator/comparing
-                                 (reify Function
-                                   (apply [_# {:strs [~(symbol-suffix col)]}]
-                                     ~(symbol-suffix col))))
-                        (= :desc dir) (list '.reversed)
-                        (not-empty acc) (list '.thenComparing)
-                        true (conj acc)))
-                    []
-                    order-by)) result#))))
+    `(sort (-> ~@(reduce
+                  (fn [acc [col dir]]
+                    (cond->> `(Comparator/comparing
+                               (reify Function
+                                 (apply [_# {:strs [~(symbol-suffix col)]}]
+                                   ~(symbol-suffix col))))
+                      (= :desc dir) (list '.reversed)
+                      (not-empty acc) (list '.thenComparing)
+                      true (conj acc)))
+                  []
+                  order-by))
+           ~result-var)))
 
-(defn codegen-offset-limit [{:keys [offset limit]} _]
+(defn codegen-offset-limit [{:keys [offset limit]} {:keys [result-var]}]
   (when (or offset limit)
-    `(fn [result#]
-       (into [] (comp ~@(concat
-                         (when offset
-                           [`(drop ~offset)])
-                         (when limit
-                           [`(take ~limit)])))
-             result#))))
+    `(into [] (comp ~@(concat
+                       (when offset
+                         [`(drop ~offset)])
+                       (when limit
+                         [`(take ~limit)])))
+           ~result-var)))
 
 (defn maybe-add-group-by [{:keys [group-by select] :as q}]
   (if (or group-by (= [:star] select) (every? symbol? (map first select)))
@@ -576,13 +578,15 @@
     (assoc q :group-by [])))
 
 (defmethod codegen-sql :select-exp [query {:keys [db-var] :as ctx}]
-  (let [{:keys [group-by order-by offset limit] :as query} (maybe-add-group-by (query->map query))]
-    `(->> ~db-var
-          ~@(cond-> [(list (codegen-from-where query ctx))]
-              group-by (conj (list (codegen-group-by query ctx)))
-              (nil? group-by) (conj (list (codegen-select query ctx)))
-              order-by (conj (list (codegen-order-by query ctx)))
-              (or offset limit) (conj (list (codegen-offset-limit query ctx)))))))
+  (let [{:keys [group-by order-by offset limit] :as query} (maybe-add-group-by (query->map query))
+        result-var (gensym 'result)
+        ctx (assoc ctx :result-var result-var)]
+    `(as-> #{} ~result-var
+       ~@(cond-> [(codegen-from-where query ctx)]
+           group-by (conj (codegen-group-by query ctx))
+           (nil? group-by) (conj (codegen-select query ctx))
+           order-by (conj (codegen-order-by query ctx))
+           (or offset limit) (conj (codegen-offset-limit query ctx))))))
 
 (defmethod codegen-sql :union [[_ lhs rhs] ctx]
   `(set/union ~(codegen-sql lhs ctx) ~(codegen-sql rhs ctx)))

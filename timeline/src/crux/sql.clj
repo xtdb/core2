@@ -427,19 +427,22 @@
 
 (declare codegen-sql)
 
+(defn codegen-exp [exp {:keys [known-vars db-var] :as ctx}]
+  (remove-symbol-prefixes
+   (w/postwalk #(if-let [sub-query (::sub-query %)]
+                  (codegen-sql sub-query ctx)
+                  %)
+               (insta/transform
+                codegen-transform
+                (w/postwalk #(if (sub-query? %)
+                               {::sub-query %}
+                               %)
+                            exp)))))
+
 (defn codegen-predicate [pred {:keys [known-vars db-var] :as ctx}]
   `(fn [{:strs ~(vec (remove known-vars (find-symbol-suffixes pred)))}]
      ~(let [ctx (update ctx :known-vars set/union (find-symbol-suffixes pred))]
-        (remove-symbol-prefixes
-         (w/postwalk #(if-let [sub-query (::sub-query %)]
-                        (codegen-sql sub-query ctx)
-                        %)
-                     (insta/transform
-                      codegen-transform
-                      (w/postwalk #(if (sub-query? %)
-                                     {::sub-query %}
-                                     %)
-                                  pred)))))))
+        (codegen-exp pred ctx))))
 
 (defn codegen-from-where [{:keys [from where]} {:keys [db db-var known-vars] :as ctx}]
   (let [known-tables (find-known-tables from)
@@ -508,7 +511,8 @@
 (defn codegen-group-by [{:keys [select group-by having]} ctx]
   (when group-by
     (let [result-var (gensym 'result)
-          group-var (gensym 'group)]
+          group-var (gensym 'group)
+          ctx (assoc ctx :group-var group-var)]
       `(fn [~result-var]
          (->> (group-by (fn [{:strs ~(mapv symbol-suffix group-by)}]
                           ~(mapv symbol-suffix group-by))
@@ -518,17 +522,19 @@
               (into #{} (comp
                          ~@(concat
                             (when having
-                              [`(filter (fn [{:strs ~(vec (find-symbol-suffixes having))}]
-                                          ~(insta/transform codegen-transform (remove-symbol-prefixes having))))])
-                            [`(map (fn [[{:strs ~(vec (find-symbol-suffixes select))} :as ~group-var]]
-                                     (hash-map
-                                      ~@(->> (for [[exp as] select]
-                                               [(str (symbol-suffix as))
-                                                (if (symbol? exp)
-                                                  (symbol-suffix exp)
-                                                  `(~(insta/transform codegen-transform (remove-symbol-prefixes exp))
-                                                    ~group-var))])
-                                             (reduce into [])))))]))))))))
+                              (let [ctx (update ctx :known-vars set/union (find-symbol-suffixes having))]
+                                [`(filter (fn [{:strs ~(vec (find-symbol-suffixes having)) :as ~group-var}]
+                                            ~(codegen-exp having ctx)))]))
+                            (let [ctx (update ctx :known-vars set/union (find-symbol-suffixes select))]
+                              [`(map (fn [[{:strs ~(vec (find-symbol-suffixes select))} :as ~group-var]]
+                                       (hash-map
+                                        ~@(->> (for [[exp as] select]
+                                                 [(str (symbol-suffix as))
+                                                  (if (symbol? exp)
+                                                    (symbol-suffix exp)
+                                                    `(~(codegen-exp exp ctx)
+                                                      ~group-var))])
+                                               (reduce into [])))))])))))))))
 
 (defn codegen-order-by [{:keys [order-by]} _]
   (when order-by

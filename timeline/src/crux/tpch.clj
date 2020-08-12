@@ -84,15 +84,6 @@
               :columns (tpch-table->columns t)})])
         (into {}))))
 
-(defn build-column->tables [db]
-  (->> (for [{:keys [name columns]} (map meta (vals db))
-             c (keys columns)]
-         {c #{name}})
-       (apply merge-with set/union)))
-
-(defn table-columns [db table]
-  (set (keys (:columns (meta (get db table))))))
-
 ;; See https://github.com/cwida/duckdb/tree/master/third_party/dbgen/answers
 
 ;; https://db.in.tum.de/teaching/ws2021/queryopt/?lang=en

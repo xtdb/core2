@@ -310,9 +310,9 @@
                           :default)))
 
 (defn maybe-sub-query [x ctx]
-  (if (sub-query? x)
-    `(->> ~(codegen-sql x ctx) (ffirst) (val))
-    (codegen-sql x ctx)))
+  (codegen-sql x (if (sub-query? x)
+                   (assoc ctx :scalar-sub-query? true)
+                   ctx)))
 
 (defmethod codegen-sql :not fn [[_ x] ctx]
   `(not ~(codegen-sql x ctx)))
@@ -508,43 +508,60 @@
                         (calculate-join-order db joins))))
           (not-empty final-selection) (list `set/select (codegen-predicate (vec (cons :and final-selection)) ctx))))))
 
-(defn codegen-select [{:keys [select]} {:keys [result-var] :as ctx}]
-  `~(if (= [:star] select)
-      `identity
-      `(into #{}
-             (map (fn [{:strs ~(vec (find-symbol-suffixes select))}]
-                    (hash-map
-                     ~@(->> (for [[exp as] select]
-                              [(str (symbol-suffix as))
-                               (if (symbol? exp)
-                                 (symbol-suffix exp)
-                                 (codegen-sql exp ctx))])
-                            (reduce into [])))))
-             ~result-var)))
+(defn codegen-select [{:keys [select scalar-sub-query?]} {:keys [result-var] :as ctx}]
+  (let [ctx (update ctx :known-vars set/union (find-symbol-suffixes select))]
+    `~(cond
+        (= [:star] select)
+        result-var
+        scalar-sub-query?
+        `(when-let [{:strs ~(vec (find-symbol-suffixes select))} (first ~result-var)]
+           ~(codegen-sql (ffirst select) ctx))
+        :else
+        `(into #{}
+               (map (fn [{:strs ~(vec (find-symbol-suffixes select))}]
+                      (hash-map
+                       ~@(->> (for [[exp as] select]
+                                [(str (symbol-suffix as))
+                                 (codegen-sql exp ctx)])
+                              (reduce into [])))))
+               ~result-var))))
 
-(defn codegen-group-by [{:keys [select group-by having]} {:keys [result-var] :as ctx}]
+(defn codegen-group-by [{:keys [select group-by having scalar-sub-query?]} {:keys [result-var] :as ctx}]
   (let [group-var (gensym 'group)
         ctx (assoc ctx :group-var group-var)]
-    `(->> (group-by (fn [{:strs ~(mapv symbol-suffix group-by)}]
-                      ~(mapv symbol-suffix group-by))
-                    ~result-var)
-          (vals)
-          (remove empty?)
-          (into #{} (comp
-                     ~@(concat
-                        (when having
-                          (let [ctx (update ctx :known-vars set/union (find-symbol-suffixes having))]
-                            [`(filter (fn [{:strs ~(vec (find-symbol-suffixes having)) :as ~group-var}]
-                                        ~(codegen-sql having ctx)))]))
-                        (let [ctx (update ctx :known-vars set/union (find-symbol-suffixes select))]
-                          [`(map (fn [[{:strs ~(vec (find-symbol-suffixes select))} :as ~group-var]]
-                                   (hash-map
-                                    ~@(->> (for [[exp as] select]
-                                             [(str (symbol-suffix as))
-                                              (if (symbol? exp)
-                                                (symbol-suffix exp)
-                                                (codegen-sql exp ctx))])
-                                           (reduce into [])))))])))))))
+    (if scalar-sub-query?
+      `(when-let [[{:strs ~(vec (find-symbol-suffixes select))} :as ~group-var]
+                  (->> (group-by (fn [{:strs ~(mapv symbol-suffix group-by)}]
+                                   ~(mapv symbol-suffix group-by))
+                                 ~result-var)
+                       (vals)
+                       (remove empty?)
+                       (filter ~(if having
+                                  (let [ctx (update ctx :known-vars set/union (find-symbol-suffixes having))]
+                                    `(fn [[{:strs ~(vec (find-symbol-suffixes having)) :as ~group-var}]]
+                                       ~(codegen-sql having ctx)))
+                                  `identity))
+                       (first))]
+         ~(let [ctx (update ctx :known-vars set/union (find-symbol-suffixes select))]
+            (codegen-sql (ffirst select) ctx)))
+      `(->> (group-by (fn [{:strs ~(mapv symbol-suffix group-by)}]
+                        ~(mapv symbol-suffix group-by))
+                      ~result-var)
+            (vals)
+            (remove empty?)
+            (into #{} (comp
+                       ~@(concat
+                          (when having
+                            (let [ctx (update ctx :known-vars set/union (find-symbol-suffixes having))]
+                              [`(filter (fn [[{:strs ~(vec (find-symbol-suffixes having)) :as ~group-var}]]
+                                          ~(codegen-sql having ctx)))]))
+                          (let [ctx (update ctx :known-vars set/union (find-symbol-suffixes select))]
+                            [`(map (fn [[{:strs ~(vec (find-symbol-suffixes select))} :as ~group-var]]
+                                     (hash-map
+                                      ~@(->> (for [[exp as] select]
+                                               [(str (symbol-suffix as))
+                                                (codegen-sql exp ctx)])
+                                             (reduce into [])))))]))))))))
 
 (defn codegen-order-by [{:keys [order-by]} {:keys [result-var]}]
   `(sort (-> ~@(reduce
@@ -573,10 +590,12 @@
     q
     (assoc q :group-by [])))
 
-(defmethod codegen-sql :select-exp [query {:keys [db-var] :as ctx}]
+(defmethod codegen-sql :select-exp [query {:keys [db-var scalar-sub-query?] :as ctx}]
   (let [{:keys [group-by order-by offset limit] :as query} (maybe-add-group-by (query->map query))
         result-var (gensym 'result)
-        ctx (assoc ctx :result-var result-var)]
+        query (assoc query :scalar-sub-query? scalar-sub-query?)
+        ctx (assoc ctx :result-var result-var)
+        ctx (dissoc ctx :scalar-sub-query?)]
     `(as-> #{} ~result-var
        ~@(cond-> [(codegen-from-where query ctx)]
            group-by (conj (codegen-group-by query ctx))

@@ -320,15 +320,15 @@
                    ctx)))
 
 (defmethod codegen-sql :not fn [[_ x] ctx]
-  `(not ~(codegen-sql x ctx)))
+  `(not ~(maybe-sub-query x ctx)))
 
 (defmethod codegen-sql :and [[_ & xs] ctx]
   `(and ~@(for [x xs]
-            (codegen-sql x ctx))))
+            (maybe-sub-query x ctx))))
 
 (defmethod codegen-sql :or [[_ & xs] ctx]
   `(or ~@(for [x xs]
-           (codegen-sql x ctx))))
+           (maybe-sub-query x ctx))))
 
 (defmethod codegen-sql := [[_ x y] ctx]
   `(= ~(maybe-sub-query x ctx) ~(maybe-sub-query y ctx)))

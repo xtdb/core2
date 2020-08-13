@@ -381,7 +381,7 @@
 
 (defmethod codegen-sql :in [[_ x y] ctx]
   (if (sub-query? y)
-    `(some #{~(maybe-sub-query x ctx)} (map (comp val first) ~(codegen-sql y ctx)))
+    `(boolean (some #{~(maybe-sub-query x ctx)} (map (comp val first) ~(codegen-sql y ctx))))
     `(contains? ~(codegen-sql y ctx) ~(maybe-sub-query x ctx))))
 
 (defmethod codegen-sql :all [[_ x op y] ctx]

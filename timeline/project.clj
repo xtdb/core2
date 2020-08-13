@@ -12,7 +12,9 @@
                  [instaparse "1.4.10"]]
   :profiles {:uberjar {:dependencies [[ch.qos.logback/logback-classic "1.2.3"]]}
              :dev {:dependencies [[ch.qos.logback/logback-classic "1.2.3"]
-                                  [io.airlift.tpch/tpch "0.10"]]}}
+                                  [io.airlift.tpch/tpch "0.10"]
+                                  [seancorfield/next.jdbc "1.1.582"]
+                                  [com.h2database/h2 "1.4.199"]]}}
   :java-source-paths ["src"]
   :jvm-opts ["-Xmx2G"
              "-XX:MaxDirectMemorySize=2G"]

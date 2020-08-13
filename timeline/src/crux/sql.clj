@@ -76,17 +76,22 @@
    :identifier parse-identifier})
 
 (def constant-folding-transform
-  {:numeric-minus (fn [x y]
-                    (cond
-                      (and (instance? Date x)
-                           (instance? TemporalAmount y))
-                      (Date/from (.toInstant (.minus (.atOffset (.toInstant ^Date x) ZoneOffset/UTC) ^TemporalAmount y)))
-                      (and (double? x) (double? y))
-                      (double (- (bigdec x) (bigdec y)))
-                      (and (number? x) (number? y))
-                      (- x y)
-                      :else
-                      [:numeric-minus x y]))
+  {:numeric-minus (fn
+                    ([x]
+                     (if (number? x)
+                       (- x)
+                       [:numeric-minus x]))
+                    ([x y]
+                     (cond
+                       (and (instance? Date x)
+                            (instance? TemporalAmount y))
+                       (Date/from (.toInstant (.minus (.atOffset (.toInstant ^Date x) ZoneOffset/UTC) ^TemporalAmount y)))
+                       (and (double? x) (double? y))
+                       (double (- (bigdec x) (bigdec y)))
+                       (and (number? x) (number? y))
+                       (- x y)
+                       :else
+                       [:numeric-minus x y])))
    :numeric-plus (fn [x y]
                    (cond
                      (and (instance? Date x)
@@ -355,7 +360,9 @@
   `(+ ~(maybe-sub-query x ctx) ~(maybe-sub-query y ctx)))
 
 (defmethod codegen-sql :- [[_ x y] ctx]
-  `(- ~(maybe-sub-query x ctx) ~(maybe-sub-query y ctx)))
+  (if y
+    `(- ~(maybe-sub-query x ctx) ~(maybe-sub-query y ctx))
+    `(- ~(maybe-sub-query x ctx))))
 
 (defmethod codegen-sql :* [[_ x y] ctx]
   `(* ~(maybe-sub-query x ctx) ~(maybe-sub-query y ctx)))

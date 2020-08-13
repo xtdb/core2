@@ -179,7 +179,7 @@ unique-exp = <unique> table-subquery
 
 numeric-plus = numeric-value-exp <'+'> term
 
-numeric-minus = numeric-value-exp <'-'> term
+numeric-minus = numeric-value-exp <'-'> term | <'-'> term
 
 <numeric-value-exp> = term
                     | numeric-plus
@@ -196,7 +196,7 @@ numeric-modulo = term <'%'> factor
        | numeric-divide
        | numeric-modulo
 
-<factor> = ['-' | '+'] scalar-exp
+<factor> = !numeric-value-exp scalar-exp
          | <'('> numeric-value-exp <')'>
 
 routine-invocation = identifier  <'('> scalar-exp (<','> scalar-exp)* <')'>

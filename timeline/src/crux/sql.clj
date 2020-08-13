@@ -530,11 +530,13 @@
   (let [group-var (gensym 'group)
         all-groups-var (gensym 'all-groups)
         ctx (assoc ctx :group-var group-var)]
-    `(let [~all-groups-var (->> (group-by (fn [{:strs ~(mapv symbol-suffix group-by)}]
-                                            ~(mapv symbol-suffix group-by))
-                                          ~result-var)
-                                (vals)
-                                (remove empty?))
+    `(let [~all-groups-var ~(if (empty? group-by)
+                              `[(seq ~result-var)]
+                              `(->> (group-by (fn [{:strs ~(mapv symbol-suffix group-by)}]
+                                               ~(mapv symbol-suffix group-by))
+                                             ~result-var)
+                                   (vals)
+                                   (remove empty?)))
            ~all-groups-var ~(if having
                               (let [ctx (update ctx :known-vars set/union (find-symbol-suffixes having))]
                                 `(filter (fn [[{:strs ~(vec (find-symbol-suffixes having)) :as ~group-var}]]

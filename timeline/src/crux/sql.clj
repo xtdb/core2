@@ -9,7 +9,8 @@
   (:import [java.util Comparator Date]
            java.util.function.Function
            [java.time Duration Period ZoneOffset]
-           [java.time.temporal ChronoField TemporalAmount]))
+           [java.time.temporal ChronoField TemporalAmount]
+           [clojure.lang Associative Counted ILookup IPersistentCollection IPersistentSet IReduceInit MapEntry Seqable]))
 
 (defn parse-string [x]
   (s/replace (subs x 1 (dec (count x)))
@@ -460,6 +461,52 @@
   (if (and (symbol? x) (nil? (namespace x)))
     (with-meta (symbol-suffix x) (meta x))
     x))
+
+;; Experimental key prefix decorators for map (tuple) and set (relation).
+
+(deftype MapWithPrefix [m prefix]
+  Associative
+  (entryAt [_ k]
+    (when (= prefix (namespace k))
+      (when-let [e (find m (keyword (name k)))]
+        (MapEntry/create (keyword prefix (name k)) (val e)))))
+  ILookup
+  (valAt [_ k]
+    (when (= prefix (namespace k))
+      (get m (keyword (name k)))))
+  IReduceInit
+  (reduce [this f init]
+    (transduce (map (fn [[k v]]
+                      (MapEntry/create (keyword prefix (name k)) v)))
+               (completing f) init m))
+  IPersistentCollection
+  (cons [this x]
+    (merge (into {} this) x))
+  Seqable
+  (seq [_]
+    (for [[k v] m]
+      (MapEntry/create (keyword prefix (name k)) v)))
+  Object
+  (toString [this]
+    (str (into {} this))))
+
+(deftype SetWithPrefix [xrel prefix]
+  Counted
+  (count [_]
+    (count xrel))
+  IPersistentSet
+  (disjoin [_ x]
+    (SetWithPrefix. (disj xrel (.m ^MapWithPrefix x)) prefix))
+  IReduceInit
+  (reduce [this f init]
+    (transduce (map #(MapWithPrefix. % prefix)) (completing f) init xrel))
+  Seqable
+  (seq [_]
+    (for [m xrel]
+      (MapWithPrefix. m prefix)))
+  Object
+  (toString [this]
+    (str (into #{} this))))
 
 (defn codegen-predicate [pred {:keys [known-vars db-var] :as ctx}]
   `(fn [{:strs ~(vec (remove known-vars (find-symbol-suffixes pred)))}]

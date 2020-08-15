@@ -347,15 +347,15 @@
 (defmethod codegen-sql :<> [[_ x y] ctx]
   `(not= ~(maybe-sub-query x ctx) ~(maybe-sub-query y ctx)))
 
-(defn as-number [x]
+(defn as-double [x]
   (if (number? x)
     x
     (with-meta x {:tag 'double})))
 
 (defn numeric-op [op x y ctx]
   `(~op
-    ~(as-number (maybe-sub-query x ctx))
-    ~(as-number (maybe-sub-query y ctx))))
+    ~(as-double (maybe-sub-query x ctx))
+    ~(as-double (maybe-sub-query y ctx))))
 
 (defmethod codegen-sql :< [[_ x y] ctx]
   (if (or (number? x) (number? y))
@@ -383,7 +383,7 @@
 (defmethod codegen-sql :- [[_ x y] ctx]
   (if y
     (numeric-op '- x y ctx)
-    `(- ~(as-number (maybe-sub-query x ctx)))))
+    `(- ~(as-double (maybe-sub-query x ctx)))))
 
 (defmethod codegen-sql :* [[_ x y] ctx]
   (numeric-op '* x y ctx))

@@ -290,14 +290,6 @@
   (and (vector? x )
        (contains? #{:union :except :intersect :select-exp} (first x))))
 
-(defn find-base-table->selections [where]
-  (->> (for [x (normalize-where where)
-             :when (and (= 1 (count (distinct (map symbol-prefix (filter symbol? x)))))
-                        (not-any? sub-query? x))
-             :let [[a] (filter symbol? x)]]
-         {(symbol-prefix a) #{x}})
-       (apply merge-with set/union)))
-
 (defn find-known-tables [from]
   (set (filter symbol? (map second from))))
 
@@ -315,6 +307,15 @@
        x)
      x)
     @free-vars))
+
+(defn find-base-table->selections [where {:keys [known-vars]}]
+  (->> (for [x (normalize-where where)
+             :let [vars (remove (comp known-vars symbol-suffix) (find-free-vars x))]
+             :when (and (= 1 (count (distinct (map symbol-prefix vars))))
+                        (not-any? sub-query? x))
+             :let [[a] (filter symbol? vars)]]
+         {(symbol-prefix a) #{x}})
+       (apply merge-with set/union)))
 
 (defn extend-scope [x {:keys [known-vars] :as ctx}]
   (let [new-vars (set (remove known-vars (map symbol-suffix (find-free-vars x))))
@@ -538,7 +539,7 @@
         unjoined-tables (set/difference known-tables joined-tables)
         join-selections (set (map :selection joins))
         where (set/difference (normalize-where where) join-selections)
-        base-table->selection (find-base-table->selections where)
+        base-table->selection (find-base-table->selections where ctx)
         selections (set/difference where (reduce set/union (vals base-table->selection)))
         add-base-selection (fn [x]
                              (if-let [selection (get base-table->selection x)]

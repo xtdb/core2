@@ -298,28 +298,23 @@
          {(symbol-prefix a) #{x}})
        (apply merge-with set/union)))
 
-(defn find-free-vars [x known-tables]
-  (let [acc (volatile! #{})]
-    (w/postwalk #(do (when (and (symbol? %) (nil? (namespace %))
-                                (symbol-with-prefix? %)
-                                (not (contains? known-tables (symbol-prefix %))))
-                       (vswap! acc conj (symbol-suffix %)))
-                     %) x)
-    @acc))
-
 (defn find-known-tables [from]
   (set (filter symbol? (map second from))))
 
 (defn find-symbol-suffixes [x]
-  (let [acc (volatile! #{})]
-    (w/prewalk #(do (when (and (symbol? %) (nil? (namespace %)))
-                      (vswap! acc conj (symbol-suffix %)))
-                    (if (and (sub-query? %) (= :select-exp (first %)))
-                      (let [known-tables (find-known-tables (:from (query->map %)))]
-                        (vswap! acc set/union (find-free-vars % known-tables))
-                        nil)
-                      %)) x)
-    @acc))
+  (let [known-tables (volatile! #{})
+        free-vars (volatile! #{})]
+    (w/prewalk
+     (fn [x]
+       (when (and (symbol? x) (nil? (namespace x))
+                  (symbol-with-prefix? x)
+                  (not (contains? @known-tables (symbol-prefix x))))
+         (vswap! free-vars conj (symbol-suffix x)))
+       (when (and (sub-query? x) (= :select-exp (first x)))
+         (vswap! known-tables set/union (find-known-tables (:from (query->map x)))))
+       x)
+     x)
+    @free-vars))
 
 (defmulti codegen-sql (fn [x _]
                         (if (vector? x)
@@ -712,8 +707,11 @@
 
 (def parse-and-transform-memo (memoize parse-and-transform))
 
+(defn sql->clj [sql db]
+  (codegen-sql (parse-and-transform-memo sql (build-column->tables db)) {:db db}))
+
 (defn compile-sql [sql db]
-  (eval (codegen-sql (parse-and-transform-memo sql (build-column->tables db)) {:db db})))
+  (eval (sql->clj sql db)))
 
 (defn execute-sql [sql db]
   ((compile-sql sql db) db))

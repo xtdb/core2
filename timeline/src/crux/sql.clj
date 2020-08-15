@@ -282,8 +282,8 @@
 
 (defn calculate-join-order [db joins]
   (sort-by (fn [{:keys [lhs rhs]}]
-             (* (count (get db (str lhs)))
-                (count (get db (str rhs)))))
+             (min (count (get db (str lhs)))
+                  (count (get db (str rhs)))))
            joins))
 
 (defn sub-query? [x]
@@ -537,6 +537,8 @@
         joins (find-joins where known-tables)
         joined-tables (set (mapcat #(map % [:lhs :rhs]) joins))
         unjoined-tables (set/difference known-tables joined-tables)
+        cross-products (for [table unjoined-tables]
+                         {:lhs table :using {}})
         join-selections (set (map :selection joins))
         where (set/difference (normalize-where where) join-selections)
         base-table->selection (find-base-table->selections where ctx)
@@ -557,17 +559,7 @@
                   (reduce into []))]
        (as-> #{}
            ~result-var
-           ~@(let [[acc joined-rels]
-                   (if (seq unjoined-tables)
-                     (reduce
-                      (fn [[acc joined-rels] table]
-                        [(conj acc `(set/join ~result-var ~(add-base-selection table)))
-                         (conj joined-rels table)])
-                      [[(add-base-selection (first unjoined-tables))]
-                       #{(first unjoined-tables)}]
-                      (rest unjoined-tables))
-                     [[] #{}])
-                   [acc _ final-selections]
+           ~@(let [[acc _ final-selections]
                    (reduce
                     (fn [[acc joined-rels selections] {:keys [lhs rhs using]}]
                       (let [using (->> (for [[lc rc] using]
@@ -575,14 +567,16 @@
                                           (str (symbol-suffix rc))])
                                        (into {}))
                             acc (cond
-                                  (contains? joined-rels rhs)
+                                  (and (nil? rhs) (empty? joined-rels))
+                                  (conj acc (add-base-selection lhs))
+                                  (or (nil? rhs) (contains? joined-rels rhs))
                                   (conj acc `(set/join ~(add-base-selection lhs) ~result-var ~using))
                                   (contains? joined-rels lhs)
                                   (conj acc `(set/join ~result-var ~(add-base-selection rhs) ~using))
                                   :else
                                   (conj acc (cond->> `(set/join ~(add-base-selection lhs) ~(add-base-selection rhs) ~using)
                                               (not-empty joined-rels) (list 'set/join result-var))))
-                            joined-rels (conj joined-rels lhs rhs)
+                            joined-rels (conj joined-rels lhs (or rhs lhs))
                             new-selections (set (filter
                                                  (fn [s]
                                                    (set/superset? joined-rels
@@ -594,8 +588,8 @@
                            (seq new-selections) (conj `(set/select ~(codegen-predicate (vec (cons :and new-selections)) ctx) ~result-var)))
                          joined-rels
                          (set/difference selections new-selections)]))
-                    [acc joined-rels selections]
-                    (calculate-join-order db joins))]
+                    [[] #{} selections]
+                    (concat cross-products (calculate-join-order db joins)))]
                (cond-> acc
                  (seq final-selections) (conj `(set/select ~(codegen-predicate (vec (cons :and final-selections)) ctx) ~result-var))))))))
 

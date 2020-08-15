@@ -316,6 +316,11 @@
      x)
     @free-vars))
 
+(defn extend-scope [x {:keys [known-vars] :as ctx}]
+  (let [new-vars (set (remove known-vars (find-symbol-suffixes x)))
+        ctx (update ctx :known-vars set/union new-vars)]
+    [(vec new-vars) ctx]))
+
 (defmulti codegen-sql (fn [x _]
                         (if (vector? x)
                           (first x)
@@ -442,11 +447,12 @@
              (maybe-sub-query arg ctx)))))
 
 (defn map-to-double [[_ quantifier x] {:keys [group-var] :as ctx}]
-  (cond->> `(.mapToDouble (.stream ~(with-meta group-var {:tag `Collection}))
-                          (reify ToDoubleFunction
-                            (applyAsDouble [_# {:strs ~(vec (find-symbol-suffixes x))}]
-                              ~(maybe-sub-query x ctx))))
-    (= :distinct quantifier) (list '.distinct)))
+  (let [[new-vars ctx] (extend-scope x ctx)]
+    (cond->> `(.mapToDouble (.stream ~(with-meta group-var {:tag `Collection}))
+                            (reify ToDoubleFunction
+                              (applyAsDouble [_# {:strs ~new-vars}]
+                                ~(maybe-sub-query x ctx))))
+      (= :distinct quantifier) (list '.distinct))))
 
 (defmethod codegen-sql :sum [set-fn ctx]
   `(.sum ~(map-to-double set-fn ctx)))
@@ -461,12 +467,13 @@
   `(.getAsDouble (.max ~(map-to-double set-fn ctx))))
 
 (defmethod codegen-sql :count [[_ quantifier x] {:keys [group-var] :as ctx}]
-  `(count ~(cond->> (if (= :star x)
-                      group-var
-                      `(map (fn [{:strs ~(vec (find-symbol-suffixes x))}]
-                              ~(maybe-sub-query x ctx))
-                            ~group-var))
-             (= :distinct quantifier) (list 'distinct))))
+  (let [[new-vars ctx] (extend-scope x ctx)]
+    `(count ~(cond->> (if (= :star x)
+                        group-var
+                        `(map (fn [{:strs ~new-vars}]
+                                ~(maybe-sub-query x ctx))
+                              ~group-var))
+               (= :distinct quantifier) (list 'distinct)))))
 
 (defmethod codegen-sql :default [x _]
   (if (and (symbol? x) (nil? (namespace x)))
@@ -519,12 +526,12 @@
   (toString [this]
     (str (into #{} this))))
 
-(defn codegen-predicate [pred {:keys [known-vars db-var] :as ctx}]
-  `(fn [{:strs ~(vec (remove known-vars (find-symbol-suffixes pred)))}]
-     ~(let [ctx (update ctx :known-vars set/union (find-symbol-suffixes pred))]
-        (codegen-sql pred ctx))))
+(defn codegen-predicate [pred {:keys [db-var] :as ctx}]
+  (let [[new-vars ctx] (extend-scope pred ctx)]
+    `(fn [{:strs ~new-vars}]
+       ~(codegen-sql pred ctx))))
 
-(defn codegen-from-where [{:keys [from where]} {:keys [db db-var result-var known-vars] :as ctx}]
+(defn codegen-from-where [{:keys [from where]} {:keys [db db-var result-var] :as ctx}]
   (let [known-tables (find-known-tables from)
         joins (find-joins where known-tables)
         joined-tables (set (mapcat #(map % [:lhs :rhs]) joins))
@@ -581,24 +588,24 @@
                [`(set/select ~(codegen-predicate (vec (cons :and final-selection)) ctx) ~result-var)])))))
 
 (defn codegen-select [{:keys [select scalar-sub-query?]} {:keys [result-var] :as ctx}]
-  (let [ctx (update ctx :known-vars set/union (find-symbol-suffixes select))]
-    `~(cond
-        (= [:star] select)
-        result-var
-        scalar-sub-query?
-        `(when-let [{:strs ~(vec (find-symbol-suffixes select))} (first ~result-var)]
-           ~(codegen-sql (ffirst select) ctx))
-        :else
-        `(into #{}
-               (map (fn [{:strs ~(vec (find-symbol-suffixes select))}]
-                      (hash-map
-                       ~@(->> (for [[exp as] select]
-                                [(str (symbol-suffix as))
-                                 (codegen-sql exp ctx)])
-                              (reduce into [])))))
-               ~result-var))))
+  (let [[new-vars ctx] (extend-scope select ctx)]
+    (cond
+      (= [:star] select)
+      result-var
+      scalar-sub-query?
+      `(when-let [{:strs ~new-vars} (first ~result-var)]
+         ~(codegen-sql (ffirst select) ctx))
+      :else
+      `(into #{}
+             (map (fn [{:strs ~new-vars}]
+                    (hash-map
+                     ~@(->> (for [[exp as] select]
+                              [(str (symbol-suffix as))
+                               (codegen-sql exp ctx)])
+                            (reduce into [])))))
+             ~result-var))))
 
-(defn codegen-group-by [{:keys [select group-by having scalar-sub-query?]} {:keys [result-var] :as ctx}]
+(defn codegen-group-by [{:keys [select group-by having scalar-sub-query?]} {:keys [result-var known-vars] :as ctx}]
   (let [group-var (gensym 'group)
         all-groups-var (gensym 'all-groups)
         ctx (assoc ctx :group-var group-var)]
@@ -610,15 +617,16 @@
                                    (vals)
                                    (remove empty?)))
            ~all-groups-var ~(if having
-                              (let [ctx (update ctx :known-vars set/union (find-symbol-suffixes having))]
-                                `(filter (fn [[{:strs ~(vec (find-symbol-suffixes having)) :as ~group-var}]]
-                                           ~(codegen-sql having ctx)) ~all-groups-var))
+                              (let [[new-vars ctx] (extend-scope having ctx)]
+                                `(filter (fn [[{:strs ~new-vars :as ~group-var}]]
+                                           ~(codegen-sql having ctx))
+                                         ~all-groups-var))
                               all-groups-var)]
-       ~(let [ctx (update ctx :known-vars set/union (find-symbol-suffixes select))]
+       ~(let [[new-vars ctx] (extend-scope select ctx)]
           (if scalar-sub-query?
-            `(when-let [[{:strs ~(vec (find-symbol-suffixes select))} :as ~group-var] (first ~all-groups-var)]
+            `(when-let [[{:strs ~new-vars} :as ~group-var] (first ~all-groups-var)]
                ~(codegen-sql (ffirst select) ctx))
-            `(into #{} (map (fn [[{:strs ~(vec (find-symbol-suffixes select))} :as ~group-var]]
+            `(into #{} (map (fn [[{:strs ~new-vars} :as ~group-var]]
                               (hash-map
                                ~@(->> (for [[exp as] select]
                                         [(str (symbol-suffix as))

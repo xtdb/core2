@@ -6,11 +6,14 @@
             [clojure.string :as s]
             [clojure.walk :as w]
             [instaparse.core :as insta])
-  (:import [java.util Comparator Date]
+  (:import [java.util Collection Comparator Date]
+           java.util.function.ToDoubleFunction
            java.util.function.Function
            [java.time Duration Period ZoneOffset]
            [java.time.temporal ChronoField TemporalAmount]
            [clojure.lang Associative Counted ILookup IPersistentCollection IPersistentSet IReduceInit MapEntry Seqable]))
+
+(set! *unchecked-math* :warn-on-boxed)
 
 (defn parse-string [x]
   (s/replace (subs x 1 (dec (count x)))
@@ -75,6 +78,8 @@
    :string-literal parse-string
    :like-pattern parse-like-pattern
    :identifier parse-identifier})
+
+(set! *unchecked-math* false)
 
 (def constant-folding-transform
   {:numeric-minus (fn
@@ -143,6 +148,8 @@
                     [:comp-lt v x]
                     [:comp-gt v y]]))})
 
+(set! *unchecked-math* :warn-on-boxed)
+
 (def nary-transform
   {:boolean-and (fn [x y]
                   (cond
@@ -183,9 +190,12 @@
                               (gensym "column_")))])
     :sort-spec (fn [x & [dir]]
                  [x (or dir :asc)])
-    :set-function-spec (fn [& args]
-                         (vec args))}
-   (let [constants [:count :sum :avg :min :max :star :distinct :asc :desc :year :month :day :hour :minute]]
+    :set-function-spec (fn
+                         ([type x]
+                          [type :all x])
+                         ([type quantifier x]
+                          [type quantifier x]))}
+   (let [constants [:count :sum :avg :min :max :star :all :distinct :asc :desc :year :month :day :hour :minute]]
      (zipmap constants (map constantly constants)))))
 
 (def simplify-transform
@@ -337,42 +347,52 @@
 (defmethod codegen-sql :<> [[_ x y] ctx]
   `(not= ~(maybe-sub-query x ctx) ~(maybe-sub-query y ctx)))
 
+(defn as-number [x]
+  (if (number? x)
+    x
+    (with-meta x {:tag 'double})))
+
+(defn numeric-op [op x y ctx]
+  `(~op
+    ~(as-number (maybe-sub-query x ctx))
+    ~(as-number (maybe-sub-query y ctx))))
+
 (defmethod codegen-sql :< [[_ x y] ctx]
   (if (or (number? x) (number? y))
-    `(< ~(maybe-sub-query x ctx) ~(maybe-sub-query y ctx))
+    (numeric-op '< x y ctx)
     `(neg? (compare ~(maybe-sub-query x ctx) ~(maybe-sub-query y ctx)))))
 
 (defmethod codegen-sql :<= [[_ x y] ctx]
   (if (or (number? x) (number? y))
-    `(<= ~(maybe-sub-query x ctx) ~(maybe-sub-query y ctx))
+    (numeric-op '<= x y ctx)
     `(not (pos? (compare ~(maybe-sub-query x ctx) ~(maybe-sub-query y ctx))))))
 
 (defmethod codegen-sql :> [[_ x y] ctx]
   (if (or (number? x) (number? y))
-    `(> ~(maybe-sub-query x ctx) ~(maybe-sub-query y ctx))
+    (numeric-op '> x y ctx)
     `(pos? (compare ~(maybe-sub-query x ctx) ~(maybe-sub-query y ctx)))))
 
 (defmethod codegen-sql :>= [[_ x y] ctx]
   (if (or (number? x) (number? y))
-    `(>= ~(maybe-sub-query x ctx) ~(maybe-sub-query y ctx))
+    (numeric-op '>= x y ctx)
     `(not (neg? (compare ~(maybe-sub-query x ctx) ~(maybe-sub-query y ctx))))))
 
 (defmethod codegen-sql :+ [[_ x y] ctx]
-  `(+ ~(maybe-sub-query x ctx) ~(maybe-sub-query y ctx)))
+  (numeric-op '+ x y ctx))
 
 (defmethod codegen-sql :- [[_ x y] ctx]
   (if y
-    `(- ~(maybe-sub-query x ctx) ~(maybe-sub-query y ctx))
-    `(- ~(maybe-sub-query x ctx))))
+    (numeric-op '- x y ctx)
+    `(- ~(as-number (maybe-sub-query x ctx)))))
 
 (defmethod codegen-sql :* [[_ x y] ctx]
-  `(* ~(maybe-sub-query x ctx) ~(maybe-sub-query y ctx)))
+  (numeric-op '* x y ctx))
 
 (defmethod codegen-sql :/ [[_ x y] ctx]
-  `(/ ~(maybe-sub-query x ctx) ~(maybe-sub-query y ctx)))
+  (numeric-op '/ x y ctx))
 
 (defmethod codegen-sql :% [[_ x y] ctx]
-  `(rem ~(maybe-sub-query x ctx) ~(maybe-sub-query y ctx)))
+  (numeric-op '% x y ctx))
 
 (defmethod codegen-sql :exists [[_ x] ctx]
   `(not-empty ~(codegen-sql x ctx)))
@@ -425,37 +445,32 @@
     `(~f ~@(for [arg args]
              (maybe-sub-query arg ctx)))))
 
-(defmethod codegen-sql :sum [[_ x] {:keys [group-var] :as ctx}]
-  `(reduce
-    (fn [acc# {:strs ~(vec (find-symbol-suffixes x))}]
-      (+ acc# ~(maybe-sub-query x ctx)))
-    0 ~group-var))
+(defn map-to-double [[_ quantifier x] {:keys [group-var] :as ctx}]
+  (cond->> `(.mapToDouble (.stream ~(with-meta group-var {:tag `Collection}))
+                          (reify ToDoubleFunction
+                            (applyAsDouble [_# {:strs ~(vec (find-symbol-suffixes x))}]
+                              ~(maybe-sub-query x ctx))))
+    (= :distinct quantifier) (list '.distinct)))
 
-(defmethod codegen-sql :avg [[_ x] {:keys [group-var] :as ctx}]
-  `(/ (reduce
-       (fn [acc# {:strs ~(vec (find-symbol-suffixes x))}]
-         (+ acc# ~(maybe-sub-query x ctx)))
-       0 ~group-var)
-      (count ~group-var)))
+(defmethod codegen-sql :sum [set-fn ctx]
+  `(.sum ~(map-to-double set-fn ctx)))
 
-(defmethod codegen-sql :min [[_ x] {:keys [group-var] :as ctx}]
-  `(reduce
-    (fn [acc# {:strs ~(vec (find-symbol-suffixes x))}]
-      (min acc# ~(maybe-sub-query x ctx)))
-    Long/MAX_VALUE ~group-var))
+(defmethod codegen-sql :avg [set-fn ctx]
+  `(.getAsDouble (.average ~(map-to-double set-fn ctx))))
 
-(defmethod codegen-sql :max [[_ x] {:keys [group-var] :as ctx}]
-  `(reduce
-    (fn [acc# {:strs ~(vec (find-symbol-suffixes x))}]
-      (max acc# ~(maybe-sub-query x ctx)))
-    Long/MIN_VALUE ~group-var))
+(defmethod codegen-sql :min [set-fn ctx]
+  `(.getAsDouble (.min ~(map-to-double set-fn ctx))))
 
-(defmethod codegen-sql :count [[_ x] {:keys [group-var] :as ctx}]
-  (if (= :star x)
-    `(count ~group-var)
-    `(count (map (fn [{:strs ~(vec (find-symbol-suffixes x))}]
-                   ~(maybe-sub-query x ctx))
-                 ~group-var))))
+(defmethod codegen-sql :max [set-fn ctx]
+  `(.getAsDouble (.max  ~(map-to-double set-fn ctx))))
+
+(defmethod codegen-sql :count [[_ quantifier x] {:keys [group-var] :as ctx}]
+  `(count ~(cond->> (if (= :star x)
+                      group-var
+                      `(map (fn [{:strs ~(vec (find-symbol-suffixes x))}]
+                              ~(maybe-sub-query x ctx))
+                            ~group-var))
+             (= :distinct quantifier) (list 'distinct))))
 
 (defmethod codegen-sql :default [x _]
   (if (and (symbol? x) (nil? (namespace x)))
@@ -536,31 +551,34 @@
                     (cond-> [as (codegen-sql table ctx)]
                       (get base-table->selection as) (conj as (add-base-selection as))))
                   (reduce into []))]
-       ~(cond->> `(as-> #{}
-                      ~result-var
-                    ~@(when (seq unjoined-tables)
-                        (cons (add-base-selection (first unjoined-tables))
-                              (for [table (rest unjoined-tables)]
-                                `(set/join ~result-var ~(add-base-selection table)))))
-                    ~@(first
-                       (reduce
-                        (fn [[acc joined-rels] {:keys [lhs rhs using]}]
-                          (let [using (->> (for [[lc rc] using]
-                                             [(str (symbol-suffix lc))
-                                              (str (symbol-suffix rc))])
-                                           (into {}))]
-                            [(cond
-                               (contains? joined-rels rhs)
-                               (conj acc `(set/join ~(add-base-selection lhs) ~result-var ~using))
-                               (contains? joined-rels lhs)
-                               (conj acc `(set/join ~result-var ~(add-base-selection rhs) ~using))
-                               :else
-                               (conj acc (cond->> `(set/join ~(add-base-selection lhs) ~(add-base-selection rhs) ~using)
-                                           (not-empty joined-rels) (list 'set/join result-var))))
-                             (conj joined-rels lhs rhs)]))
-                        [[] #{}]
-                        (calculate-join-order db joins))))
-          (not-empty final-selection) (list `set/select (codegen-predicate (vec (cons :and final-selection)) ctx))))))
+       (as-> #{}
+           ~result-var
+           ~@(when (seq unjoined-tables)
+               (reduce
+                (fn [acc table]
+                  (conj acc `(set/join ~result-var ~(add-base-selection table))))
+                [(add-base-selection (first unjoined-tables))]
+                (rest unjoined-tables)))
+           ~@(first
+              (reduce
+               (fn [[acc joined-rels] {:keys [lhs rhs using]}]
+                 (let [using (->> (for [[lc rc] using]
+                                    [(str (symbol-suffix lc))
+                                     (str (symbol-suffix rc))])
+                                  (into {}))]
+                   [(cond
+                      (contains? joined-rels rhs)
+                      (conj acc `(set/join ~(add-base-selection lhs) ~result-var ~using))
+                      (contains? joined-rels lhs)
+                      (conj acc `(set/join ~result-var ~(add-base-selection rhs) ~using))
+                      :else
+                      (conj acc (cond->> `(set/join ~(add-base-selection lhs) ~(add-base-selection rhs) ~using)
+                                  (not-empty joined-rels) (list 'set/join result-var))))
+                    (conj joined-rels lhs rhs)]))
+               [[] #{}]
+               (calculate-join-order db joins)))
+           ~@(when (not-empty final-selection)
+               [`(set/select ~(codegen-predicate (vec (cons :and final-selection)) ctx) ~result-var)])))))
 
 (defn codegen-select [{:keys [select scalar-sub-query?]} {:keys [result-var] :as ctx}]
   (let [ctx (update ctx :known-vars set/union (find-symbol-suffixes select))]
@@ -675,20 +693,22 @@
          {c #{name}})
        (apply merge-with set/union)))
 
-(defn parse-and-transform [sql db]
+(defn parse-and-transform [sql column->tables]
   (reduce
    (fn [acc transform-map]
      (insta/transform transform-map acc))
    (parse-sql sql)
-   [(qualify-transform (build-column->tables db))
+   [(qualify-transform column->tables)
     literal-transform
     constant-folding-transform
     nary-transform
     simplify-transform
     normalize-transform]))
 
+(def parse-and-transform-memo (memoize parse-and-transform))
+
 (defn compile-sql [sql db]
-  (eval (codegen-sql (parse-and-transform sql db) {:db db})))
+  (eval (codegen-sql (parse-and-transform-memo sql (build-column->tables db)) {:db db})))
 
 (defn execute-sql [sql db]
   ((compile-sql sql db) db))

@@ -314,7 +314,7 @@
   (let [acc (volatile! #{})]
     (w/prewalk #(do (when (and (symbol? %) (nil? (namespace %)))
                       (vswap! acc conj (symbol-suffix %)))
-                    (if (sub-query? %)
+                    (if (and (sub-query? %) (= :select-exp (first %)))
                       (let [known-tables (find-known-tables (:from (query->map %)))]
                         (vswap! acc set/union (find-free-vars % known-tables)))
                       %)) x)

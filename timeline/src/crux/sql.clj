@@ -330,7 +330,7 @@
                    (assoc ctx :scalar-sub-query? true)
                    ctx)))
 
-(defmethod codegen-sql :not fn [[_ x] ctx]
+(defmethod codegen-sql :not [[_ x] ctx]
   `(not ~(maybe-sub-query x ctx)))
 
 (defmethod codegen-sql :and [[_ & xs] ctx]

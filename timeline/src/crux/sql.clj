@@ -301,7 +301,7 @@
 (defn find-known-tables [from]
   (set (filter symbol? (map second from))))
 
-(defn find-symbol-suffixes [x]
+(defn find-free-vars [x]
   (let [known-tables (volatile! #{})
         free-vars (volatile! #{})]
     (w/prewalk
@@ -309,7 +309,7 @@
        (when (and (symbol? x) (nil? (namespace x))
                   (symbol-with-prefix? x)
                   (not (contains? @known-tables (symbol-prefix x))))
-         (vswap! free-vars conj (symbol-suffix x)))
+         (vswap! free-vars conj x))
        (when (and (sub-query? x) (= :select-exp (first x)))
          (vswap! known-tables set/union (find-known-tables (:from (query->map x)))))
        x)
@@ -317,7 +317,7 @@
     @free-vars))
 
 (defn extend-scope [x {:keys [known-vars] :as ctx}]
-  (let [new-vars (set (remove known-vars (find-symbol-suffixes x)))
+  (let [new-vars (set (remove known-vars (map symbol-suffix (find-free-vars x))))
         ctx (update ctx :known-vars set/union new-vars)]
     [(vec new-vars) ctx]))
 

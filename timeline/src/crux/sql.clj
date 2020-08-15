@@ -531,7 +531,7 @@
     `(fn [{:strs ~new-vars}]
        ~(codegen-sql pred ctx))))
 
-(defn codegen-from-where [{:keys [from where]} {:keys [db db-var result-var] :as ctx}]
+(defn codegen-from-where [{:keys [from where]} {:keys [db db-var result-var known-vars] :as ctx}]
   (let [known-tables (find-known-tables from)
         joins (find-joins where known-tables)
         joined-tables (set (mapcat #(map % [:lhs :rhs]) joins))
@@ -539,7 +539,7 @@
         join-selections (set (map :selection joins))
         where (set/difference (normalize-where where) join-selections)
         base-table->selection (find-base-table->selections where)
-        final-selection (set/difference where (reduce set/union (vals base-table->selection)))
+        selections (set/difference where (reduce set/union (vals base-table->selection)))
         add-base-selection (fn [x]
                              (if-let [selection (get base-table->selection x)]
                                (list `set/select (codegen-predicate (vec (cons :and selection)) ctx) x)
@@ -568,24 +568,33 @@
                      [[] #{}])]
                (first
                 (reduce
-                 (fn [[acc joined-rels] {:keys [lhs rhs using]}]
+                 (fn [[acc joined-rels selections] {:keys [lhs rhs using]}]
                    (let [using (->> (for [[lc rc] using]
                                       [(str (symbol-suffix lc))
                                        (str (symbol-suffix rc))])
-                                    (into {}))]
-                     [(cond
-                        (contains? joined-rels rhs)
-                        (conj acc `(set/join ~(add-base-selection lhs) ~result-var ~using))
-                        (contains? joined-rels lhs)
-                        (conj acc `(set/join ~result-var ~(add-base-selection rhs) ~using))
-                        :else
-                        (conj acc (cond->> `(set/join ~(add-base-selection lhs) ~(add-base-selection rhs) ~using)
-                                    (not-empty joined-rels) (list 'set/join result-var))))
-                      (conj joined-rels lhs rhs)]))
-                 [acc joined-rels]
-                 (calculate-join-order db joins))))
-           ~@(when (not-empty final-selection)
-               [`(set/select ~(codegen-predicate (vec (cons :and final-selection)) ctx) ~result-var)])))))
+                                    (into {}))
+                         acc (cond
+                               (contains? joined-rels rhs)
+                               (conj acc `(set/join ~(add-base-selection lhs) ~result-var ~using))
+                               (contains? joined-rels lhs)
+                               (conj acc `(set/join ~result-var ~(add-base-selection rhs) ~using))
+                               :else
+                               (conj acc (cond->> `(set/join ~(add-base-selection lhs) ~(add-base-selection rhs) ~using)
+                                           (not-empty joined-rels) (list 'set/join result-var))))
+                         joined-rels (conj joined-rels lhs rhs)
+                         new-selections (set (filter
+                                              (fn [s]
+                                                (set/superset? joined-rels
+                                                               (set (for [v (find-free-vars s)
+                                                                          :when (not (contains? known-vars (symbol-suffix v)))]
+                                                                      (symbol-prefix v)))))
+                                              selections))]
+                     [(cond-> acc
+                        (seq new-selections) (conj `(set/select ~(codegen-predicate (vec (cons :and new-selections)) ctx) ~result-var)))
+                      joined-rels
+                      (set/difference selections new-selections)]))
+                 [acc joined-rels selections]
+                 (calculate-join-order db joins))))))))
 
 (defn codegen-select [{:keys [select scalar-sub-query?]} {:keys [result-var] :as ctx}]
   (let [[new-vars ctx] (extend-scope select ctx)]

@@ -622,7 +622,7 @@
                                            ~(codegen-sql having ctx))
                                          ~all-groups-var))
                               all-groups-var)]
-       ~(let [[new-vars ctx] (extend-scope select ctx)]
+       ~(let [[new-vars ctx] (extend-scope group-by ctx)]
           (if scalar-sub-query?
             `(when-let [[{:strs ~new-vars} :as ~group-var] (first ~all-groups-var)]
                ~(codegen-sql (ffirst select) ctx))

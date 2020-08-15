@@ -248,7 +248,9 @@
   (vec (cons :select-exp
              (mapv vec
                    (for [[k v] m]
-                     (vec (cons k v)))))))
+                     (if (contains? #{:offset :limit} k)
+                       [k v]
+                       (vec (cons k v))))))))
 
 (defn symbol-suffix [x]
   (symbol (s/replace x #"^.+\." "")))
@@ -315,7 +317,7 @@
 
 (defn find-base-table->selections [where {:keys [known-vars]}]
   (->> (for [x (normalize-where where)
-             :let [vars (remove (comp known-vars symbol-suffix) (find-free-vars x))]
+             :let [vars (remove known-vars (find-free-vars x))]
              :when (and (= 1 (count (distinct (map symbol-prefix vars))))
                         (not-any? sub-query? x))
              :let [[a] (filter symbol? vars)]]
@@ -323,9 +325,9 @@
        (apply merge-with set/union)))
 
 (defn extend-scope [x {:keys [known-vars] :as ctx}]
-  (let [new-vars (set (remove known-vars (map symbol-suffix (find-free-vars x))))
+  (let [new-vars (set (remove known-vars (find-free-vars x)))
         ctx (update ctx :known-vars set/union new-vars)]
-    [(vec new-vars) ctx]))
+    [(mapv symbol-suffix new-vars) ctx]))
 
 (defmulti codegen-sql (fn [x _]
                         (if (vector? x)

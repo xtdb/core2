@@ -282,7 +282,7 @@
 
 (defn calculate-join-order [db joins]
   (sort-by (fn [{:keys [lhs rhs]}]
-             (min (count (get db (str lhs)))
+             (max (count (get db (str lhs)))
                   (count (get db (str rhs)))))
            joins))
 
@@ -397,7 +397,7 @@
   (numeric-op '% x y ctx))
 
 (defmethod codegen-sql :exists [[_ x] ctx]
-  `(not-empty ~(codegen-sql x ctx)))
+  `(boolean (not-empty ~(codegen-sql x ctx))))
 
 (defmethod codegen-sql :unique [[_ x] ctx]
   `(apply distinct? ~(codegen-sql x ctx)))
@@ -559,39 +559,47 @@
                   (reduce into []))]
        (as-> #{}
            ~result-var
-           ~@(let [[acc _ final-selections]
-                   (reduce
-                    (fn [[acc joined-rels selections] {:keys [lhs rhs using]}]
-                      (let [using (->> (for [[lc rc] using]
-                                         [(str (symbol-suffix lc))
-                                          (str (symbol-suffix rc))])
-                                       (into {}))
-                            acc (cond
-                                  (and (nil? rhs) (empty? joined-rels))
-                                  (conj acc (add-base-selection lhs))
-                                  (or (nil? rhs) (contains? joined-rels rhs))
-                                  (conj acc `(set/join ~(add-base-selection lhs) ~result-var ~using))
-                                  (contains? joined-rels lhs)
-                                  (conj acc `(set/join ~result-var ~(add-base-selection rhs) ~using))
-                                  :else
-                                  (conj acc (cond->> `(set/join ~(add-base-selection lhs) ~(add-base-selection rhs) ~using)
-                                              (not-empty joined-rels) (list 'set/join result-var))))
-                            joined-rels (conj joined-rels lhs (or rhs lhs))
-                            new-selections (set (filter
-                                                 (fn [s]
-                                                   (set/superset? joined-rels
-                                                                  (set (for [v (find-free-vars s)
-                                                                             :when (not (contains? known-vars (symbol-suffix v)))]
-                                                                         (symbol-prefix v)))))
-                                                 selections))]
-                        [(cond-> acc
-                           (seq new-selections) (conj `(set/select ~(codegen-predicate (vec (cons :and new-selections)) ctx) ~result-var)))
-                         joined-rels
-                         (set/difference selections new-selections)]))
-                    [[] #{} selections]
-                    (concat cross-products (calculate-join-order db joins)))]
-               (cond-> acc
-                 (seq final-selections) (conj `(set/select ~(codegen-predicate (vec (cons :and final-selections)) ctx) ~result-var))))))))
+           ~@(loop [[{:keys [lhs rhs using] :as join} & joins] (concat cross-products (calculate-join-order db joins))
+                    acc []
+                    joined-rels #{}
+                    selections selections]
+               (if join
+                 (let [other-joins (set (for [join joins
+                                              :when (or (and (contains? #{lhs rhs} (:lhs join))
+                                                             (contains? joined-rels (:rhs join)))
+                                                        (and (contains? #{lhs rhs} (:rhs join))
+                                                             (contains? joined-rels (:lhs join))))]
+                                          join))
+                       joins (remove other-joins joins)
+                       using (->> (for [[lc rc] (apply merge using (map :using other-joins))]
+                                    [(str (symbol-suffix lc))
+                                     (str (symbol-suffix rc))])
+                                  (into {}))
+                       acc (cond
+                             (and (nil? rhs) (empty? joined-rels))
+                             (conj acc (add-base-selection lhs))
+                             (or (nil? rhs) (contains? joined-rels rhs))
+                             (conj acc `(set/join ~(add-base-selection lhs) ~result-var ~using))
+                             (contains? joined-rels lhs)
+                             (conj acc `(set/join ~result-var ~(add-base-selection rhs) ~using))
+                             :else
+                             (conj acc (cond->> `(set/join ~(add-base-selection lhs) ~(add-base-selection rhs) ~using)
+                                         (not-empty joined-rels) (list 'set/join result-var))))
+                       joined-rels (conj joined-rels lhs (or rhs lhs))
+                       new-selections (set (filter
+                                            (fn [s]
+                                              (set/superset? joined-rels
+                                                             (set (for [v (find-free-vars s)
+                                                                        :when (not (contains? known-vars (symbol-suffix v)))]
+                                                                    (symbol-prefix v)))))
+                                            selections))]
+                   (recur joins
+                          (cond-> acc
+                            (seq new-selections) (conj `(set/select ~(codegen-predicate (vec (cons :and new-selections)) ctx) ~result-var)))
+                          joined-rels
+                          (set/difference selections new-selections)))
+                 (cond-> acc
+                   (seq selections) (conj `(set/select ~(codegen-predicate (vec (cons :and selections)) ctx) ~result-var)))))))))
 
 (defn codegen-select [{:keys [select scalar-sub-query?]} {:keys [result-var] :as ctx}]
   (let [[new-vars ctx] (extend-scope select ctx)]

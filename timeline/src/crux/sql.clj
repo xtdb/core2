@@ -457,7 +457,7 @@
     (cond->> `(.mapToDouble (.stream ~(with-meta group-var {:tag `Collection}))
                             (reify ToDoubleFunction
                               (applyAsDouble [_# {:strs ~new-vars}]
-                                ~(maybe-sub-query x ctx))))
+                                (double ~(maybe-sub-query x ctx)))))
       (= :distinct quantifier) (list '.distinct))))
 
 (defmethod codegen-sql :sum [set-fn ctx]

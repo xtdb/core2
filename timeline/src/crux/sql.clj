@@ -244,6 +244,12 @@
          (update k first)))
      select [:where :having :offset :limit])))
 
+(defn map->query [m]
+  (vec (cons :select-exp
+             (mapv vec
+                   (for [[k v] m]
+                     (vec (cons k v)))))))
+
 (defn symbol-suffix [x]
   (symbol (s/replace x #"^.+\." "")))
 
@@ -299,7 +305,6 @@
     (w/prewalk
      (fn [x]
        (when (and (symbol? x) (nil? (namespace x))
-                  (symbol-with-prefix? x)
                   (not (contains? @known-tables (symbol-prefix x))))
          (vswap! free-vars conj x))
        (when (and (sub-query? x) (= :select-exp (first x)))
@@ -670,13 +675,53 @@
                        [`(take ~limit)])))
          ~result-var))
 
+(defn contains-set-function? [x]
+  (let [acc (volatile! false)]
+    (w/postwalk (fn [x]
+                  (when (and (vector? x) (contains? #{:count :avg :sum :min :max} (first x)))
+                    (vreset! acc true))
+                  x) x)
+    @acc))
+
 (defn maybe-add-group-by [{:keys [group-by select] :as q}]
-  (if (or group-by (= [:star] select) (every? symbol? (map first select)))
-    q
-    (assoc q :group-by [])))
+  (if (and (nil? group-by) (contains-set-function? select))
+    (assoc q :group-by [])
+    q))
+
+(defn rewrite-correlated-subqueries [x]
+  (let [rewrites (volatile! #{})]
+    (w/prewalk (fn [x]
+                 (when (and (vector? x) (= :exists (first x)))
+                   (let [[_ sub-query] x
+                         {:keys [where select] :as query} (query->map sub-query)
+                         known-vars (set/difference (find-free-vars where) (find-free-vars sub-query))
+                         tmp (gensym 'tmp)
+                         selection-smap (->> (for [v known-vars]
+                                               [v (symbol (str tmp "." (symbol-suffix v)))])
+                                             (into {}))
+                         selections (set (mapcat val (find-base-table->selections where {:known-vars #{}})))
+                         correlated-selections (set/difference (normalize-where where) selections)]
+                     (when (and (= [:star] select)
+                                (= 1 (count correlated-selections)))
+                       (vswap! rewrites conj
+                               [{x (w/postwalk-replace selection-smap (first correlated-selections))}
+                                [(map->query
+                                  (assoc query
+                                         :where (vec selections)
+                                         :select (vec (for [v (filter known-vars (find-free-vars correlated-selections))]
+                                                        [v (symbol-suffix v)]))))
+                                 tmp]]))))
+                 x)
+               (:where x))
+    (reduce
+     (fn [acc [where-smap from]]
+       (-> acc
+           (update :where #(w/postwalk-replace where-smap %))
+           (update :from conj from)))
+     x @rewrites)))
 
 (defmethod codegen-sql :select-exp [query {:keys [db-var scalar-sub-query?] :as ctx}]
-  (let [{:keys [group-by order-by offset limit] :as query} (maybe-add-group-by (query->map query))
+  (let [{:keys [group-by order-by offset limit] :as query} (rewrite-correlated-subqueries (maybe-add-group-by (query->map query)))
         result-var (gensym 'result)
         query (assoc query :scalar-sub-query? scalar-sub-query?)
         ctx (assoc ctx :result-var result-var)
@@ -729,8 +774,11 @@
 
 (def parse-and-transform-memo (memoize parse-and-transform))
 
+(defn parse-and-transform-sql [sql db]
+  (parse-and-transform-memo sql (build-column->tables db)))
+
 (defn sql->clj [sql db]
-  (codegen-sql (parse-and-transform-memo sql (build-column->tables db)) {:db db}))
+  (codegen-sql (parse-and-transform-sql sql db)  {:db db}))
 
 (defn compile-sql [sql db]
   (eval (sql->clj sql db)))

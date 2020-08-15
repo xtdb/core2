@@ -462,7 +462,7 @@
   `(.getAsDouble (.min ~(map-to-double set-fn ctx))))
 
 (defmethod codegen-sql :max [set-fn ctx]
-  `(.getAsDouble (.max  ~(map-to-double set-fn ctx))))
+  `(.getAsDouble (.max ~(map-to-double set-fn ctx))))
 
 (defmethod codegen-sql :count [[_ quantifier x] {:keys [group-var] :as ctx}]
   `(count ~(cond->> (if (= :star x)
@@ -553,30 +553,34 @@
                   (reduce into []))]
        (as-> #{}
            ~result-var
-           ~@(when (seq unjoined-tables)
-               (reduce
-                (fn [acc table]
-                  (conj acc `(set/join ~result-var ~(add-base-selection table))))
-                [(add-base-selection (first unjoined-tables))]
-                (rest unjoined-tables)))
-           ~@(first
-              (reduce
-               (fn [[acc joined-rels] {:keys [lhs rhs using]}]
-                 (let [using (->> (for [[lc rc] using]
-                                    [(str (symbol-suffix lc))
-                                     (str (symbol-suffix rc))])
-                                  (into {}))]
-                   [(cond
-                      (contains? joined-rels rhs)
-                      (conj acc `(set/join ~(add-base-selection lhs) ~result-var ~using))
-                      (contains? joined-rels lhs)
-                      (conj acc `(set/join ~result-var ~(add-base-selection rhs) ~using))
-                      :else
-                      (conj acc (cond->> `(set/join ~(add-base-selection lhs) ~(add-base-selection rhs) ~using)
-                                  (not-empty joined-rels) (list 'set/join result-var))))
-                    (conj joined-rels lhs rhs)]))
-               [[] #{}]
-               (calculate-join-order db joins)))
+           ~@(let [[acc joined-rels]
+                   (if (seq unjoined-tables)
+                     (reduce
+                      (fn [[acc joined-rels] table]
+                        [(conj acc `(set/join ~result-var ~(add-base-selection table)))
+                         (conj joined-rels table)])
+                      [[(add-base-selection (first unjoined-tables))]
+                       #{(first unjoined-tables)}]
+                      (rest unjoined-tables))
+                     [[] #{}])]
+               (first
+                (reduce
+                 (fn [[acc joined-rels] {:keys [lhs rhs using]}]
+                   (let [using (->> (for [[lc rc] using]
+                                      [(str (symbol-suffix lc))
+                                       (str (symbol-suffix rc))])
+                                    (into {}))]
+                     [(cond
+                        (contains? joined-rels rhs)
+                        (conj acc `(set/join ~(add-base-selection lhs) ~result-var ~using))
+                        (contains? joined-rels lhs)
+                        (conj acc `(set/join ~result-var ~(add-base-selection rhs) ~using))
+                        :else
+                        (conj acc (cond->> `(set/join ~(add-base-selection lhs) ~(add-base-selection rhs) ~using)
+                                    (not-empty joined-rels) (list 'set/join result-var))))
+                      (conj joined-rels lhs rhs)]))
+                 [acc joined-rels]
+                 (calculate-join-order db joins))))
            ~@(when (not-empty final-selection)
                [`(set/select ~(codegen-predicate (vec (cons :and final-selection)) ctx) ~result-var)])))))
 

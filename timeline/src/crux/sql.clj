@@ -445,7 +445,7 @@
   (case f
     (substr
      substring) (let [[x start length] args]
-                  `(let [start# (maybe-sub-query start ctx)]
+                  `(let [start# ~(maybe-sub-query start ctx)]
                      (subs ~(maybe-sub-query x ctx)
                            (dec start#)
                            (+ (dec start#) ~(maybe-sub-query length ctx)))))

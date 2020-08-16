@@ -564,6 +564,7 @@
         cross-products (for [table unjoined-tables]
                          {:lhs table :using {}})
         join-selections (set (map :selection joins))
+        all-joins (concat cross-products (calculate-join-order db joins))
         where (set/difference (normalize-where where) join-selections)
         base-table->selection (find-base-table->selections where ctx)
         selections (set/difference where (reduce set/union (vals base-table->selection)))
@@ -583,12 +584,18 @@
                   (reduce into []))]
        (as-> #{}
            ~result-var
-           ~@(loop [[{:keys [lhs rhs using] :as join} & joins] (concat cross-products (calculate-join-order db joins))
+           ~@(loop [[join :as all-joins] all-joins
                     acc []
                     joined-rels #{}
                     selections selections]
                (if join
-                 (let [other-joins (set (for [join joins
+                 (let [{:keys [lhs rhs using] :as join} (if (or (nil? (:using join)) (empty? joined-rels))
+                                                          join
+                                                          (first (for [{:keys [lhs rhs] :as join} all-joins
+                                                                       :when (not-empty (set/intersection joined-rels #{lhs rhs}))]
+                                                                   join)))
+                       joins (remove #{join} all-joins)
+                       other-joins (set (for [join joins
                                               :when (or (and (= lhs (:lhs join))
                                                              (contains? joined-rels (:rhs join)))
                                                         (and (= rhs (:rhs join))
@@ -614,7 +621,7 @@
                                             (fn [s]
                                               (set/superset? joined-rels
                                                              (set (for [v (find-free-vars s)
-                                                                        :when (not (contains? known-vars (symbol-suffix v)))]
+                                                                        :when (not (contains? known-vars v))]
                                                                     (symbol-prefix v)))))
                                             selections))]
                    (recur joins

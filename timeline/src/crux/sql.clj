@@ -421,23 +421,23 @@
   (numeric-op '% x y ctx))
 
 (defmethod codegen-sql :exists [[_ x] ctx]
-  `(boolean (not-empty ~(codegen-sql x ctx))))
+  `(boolean (not-empty ~(codegen-sql x (assoc ctx :row-sub-query?)))))
 
 (defmethod codegen-sql :unique [[_ x] ctx]
   `(apply distinct? ~(codegen-sql x ctx)))
 
 (defmethod codegen-sql :in [[_ x y] ctx]
   (if (sub-query? y)
-    `(boolean (some #{~(maybe-sub-query x ctx)} (map (comp val first) ~(codegen-sql y ctx))))
+    `(boolean (some #{~(maybe-sub-query x ctx)} ~(codegen-sql y (assoc ctx :row-sub-query? true))))
     `(contains? ~(codegen-sql y ctx) ~(maybe-sub-query x ctx))))
 
 (defmethod codegen-sql :all [[_ x op y] ctx]
   `(every? #(~@(codegen-sql [op x '%] ctx))
-           (map (comp val first) ~(codegen-sql y ctx))))
+           ~(codegen-sql y (assoc ctx :row-sub-query? true))))
 
 (defmethod codegen-sql :any [[_ x op y] ctx]
   `(boolean (some #(~@(codegen-sql [op x '%] ctx))
-                  (map (comp val first) ~(codegen-sql y ctx)))))
+                  ~(codegen-sql y (assoc ctx :row-sub-query? true)))))
 
 (defmethod codegen-sql :like [[_ x pattern] ctx]
   `(boolean (re-find ~pattern ~(maybe-sub-query x ctx))))
@@ -589,9 +589,9 @@
                     selections selections]
                (if join
                  (let [other-joins (set (for [join joins
-                                              :when (or (and (contains? #{lhs rhs} (:lhs join))
+                                              :when (or (and (= lhs (:lhs join))
                                                              (contains? joined-rels (:rhs join)))
-                                                        (and (contains? #{lhs rhs} (:rhs join))
+                                                        (and (= rhs (:rhs join))
                                                              (contains? joined-rels (:lhs join))))]
                                           join))
                        joins (remove other-joins joins)
@@ -625,7 +625,7 @@
                  (cond-> acc
                    (seq selections) (conj `(set/select ~(codegen-predicate (vec (cons :and selections)) ctx) ~result-var)))))))))
 
-(defn codegen-select [{:keys [select scalar-sub-query?]} {:keys [result-var] :as ctx}]
+(defn codegen-select [{:keys [select scalar-sub-query? row-sub-query?]} {:keys [result-var] :as ctx}]
   (let [[new-vars ctx] (extend-scope select ctx)]
     (cond
       (= [:star] select)
@@ -633,6 +633,10 @@
       scalar-sub-query?
       `(when-let [{:strs ~new-vars} (first ~result-var)]
          ~(codegen-sql (ffirst select) ctx))
+      row-sub-query?
+      `(map (fn [{:strs ~new-vars}]
+              ~(codegen-sql (ffirst select) ctx))
+            ~result-var)
       :else
       `(into #{}
              (map (fn [{:strs ~new-vars}]
@@ -643,7 +647,7 @@
                             (reduce into [])))))
              ~result-var))))
 
-(defn codegen-group-by [{:keys [select group-by having scalar-sub-query?]} {:keys [result-var known-vars] :as ctx}]
+(defn codegen-group-by [{:keys [select group-by having scalar-sub-query? row-sub-query?]} {:keys [result-var known-vars] :as ctx}]
   (let [group-var (gensym 'group)
         all-groups-var (gensym 'all-groups)
         ctx (assoc ctx :group-var group-var)]
@@ -661,9 +665,15 @@
                                          ~all-groups-var))
                               all-groups-var)]
        ~(let [[new-vars ctx] (extend-scope group-by ctx)]
-          (if scalar-sub-query?
+          (cond
+            scalar-sub-query?
             `(when-let [[{:strs ~new-vars} :as ~group-var] (first ~all-groups-var)]
                ~(codegen-sql (ffirst select) ctx))
+            row-sub-query?
+            `(map (fn [[{:strs ~new-vars} :as ~group-var]]
+                    ~(codegen-sql (ffirst select) ctx))
+                  ~all-groups-var)
+            :else
             `(into #{} (map (fn [[{:strs ~new-vars} :as ~group-var]]
                               (hash-map
                                ~@(->> (for [[exp as] select]
@@ -739,12 +749,12 @@
            (update :from conj from)))
      x @rewrites)))
 
-(defmethod codegen-sql :select-exp [query {:keys [db-var scalar-sub-query?] :as ctx}]
+(defmethod codegen-sql :select-exp [query {:keys [db-var scalar-sub-query? row-sub-query?] :as ctx}]
   (let [{:keys [group-by order-by offset limit] :as query} (maybe-add-group-by (query->map query))
         result-var (gensym 'result)
-        query (assoc query :scalar-sub-query? scalar-sub-query?)
+        query (assoc query :scalar-sub-query? scalar-sub-query? :row-sub-query? row-sub-query?)
         ctx (assoc ctx :result-var result-var)
-        ctx (dissoc ctx :scalar-sub-query?)]
+        ctx (dissoc ctx :scalar-sub-query? :row-sub-query?)]
     `(as-> #{} ~result-var
        ~@(cond-> [(codegen-from-where query ctx)]
            group-by (conj (codegen-group-by query ctx))

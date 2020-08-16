@@ -181,9 +181,7 @@
 (def normalize-transform
   (merge
    {:table-spec (fn [x & [y]]
-                  (if (vector? x)
-                    [x y]
-                    [x (or y x)]))
+                  [x y])
     :select-item (fn [x & [y]]
                    [x (or y (if (symbol? x)
                               (symbol-suffix x)
@@ -226,14 +224,6 @@
               (vec (cons y args)))])
        (into {})))
 
-(defn qualify-transform [column->tables]
-  {:identifier (fn [x]
-                 (if-let [ts (get column->tables (name x))]
-                   (if (= 1 (count ts))
-                     (symbol (str (first ts) "." (name x)))
-                     (throw (IllegalArgumentException. (str "Column not unique:" x))))
-                   (symbol x)))})
-
 (defn query->map [[_ & args]]
   (let [select (zipmap (map first args)
                        (map (comp vec rest) args))]
@@ -248,7 +238,7 @@
   (vec (cons :select-exp
              (mapv vec
                    (for [[k v] m]
-                     (if (contains? #{:offset :limit} k)
+                     (if (contains? #{:where :having :offset :limit} k)
                        [k v]
                        (vec (cons k v))))))))
 
@@ -260,6 +250,33 @@
 
 (defn symbol-with-prefix? [x]
   (boolean (re-find #"\." (str x))))
+
+(defn qualify-transform [x column->tables]
+  (w/postwalk
+   (fn [x]
+     (if (and (vector? x) (= :select-exp (first x)))
+       (let [mapping (volatile! {})
+             {:keys [from] :as query} (query->map x)
+             from (vec (for [[x y] from]
+                         (if (vector? x)
+                           [x y]
+                           [x (or y (let [m (gensym x)]
+                                      (vswap! mapping assoc (name x) m)
+                                      m))])))]
+         (w/postwalk
+          (fn [x]
+            (if (and (symbol? x) (not (symbol-with-prefix? x)))
+              (if-let [ts (get column->tables (name (symbol-suffix x)))]
+                (if (contains? @mapping (first ts))
+                  (if (= 1 (count ts))
+                    (symbol (str (get @mapping (first ts)) "." (name x)))
+                    (throw (IllegalArgumentException. (str "Column not unique:" x))))
+                  x)
+                (symbol x))
+              x))
+          (map->query (assoc query :from from))))
+       x))
+   x))
 
 (defn normalize-where [where]
   (cond
@@ -723,7 +740,7 @@
      x @rewrites)))
 
 (defmethod codegen-sql :select-exp [query {:keys [db-var scalar-sub-query?] :as ctx}]
-  (let [{:keys [group-by order-by offset limit] :as query} (rewrite-correlated-subqueries (maybe-add-group-by (query->map query)))
+  (let [{:keys [group-by order-by offset limit] :as query} (maybe-add-group-by (query->map query))
         result-var (gensym 'result)
         query (assoc query :scalar-sub-query? scalar-sub-query?)
         ctx (assoc ctx :result-var result-var)
@@ -763,16 +780,17 @@
        (apply merge-with set/union)))
 
 (defn parse-and-transform [sql column->tables]
-  (reduce
-   (fn [acc transform-map]
-     (insta/transform transform-map acc))
-   (parse-sql sql)
-   [(qualify-transform column->tables)
-    literal-transform
-    constant-folding-transform
-    nary-transform
-    simplify-transform
-    normalize-transform]))
+  (qualify-transform
+   (reduce
+    (fn [acc transform-map]
+      (insta/transform transform-map acc))
+    (parse-sql sql)
+    [literal-transform
+     constant-folding-transform
+     nary-transform
+     simplify-transform
+     normalize-transform])
+   column->tables))
 
 (def parse-and-transform-memo (memoize parse-and-transform))
 

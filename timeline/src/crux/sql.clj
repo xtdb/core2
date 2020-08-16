@@ -516,6 +516,9 @@
     (when (= prefix (namespace k))
       (when-let [e (find m (keyword (name k)))]
         (MapEntry/create (keyword prefix (name k)) (val e)))))
+  Counted
+  (count [_]
+    (count m))
   ILookup
   (valAt [_ k]
     (when (= prefix (namespace k))
@@ -529,7 +532,11 @@
   (cons [this x]
     (merge (into {} this) x))
   (equiv [this x]
-    (= (into {} this) x))
+    (and (= (count this ) (count x))
+         (if (instance? MapWithPrefix x)
+           (and (= prefix (.prefix ^MapWithPrefix x))
+                (= m (.m ^MapWithPrefix x)))
+           (= (into {} this) x))))
   Seqable
   (seq [_]
     (for [[k v] m]

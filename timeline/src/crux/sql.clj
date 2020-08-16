@@ -266,7 +266,7 @@
          (w/postwalk
           (fn [x]
             (if (and (symbol? x) (not (symbol-with-prefix? x)))
-              (if-let [ts (get column->tables (name (symbol-suffix x)))]
+              (if-let [ts (map name (get column->tables (keyword (symbol-suffix x))))]
                 (if (contains? @mapping (first ts))
                   (if (= 1 (count ts))
                     (symbol (str (get @mapping (first ts)) "." (name x)))
@@ -475,7 +475,7 @@
   (let [[new-vars ctx] (extend-scope x ctx)]
     (cond->> `(.mapToDouble (.stream ~(with-meta group-var {:tag `Collection}))
                             (reify ToDoubleFunction
-                              (applyAsDouble [_# {:strs ~new-vars}]
+                              (applyAsDouble [_# {:keys ~new-vars}]
                                 (double ~(maybe-sub-query x ctx)))))
       (= :distinct quantifier) (list '.distinct))))
 
@@ -495,7 +495,7 @@
   (let [[new-vars ctx] (extend-scope x ctx)]
     `(count ~(cond->> (if (= :star x)
                         group-var
-                        `(map (fn [{:strs ~new-vars}]
+                        `(map (fn [{:keys ~new-vars}]
                                 ~(maybe-sub-query x ctx))
                               ~group-var))
                (= :distinct quantifier) (list 'distinct)))))
@@ -553,7 +553,7 @@
 
 (defn codegen-predicate [pred {:keys [db-var] :as ctx}]
   (let [[new-vars ctx] (extend-scope pred ctx)]
-    `(fn [{:strs ~new-vars}]
+    `(fn [{:keys ~new-vars}]
        ~(codegen-sql pred ctx))))
 
 (defn codegen-from-where [{:keys [from where]} {:keys [db db-var result-var known-vars] :as ctx}]
@@ -574,7 +574,7 @@
                                x))]
     `(let [~(->> (for [[table as] from
                        :when (not (sub-query? table))]
-                   [as (str table)])
+                   [as (keyword table)])
                  (into {}))
            ~db-var
            ~@(->> (for [[table as] from
@@ -603,8 +603,8 @@
                                           join))
                        joins (remove other-joins joins)
                        using (->> (for [[lc rc] (apply merge using (map :using other-joins))]
-                                    [(str (symbol-suffix lc))
-                                     (str (symbol-suffix rc))])
+                                    [(keyword (symbol-suffix lc))
+                                     (keyword (symbol-suffix rc))])
                                   (into {}))
                        acc (cond
                              (and (nil? rhs) (empty? joined-rels))
@@ -640,18 +640,18 @@
       (= [:star] select)
       result-var
       scalar-sub-query?
-      `(when-let [{:strs ~new-vars} (first ~result-var)]
+      `(when-let [{:keys ~new-vars} (first ~result-var)]
          ~(codegen-sql (ffirst select) ctx))
       row-sub-query?
-      `(map (fn [{:strs ~new-vars}]
+      `(map (fn [{:keys ~new-vars}]
               ~(codegen-sql (ffirst select) ctx))
             ~result-var)
       :else
       `(into #{}
-             (map (fn [{:strs ~new-vars}]
+             (map (fn [{:keys ~new-vars}]
                     (hash-map
                      ~@(->> (for [[exp as] select]
-                              [(str (symbol-suffix as))
+                              [(keyword (symbol-suffix as))
                                (codegen-sql exp ctx)])
                             (reduce into [])))))
              ~result-var))))
@@ -662,31 +662,31 @@
         ctx (assoc ctx :group-var group-var)]
     `(let [~all-groups-var ~(if (empty? group-by)
                               `(remove empty? [(seq ~result-var)])
-                              `(->> (group-by (fn [{:strs ~(mapv symbol-suffix group-by)}]
+                              `(->> (group-by (fn [{:keys ~(mapv symbol-suffix group-by)}]
                                                 ~(mapv symbol-suffix group-by))
                                               ~result-var)
                                     (vals)
                                     (remove empty?)))
            ~all-groups-var ~(if having
                               (let [[new-vars ctx] (extend-scope group-by ctx)]
-                                `(filter (fn [[{:strs ~new-vars} :as ~group-var]]
+                                `(filter (fn [[{:keys ~new-vars} :as ~group-var]]
                                            ~(codegen-sql having ctx))
                                          ~all-groups-var))
                               all-groups-var)]
        ~(let [[new-vars ctx] (extend-scope group-by ctx)]
           (cond
             scalar-sub-query?
-            `(when-let [[{:strs ~new-vars} :as ~group-var] (first ~all-groups-var)]
+            `(when-let [[{:keys ~new-vars} :as ~group-var] (first ~all-groups-var)]
                ~(codegen-sql (ffirst select) ctx))
             row-sub-query?
-            `(map (fn [[{:strs ~new-vars} :as ~group-var]]
+            `(map (fn [[{:keys ~new-vars} :as ~group-var]]
                     ~(codegen-sql (ffirst select) ctx))
                   ~all-groups-var)
             :else
-            `(into #{} (map (fn [[{:strs ~new-vars} :as ~group-var]]
+            `(into #{} (map (fn [[{:keys ~new-vars} :as ~group-var]]
                               (hash-map
                                ~@(->> (for [[exp as] select]
-                                        [(str (symbol-suffix as))
+                                        [(keyword (symbol-suffix as))
                                          (codegen-sql exp ctx)])
                                       (reduce into [])))))
                    ~all-groups-var))))))
@@ -696,7 +696,7 @@
                 (fn [acc [col dir]]
                   (cond->> `(Comparator/comparing
                              (reify Function
-                               (apply [_# {:strs [~(symbol-suffix col)]}]
+                               (apply [_# {:keys [~(symbol-suffix col)]}]
                                  ~(symbol-suffix col))))
                     (= :desc dir) (list '.reversed)
                     (not-empty acc) (list '.thenComparing)
@@ -826,6 +826,12 @@
   ((compile-sql sql db) db))
 
 (comment
+  ;; 7, 8 need tables aliases
+  ;; 13 needs left outer join
+  ;; 15 needs a view (can be rewritten)
+  ;; 18, 19, 20 time out
+  ;; 21 needs table alias
+
   (for [q (map inc (range 22))]
     (parse-sql (slurp (io/resource (format "io/airlift/tpch/queries/q%d.sql" q)))))
 

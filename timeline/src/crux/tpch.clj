@@ -54,15 +54,19 @@
 
 (defn tpch-table->columns [^TpchTable table]
   (->> (for [^TpchColumn c (.getColumns table)]
-         [(.getColumnName c)
+         [(keyword (.getColumnName c))
           (tpch-column->type c)])
        (into {})))
+
+(def ^:dynamic *key-fn* (fn [table column]
+                          (keyword column)))
 
 (defn tpch-entity->doc [^TpchTable t ^TpchEntity e]
   (persistent!
    (reduce
     (fn [acc ^TpchColumn c]
-      (assoc! acc (.getColumnName c) (tpch-column->clj c e)))
+      (assoc! acc (*key-fn* (.getTableName t)
+                            (.getColumnName c)) (tpch-column->clj c e)))
     (transient {})
     (.getColumns t))))
 
@@ -77,7 +81,7 @@
    (tpch-dbgen 0.05))
   ([scale-factor]
    (->> (for [^TpchTable t (TpchTable/getTables)
-              :let [table-name (.getTableName t)]]
+              :let [table-name (keyword (.getTableName t))]]
           [table-name
            (with-meta (set (for [doc (tpch-table->docs t scale-factor)]
                              doc))

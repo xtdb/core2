@@ -421,7 +421,7 @@
   (numeric-op '% x y ctx))
 
 (defmethod codegen-sql :exists [[_ x] ctx]
-  `(boolean (not-empty ~(codegen-sql x (assoc ctx :row-sub-query?)))))
+  `(boolean (not-empty ~(codegen-sql x (assoc ctx :row-sub-query? true)))))
 
 (defmethod codegen-sql :unique [[_ x] ctx]
   `(apply distinct? ~(codegen-sql x ctx)))

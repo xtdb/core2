@@ -251,6 +251,9 @@
 (defn symbol-with-prefix? [x]
   (boolean (re-find #"\." (str x))))
 
+(defn symbol-suffix-and-prefix->kw [x]
+  (keyword (name (symbol-prefix x)) (name (symbol-suffix x))))
+
 (defn qualify-transform [x column->tables]
   (w/postwalk
    (fn [x]
@@ -301,8 +304,8 @@
                         (contains? known-tables (symbol-prefix b)))]
          {:lhs (symbol-prefix a)
           :rhs (symbol-prefix b)
-          :using {(symbol-suffix a)
-                  (symbol-suffix b)}
+          :using {(symbol-suffix-and-prefix->kw a)
+                  (symbol-suffix-and-prefix->kw b)}
           :selection x})))
 
 (defn calculate-join-order [db joins]
@@ -344,7 +347,7 @@
 (defn extend-scope [x {:keys [known-vars] :as ctx}]
   (let [new-vars (set (remove known-vars (find-free-vars x)))
         ctx (update ctx :known-vars set/union new-vars)]
-    [(mapv symbol-suffix new-vars) ctx]))
+    [(vec new-vars) ctx]))
 
 (defmulti codegen-sql (fn [x _]
                         (if (vector? x)
@@ -475,7 +478,7 @@
   (let [[new-vars ctx] (extend-scope x ctx)]
     (cond->> `(.mapToDouble (.stream ~(with-meta group-var {:tag `Collection}))
                             (reify ToDoubleFunction
-                              (applyAsDouble [_# {:keys ~new-vars}]
+                              (applyAsDouble [_# ~(codegen-destructure new-vars ctx)]
                                 (double ~(maybe-sub-query x ctx)))))
       (= :distinct quantifier) (list '.distinct))))
 
@@ -495,14 +498,14 @@
   (let [[new-vars ctx] (extend-scope x ctx)]
     `(count ~(cond->> (if (= :star x)
                         group-var
-                        `(map (fn [{:keys ~new-vars}]
+                        `(map (fn [~(codegen-destructure new-vars ctx)]
                                 ~(maybe-sub-query x ctx))
                               ~group-var))
                (= :distinct quantifier) (list 'distinct)))))
 
 (defmethod codegen-sql :default [x _]
   (if (and (symbol? x) (nil? (namespace x)))
-    (with-meta (symbol-suffix x) (meta x))
+    (with-meta (symbol (str (symbol-prefix x) "___" (symbol-suffix x))) (meta x))
     x))
 
 ;; Experimental key prefix decorators for map (tuple) and set (relation).
@@ -525,6 +528,8 @@
   IPersistentCollection
   (cons [this x]
     (merge (into {} this) x))
+  (equiv [this x]
+    (= (into {} this) x))
   Seqable
   (seq [_]
     (for [[k v] m]
@@ -551,10 +556,22 @@
   (toString [this]
     (str (into #{} this))))
 
+(defn codegen-destructure [vars ctx]
+  (->> (for [v vars]
+         [(codegen-sql v ctx) (symbol-suffix-and-prefix->kw v)])
+       (into {})))
+
 (defn codegen-predicate [pred {:keys [db-var] :as ctx}]
   (let [[new-vars ctx] (extend-scope pred ctx)]
-    `(fn [{:keys ~new-vars}]
+    `(fn [~(codegen-destructure new-vars ctx)]
        ~(codegen-sql pred ctx))))
+
+(defn set-with-prefix [xrel prefix]
+  (SetWithPrefix. xrel prefix)
+  #_(let [kmap (->> (for [k (keys (first xrel))]
+                      [k (keyword prefix (name k))])
+                    (into {}))]
+      (set/rename xrel kmap)))
 
 (defn codegen-from-where [{:keys [from where]} {:keys [db db-var result-var known-vars] :as ctx}]
   (let [known-tables (find-known-tables from)
@@ -572,14 +589,13 @@
                              (if-let [selection (get base-table->selection x)]
                                (list `set/select (codegen-predicate (vec (cons :and selection)) ctx) x)
                                x))]
-    `(let [~(->> (for [[table as] from
-                       :when (not (sub-query? table))]
-                   [as (keyword table)])
-                 (into {}))
-           ~db-var
+    `(let [~@(->> (for [[table as] from
+                        :when (not (sub-query? table))]
+                    [as `(set-with-prefix (get ~db-var ~(keyword table)) ~(str as))])
+                  (reduce into []))
            ~@(->> (for [[table as] from
                         :when (sub-query? table)]
-                    (cond-> [as (codegen-sql table ctx)]
+                    (cond-> [as `(set-with-prefix ~(codegen-sql table ctx) ~(str as))]
                       (get base-table->selection as) (conj as (add-base-selection as))))
                   (reduce into []))]
        (as-> #{}
@@ -602,10 +618,7 @@
                                                              (contains? joined-rels (:lhs join))))]
                                           join))
                        joins (remove other-joins joins)
-                       using (->> (for [[lc rc] (apply merge using (map :using other-joins))]
-                                    [(keyword (symbol-suffix lc))
-                                     (keyword (symbol-suffix rc))])
-                                  (into {}))
+                       using (apply merge using (map :using other-joins))
                        acc (cond
                              (and (nil? rhs) (empty? joined-rels))
                              (conj acc (add-base-selection lhs))
@@ -640,15 +653,15 @@
       (= [:star] select)
       result-var
       scalar-sub-query?
-      `(when-let [{:keys ~new-vars} (first ~result-var)]
+      `(when-let [~(codegen-destructure new-vars ctx) (first ~result-var)]
          ~(codegen-sql (ffirst select) ctx))
       row-sub-query?
-      `(map (fn [{:keys ~new-vars}]
+      `(map (fn [~(codegen-destructure new-vars ctx)]
               ~(codegen-sql (ffirst select) ctx))
             ~result-var)
       :else
       `(into #{}
-             (map (fn [{:keys ~new-vars}]
+             (map (fn [~(codegen-destructure new-vars ctx)]
                     (hash-map
                      ~@(->> (for [[exp as] select]
                               [(keyword (symbol-suffix as))
@@ -662,28 +675,28 @@
         ctx (assoc ctx :group-var group-var)]
     `(let [~all-groups-var ~(if (empty? group-by)
                               `(remove empty? [(seq ~result-var)])
-                              `(->> (group-by (fn [{:keys ~(mapv symbol-suffix group-by)}]
-                                                ~(mapv symbol-suffix group-by))
+                              `(->> (group-by (fn [~(codegen-destructure group-by ctx)]
+                                                ~(mapv #(codegen-sql % ctx) group-by))
                                               ~result-var)
                                     (vals)
                                     (remove empty?)))
            ~all-groups-var ~(if having
                               (let [[new-vars ctx] (extend-scope group-by ctx)]
-                                `(filter (fn [[{:keys ~new-vars} :as ~group-var]]
+                                `(filter (fn [[~(codegen-destructure new-vars ctx) :as ~group-var]]
                                            ~(codegen-sql having ctx))
                                          ~all-groups-var))
                               all-groups-var)]
        ~(let [[new-vars ctx] (extend-scope group-by ctx)]
           (cond
             scalar-sub-query?
-            `(when-let [[{:keys ~new-vars} :as ~group-var] (first ~all-groups-var)]
+            `(when-let [[~(codegen-destructure new-vars ctx) :as ~group-var] (first ~all-groups-var)]
                ~(codegen-sql (ffirst select) ctx))
             row-sub-query?
-            `(map (fn [[{:keys ~new-vars} :as ~group-var]]
+            `(map (fn [[~(codegen-destructure new-vars ctx) :as ~group-var]]
                     ~(codegen-sql (ffirst select) ctx))
                   ~all-groups-var)
             :else
-            `(into #{} (map (fn [[{:keys ~new-vars} :as ~group-var]]
+            `(into #{} (map (fn [[~(codegen-destructure new-vars ctx) :as ~group-var]]
                               (hash-map
                                ~@(->> (for [[exp as] select]
                                         [(keyword (symbol-suffix as))
@@ -691,7 +704,7 @@
                                       (reduce into [])))))
                    ~all-groups-var))))))
 
-(defn codegen-order-by [{:keys [order-by]} {:keys [result-var]}]
+(defn codegen-order-by [{:keys [order-by]} {:keys [result-var] :as ctx}]
   `(sort (-> ~@(reduce
                 (fn [acc [col dir]]
                   (cond->> `(Comparator/comparing

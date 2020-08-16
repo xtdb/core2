@@ -650,10 +650,10 @@
     `(let [~all-groups-var ~(if (empty? group-by)
                               `(remove empty? [(seq ~result-var)])
                               `(->> (group-by (fn [{:strs ~(mapv symbol-suffix group-by)}]
-                                               ~(mapv symbol-suffix group-by))
-                                             ~result-var)
-                                   (vals)
-                                   (remove empty?)))
+                                                ~(mapv symbol-suffix group-by))
+                                              ~result-var)
+                                    (vals)
+                                    (remove empty?)))
            ~all-groups-var ~(if having
                               (let [[new-vars ctx] (extend-scope having ctx)]
                                 `(filter (fn [[{:strs ~new-vars} :as ~group-var]]

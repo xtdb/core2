@@ -609,7 +609,9 @@
                        acc (cond
                              (and (nil? rhs) (empty? joined-rels))
                              (conj acc (add-base-selection lhs))
-                             (or (nil? rhs) (contains? joined-rels rhs))
+                             (nil? rhs)
+                             (conj acc `(set/join ~(add-base-selection lhs) ~result-var))
+                             (contains? joined-rels rhs)
                              (conj acc `(set/join ~(add-base-selection lhs) ~result-var ~using))
                              (contains? joined-rels lhs)
                              (conj acc `(set/join ~result-var ~(add-base-selection rhs) ~using))

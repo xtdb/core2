@@ -307,7 +307,7 @@
 
 (defn calculate-join-order [db joins]
   (sort-by (fn [{:keys [lhs rhs]}]
-             (max (count (get db (str lhs)))
+             (min (count (get db (str lhs)))
                   (count (get db (str rhs)))))
            joins))
 

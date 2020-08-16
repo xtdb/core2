@@ -648,7 +648,7 @@
         all-groups-var (gensym 'all-groups)
         ctx (assoc ctx :group-var group-var)]
     `(let [~all-groups-var ~(if (empty? group-by)
-                              `[(seq ~result-var)]
+                              `(remove empty? [(seq ~result-var)])
                               `(->> (group-by (fn [{:strs ~(mapv symbol-suffix group-by)}]
                                                ~(mapv symbol-suffix group-by))
                                              ~result-var)

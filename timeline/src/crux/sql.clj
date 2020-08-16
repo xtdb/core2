@@ -589,7 +589,7 @@
                     joined-rels #{}
                     selections selections]
                (if join
-                 (let [{:keys [lhs rhs using] :as join} (if (or (nil? (:using join)) (empty? joined-rels))
+                 (let [{:keys [lhs rhs using] :as join} (if (or (empty? (:using join)) (empty? joined-rels))
                                                           join
                                                           (first (for [{:keys [lhs rhs] :as join} all-joins
                                                                        :when (not-empty (set/intersection joined-rels #{lhs rhs}))]

@@ -655,7 +655,7 @@
                                     (vals)
                                     (remove empty?)))
            ~all-groups-var ~(if having
-                              (let [[new-vars ctx] (extend-scope having ctx)]
+                              (let [[new-vars ctx] (extend-scope group-by ctx)]
                                 `(filter (fn [[{:strs ~new-vars} :as ~group-var]]
                                            ~(codegen-sql having ctx))
                                          ~all-groups-var))

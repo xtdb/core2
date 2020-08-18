@@ -474,6 +474,11 @@
     `(~f ~@(for [arg args]
              (maybe-sub-query arg ctx)))))
 
+(defn codegen-destructure [vars ctx]
+  (->> (for [v vars]
+         [(codegen-sql v ctx) (symbol-suffix-and-prefix->kw v)])
+       (into {})))
+
 (defn map-to-double [[_ quantifier x] {:keys [group-var] :as ctx}]
   (let [[new-vars ctx] (extend-scope x ctx)]
     (cond->> `(.mapToDouble (.stream ~(with-meta group-var {:tag `Collection}))
@@ -562,11 +567,6 @@
   Object
   (toString [this]
     (str (into #{} this))))
-
-(defn codegen-destructure [vars ctx]
-  (->> (for [v vars]
-         [(codegen-sql v ctx) (symbol-suffix-and-prefix->kw v)])
-       (into {})))
 
 (defn codegen-predicate [pred {:keys [db-var] :as ctx}]
   (let [[new-vars ctx] (extend-scope pred ctx)]

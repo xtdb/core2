@@ -252,7 +252,9 @@
   (boolean (re-find #"\." (str x))))
 
 (defn symbol-suffix-and-prefix->kw [x]
-  (keyword (name (symbol-prefix x)) (name (symbol-suffix x))))
+  (if (symbol-with-prefix? x)
+    (keyword (name (symbol-prefix x)) (name (symbol-suffix x)))
+    (keyword (name (symbol-suffix x)))))
 
 (defn qualify-transform [x column->tables]
   (w/postwalk
@@ -476,7 +478,8 @@
 
 (defn codegen-destructure [vars ctx]
   (->> (for [v vars]
-         [(codegen-sql v ctx) (symbol-suffix-and-prefix->kw v)])
+         [(codegen-sql v ctx)
+          (symbol-suffix-and-prefix->kw v)])
        (into {})))
 
 (defn map-to-double [[_ quantifier x] {:keys [group-var] :as ctx}]
@@ -509,7 +512,7 @@
                (= :distinct quantifier) (list 'distinct)))))
 
 (defmethod codegen-sql :default [x _]
-  (if (and (symbol? x) (nil? (namespace x)))
+  (if (and (symbol? x) (nil? (namespace x)) (symbol-with-prefix? x))
     (with-meta (symbol (str (symbol-prefix x) "___" (symbol-suffix x))) (meta x))
     x))
 
@@ -537,7 +540,7 @@
   (cons [this x]
     (merge (into {} this) x))
   (equiv [this x]
-    (and (= (count this ) (count x))
+    (and (= (count this) (count x))
          (if (instance? MapWithPrefix x)
            (and (= prefix (.prefix ^MapWithPrefix x))
                 (= m (.m ^MapWithPrefix x)))
@@ -560,6 +563,13 @@
   IReduceInit
   (reduce [this f init]
     (transduce (map #(MapWithPrefix. % prefix)) (completing f) init xrel))
+  IPersistentCollection
+  (equiv [this x]
+    (and (= (count this) (count x))
+         (if (instance? SetWithPrefix x)
+           (and (= prefix (.prefix ^SetWithPrefix x))
+                (= xrel (.xrel ^SetWithPrefix x)))
+           (= (into {} this) x))))
   Seqable
   (seq [_]
     (for [m xrel]
@@ -580,7 +590,7 @@
                     (into {}))]
       (set/rename xrel kmap)))
 
-(defn codegen-from-where [{:keys [from where]} {:keys [db db-var result-var known-vars] :as ctx}]
+(defn codegen-from-where [{:keys [from where]} {:keys [db db-var index-var result-var known-vars] :as ctx}]
   (let [known-tables (find-known-tables from)
         joins (find-joins where known-tables)
         joined-tables (set (mapcat #(map % [:lhs :rhs]) joins))
@@ -593,8 +603,34 @@
         base-table->selection (find-base-table->selections where ctx)
         selections (set/difference where (reduce set/union (vals base-table->selection)))
         add-base-selection (fn [x]
-                             (if-let [selection (get base-table->selection x)]
-                               (list `set/select (codegen-predicate (vec (cons :and selection)) ctx) x)
+                             (if-let [selections (get base-table->selection x)]
+                               (let [selection->index-lookup
+                                     (->> (for [selection selections
+                                                :let [[lookup-value] (remove #(contains? known-tables (symbol-prefix %)) (find-free-vars selection))]
+                                                :when (and (some? lookup-value) (vector? selection) (= := (first selection)))
+                                                :let [[var] (remove #{lookup-value} (filter symbol? selection))]
+                                                :when (= (symbol-prefix var) x)]
+                                            {selection [var lookup-value]})
+                                          (into {}))
+                                     selections (remove selection->index-lookup selections)
+                                     index-lookup-map (->> (for [[_ [var lookup-value]] selection->index-lookup]
+                                                             {(symbol-suffix-and-prefix->kw var)
+                                                              (codegen-sql lookup-value ctx)})
+                                                           (into {}))
+                                     x (if (not-empty selection->index-lookup)
+                                         (codegen-sql
+                                          [:routine-invocation
+                                           `get
+                                           [:routine-invocation
+                                            index-var
+                                            x
+                                            (vec (keys index-lookup-map))]
+                                           index-lookup-map]
+                                          ctx)
+                                         x)]
+                                 (cond->> x
+                                   (seq selections)
+                                   (list `set/select (codegen-predicate (vec (cons :and selections)) ctx))))
                                x))]
     `(let [~@(->> (for [[table as] from
                         :when (not (sub-query? table))]
@@ -602,7 +638,7 @@
                   (reduce into []))
            ~@(->> (for [[table as] from
                         :when (sub-query? table)]
-                    (cond-> [as `(set-with-prefix ~(codegen-sql table ctx) ~(str as))]
+                    (cond-> [as (codegen-sql table ctx)]
                       (get base-table->selection as) (conj as (add-base-selection as))))
                   (reduce into []))]
        (as-> #{}
@@ -746,38 +782,6 @@
     (assoc q :group-by [])
     q))
 
-(defn rewrite-correlated-subqueries [x]
-  (let [rewrites (volatile! #{})]
-    (w/prewalk (fn [x]
-                 (when (and (vector? x) (= :exists (first x)))
-                   (let [[_ sub-query] x
-                         {:keys [where select] :as query} (query->map sub-query)
-                         known-vars (set/difference (find-free-vars where) (find-free-vars sub-query))
-                         tmp (gensym 'tmp)
-                         selection-smap (->> (for [v known-vars]
-                                               [v (symbol (str tmp "." (symbol-suffix v)))])
-                                             (into {}))
-                         selections (set (mapcat val (find-base-table->selections where {:known-vars #{}})))
-                         correlated-selections (set/difference (normalize-where where) selections)]
-                     (when (and (= [:star] select)
-                                (= 1 (count correlated-selections)))
-                       (vswap! rewrites conj
-                               [{x (w/postwalk-replace selection-smap (first correlated-selections))}
-                                [(map->query
-                                  (assoc query
-                                         :where (vec selections)
-                                         :select (vec (for [v (filter known-vars (find-free-vars correlated-selections))]
-                                                        [v (symbol-suffix v)]))))
-                                 tmp]]))))
-                 x)
-               (:where x))
-    (reduce
-     (fn [acc [where-smap from]]
-       (-> acc
-           (update :where #(w/postwalk-replace where-smap %))
-           (update :from conj from)))
-     x @rewrites)))
-
 (defmethod codegen-sql :select-exp [query {:keys [db-var scalar-sub-query? row-sub-query?] :as ctx}]
   (let [{:keys [group-by order-by offset limit] :as query} (maybe-add-group-by (query->map query))
         result-var (gensym 'result)
@@ -805,11 +809,14 @@
         with-spec (when (= 3 (count with-exp))
                     (second with-exp))
         db-var (gensym 'db)
-        ctx {:db db :db-var db-var :known-vars #{}}]
+        index-var (gensym 'index)
+        ctx {:db db :db-var db-var :index-var index-var :known-vars #{}}]
     `(fn [~db-var]
        (let [~@(->> (for [[table-name table-subquery] with-spec]
                       [table-name (codegen-sql table-subquery ctx)])
-                    (reduce into []))]
+                    (reduce into []))
+             ~index-var (memoize (fn [xrel# ks#]
+                                   (set/index xrel# ks#)))]
          ~(codegen-sql nonjoin-exp ctx)))))
 
 (defn build-column->tables [db]
@@ -846,11 +853,10 @@
   ((compile-sql sql db) db))
 
 (comment
-  ;; 7, 8 need tables aliases
   ;; 13 needs left outer join
   ;; 15 needs a view (can be rewritten)
-  ;; 18, 19, 20 time out
-  ;; 21 needs table alias
+  ;; 18 and 19 time out
+  ;; 20 returns too many results
 
   (for [q (map inc (range 22))]
     (parse-sql (slurp (io/resource (format "io/airlift/tpch/queries/q%d.sql" q)))))

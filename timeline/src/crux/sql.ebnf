@@ -6,7 +6,7 @@ with-spec = <'WITH'> name-intro (<','> name-intro)*
 
 as = <'AS'>
 
-<name-intro> = table-name <as> table-subquery
+name-intro = table-name <as> table-subquery
 
 <table-subquery> = subquery
 

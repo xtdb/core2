@@ -180,7 +180,9 @@
 
 (def normalize-transform
   (merge
-   {:table-spec (fn [x & [y]]
+   {:name-intro (fn [x & [y]]
+                  [x y])
+    :table-spec (fn [x & [y]]
                   [x y])
     :select-item (fn [x & [y]]
                    [x (or y (if (symbol? x)
@@ -609,8 +611,8 @@
                     (into {}))]
       (set/rename xrel kmap)))
 
-(defn codegen-from-where [{:keys [from where]} {:keys [db db-var index-var result-var known-vars] :as ctx}]
-  (let [known-tables (find-known-tables from)
+(defn codegen-from-where [{:keys [from where]} {:keys [db db-var index-var result-var known-vars known-tables] :as ctx}]
+  (let [known-tables (set/union known-tables (find-known-tables from))
         joins (find-joins where known-tables)
         joined-tables (set (mapcat #(map % [:lhs :rhs]) joins))
         unjoined-tables (set/difference known-tables joined-tables)
@@ -831,15 +833,19 @@
 (defmethod codegen-sql :with-exp [with-exp {:keys [db] :as ctx}]
   (let [nonjoin-exp (last with-exp)
         with-spec (when (= 3 (count with-exp))
-                    (second with-exp))
+                    (rest (second with-exp)))
         db-var (gensym 'db)
         index-var (gensym 'index)
         sub-query-cache-var (gensym 'sub-query-cache)
-        ctx {:db db :db-var db-var :index-var index-var :sub-query-cache-var sub-query-cache-var :known-vars #{}}]
+        ctx {:db db :db-var db-var :index-var index-var :sub-query-cache-var sub-query-cache-var :known-vars #{} :known-tables #{}}
+        [cte-lets ctx] (reduce
+                        (fn [[acc ctx] [table-name table-subquery]]
+                          [(conj acc table-name `(set-with-prefix ~(codegen-sql table-subquery ctx) ~(str table-name)))
+                           (update ctx :known-tables conj table-name)])
+                        [[] ctx]
+                        with-spec)]
     `(fn [~db-var]
-       (let [~@(->> (for [[table-name table-subquery] with-spec]
-                      [table-name (codegen-sql table-subquery ctx)])
-                    (reduce into []))
+       (let [~@cte-lets
              ~index-var (memoize (fn [xrel# ks#]
                                    (set/index xrel# ks#)))
              sub-query-cache# (atom {})

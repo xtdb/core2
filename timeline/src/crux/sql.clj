@@ -135,7 +135,7 @@
    :routine-invocation (fn [f & args]
                          (case f
                            'date (apply i/read-instant-date args)
-                           (vec (cons :routine-invocation (cons f args)))))
+                           `[:routine-invocation ~f ~@args]))
    :table-exp (fn [x]
                 [:select-exp [:select :star] [:from x]])
    :between-exp (fn
@@ -176,7 +176,7 @@
                    :else
                    [:boolean-or x y]))})
 
-(declare symbol-suffix)
+(declare symbol-suffix normalize-where)
 
 (def normalize-transform
   (merge
@@ -192,7 +192,15 @@
                          ([type x]
                           [type :all x])
                          ([type quantifier x]
-                          [type quantifier x]))}
+                          [type quantifier x]))
+    :or (fn [& args]
+          (let [common (apply set/intersection (map normalize-where args))]
+            (if (empty? common)
+              `[:or ~@args]
+              `[:and
+                ~@common
+                [:or ~@(for [arg args]
+                         (vec (cons :and (set/difference (normalize-where arg) common))))]])))}
    (let [constants [:count :sum :avg :min :max :star :all :distinct :asc :desc :year :month :day :hour :minute]]
      (zipmap constants (map constantly constants)))))
 
@@ -917,7 +925,6 @@ where
 order by
         s_suppkey"
 
-  ;; 19 times out - needs moving common expressions in or up a level
   ;; 20 returns too many results
 
   (for [q (map inc (range 22))]

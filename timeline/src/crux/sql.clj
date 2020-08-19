@@ -61,7 +61,7 @@
                                "$1.*")
                     (s/replace (str escape "_") "_")
                     (s/replace (str escape "%") "%")))]
-    (re-pattern regex)))
+    (re-pattern (str "^" regex "$"))))
 
 (def parse-sql
   (insta/parser (io/resource "crux/sql.ebnf")
@@ -271,7 +271,9 @@
        (let [{:keys [from] :as query} (query->map x)
              column->tables (->> (for [[x y] from
                                        :when (sub-query? x)
-                                       [_ c] (:select (query->map x))]
+                                       [_ c] (:select (query->map (if (= :select-exp (first x))
+                                                                    x
+                                                                    (second x))))]
                                    {(keyword (symbol-suffix c)) #{(keyword y)}})
                                  (apply merge column->tables))
              mapping (volatile! {})
@@ -882,12 +884,42 @@
   ((compile-sql sql db) db))
 
 (comment
-  ;; TODO: need to make sub-selects in from use prefixes and
-  ;; auto-qualify them where used.
+  ;; 13 uses left outer join - can be rewritten as:
+  "
+select
+        c_count,
+        count(*) as custdist
+from
+       (select
+                c_custkey as c_custkey,
+                count(o_orderkey) as c_count
+        from
+                customer,
+                orders
+        where
+                c_custkey = o_custkey
+                and o_comment not like '%special%requests%'
+        group by
+                c_custkey
+        union
+        select
+                c_custkey as c_custkey,
+                0 as c_count
+        from
+                customer
+        where
+                c_custkey not in (select o_custkey from orders
+                                  where o_comment not like '%special%requests%')
+        ) as c_orders
+group by
+        c_count
+order by
+        custdist desc,
+        c_count desc"
 
-  ;; 13 needs left outer join
-  ;; 15 needs a view - can be rewritten to make work:
-  "select
+  ;; 15 uses a view - can be rewritten as:
+  "
+select
         s_suppkey,
         s_name,
         s_address,
@@ -924,8 +956,6 @@ where
         )
 order by
         s_suppkey"
-
-  ;; 20 returns too many results
 
   (for [q (map inc (range 22))]
     (parse-sql (slurp (io/resource (format "io/airlift/tpch/queries/q%d.sql" q)))))

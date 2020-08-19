@@ -782,18 +782,23 @@
     (assoc q :group-by [])
     q))
 
-(defmethod codegen-sql :select-exp [query {:keys [db-var scalar-sub-query? row-sub-query?] :as ctx}]
-  (let [{:keys [group-by order-by offset limit] :as query} (maybe-add-group-by (query->map query))
+(defmethod codegen-sql :select-exp [query {:keys [db-var scalar-sub-query? row-sub-query? known-vars sub-query-cache-var] :as ctx}]
+  (let [{:keys [where group-by order-by offset limit] :as query} (maybe-add-group-by (query->map query))
         result-var (gensym 'result)
         query (assoc query :scalar-sub-query? scalar-sub-query? :row-sub-query? row-sub-query?)
         ctx (assoc ctx :result-var result-var)
-        ctx (dissoc ctx :scalar-sub-query? :row-sub-query?)]
-    `(as-> #{} ~result-var
-       ~@(cond-> [(codegen-from-where query ctx)]
-           group-by (conj (codegen-group-by query ctx))
-           (nil? group-by) (conj (codegen-select query ctx))
-           order-by (conj (codegen-order-by query ctx))
-           (or offset limit) (conj (codegen-offset-limit query ctx))))))
+        ctx (dissoc ctx :scalar-sub-query? :row-sub-query?)
+        q `(as-> #{} ~result-var
+             ~@(cond-> [(codegen-from-where query ctx)]
+                 group-by (conj (codegen-group-by query ctx))
+                 (nil? group-by) (conj (codegen-select query ctx))
+                 order-by (conj (codegen-order-by query ctx))
+                 (or offset limit) (conj (codegen-offset-limit query ctx))))
+        cached? (and (or scalar-sub-query? row-sub-query?)
+                     (empty? (set/intersection known-vars (find-free-vars where))))]
+    (if cached?
+      `(~sub-query-cache-var ~(str (gensym 'sub-query-cache-key)) (fn [] ~q))
+      q)))
 
 (defmethod codegen-sql :union [[_ lhs rhs] ctx]
   `(set/union ~(codegen-sql lhs ctx) ~(codegen-sql rhs ctx)))
@@ -810,13 +815,20 @@
                     (second with-exp))
         db-var (gensym 'db)
         index-var (gensym 'index)
-        ctx {:db db :db-var db-var :index-var index-var :known-vars #{}}]
+        sub-query-cache-var (gensym 'sub-query-cache)
+        ctx {:db db :db-var db-var :index-var index-var :sub-query-cache-var sub-query-cache-var :known-vars #{}}]
     `(fn [~db-var]
        (let [~@(->> (for [[table-name table-subquery] with-spec]
                       [table-name (codegen-sql table-subquery ctx)])
                     (reduce into []))
              ~index-var (memoize (fn [xrel# ks#]
-                                   (set/index xrel# ks#)))]
+                                   (set/index xrel# ks#)))
+             sub-query-cache# (atom {})
+             ~sub-query-cache-var (fn [sub-query-name# sub-query-fn#]
+                                    (let [r# (get @sub-query-cache# sub-query-name# ::not-found)]
+                                      (if (= r# ::not-found)
+                                        (get (swap! sub-query-cache# assoc sub-query-name# (sub-query-fn#)) sub-query-name#)
+                                        r#)))]
          ~(codegen-sql nonjoin-exp ctx)))))
 
 (defn build-column->tables [db]

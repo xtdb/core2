@@ -260,26 +260,35 @@
   (w/postwalk
    (fn [x]
      (if (and (vector? x) (= :select-exp (first x)))
-       (let [mapping (volatile! {})
-             {:keys [from] :as query} (query->map x)
+       (let [{:keys [from] :as query} (query->map x)
+             column->tables (->> (for [[x y] from
+                                       :when (sub-query? x)
+                                       [_ c] (:select (query->map x))]
+                                   {(keyword (symbol-suffix c)) #{(keyword y)}})
+                                 (apply merge column->tables))
+             mapping (volatile! {})
              from (vec (for [[x y] from]
                          (if (vector? x)
-                           [x y]
+                           [x (do (vswap! mapping assoc (name y) (name y))
+                                  y)]
                            [x (or y (let [m (gensym x)]
                                       (vswap! mapping assoc (name x) m)
                                       m))])))]
-         (w/postwalk
-          (fn [x]
-            (if (and (symbol? x) (not (symbol-with-prefix? x)))
-              (if-let [ts (map name (get column->tables (keyword (symbol-suffix x))))]
-                (if (contains? @mapping (first ts))
-                  (if (= 1 (count ts))
-                    (symbol (str (get @mapping (first ts)) "." (name x)))
-                    (throw (IllegalArgumentException. (str "Column not unique:" x))))
-                  x)
-                (symbol x))
-              x))
-          (map->query (assoc query :from from))))
+         (map->query
+          (assoc
+           (w/postwalk
+            (fn [x]
+              (if (and (symbol? x) (not (symbol-with-prefix? x)))
+                (if-let [ts (map name (get column->tables (keyword (symbol-suffix x))))]
+                  (if (contains? @mapping (first ts))
+                    (if (= 1 (count ts))
+                      (symbol (str (get @mapping (first ts)) "." (name x)))
+                      (throw (IllegalArgumentException. (str "Column not unique:" x))))
+                    x)
+                  (symbol x))
+                x))
+            (dissoc query :from))
+           :from from)))
        x))
    x))
 
@@ -638,7 +647,7 @@
                   (reduce into []))
            ~@(->> (for [[table as] from
                         :when (sub-query? table)]
-                    (cond-> [as (codegen-sql table ctx)]
+                    (cond-> [as `(set-with-prefix ~(codegen-sql table ctx) ~(str as))]
                       (get base-table->selection as) (conj as (add-base-selection as))))
                   (reduce into []))]
        (as-> #{}
@@ -865,9 +874,50 @@
   ((compile-sql sql db) db))
 
 (comment
+  ;; TODO: need to make sub-selects in from use prefixes and
+  ;; auto-qualify them where used.
+
   ;; 13 needs left outer join
-  ;; 15 needs a view (can be rewritten)
-  ;; 18 and 19 time out
+  ;; 15 needs a view - can be rewritten to make work:
+  "select
+        s_suppkey,
+        s_name,
+        s_address,
+        s_phone,
+        total_revenue
+from
+        supplier,
+        (select
+                l_suppkey as supplier_no,
+                sum(l_extendedprice * (1 - l_discount)) as total_revenue
+        from
+                lineitem
+        where
+                l_shipdate >= date '1996-01-01'
+                and l_shipdate < date '1996-04-01'
+        group by
+                l_suppkey) revenue0
+where
+        s_suppkey = supplier_no
+        and total_revenue = (
+                select
+                        max(total_revenue)
+                from
+                        (select
+                l_suppkey as supplier_no,
+                sum(l_extendedprice * (1 - l_discount)) as total_revenue
+        from
+                lineitem
+        where
+                l_shipdate >= date '1996-01-01'
+                and l_shipdate < date '1996-04-01'
+        group by
+                l_suppkey) revenue1
+        )
+order by
+        s_suppkey"
+
+  ;; 19 times out - needs moving common expressions in or up a level
   ;; 20 returns too many results
 
   (for [q (map inc (range 22))]

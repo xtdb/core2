@@ -964,14 +964,12 @@ order by
         s_suppkey"
 
   (for [q (map inc (range 22))]
-    (parse-sql (slurp (io/resource (format "io/airlift/tpch/queries/q%d.sql" q)))))
+    (parse-and-transform-sql (slurp (io/resource (format "io/airlift/tpch/queries/q%d.sql" q))) crux.tpch/db-sf-0_01))
 
-  ((eval
-     (codegen-sql
-      (parse-and-transform
-       (slurp (io/resource (format "io/airlift/tpch/queries/q%d.sql" 2))))
-      crux.tpch/db-sf-0_01))
-   crux.tpch/db-sf-0_01))
+  (time
+   (execute-sql
+    (slurp (io/resource (format "io/airlift/tpch/queries/q%d.sql" 2)))
+    crux.tpch/db-sf-0_01)))
 
 ;; High level SQL grammar, from
 ;; https://calcite.apache.org/docs/reference.html

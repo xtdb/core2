@@ -266,6 +266,10 @@
     (keyword (name (symbol-prefix x)) (name (symbol-suffix x)))
     (keyword (name (symbol-suffix x)))))
 
+(defn sub-query? [x]
+  (and (vector? x )
+       (contains? #{:union :except :intersect :select-exp} (first x))))
+
 (defn qualify-transform [x column->tables]
   (w/postwalk
    (fn [x]
@@ -336,10 +340,6 @@
              (min (count (get db (str lhs)))
                   (count (get db (str rhs)))))
            joins))
-
-(defn sub-query? [x]
-  (and (vector? x )
-       (contains? #{:union :except :intersect :select-exp} (first x))))
 
 (defn find-known-tables [from]
   (set (filter symbol? (map second from))))

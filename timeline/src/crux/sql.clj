@@ -503,25 +503,26 @@
           (symbol-suffix-and-prefix->kw v)])
        (into {})))
 
-(defn map-to-double [[_ quantifier x] {:keys [group-var] :as ctx}]
+(defn map-to-double-summary-stats [[_ quantifier x] {:keys [group-var] :as ctx}]
   (let [[new-vars ctx] (extend-scope x ctx)]
     (cond->> `(.mapToDouble (.stream ~(with-meta group-var {:tag `Collection}))
                             (reify ToDoubleFunction
-                              (applyAsDouble [_# ~(codegen-destructure new-vars ctx)]
+                              (applyAsDouble [~'this ~(codegen-destructure new-vars ctx)]
                                 (double ~(maybe-sub-query x ctx)))))
-      (= :distinct quantifier) (list '.distinct))))
+      (= :distinct quantifier) (list '.distinct)
+      true (list '.summaryStatistics))))
 
 (defmethod codegen-sql :sum [set-fn ctx]
-  `(.sum ~(map-to-double set-fn ctx)))
+  `(.getSum ~(map-to-double-summary-stats set-fn ctx)))
 
 (defmethod codegen-sql :avg [set-fn ctx]
-  `(.getAsDouble (.average ~(map-to-double set-fn ctx))))
+  `(.getAverage ~(map-to-double-summary-stats set-fn ctx)))
 
 (defmethod codegen-sql :min [set-fn ctx]
-  `(.getAsDouble (.min ~(map-to-double set-fn ctx))))
+  `(.getMin ~(map-to-double-summary-stats set-fn ctx)))
 
 (defmethod codegen-sql :max [set-fn ctx]
-  `(.getAsDouble (.max ~(map-to-double set-fn ctx))))
+  `(.getMax ~(map-to-double-summary-stats set-fn ctx)))
 
 (defmethod codegen-sql :count [[_ quantifier x] {:keys [group-var] :as ctx}]
   (let [[new-vars ctx] (extend-scope x ctx)]
@@ -775,11 +776,19 @@
                   ~all-groups-var)
             :else
             `(into #{} (map (fn [[~(codegen-destructure new-vars ctx) :as ~group-var]]
-                              (hash-map
-                               ~@(->> (for [[exp as] select]
-                                        [(keyword (symbol-suffix as))
-                                         (codegen-sql exp ctx)])
-                                      (reduce into [])))))
+                              ~(let [acc (->> (for [[exp as] select]
+                                                [(keyword (symbol-suffix as))
+                                                 (codegen-sql exp ctx)])
+                                              (reduce into []))
+                                     stat-exprs (volatile! {})]
+                                 (w/postwalk (fn [x]
+                                               (when (and (list? x)
+                                                          (= '.summaryStatistics (first x))
+                                                          (not (contains? @stat-exprs x)))
+                                                 (vswap! stat-exprs assoc x (gensym 'stat-exp)))
+                                               x) acc)
+                                 `(let [~@(reduce into [] (set/map-invert @stat-exprs))]
+                                    (hash-map ~@(w/postwalk-replace @stat-exprs acc))))))
                    ~all-groups-var))))))
 
 (defn codegen-order-by [{:keys [order-by]} {:keys [result-var] :as ctx}]

@@ -872,7 +872,7 @@
                                     (let [r# (get @sub-query-cache# sub-query-name# ::not-found)]
                                       (if (= r# ::not-found)
                                         (doto (sub-query-fn#)
-                                          (swap! sub-query-cache# assoc sub-query-name#))
+                                          (->> (swap! sub-query-cache# assoc sub-query-name#)))
                                         r#)))]
          ~(codegen-sql nonjoin-exp ctx)))))
 

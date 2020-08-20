@@ -133,3 +133,7 @@
 ;; https://db.in.tum.de/teaching/ws2021/queryopt/?lang=en
 
 (defonce db-sf-0_01 (tpch-dbgen 0.01))
+
+(comment
+  (defonce db-sf-0_1 (tpch-dbgen 0.1))
+  (defonce db-sf-1 (tpch-dbgen 1)))

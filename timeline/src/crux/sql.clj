@@ -11,7 +11,7 @@
            java.util.function.Function
            [java.time Duration Period ZoneOffset]
            [java.time.temporal ChronoField TemporalAmount]
-           [clojure.lang Associative Counted ILookup IPersistentCollection IPersistentSet IReduceInit MapEntry Seqable]))
+           [clojure.lang Associative Counted IHashEq ILookup IPersistentCollection IPersistentSet IReduceInit MapEntry Seqable]))
 
 (set! *unchecked-math* :warn-on-boxed)
 
@@ -548,6 +548,9 @@
   Counted
   (count [_]
     (count m))
+  IHashEq
+  (hasheq [_]
+    (hash-combine (hash m) prefix))
   ILookup
   (valAt [_ k]
     (when (= prefix (namespace k))
@@ -572,12 +575,19 @@
       (MapEntry/create (keyword prefix (name k)) v)))
   Object
   (toString [this]
-    (str (into {} this))))
+    (str (into {} this)))
+  (hashCode [this]
+    (.hasheq this))
+  (equals [this x]
+    (.equiv this x)))
 
 (deftype SetWithPrefix [xrel prefix]
   Counted
   (count [_]
     (count xrel))
+  IHashEq
+  (hasheq [_]
+    (hash-combine (hash xrel) prefix))
   IPersistentSet
   (disjoin [_ x]
     (SetWithPrefix. (disj xrel (.m ^MapWithPrefix x)) prefix))
@@ -597,7 +607,11 @@
       (MapWithPrefix. m prefix)))
   Object
   (toString [this]
-    (str (into #{} this))))
+    (str (into #{} this)))
+  (hashCode [this]
+    (.hasheq this))
+  (equals [this x]
+    (.equiv this x)))
 
 (defn codegen-predicate [pred {:keys [db-var] :as ctx}]
   (let [[new-vars ctx] (extend-scope pred ctx)]
@@ -846,13 +860,19 @@
                         with-spec)]
     `(fn [~db-var]
        (let [~@cte-lets
+             indexes# (atom {})
              ~index-var (memoize (fn [xrel# ks#]
-                                   (set/index xrel# ks#)))
+                                   (let [r# (get @indexes# ks# ::not-found)]
+                                     (if (= r# ::not-found)
+                                       (doto (set/index xrel# ks#)
+                                         (->> (swap! indexes# assoc ks#)))
+                                        r#))))
              sub-query-cache# (atom {})
              ~sub-query-cache-var (fn [sub-query-name# sub-query-fn#]
                                     (let [r# (get @sub-query-cache# sub-query-name# ::not-found)]
                                       (if (= r# ::not-found)
-                                        (get (swap! sub-query-cache# assoc sub-query-name# (sub-query-fn#)) sub-query-name#)
+                                        (doto (sub-query-fn#)
+                                          (swap! sub-query-cache# assoc sub-query-name#))
                                         r#)))]
          ~(codegen-sql nonjoin-exp ctx)))))
 

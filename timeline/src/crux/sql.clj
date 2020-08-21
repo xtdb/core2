@@ -11,7 +11,8 @@
            java.util.function.Function
            [java.time Duration Period ZoneOffset]
            [java.time.temporal ChronoField TemporalAmount]
-           [clojure.lang Associative Counted IHashEq ILookup IPersistentCollection IPersistentSet IReduceInit MapEntry Seqable]))
+           [clojure.lang Associative Counted IHashEq ILookup
+            IPersistentCollection IPersistentMap IPersistentSet IReduceInit MapEntry Seqable]))
 
 (set! *unchecked-math* :warn-on-boxed)
 
@@ -540,11 +541,11 @@
 
 ;; Experimental key prefix decorators for map (tuple) and set (relation).
 
-(deftype MapWithPrefix [m prefix]
+(deftype MapWithPrefix [^IPersistentMap m prefix]
   Associative
   (entryAt [_ k]
     (when (= prefix (namespace k))
-      (when-let [e (find m (keyword (name k)))]
+      (when-let [e (.entryAt m (keyword (name k)))]
         (MapEntry/create (keyword prefix (name k)) (val e)))))
   Counted
   (count [_]
@@ -555,7 +556,7 @@
   ILookup
   (valAt [_ k]
     (when (= prefix (namespace k))
-      (get m (keyword (name k)))))
+      (.valAt m (keyword (name k)))))
   IReduceInit
   (reduce [this f init]
     (transduce (map (fn [[k v]]
@@ -582,7 +583,7 @@
   (equals [this x]
     (.equiv this x)))
 
-(deftype SetWithPrefix [xrel prefix]
+(deftype SetWithPrefix [^IPersistentSet xrel prefix]
   Counted
   (count [_]
     (count xrel))
@@ -870,12 +871,12 @@
     `(fn [~db-var]
        (let [~@cte-lets
              indexes# (atom {})
-             ~index-var (memoize (fn [xrel# ks#]
-                                   (let [r# (get @indexes# ks# ::not-found)]
-                                     (if (= r# ::not-found)
-                                       (doto (set/index xrel# ks#)
-                                         (->> (swap! indexes# assoc ks#)))
-                                        r#))))
+             ~index-var (fn [xrel# ks#]
+                          (let [r# (get @indexes# ks# ::not-found)]
+                            (if (= r# ::not-found)
+                              (doto (set/index xrel# ks#)
+                                (->> (swap! indexes# assoc ks#)))
+                              r#)))
              sub-query-cache# (atom {})
              ~sub-query-cache-var (fn [sub-query-name# sub-query-fn#]
                                     (let [r# (get @sub-query-cache# sub-query-name# ::not-found)]

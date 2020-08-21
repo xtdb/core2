@@ -454,7 +454,7 @@
 
 (defmethod codegen-sql :in [[_ x y] ctx]
   (if (sub-query? y)
-    `(boolean (some #{~(maybe-sub-query x ctx)} ~(codegen-sql y (assoc ctx :row-sub-query? true))))
+    `(boolean (some #(= % ~(maybe-sub-query x ctx)) ~(codegen-sql y (assoc ctx :row-sub-query? true))))
     `(contains? ~(codegen-sql y ctx) ~(maybe-sub-query x ctx))))
 
 (defmethod codegen-sql :all [[_ x op y] ctx]

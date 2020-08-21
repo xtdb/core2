@@ -892,23 +892,23 @@
          {c #{name}})
        (apply merge-with set/union)))
 
-(defn parse-and-transform [sql column->tables]
-  (qualify-transform
-   (reduce
-    (fn [acc transform-map]
-      (insta/transform transform-map acc))
-    (parse-sql sql)
-    [literal-transform
-     constant-folding-transform
-     nary-transform
-     simplify-transform
-     normalize-transform])
-   column->tables))
+(defn parse-and-transform [sql]
+  (reduce
+   (fn [acc transform-map]
+     (insta/transform transform-map acc))
+   (parse-sql sql)
+   [literal-transform
+    constant-folding-transform
+    nary-transform
+    simplify-transform
+    normalize-transform]))
 
 (def parse-and-transform-memo (memoize parse-and-transform))
 
 (defn parse-and-transform-sql [sql db]
-  (parse-and-transform-memo sql (build-column->tables db)))
+  (qualify-transform
+   (parse-and-transform-memo sql)
+   (build-column->tables db)))
 
 (defn sql->clj [sql db]
   (codegen-sql (parse-and-transform-sql sql db)  {:db db}))
@@ -1025,3 +1025,70 @@ order by
 
 ;; https://github.com/epfldata/dblab/blob/develop/components/src/main/scala/ch/epfl/data/dblab/queryengine/push/Operators.scala
 ;; https://github.com/epfldata/dblab/blob/develop/components/src/main/scala/ch/epfl/data/dblab/queryengine/volcano/Operators.scala
+
+;; New compilation style idea, more directly to list comprehensions:
+(comment
+  ;; should be proper LRU cache.
+  (def idx-fn (memoize
+               (fn [xrel ks]
+                 (group-by #(mapv % ks) xrel))))
+
+  (time (count (for [nation (get (idx-fn (get crux.tpch/db-sf-0_01 :nation) [:n_name]) ["GERMANY"])
+                     supplier (get (idx-fn (get crux.tpch/db-sf-0_01 :supplier) [:s_nationkey])
+                                   [(get nation :n_nationkey)])
+                     partsupp (get (idx-fn (get crux.tpch/db-sf-0_01 :partsupp) [:ps_suppkey])
+                                   [(get supplier :s_suppkey)])]
+                 {:ps_supplycost (:ps_supplycost partsupp)
+                  :ps_availqty (:ps_availqty partsupp)})))
+
+  (defn compile-sql-comprehension [sql db]
+    (let [db-var (gensym 'db)]
+      (loop [tree (parse-and-transform sql)]
+        (case (first tree)
+          :with-exp (recur (second tree))
+          :select-exp (let [[_ [_ & select] [_ & from] [_ & where]] tree
+                            tables (->> (for [[t as] from]
+                                          [(or as t) t])
+                                        (into {}))
+                            column->tables (->> (for [[name m] (select-keys db (map keyword (vals tables)))
+                                                      c (keys (first m))]
+                                                  {c #{name}})
+                                                (apply merge-with set/union))
+                            where (set (mapcat normalize-where where))
+                            qualify-smap (into {}
+                                               (comp (mapcat flatten)
+                                                     (filter symbol?)
+                                                     (map #(if (symbol-with-prefix? %)
+                                                             [% %]
+                                                             [% (if-let [x (first (get column->tables (keyword %)))]
+                                                                  (symbol (str (name x) "." %))
+                                                                  %)])))
+                                               (concat where select))
+                            where (w/postwalk-replace qualify-smap where)
+                            [clj] (reduce
+                                   (fn [[acc where known-vars] [as t]]
+                                     (let [known-vars (conj known-vars as)]
+                                       (let [exprs (set (filter #(set/superset? known-vars (set (map symbol-prefix (filter symbol? (flatten %))))) where))]
+                                         [(conj acc [as `(get ~db-var ~(keyword t))
+                                                     :when `(and ~@(w/postwalk #(if (vector? %)
+                                                                                  (cons (symbol (first %))
+                                                                                        (rest %))
+                                                                                  %) exprs))])
+                                          (set/difference where exprs)
+                                          known-vars])))
+                                   [[] where #{}]
+                                   (sort-by (comp count db keyword val) tables))]
+                        (w/postwalk
+                         #(if (and (symbol? %)
+                                   (symbol-with-prefix? %)
+                                   (not (namespace %)))
+                            `(~(keyword (symbol-suffix %))  ~(symbol-prefix %))
+                            %)
+                         `(fn [~db-var]
+                            (for [~@(reduce into [] clj)]
+                              ~(->> (for [[exp as] select]
+                                      [(keyword (or as exp))
+                                       (if (symbol? exp)
+                                         (get qualify-smap exp exp)
+                                         (replace qualify-smap exp))])
+                                    (into {})))))))))))

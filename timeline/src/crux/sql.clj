@@ -338,8 +338,8 @@
 
 (defn calculate-join-order [db joins]
   (sort-by (fn [{:keys [lhs rhs]}]
-             (min (count (get db (str lhs)))
-                  (count (get db (str rhs)))))
+             (max (count (get db lhs))
+                  (count (get db rhs))))
            joins))
 
 (defn find-known-tables [from]

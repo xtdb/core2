@@ -1085,13 +1085,6 @@ order by
          x))
      x)))
 
-(defn filter-walk [pred x]
-  (let [acc (volatile! #{})]
-    (w/postwalk #(when (pred %)
-                   (vswap! acc conj %))
-                x)
-    @acc))
-
 (defn compile-sql-comprehension [sql db]
   (let [db-var (gensym 'db)
         [with tree] (qualify-columns (parse-and-transform sql) db)]
@@ -1111,7 +1104,10 @@ order by
               [for-comp where] (reduce
                                 (fn [[acc where known-vars] [as t]]
                                   (let [known-vars (conj known-vars as)
-                                        exprs (set (filter #(set/superset? known-vars (set (map symbol-prefix (filter-walk symbol? %)))) where))
+                                        exprs (set (for [expr where
+                                                         :let [syms (filter symbol? (flatten expr))]
+                                                         :when (set/superset? known-vars (set (map symbol-prefix syms)))]
+                                                     expr))
                                         idx-lookups (set (filter (comp #{:=} first) exprs))
                                         joins (->> (for [[_ lhs rhs] idx-lookups
                                                          :let [[lhs rhs] (if (= (symbol-prefix lhs) as)

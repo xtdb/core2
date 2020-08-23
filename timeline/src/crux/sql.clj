@@ -1044,6 +1044,7 @@ order by
 
 (defn qualify-columns [x db]
   (let [column->tables (volatile! {})
+        current-table->columns (volatile! {})
         qualify (fn [x]
                   (if-let [ts (and (symbol? x)
                                    (get @column->tables x))]
@@ -1057,15 +1058,24 @@ order by
          (case (first x)
            :select-exp
            (let [[_ _ [_ & from]] x
-                 new-column->tables (->> (for [[t] from
-                                               c (keys (:columns (meta (get db (keyword t)))))]
-                                           {(symbol c) #{t}})
-                                         (apply merge-with set/union))]
-             (vswap! column->tables #(apply merge % new-column->tables))
+                 table->columns (->> (for [[t as] from]
+                                       [(or as t)
+                                        (if (vector? t)
+                                          (let [[_ _ [_ & inner-from]] t]
+                                            (vec (for [[t as] inner-from]
+                                                   (or as t))))
+                                          (mapv symbol (keys (:columns (meta (get db (keyword t)))))))])
+                                     (into {}))]
+             (vswap! column->tables #(apply merge % (for [[t cs] table->columns
+                                                          c cs]
+                                                      {c #{t}})))
+             (vreset! current-table->columns table->columns)
              x)
            :select
-           `[:select ~@(for [[exp as] (rest x)]
-                         [(w/postwalk qualify exp) as])]
+           `[:select ~@(for [[exp as] (if (= :star (second x))
+                                        (map vector (apply concat (vals @current-table->columns)))
+                                        (rest x))]
+                         [(w/postwalk qualify exp) (or as exp)])]
            :from
            `[:from ~@(for [[t as] (rest x)]
                        [t (or as t)])]
@@ -1075,71 +1085,58 @@ order by
          x))
      x)))
 
+(defn filter-walk [pred x]
+  (let [acc (volatile! #{})]
+    (w/postwalk #(when (pred %)
+                   (vswap! acc conj %))
+                x)
+    @acc))
+
 (defn compile-sql-comprehension [sql db]
-  (let [db-var (gensym 'db)]
-    (loop [tree (parse-and-transform sql)]
-      (case (first tree)
-        :with-exp (recur (second tree))
-        :select-exp (let [[_ [_ & select] [_ & from] [_ & where]] tree
-                          tables (->> (for [[t as] from]
-                                        [(or as t) t])
-                                      (into {}))
-                          column->tables (->> (for [[name m] (select-keys db (map keyword (vals tables)))
-                                                    c (keys (first m))]
-                                                {c #{name}})
-                                              (apply merge-with set/union))
-                          where (set (mapcat normalize-where where))
-                          qualify-smap (into {}
-                                             (comp (mapcat flatten)
-                                                   (filter symbol?)
-                                                   (map #(if (symbol-with-prefix? %)
-                                                           [% %]
-                                                           [% (if-let [x (first (get column->tables (keyword %)))]
-                                                                (symbol (str (name x) "." %))
-                                                                %)])))
-                                             (concat where select))
-                          where (w/postwalk-replace qualify-smap where)
-                          to-clj #(if (vector? %)
-                                    (cons (symbol (first %))
-                                          (rest %))
-                                    %)
-                          var-resolve #(if (and (symbol? %)
-                                                (symbol-with-prefix? %)
-                                                (not (namespace %)))
-                                         `(~(keyword (symbol-suffix %)) ~(symbol-prefix %))
-                                         %)
-                          [for-comp where] (reduce
-                                            (fn [[acc where known-vars] [as t]]
-                                              (let [known-vars (conj known-vars as)]
-                                                (let [exprs (set (filter #(set/superset? known-vars (set (map symbol-prefix (filter symbol? (flatten %))))) where))
-                                                      idx-lookups (set (filter (comp #{:=} first) exprs))
-                                                      joins (->> (for [[_ lhs rhs] idx-lookups
-                                                                       :let [[lhs rhs] (if (= (symbol-prefix lhs) as)
-                                                                                         [lhs rhs]
-                                                                                         [rhs lhs])]]
-                                                                   [lhs rhs])
-                                                                 (into {}))
-                                                      when (w/postwalk to-clj (remove idx-lookups exprs))]
-                                                  [(cond-> acc
-                                                     true (conj [as (if (empty? joins)
-                                                                      `(get ~db-var ~(keyword t))
-                                                                      `(get (idx-fn (get ~db-var ~(keyword t))
-                                                                                    ~(mapv (comp keyword symbol-suffix) (keys joins)))
-                                                                            ~(vec (vals joins))))])
-                                                     (seq when) (conj :when `(and ~@when)))
-                                                   (set/difference where exprs)
-                                                   known-vars])))
-                                            [[] where #{}]
-                                            (sort-by (comp count db keyword val) tables))
-                          for-comp (cond-> for-comp
-                                     (seq where) (conj :when `(and ~@(w/postwalk to-clj where))))]
-                      (w/postwalk
-                       var-resolve
-                       `(fn [~db-var]
-                          (for [~@(reduce into [] for-comp)]
-                            ~(->> (for [[exp as] select]
-                                    [(keyword (or as exp))
-                                     (if (symbol? exp)
-                                       (get qualify-smap exp exp)
-                                       (w/postwalk to-clj (w/postwalk-replace qualify-smap exp)))])
-                                  (into {}))))))))))
+  (let [db-var (gensym 'db)
+        [with tree] (qualify-columns (parse-and-transform sql) db)]
+    ((fn compile-select [tree]
+        (let [[_ [_ & select] [_ & from] [_ & where]] tree
+              to-clj #(cond
+                        (and (vector? %) (= :select-exp (first %)))
+                        (compile-select %)
+                        (vector? %)
+                        (cons (symbol (first %)) (rest %))
+                        (and (symbol? %) (symbol-with-prefix? %) (not (namespace %)))
+                        `(~(keyword (symbol-suffix %))
+                          ~(symbol-prefix %))
+                        :else
+                        %)
+              where (set (mapcat normalize-where where))
+              [for-comp where] (reduce
+                                (fn [[acc where known-vars] [as t]]
+                                  (let [known-vars (conj known-vars as)
+                                        exprs (set (filter #(set/superset? known-vars (set (map symbol-prefix (filter-walk symbol? %)))) where))
+                                        idx-lookups (set (filter (comp #{:=} first) exprs))
+                                        joins (->> (for [[_ lhs rhs] idx-lookups
+                                                         :let [[lhs rhs] (if (= (symbol-prefix lhs) as)
+                                                                           [lhs rhs]
+                                                                           [rhs lhs])]]
+                                                     [lhs rhs])
+                                                   (into {}))
+                                        when (w/postwalk to-clj (remove idx-lookups exprs))]
+                                    [(cond-> acc
+                                       true (conj [as (if (empty? joins)
+                                                        `(get ~db-var ~(keyword t))
+                                                        `(get (idx-fn (get ~db-var ~(keyword t))
+                                                                      ~(mapv (comp keyword symbol-suffix) (keys joins)))
+                                                              ~(mapv to-clj (vals joins))))])
+                                       (seq when) (conj :when `(and ~@when)))
+                                     (set/difference where exprs)
+                                     known-vars]))
+                                [[] where #{}]
+                                (sort-by (comp count db keyword first) from))
+              for-comp (cond-> for-comp
+                         (seq where) (conj :when `(and ~@(w/postwalk to-clj where))))]
+          `(fn [~db-var]
+             (for [~@(reduce into [] for-comp)]
+               ~(->> (for [[exp as] select]
+                       [(keyword (or as (name (symbol-suffix exp))))
+                        (w/postwalk to-clj exp)])
+                     (into {}))))))
+     tree)))

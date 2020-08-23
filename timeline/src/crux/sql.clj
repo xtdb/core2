@@ -1042,6 +1042,39 @@ order by
              (fn [xrel ks]
                (group-by #(mapv % ks) xrel))))
 
+(defn qualify-columns [x db]
+  (let [column->tables (volatile! {})
+        qualify (fn [x]
+                  (if-let [ts (and (symbol? x)
+                                   (get @column->tables x))]
+                    (if (= 1 (count ts))
+                      (symbol (str (first ts) "." x))
+                      (throw (IllegalArgumentException. (str "Column not unique:" x))))
+                    x))]
+    (w/prewalk
+     (fn [x]
+       (if (vector? x)
+         (case (first x)
+           :select-exp
+           (let [[_ _ [_ & from]] x
+                 new-column->tables (->> (for [[t] from
+                                               c (keys (:columns (meta (get db (keyword t)))))]
+                                           {(symbol c) #{t}})
+                                         (apply merge-with set/union))]
+             (vswap! column->tables #(apply merge % new-column->tables))
+             x)
+           :select
+           `[:select ~@(for [[exp as] (rest x)]
+                         [(w/postwalk qualify exp) as])]
+           :from
+           `[:from ~@(for [[t as] (rest x)]
+                       [t (or as t)])]
+           :where
+           (w/postwalk qualify x)
+           x)
+         x))
+     x)))
+
 (defn compile-sql-comprehension [sql db]
   (let [db-var (gensym 'db)]
     (loop [tree (parse-and-transform sql)]

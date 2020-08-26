@@ -1027,6 +1027,9 @@ order by
 ;; https://github.com/epfldata/dblab/blob/develop/components/src/main/scala/ch/epfl/data/dblab/queryengine/volcano/Operators.scala
 
 ;; New compilation style idea, more directly to list comprehensions:
+
+;; See also:
+;; https://blog.jooq.org/2015/08/13/common-sql-clauses-and-their-equivalents-in-java-8-streams/
 (comment
   ;; should be proper LRU cache.
 

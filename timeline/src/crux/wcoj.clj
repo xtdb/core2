@@ -215,10 +215,10 @@
                                                             (apply [_ c]
                                                               (java.util.stream.Stream/of [a b c])))))))))))))
     (time
-     (for [a (intersect-sets [(.keySet r)
-                              (.keySet t)])
-           b (intersect-sets [(.keySet ^NavigableMap (.get r a))
-                              (.keySet s)])
-           c (intersect-sets [(.keySet ^NavigableMap (.get s b))
-                              (.keySet ^NavigableMap (.get t a))])]
-       [a b c]))))
+     (vec (for [a (intersect-sets [(.keySet r)
+                                   (.keySet t)])
+                b (intersect-sets [(.keySet ^NavigableMap (.get r a))
+                                   (.keySet s)])
+                c (intersect-sets [(.keySet ^NavigableMap (.get s b))
+                                   (.keySet ^NavigableMap (.get t a))])]
+            [a b c])))))

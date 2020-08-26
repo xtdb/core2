@@ -1,5 +1,5 @@
 (ns crux.wcoj
-  (:import [java.util Arrays ArrayList NavigableSet Set TreeMap TreeSet]
+  (:import [java.util Arrays ArrayList NavigableMap NavigableSet Set TreeMap TreeSet]
            [java.util.function Function Predicate]))
 
 (defn long-mod ^long [^long num ^long div]
@@ -27,36 +27,32 @@
    tuples))
 
 (defn intersect-sets [xs]
-  (let [key+sets ^objects (to-array
-                           (sort-by first
-                                    (for [x xs]
-                                      (object-array [(first x) x]))))
-        acc (ArrayList.)
-        len (alength key+sets)]
+  (let [xs (sort-by first xs)
+        keys (object-array (map first xs))
+        sets (object-array xs)
+        len (count xs)
+        acc (ArrayList.)]
     (loop [n 0
-           max-k (first (aget key+sets (long-mod (dec n) len)))]
-      (let [key+set ^objects (aget key+sets n)
-            k (aget key+set 0)
-            ^NavigableSet s (aget key+set 1)]
+           max-k (aget keys (long-mod (dec n) len))]
+      (let [k (aget keys n)
+            ^NavigableSet s (aget sets n)]
         (if-let [max-k (if (= k max-k)
                          (do (.add acc k)
                              (.higher s k))
                          (.ceiling s max-k))]
-          (do (aset key+set 0 max-k)
+          (do (aset keys n max-k)
               (recur (long-mod (inc n) len) max-k))
           acc)))))
 
 (defn intersect-sets-arrays [xs]
-  (let [key+sets ^objects (to-array
-                           (sort-by first
-                                    (for [x xs]
-                                      (object-array [0 x]))))
-        len (alength key+sets)]
+  (let [xs (sort-by first xs)
+        keys (int-array (count xs))
+        sets (object-array (map to-array xs))
+        len (count xs)]
     ((fn self [^long n max-k]
        (when (some? max-k)
-         (let [key+set ^objects (aget key+sets n)
-               kn (long (aget key+set 0))
-               s ^longs (aget key+set 1)
+         (let [kn (aget keys n)
+               s ^objects (aget sets n)
                k (aget s kn)]
            (when (some? k)
              (let [match? (= k max-k)
@@ -64,40 +60,38 @@
                             (inc kn)
                             (let [kn (Arrays/binarySearch
                                       s
-                                      (int kn)
+                                      kn
                                       (alength s)
-                                      (long max-k))]
+                                      max-k)]
                               (if (neg? kn)
                                 (- (inc kn))
                                 kn)))
                    max-k (when (< max-kn (alength s))
                            (aget s max-kn))]
-               (aset key+set 0 max-kn)
+               (aset keys n (int max-kn))
                (if match?
                  (cons k (lazy-seq (self (long-mod (inc n) len) max-k)))
                  (recur (long-mod (inc n) len) max-k)))))))
-     0 (first (second (aget key+sets (dec len)))))))
+     0 (first (aget sets (dec len))))))
 
 (defn intersect-sets-lazy [xs]
-  (let [key+sets ^objects (to-array
-                           (sort-by first
-                                    (for [x xs]
-                                      (object-array [(first x) x]))))
-        len (alength key+sets)]
+  (let [xs (sort-by first xs)
+        keys (object-array (map first xs))
+        sets (object-array xs)
+        len (count xs)]
     ((fn self [^long n max-k]
        (when (some? max-k)
-         (let [key+set ^objects (aget key+sets n)
-               k (aget key+set 0)
-               ^NavigableSet s (aget key+set 1)]
+         (let [k (aget keys n)
+               ^NavigableSet s (aget sets n)]
            (let [match? (= k max-k)
                  max-k (if match?
                          (.higher s k)
                          (.ceiling s max-k))]
-             (aset key+set 0 max-k)
+             (aset keys n max-k)
              (if match?
                (cons k (lazy-seq (self (long-mod (inc n) len) max-k)))
                (recur (long-mod (inc n) len) max-k))))))
-     0 (first (aget key+sets (dec len))))))
+     0 (first (aget keys (dec len))))))
 
 (defn intersect-sets-lazy-simple-pred [xs]
   (let [[xs & rest-xs] (sort-by count xs)
@@ -130,12 +124,10 @@
      (rest xs))))
 
 (defn intersect-sets-lazy-chunk [xs]
-  (let [key+sets (sort-by first
-                          (for [x xs]
-                            [(first x) x]))
-        keys (object-array (map first key+sets))
-        sets (object-array (map second key+sets))
-        len (count key+sets)
+  (let [xs (sort-by first xs)
+        keys (object-array (map first xs))
+        sets (object-array xs)
+        len (count xs)
         chunk-size 32]
     ((fn self [cb ^long n max-k]
        (if (some? max-k)
@@ -157,12 +149,12 @@
      (chunk-buffer chunk-size) 0 (aget keys (dec len)))))
 
 (defn intersect-sets-navigable [xs]
-  (let [key+sets ^objects (to-array (sort-by first xs))
+  (let [sets ^objects (to-array (sort-by first xs))
         acc (ArrayList.)
-        len (alength key+sets)]
+        len (alength sets)]
     (loop [n 0
-           max-k (.first ^NavigableSet (aget key+sets (long-mod (dec n) len)))]
-      (let [s ^NavigableSet (aget key+sets n)
+           max-k (.first ^NavigableSet (aget sets (long-mod (dec n) len)))]
+      (let [s ^NavigableSet (aget sets n)
             k (.first s)
             s ^NavigableSet (if (= k max-k)
                               (do (.add acc k)
@@ -170,7 +162,7 @@
                               (.tailSet s max-k true))]
         (if (.isEmpty s)
           acc
-          (do (aset key+sets n s)
+          (do (aset sets n s)
               (recur (long-mod (inc n) len) (.first s))))))))
 
 (comment

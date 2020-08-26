@@ -103,7 +103,7 @@
           :when (pred x)]
       x)))
 
-(defn intersect-sets-stream [xs]
+(defn intersect-sets-stream ^java.util.stream.Stream [xs]
   (let [[xs & rest-xs] (sort-by count xs)
         pred (reduce
               (fn [^Predicate acc
@@ -113,7 +113,7 @@
                 (reify Predicate
                   (test [_ x]
                     (.contains ^Set xs x)))))]
-    (.toArray (.filter (.parallelStream ^Set xs) pred))))
+    (.filter (.parallelStream ^Set xs) pred)))
 
 (defn intersect-sets-simple [xs]
   (let [xs (sort-by count xs)]
@@ -200,6 +200,20 @@
             [1 2]
             [3 2]])
         intersect-sets intersect-sets-lazy-chunk]
+    (time
+     (seq (.toArray (.flatMap (intersect-sets-stream [(.keySet r)
+                                                      (.keySet t)])
+                              (reify Function
+                                (apply [_ a]
+                                  (.flatMap (intersect-sets-stream [(.keySet ^NavigableMap (.get r a))
+                                                                    (.keySet s)])
+                                            (reify Function
+                                              (apply [_ b]
+                                                (.flatMap (intersect-sets-stream [(.keySet ^NavigableMap (.get s b))
+                                                                                  (.keySet ^NavigableMap (.get t a))])
+                                                          (reify Function
+                                                            (apply [_ c]
+                                                              (java.util.stream.Stream/of [a b c])))))))))))))
     (time
      (for [a (intersect-sets [(.keySet r)
                               (.keySet t)])

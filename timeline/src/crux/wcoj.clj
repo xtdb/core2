@@ -91,7 +91,7 @@
              (if match?
                (cons k (lazy-seq (self (long-mod (inc n) len) max-k)))
                (recur (long-mod (inc n) len) max-k))))))
-     0 (first (aget keys (dec len))))))
+     0 (aget keys (dec len)))))
 
 (defn intersect-sets-lazy-simple-pred [xs]
   (let [[xs & rest-xs] (sort-by count xs)

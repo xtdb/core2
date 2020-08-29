@@ -9,9 +9,11 @@
                  [org.clojure/spec.alpha "0.2.176"]
                  [com.google.flatbuffers/flatbuffers-java "1.12.0"]
                  [org.roaringbitmap/RoaringBitmap "0.9.0"]
+;;                 [it.unimi.dsi/fastutil "8.4.1"]
                  [instaparse "1.4.10"]]
   :profiles {:uberjar {:dependencies [[ch.qos.logback/logback-classic "1.2.3"]]}
              :dev {:dependencies [[ch.qos.logback/logback-classic "1.2.3"]
+                                  [org.clojure/test.check "0.10.0"]
                                   [io.airlift.tpch/tpch "0.10"]
                                   [seancorfield/next.jdbc "1.1.582"]
                                   [com.h2database/h2 "1.4.199"]]}}

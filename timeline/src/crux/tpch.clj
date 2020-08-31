@@ -144,17 +144,21 @@
   ;; in find and rules.
 
   ;; 01
-  '{:find  [l_returnflag
-            l_linestatus
-            (sum l_quantity)
-            (sum l_extendedprice)
-            (sum (* l_extendedprice (- 1 l_discount)))
-            (sum (* l_extendedprice (- 1 l_discount) (+ 1 l_tax)))
-            (avg l_quantity)
-            (avg l_extendedprice)
-            (avg l_discount)
-            (count l)]
+  '{:find [l_returnflag
+           l_linestatus
+           (sum l_quantity)
+           (sum l_extendedprice)
+           (sum (* l_extendedprice (- 1 l_discount)))
+           (sum (* l_extendedprice (- 1 l_discount) (+ 1 l_tax)))
+           (avg l_quantity)
+           (avg l_extendedprice)
+           (avg l_discount)
+           (count l)]
     :where [[l :l_shipdate l_shipdate]
+            [l :l_quantity l_quantity]
+            [l :l_extendedprice l_extendedprice]
+            [l :l_discount l_discount]
+            [l :l_tax l_tax]
             [l :l_returnflag l_returnflag]
             [l :l_linestatus l_linestatus]
             [(<= l_shipdate #inst "1998-09-02")]]
@@ -162,31 +166,37 @@
                [l_linestatus :asc]]}
 
   ;; 02
-  '{:find  [s_acctbal
-            s_name
-            n_name
-            p_partkey
-            p_mfgr
-            s_address
-            s_phone
-            s_comment]
-    :where [[p :p_size 15]
-            [p :p_type p_type]
+  '{:find [s_acctbal
+           s_name
+           n_name
+           p_partkey
+           p_mfgr
+           s_address
+           s_phone
+           s_comment]
+    :where [[p_partkey :p_size 15]
+            [p_partkey :p_type p_type]
             [(re-find #"^.*BRASS$" p_type)]
-            [ps :ps_partkey p]
+            [p_partkey :p_mfgr p_mfgr]
+            [ps :ps_partkey p_partkey]
             [ps :ps_suppkey s]
+            [s :s_acctbal s_acctbal]
+            [s :s_name s_name]
+            [s :s_address s_address]
+            [s :s_phone s_phone]
             [s :s_nationkey n]
             [n :n_regionkey r]
+            [n :n_name n_name]
             [r :r_name "EUROPE"]
             [ps :ps_supplycost ps_supplycost]
-            (sub-query p ps_supplycost)]
+            (sub-query p_partkey ps_supplycost)]
     :order-by [[s_acctbal :desc]
                [n_name :asc]
                [s_name :asc]
                [p_partkey :asc]]
     :limit 100
-    :rules [[(sub-query [p] (min ps_supplycost))
-             [ps :ps_partkey p]
+    :rules [[(sub-query [p_partkey] (min ps_supplycost))
+             [ps :ps_partkey p_partkey]
              [ps :ps_supplycost ps_supplycost]
              [ps :ps_suppkey s]
              [s :s_nationkey n]
@@ -194,10 +204,10 @@
              [r :r_name "EUROPE"]]]}
 
   ;; 03
-  '{:find  [o
-            [(sum (* l_extendedprice (- 1 l_discount))) :as revenue]
-            o_orderdate
-            o_shippriority]
+  '{:find [o
+           [(sum (* l_extendedprice (- 1 l_discount))) revenue]
+           o_orderdate
+           o_shippriority]
     :where [[c :c_mktsegment "BUILDING"]
             [o :o_custkey c]
             [o :o_shippriority o_shippriority]

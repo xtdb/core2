@@ -206,6 +206,7 @@
             [l :l_orderkey o]
             [l :l_discount l_discount]
             [l :l_extendedprice l_extendedprice]
+            [l :l_shipdate l_shipdate]
             [(> l_shipdate #inst "1995-03-15")]]
     :order-by [[revenue :desc]
                [o_orderdate :asc]]

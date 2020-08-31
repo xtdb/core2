@@ -137,3 +137,76 @@
 (comment
   (defonce db-sf-0_1 (tpch-dbgen 0.1))
   (defonce db-sf-1 (tpch-dbgen 1)))
+
+(comment
+
+  ;; TPC-H as Crux Datalog, extended with aggregates and expressions
+  ;; in find and rules.
+
+  ;; 01
+  '{:find  [l_returnflag
+            l_linestatus
+            (sum l_quantity)
+            (sum l_extendedprice)
+            (sum (* l_extendedprice (- 1 l_discount)))
+            (sum (* l_extendedprice (- 1 l_discount) (+ 1 l_tax)))
+            (avg l_quantity)
+            (avg l_extendedprice)
+            (avg l_discount)
+            (count l)]
+    :where [[l :l_shipdate l_shipdate]
+            [l :l_returnflag l_returnflag]
+            [l :l_linestatus l_linestatus]
+            [(<= l_shipdate #inst "1998-09-02")]]
+    :order-by [[l_returnflag :asc]
+               [l_linestatus :asc]]}
+
+  ;; 02
+  '{:find  [s_acctbal
+            s_name
+            n_name
+            p_partkey
+            p_mfgr
+            s_address
+            s_phone
+            s_comment]
+    :where [[p :p_size 15]
+            [p :p_type p_type]
+            [(re-find #"^.*BRASS$" p_type)]
+            [ps :ps_partkey p]
+            [ps :ps_suppkey s]
+            [s :s_nationkey n]
+            [n :n_regionkey r]
+            [r :r_name "EUROPE"]
+            [ps :ps_supplycost ps_supplycost]
+            (sub-query p ps_supplycost)]
+    :order-by [[s_acctbal :desc]
+               [n_name :asc]
+               [s_name :asc]
+               [p_partkey :asc]]
+    :limit 100
+    :rules [[(sub-query [p] (min ps_supplycost))
+             [ps :ps_partkey p]
+             [ps :ps_supplycost ps_supplycost]
+             [ps :ps_suppkey s]
+             [s :s_nationkey n]
+             [n :r_regionkey r]
+             [r :r_name "EUROPE"]]]}
+
+  ;; 03
+  '{:find  [o
+            [(sum (* l_extendedprice (- 1 l_discount))) :as revenue]
+            o_orderdate
+            o_shippriority]
+    :where [[c :c_mktsegment "BUILDING"]
+            [o :o_custkey c]
+            [o :o_shippriority o_shippriority]
+            [o :o_orderdate o_orderdate]
+            [(< o_orderdate #inst "1995-03-15")]
+            [l :l_orderkey o]
+            [l :l_discount l_discount]
+            [l :l_extendedprice l_extendedprice]
+            [(> l_shipdate #inst "1995-03-15")]]
+    :order-by [[revenue :desc]
+               [o_orderdate :asc]]
+    :limit 10})

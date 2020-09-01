@@ -203,6 +203,39 @@
              [n :r_regionkey r]
              [r :r_name "EUROPE"]]]}
 
+  ;; 02 Alt. q is a built-in, binding full tuples and like or-join
+  ;; defines the required vars. This shows inline version for single
+  ;; valued tuple, expands to [(q ...) [ps_supplycost]]
+  '{:find [s_acctbal
+           s_name
+           n_name
+           p_partkey
+           p_mfgr
+           s_address
+           s_phone
+           s_comment]
+    :where [{:ps_partkey {:p_partkey p_partkey
+                          :p_size 15
+                          :p_type #"^.*BRASS$"
+                          :p_mfgr p_mfgr}
+             :ps_suppkey {:s_acctbal s_acctbal
+                          :s_name s_name
+                          :s_address s_address
+                          :s_phone s_phone
+                          :s_comment s_comment
+                          :s_nationkey {:n_name n_name
+                                        :n_regionkey {:r_name "EUROPE"}}}
+             :ps_supplycost (q [p_partkey]
+                               {:find [(min ps_supplycost)]
+                                :where {:ps_partkey p_partkey
+                                        :ps_supplycost ps_supplycost
+                                        :ps_suppkey {:s_nationkey {:n_regionkey {:r_name "EUROPE"}}}}})}]
+    :order-by [[s_acctbal :desc]
+               [n_name :asc]
+               [s_name :asc]
+               [p_partkey :asc]]
+    :limit 100}
+
   ;; 03
   '{:find [o
            [(sum (* l_extendedprice (- 1 l_discount))) revenue]

@@ -222,3 +222,40 @@
                 c (intersect-sets [(.keySet ^NavigableMap (.get s b))
                                    (.keySet ^NavigableMap (.get t a))])]
             [a b c])))))
+
+;; Algorithm Basic Linear Counting:
+;; Let keyi = the key for the ith tuple in the relation.
+;; Initialize the bit map to “0”s.
+;; for i = 1 to q do
+;;   hash-value = hash(key[i])
+;;   bit map(hash-value) = “1”
+;; end for
+;; Un = number of “0”s in the bit map
+;; Vn = Un / m
+;; n =-m ln Vn
+
+(defn linear-counting-update
+  ^org.roaringbitmap.RoaringBitmap [^org.roaringbitmap.RoaringBitmap b x]
+  (doto b
+    (.add (int (hash x)))))
+
+(defn linear-counting-estimate ^double [^org.roaringbitmap.RoaringBitmap b]
+  (let [m (Integer/toUnsignedLong -1)
+        un (- m (.getCardinality b))
+        vn (double (/ un m))]
+    (- (* m (Math/log vn)))))
+
+(defn hyper-log-log-update [^ints max-zeroes x]
+  (let [num-buckets (alength max-zeroes) ;; should be something like 1024
+        k (long (Math/sqrt num-buckets))
+        h (hash x)
+        bucket (bit-and h (dec num-buckets))
+        bucket-hash (bit-shift-right h k)]
+    (doto max-zeroes
+      (aset max-zeroes bucket (max (aget max-zeroes bucket) (Integer/numberOfTrailingZeros bucket-hash))))))
+
+;; 2 ** (float(sum(max_zeroes)) / num_buckets) * num_buckets * 0.79402
+(defn hyper-log-log-estimate ^double [^ints max-zeroes]
+  (let [num-buckets (alength max-zeroes)]
+    (Math/pow 2.0 (* (/ (double (areduce max-zeroes n x 0 (+ x (aget max-zeroes n)))) num-buckets)
+                     num-buckets 0.79402))))

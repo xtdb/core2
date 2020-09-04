@@ -245,17 +245,39 @@
         vn (double (/ un m))]
     (- (* m (Math/log vn)))))
 
-(defn hyper-log-log-update [^ints max-zeroes x]
-  (let [num-buckets (alength max-zeroes) ;; should be something like 1024
-        k (long (Math/sqrt num-buckets))
-        h (hash x)
-        bucket (bit-and h (dec num-buckets))
-        bucket-hash (bit-shift-right h k)]
-    (doto max-zeroes
-      (aset max-zeroes bucket (max (aget max-zeroes bucket) (Integer/numberOfTrailingZeros bucket-hash))))))
+;; http://algo.inria.fr/flajolet/Publications/FlFuGaMe07.pdf
 
-;; 2 ** (float(sum(max_zeroes)) / num_buckets) * num_buckets * 0.79402
-(defn hyper-log-log-estimate ^double [^ints max-zeroes]
-  (let [num-buckets (alength max-zeroes)]
-    (Math/pow 2.0 (* (/ (double (areduce max-zeroes n x 0 (+ x (aget max-zeroes n)))) num-buckets)
-                     num-buckets 0.79402))))
+(defn new-hyper-log-log
+  (^ints []
+   (new-hyper-log-log 1024))
+  (^ints [^long m]
+   (int-array m)))
+
+(defn hyper-log-log-update ^ints [^ints hll v]
+  (let [m (alength hll)
+        b (Integer/numberOfTrailingZeros m)
+        x (hash v)
+        j (bit-and (bit-shift-right x (- Integer/SIZE b)) (dec m))
+        w (bit-and x (dec (bit-shift-left 1 (- Integer/SIZE b))))]
+    (doto hll
+      (aset j (max (aget hll j)
+                   (- (inc (Integer/numberOfLeadingZeros w)) b))))))
+
+(defn hyper-log-log-estimate ^double [^ints hll]
+  (let [m (alength hll)
+        z (/ 1 (areduce hll n acc 0.0 (+ acc (Math/pow 2.0 (- (aget hll n))))))
+        am (/ 0.7213 (inc (/ 1.079 m)))
+        e (* am (Math/pow m 2.0) z)]
+    (cond
+      (<= e (* (/ 5 2) m))
+      (let [v (areduce hll n acc 0 (+ acc (if (zero? (aget hll n)) 1 0)))]
+        (if (zero? v)
+          e
+          (* m (Math/log (/ m v)))))
+
+      (> e (* (/ 1 30) (Integer/toUnsignedLong -1)))
+      (* (Math/pow -2.0 32)
+         (Math/log (- 1 (/ e (Integer/toUnsignedLong -1)))))
+
+      :else
+      e)))

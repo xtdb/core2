@@ -9,8 +9,8 @@
                  [org.clojure/tools.logging "0.6.0"]
                  [org.slf4j/slf4j-api "1.7.29"]
                  [org.clojure/spec.alpha "0.2.176"]
-                 [org.apache.arrow/arrow-vector "1.0.0"]
-                 [org.apache.arrow/arrow-memory-netty "1.0.0"]
+                 [org.apache.arrow/arrow-vector "2.0.0"]
+                 [org.apache.arrow/arrow-memory-netty "2.0.0"]
                  [org.apache.lucene/lucene-core "8.5.0"]]
   :profiles {:uberjar {:dependencies [[ch.qos.logback/logback-classic "1.2.3"]]}
              :dev {:dependencies [[ch.qos.logback/logback-classic "1.2.3"]]}}

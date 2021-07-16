@@ -1,4 +1,6 @@
 (defproject pro.juxt.crux-labs/core2-jdbc "<inherited>"
+  :description "Core2 JDBC integration"
+
   :plugins [[lein-parent "0.3.8"]]
 
   :parent-project {:path "../../project.clj"
@@ -7,7 +9,7 @@
                              :pedantic? :global-vars
                              :license :url :pom-addition]}
 
-  :scm {:dir "../.."}
+  :scm {:dir "../../.."}
 
   :dependencies [[pro.juxt.crux-labs/core2]
                  [seancorfield/next.jdbc "1.2.659"]

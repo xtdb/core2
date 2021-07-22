@@ -49,6 +49,7 @@
 
                                    [cheshire "5.10.0"]]
 
+                    :java-source-paths ["test"]
                     :resource-paths ["test-resources"]}
 
              :jmh {:dependencies [[org.openjdk.jmh/jmh-core "1.32"]

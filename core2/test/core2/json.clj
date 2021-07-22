@@ -1,12 +1,13 @@
 (ns core2.json
   (:require [clojure.java.io :as io]
             [core2.util :as util])
-  (:import java.io.File
+  (:import core2.json.JsonFileWriter
+           java.io.File
            java.nio.ByteBuffer
            java.nio.channels.FileChannel
            [java.nio.file OpenOption StandardOpenOption]
            org.apache.arrow.memory.RootAllocator
-           [org.apache.arrow.vector.ipc ArrowFileReader ArrowStreamReader JsonFileWriter]
+           [org.apache.arrow.vector.ipc ArrowFileReader ArrowStreamReader]
            org.apache.arrow.vector.VectorSchemaRoot))
 
 (set! *unchecked-math* :warn-on-boxed)

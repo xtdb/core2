@@ -15,7 +15,7 @@
       "type" : {
         "name" : "union",
         "mode" : "Dense",
-        "typeIds" : [1,2,3,4,5,6,10,18]
+        "typeIds" : [1,2,3,4,5,6,10,18,126]
       },
       "children" : [{
         "name" : "$data$",
@@ -79,21 +79,35 @@
           "unit" : "MILLISECOND"
         },
         "children" : [ ]
+      },{
+        "name" : "uuid",
+        "nullable" : false,
+        "type" : {
+          "name" : "UuidType"
+        },
+        "children" : [ ],
+        "metadata" : [{
+          "value" : "uuid",
+          "key" : "ARROW:extension:name"
+        },{
+          "value" : "",
+          "key" : "ARROW:extension:metadata"
+        }]
       }]
     }]
   },
   "batches" : [{
-    "count" : 6,
+    "count" : 7,
     "columns" : [{
       "name" : "_row-id",
-      "count" : 6,
-      "VALIDITY" : [1,1,1,1,1,1],
-      "DATA" : ["0","1","2","3","4","5"]
+      "count" : 7,
+      "VALIDITY" : [1,1,1,1,1,1,1],
+      "DATA" : ["0","1","2","3","4","5","6"]
     },{
       "name" : "_tx-time",
-      "count" : 6,
-      "TYPE_ID" : [10,10,10,10,10,10],
-      "OFFSET" : [0,1,2,3,4,5],
+      "count" : 7,
+      "TYPE_ID" : [10,10,10,10,10,10,10],
+      "OFFSET" : [0,1,2,3,4,5,6],
       "children" : [{
         "name" : "$data$",
         "count" : 0
@@ -126,11 +140,16 @@
         "DATA" : [ ]
       },{
         "name" : "timestamp-milli",
-        "count" : 6,
-        "VALIDITY" : [1,1,1,1,1,1],
-        "DATA" : [1577836800000,1577836800000,1577836800000,1577836800000,1577836800000,1577836800000]
+        "count" : 7,
+        "VALIDITY" : [1,1,1,1,1,1,1],
+        "DATA" : [1577836800000,1577836800000,1577836800000,1577836800000,1577836800000,1577836800000,1577836800000]
       },{
         "name" : "duration-milli",
+        "count" : 0,
+        "VALIDITY" : [ ],
+        "DATA" : [ ]
+      },{
+        "name" : "uuid",
         "count" : 0,
         "VALIDITY" : [ ],
         "DATA" : [ ]

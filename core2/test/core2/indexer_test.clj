@@ -206,7 +206,8 @@
                 {:op :put, :doc {:_id "bar"}}
                 {:op :put, :doc {:_id #inst "2021-01-01"}}
                 {:op :put, :doc {:_id 52.0}}
-                {:op :put, :doc {:_id #inst "2020-01-01"}}]]
+                {:op :put, :doc {:_id #inst "2020-01-01"}}
+                {:op :put, :doc {:_id #uuid "924535cd-d044-48ac-af24-e0edbac00003"}}]]
     (util/delete-dir node-dir)
 
     (with-open [node (tu/->local-node {:node-dir node-dir, :clock mock-clock})]

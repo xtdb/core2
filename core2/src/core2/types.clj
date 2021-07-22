@@ -2,13 +2,14 @@
   (:require [core2.util :as util]
             [clojure.set :as set])
   (:import core2.DenseUnionUtil
+           [core2.extensions UuidType UuidVector]
            java.nio.ByteBuffer
            java.nio.charset.StandardCharsets
            [java.time Duration LocalDateTime]
-           java.util.Date
+           [java.util Date UUID]
            [org.apache.arrow.vector BigIntVector BitVector DurationVector Float8Vector NullVector TimeStampMilliVector VarBinaryVector VarCharVector]
            org.apache.arrow.vector.complex.DenseUnionVector
-           [org.apache.arrow.vector.types Types$MinorType TimeUnit UnionMode]
+           [org.apache.arrow.vector.types TimeUnit Types$MinorType UnionMode]
            [org.apache.arrow.vector.types.pojo ArrowType ArrowType$Duration ArrowType$Union Field FieldType]
            org.apache.arrow.vector.util.Text))
 
@@ -26,7 +27,8 @@
    :varchar (.getType Types$MinorType/VARCHAR)
    :bit (.getType Types$MinorType/BIT)
    :timestamp-milli (.getType Types$MinorType/TIMESTAMPMILLI)
-   :duration-milli duration-milli-arrow-type})
+   :duration-milli duration-milli-arrow-type
+   :uuid (UuidType.)})
 
 (def <-arrow-type (set/map-invert ->arrow-type))
 
@@ -44,7 +46,8 @@
    Boolean (->arrow-type :bit)
    Date (->arrow-type :timestamp-milli)
    Duration (->arrow-type :duration-milli)
-   LocalDateTime (->arrow-type :timestamp-milli)})
+   LocalDateTime (->arrow-type :timestamp-milli)
+   UUID (->arrow-type :uuid)})
 
 (def arrow-type->vector-type
   {(->arrow-type :null) NullVector
@@ -54,7 +57,8 @@
    (->arrow-type :varchar) VarCharVector
    (->arrow-type :timestamp-milli) TimeStampMilliVector
    (->arrow-type :duration-milli) DurationVector
-   (->arrow-type :bit) BitVector})
+   (->arrow-type :bit) BitVector
+   (->arrow-type :uuid) UuidVector})
 
 (def arrow-type->java-type
   {(->arrow-type :null) nil
@@ -64,7 +68,8 @@
    (->arrow-type :varchar) String
    (->arrow-type :timestamp-milli) Date
    (->arrow-type :duration-milli) Duration
-   (->arrow-type :bit) Boolean})
+   (->arrow-type :bit) Boolean
+   (->arrow-type :uuid) UUID})
 
 (def arrow-type->type-id
   {(->arrow-type :null) 1,
@@ -74,7 +79,8 @@
    (->arrow-type :varchar) 5,
    (->arrow-type :bit) 6,
    (->arrow-type :timestamp-milli) 10,
-   (->arrow-type :duration-milli) 18})
+   (->arrow-type :duration-milli) 18
+   (UuidType.) (- Byte/MAX_VALUE 1)})
 
 (defn ->field ^org.apache.arrow.vector.types.pojo.Field [^String field-name ^ArrowType arrow-type nullable & children]
   (Field. field-name (FieldType. nullable arrow-type nil nil) children))
@@ -175,7 +181,12 @@
 
   (get-object [this idx]
     (get-object (.getVectorByType this (.getTypeId this idx))
-                (.getOffset this idx))))
+                (.getOffset this idx)))
+
+  UuidVector
+  (set-safe! [this idx v] (.setSafe this idx v))
+  (set-null! [this idx] (.setNull this idx))
+  (get-object [this idx] (.getObject this ^int idx)))
 
 (defn ->primitive-dense-union-field
   (^org.apache.arrow.vector.types.pojo.Field [field-name]

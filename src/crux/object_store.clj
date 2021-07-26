@@ -2,8 +2,6 @@
   (:require [clojure.java.io :as io]
             [crux.io :as cio])
   (:import java.io.File
-           [java.nio.file Files FileVisitResult SimpleFileVisitor]
-           java.nio.file.attribute.FileAttribute
            [java.lang.ref Cleaner WeakReference]
            [java.util HashMap LinkedHashMap Map]
            java.lang.AutoCloseable))

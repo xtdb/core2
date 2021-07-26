@@ -11,6 +11,7 @@
 
   :managed-dependencies [[pro.juxt.crux-labs/core2-api ~core2-version]
                          [pro.juxt.crux-labs/core2-core ~core2-version]
+                         [pro.juxt.crux-labs/core2-server ~core2-version]
                          [pro.juxt.crux-labs/core2-datasets ~core2-version]
                          [pro.juxt.crux-labs/core2-kafka ~core2-version]
                          [pro.juxt.crux-labs/core2-s3 ~core2-version]
@@ -23,11 +24,13 @@
                          [org.clojure/data.csv "1.0.0"]
                          [org.clojure/data.json "2.3.1"]
 
-                         [cheshire "5.10.0"]]
+                         [cheshire "5.10.0"]
+                         [hato "0.8.2"]]
 
   :profiles {:dev [:test
                    {:dependencies [[pro.juxt.crux-labs/core2-api]
                                    [pro.juxt.crux-labs/core2-core]
+                                   [pro.juxt.crux-labs/core2-server]
                                    [pro.juxt.crux-labs/core2-datasets]
                                    [pro.juxt.crux-labs/core2-kafka]
                                    [pro.juxt.crux-labs/core2-s3]
@@ -47,7 +50,6 @@
                                    [pro.juxt.crux-labs/core2-datasets]
 
                                    [cheshire "5.10.0"]]
-
                     :resource-paths ["test-resources"]}
 
              :jmh {:dependencies [[org.openjdk.jmh/jmh-core "1.32"]
@@ -57,7 +59,8 @@
 
              :attach-yourkit {:jvm-opts ["-agentpath:/opt/yourkit/bin/linux-x86-64/libyjpagent.so"]}
 
-             :uberjar {:dependencies [[pro.juxt.crux-labs/core2-kafka]
+             :uberjar {:dependencies [[pro.juxt.crux-labs/core2-server]
+                                      [pro.juxt.crux-labs/core2-kafka]
                                       [pro.juxt.crux-labs/core2-s3]
                                       [pro.juxt.crux-labs/core2-jdbc]]
                        :uberjar-name "core2-standalone.jar"

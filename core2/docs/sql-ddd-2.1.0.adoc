@@ -85,21 +85,17 @@ ORMs known to work with xtdb:
 
 == Transactions
 
+Explicit transactions are not supported in xtdb 2.1.0.
+
 === BEGIN ; ROLLBACK ; COMMIT
 
 ==== Restrictions
 
-* `SAVEPOINT` is not supported since xtdb is immutable and savepoints are not required.
-* Although it is legal to place an `EVICT` command within the scope of a transaction, it will not rollback if the transaction is rolled back. As such, evictions should be performed rarely and in isolation from other commands.
+* Unsupported.
 
 ==== Synopsis
 
-[source,sql]
-----
-BEGIN;
-  [ { select | insert | update | delete | ROLLBACK; } [, ...] ]
-COMMIT;
-----
+* N/A
 
 == Data Definition Language (DDL)
 
@@ -116,12 +112,13 @@ XTDB DDL can be executed within a scoped transaction (permitting rollback).
 
 * `GLOBAL/LOCAL` / `TEMPORARY`: xtdb has an inherently global, immutable tablespace and does not support global/local specifiers or temporary tables
 * `COLLATE`: xtdb is a columnar store and does not support collation
-* Constraints: xtdb is schemaless and does not support many column or table constraints. These constraints are not available because the require xtdb read while it performs a write:
+* Constraints: xtdb is schemaless and does not support column or table constraints. These constraints are not available:
+** `NOT NULL` / `NULL`
+** `DEFAULT`
 ** `REFERENCES`
 ** `GENERATED`
 ** `UNIQUE`
 ** `CHECK`
-** (Maybe we would want to support some of these later? Dunno. -sd)
 * `INHERITS`: xtdb does not support table inheritance
 * `PARTITION BY`: xtdb does not support table partitions
 * `ON COMMIT`: since xtdb does not support temporary tables, `ON COMMIT` qualifiers are not supported
@@ -132,16 +129,9 @@ XTDB DDL can be executed within a scoped transaction (permitting rollback).
 [source,sql]
 ----
 CREATE TABLE [ IF NOT EXISTS ] table_name ( [
-  { column_name data_type [ column_constraint [ ... ] ] }
+  { column_name data_type }
   [, ... ]
 ] )
-
-where column_constraint is:
-
-[ CONSTRAINT constraint_name ]
-{ NOT NULL |
-  NULL |
-  DEFAULT default_expr }
 ----
 
 === DROP TABLE
@@ -164,7 +154,6 @@ DROP TABLE [ IF EXISTS ] name [, ...]
 
 `ALTER TABLE` commands are symmetrical to `CREATE TABLE` commands and the same restrictions apply.
 `ALTER TABLE` is used almost exclusively for renaming tables and columns for the purposes of schema migration.
-The only constraints permitted are `NOT NULL`, `NULL`, and `DEFAULT`.
 
 ==== Synopsis
 
@@ -188,10 +177,6 @@ where action is one of:
     ALTER [ COLUMN ] column_name DROP DEFAULT
     ALTER [ COLUMN ] column_name { SET | DROP } NOT NULL
     ALTER [ COLUMN ] column_name DROP EXPRESSION [ IF EXISTS ]
-    ADD table_constraint [ NOT VALID ]
-    ALTER CONSTRAINT constraint_name
-    VALIDATE CONSTRAINT constraint_name
-    DROP CONSTRAINT [ IF EXISTS ] constraint_name
 ----
 
 === TRUNCATE
@@ -420,16 +405,10 @@ Most of SQL:2011 is supported with the exception of temporal features which do n
 ----
 valid_time_clause is one of:
 
-[ CONTAINS timestamp ]
-[ OVERLAPS timestamp ]
 [ EQUALS timestamp ]
-[ PRECEDES timestamp ]
 [ SUCCEEDS timestamp ]
-[ IMMEDIATELY PRECEDES timestamp ]
-[ IMMEDIATELY SUCCEEDS timestamp ]
 
 tx_time_clause is one of:
 
 [ AS OF SYSTEM TIME timestamp ]
-[ VERSIONS BETWEEN SYSTEM TIME lower_bound AND upper_bound ]
 ----

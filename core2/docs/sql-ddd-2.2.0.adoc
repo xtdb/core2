@@ -324,7 +324,6 @@ Where permitted, the syntax for the `SELECT` statement may be used in the `WHERE
 ==== Restrictions
 
 * Functions are not supported
-* `LATERAL` is not supported. It may be supported in future versions.
 * `FOR lock_strength` is not supported. Since xtdb is immutable, there are no destructive operations requiring locks.
 
 ==== Synopsis
@@ -350,7 +349,7 @@ where from_item can be one of:
 
     [ ONLY ] table_name [ * ] [ [ AS ] alias [ ( column_alias [, ...] ) ] ]
                 [ TABLESAMPLE sampling_method ( argument [, ...] ) [ REPEATABLE ( seed ) ] ]
-    ( select ) [ AS ] alias [ ( column_alias [, ...] ) ]
+    [ LATERAL ] ( select ) [ AS ] alias [ ( column_alias [, ...] ) ]
     with_query_name [ [ AS ] alias [ ( column_alias [, ...] ) ] ]
     from_item [ NATURAL ] join_type from_item [ ON join_condition | USING ( join_column [, ...] ) ]
 

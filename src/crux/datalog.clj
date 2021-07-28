@@ -13,7 +13,6 @@
            java.lang.AutoCloseable))
 
 (set! *unchecked-math* :warn-on-boxed)
-(s/check-asserts true)
 
 (defprotocol Relation
   :extend-via-metadata true

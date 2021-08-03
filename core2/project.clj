@@ -9,7 +9,8 @@
 
   :scm {:dir ".."}
 
-  :managed-dependencies [[pro.juxt.crux-labs/core2-core ~core2-version]
+  :managed-dependencies [[pro.juxt.crux-labs/core2-api ~core2-version]
+                         [pro.juxt.crux-labs/core2-core ~core2-version]
                          [pro.juxt.crux-labs/core2-datasets ~core2-version]
                          [pro.juxt.crux-labs/core2-kafka ~core2-version]
                          [pro.juxt.crux-labs/core2-s3 ~core2-version]
@@ -23,7 +24,8 @@
                          [org.clojure/data.json "2.3.1"]]
 
   :profiles {:dev [:test
-                   {:dependencies [[pro.juxt.crux-labs/core2-core]
+                   {:dependencies [[pro.juxt.crux-labs/core2-api]
+                                   [pro.juxt.crux-labs/core2-core]
                                    [pro.juxt.crux-labs/core2-datasets]
                                    [pro.juxt.crux-labs/core2-kafka]
                                    [pro.juxt.crux-labs/core2-s3]

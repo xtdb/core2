@@ -12,6 +12,7 @@
   :managed-dependencies [[pro.juxt.crux-labs/core2-api ~core2-version]
                          [pro.juxt.crux-labs/core2-core ~core2-version]
                          [pro.juxt.crux-labs/core2-server ~core2-version]
+                         [pro.juxt.crux-labs/core2-client ~core2-version]
                          [pro.juxt.crux-labs/core2-datasets ~core2-version]
                          [pro.juxt.crux-labs/core2-kafka ~core2-version]
                          [pro.juxt.crux-labs/core2-s3 ~core2-version]
@@ -32,6 +33,7 @@
                    {:dependencies [[pro.juxt.crux-labs/core2-api]
                                    [pro.juxt.crux-labs/core2-core]
                                    [pro.juxt.crux-labs/core2-server]
+                                   [pro.juxt.crux-labs/core2-client]
                                    [pro.juxt.crux-labs/core2-datasets]
                                    [pro.juxt.crux-labs/core2-kafka]
                                    [pro.juxt.crux-labs/core2-s3]
@@ -61,7 +63,9 @@
 
              :attach-yourkit {:jvm-opts ["-agentpath:/opt/yourkit/bin/linux-x86-64/libyjpagent.so"]}
 
-             :uberjar {:dependencies [[pro.juxt.crux-labs/core2-server]
+             :uberjar {:dependencies [[pro.juxt.crux-labs/core2-core]
+                                      [pro.juxt.crux-labs/core2-server]
+                                      [pro.juxt.crux-labs/core2-client]
                                       [pro.juxt.crux-labs/core2-kafka]
                                       [pro.juxt.crux-labs/core2-s3]
                                       [pro.juxt.crux-labs/core2-jdbc]]

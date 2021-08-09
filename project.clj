@@ -14,7 +14,7 @@
                  [org.apache.lucene/lucene-core "8.5.0"]]
   :profiles {:uberjar {:dependencies [[ch.qos.logback/logback-classic "1.2.3"]]}
              :dev {:dependencies [[ch.qos.logback/logback-classic "1.2.3"]]}}
-  :java-source-paths ["src"]
+
   :jvm-opts ["-Xmx2G"
              "-XX:MaxDirectMemorySize=2G"
              "-Dio.netty.tryReflectionSetAccessible=true"

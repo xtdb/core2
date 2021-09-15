@@ -260,21 +260,21 @@ table-name ::=
      | qualified-local-table-name
 
 qualified-local-table-name ::=
-     <'MODULE'> period local-table-name
+     <'MODULE'> <period> local-table-name
 
 local-table-name ::= qualified-identifier
 
 domain-name ::= qualified-name
 
 schema-name ::=
-     [ catalog-name period ] unqualified-schema-name
+     [ catalog-name <period> ] unqualified-schema-name
 
 unqualified-schema-name ::= identifier
 
 catalog-name ::= identifier
 
 qualified-name ::=
-     [ schema-name period ] qualified-identifier
+     [ schema-name <period> ] qualified-identifier
 
 qualified-identifier ::= identifier
 
@@ -282,11 +282,11 @@ column-name ::= identifier
 
 correlation-name ::= identifier
 
-parameter-name ::= colon identifier
+parameter-name ::= <colon> identifier
 
 collation-name ::= qualified-name
 
-character-set-name ::= [ schema-name period ] identifier
+character-set-name ::= [ schema-name <period> ] identifier
 
 translation-name ::= qualified-name
 
@@ -319,21 +319,21 @@ data-type ::=
 character-string-type ::=
        <'CHARACTER'> [ <left-paren> length <right-paren> ]
      | <'CHAR'> [ <left-paren> length <right-paren> ]
-     | <'CHARACTER'> <'VARYING'> <left-paren> length <right-paren>
-     | <'CHAR'> <'VARYING'> <left-paren> length <right-paren>
+     | <'CHARACTER'> 'VARYING' <left-paren> length <right-paren>
+     | <'CHAR'> 'VARYING' <left-paren> length <right-paren>
      | <'VARCHAR'> <left-paren> length <right-paren>
 
 national-character-string-type ::=
        <'NATIONAL'> <'CHARACTER'> [ <left-paren> length <right-paren> ]
      | <'NATIONAL'> <'CHAR'> [ <left-paren> length <right-paren> ]
      | <'NCHAR'> [ <left-paren> length <right-paren> ]
-     | <'NATIONAL'> <'CHARACTER'> <'VARYING'> <left-paren> length <right-paren>
-     | <'NATIONAL'> <'CHAR'> <'VARYING'> <left-paren> length <right-paren>
-     | <'NCHAR'> <'VARYING'> <left-paren> length <right-paren>
+     | <'NATIONAL'> <'CHARACTER'> 'VARYING' <left-paren> length <right-paren>
+     | <'NATIONAL'> <'CHAR'> 'VARYING' <left-paren> length <right-paren>
+     | <'NCHAR'> 'VARYING' <left-paren> length <right-paren>
 
 bit-string-type ::=
        <'BIT'> [ <left-paren> length <right-paren> ]
-     | <'BIT'> <'VARYING'> <left-paren> length <right-paren>
+     | <'BIT'> 'VARYING' <left-paren> length <right-paren>
 
 numeric-type ::=
        exact-numeric-type
@@ -442,7 +442,7 @@ derived-table ::= table-subquery
 derived-column-list ::= column-name-list
 
 column-name-list ::=
-     column-name ( comma column-name )*
+     column-name ( <comma> column-name )*
 
 (*
 
@@ -456,7 +456,7 @@ Format
 
 *)
 
-column-reference ::= [ qualifier period ] column-name
+column-reference ::= [ qualifier <period> ] column-name
 
 qualifier ::=
        table-name
@@ -481,7 +481,7 @@ set-function-specification ::=
 
 general-set-function ::=
        set-function-type
-           left-paren [ set-quantifier ] value-expression right-paren
+           <left-paren> [ set-quantifier ] value-expression <right-paren>
 
 
 set-function-type ::=
@@ -731,7 +731,7 @@ value-expression-primary ::=
      | set-function-specification
      | scalar-subquery
      | case-expression
-     | left-paren value-expression right-paren
+     | <left-paren> value-expression <right-paren>
      | cast-specification
 
 (*
@@ -983,7 +983,7 @@ Format
 joined-table ::=
        cross-join
      | qualified-join
-     | left-paren joined-table right-paren
+     | <left-paren> joined-table <right-paren>
 
 cross-join ::=
      table-reference <'CROSS'> <'JOIN'> table-reference
@@ -1129,7 +1129,7 @@ query-primary ::=
 
 non-join-query-primary ::=
        simple-table
-     | left-paren non-join-query-expression right-paren
+     | <left-paren> non-join-query-expression <right-paren>
 
 simple-table ::=
        query-specification
@@ -1467,24 +1467,7 @@ Format
 
 *)
 
-character-set-specification ::=
-       standard-character-repertoire-name
-     | implementation-defined-character-repertoire-name
-     | user-defined-character-repertoire-name
-     | standard-universal-character-form-of-use-name
-     | implementation-defined-universal-character-form-of-use-name
-
-standard-character-repertoire-name ::= character-set-name
-
-implementation-defined-character-repertoire-name ::= character-set-name
-
-user-defined-character-repertoire-name ::= character-set-name
-
-standard-universal-character-form-of-use-name ::=
-     character-set-name
-
-implementation-defined-universal-character-form-of-use-name ::=
-     character-set-name
+character-set-specification ::= character-set-name
 
 (*
 

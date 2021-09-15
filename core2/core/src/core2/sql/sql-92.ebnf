@@ -15,29 +15,6 @@ Format
 
 *)
 
-<SQL-special-character> ::=
-       space
-     | double-quote
-     | percent
-     | ampersand
-     | quote
-     | left-paren
-     | right-paren
-     | asterisk
-     | plus-sign
-     | comma
-     | minus-sign
-     | period
-     | solidus
-     | colon
-     | semicolon
-     | less-than-operator
-     | equals-operator
-     | greater-than-operator
-     | question-mark
-     | underscore
-     | vertical-bar
-
 space ::=  <' '> (* !! space character in character set in use *)
 
 double-quote ::= <'"'>

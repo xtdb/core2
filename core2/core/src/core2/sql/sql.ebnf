@@ -12,17 +12,17 @@ name-intro = table-name <as> table-subquery
 
 <subquery> = <'('> nonjoin-exp <')'>
 
-distinct = <'DISTINCT'>
+all = <'ALL'>
 
 corresponding = <'CORRESPONDING'>
 
-union = nonjoin-exp <'UNION'> [distinct] [corresponding] nonjoin-term
+union = nonjoin-exp <'UNION'> [all] [corresponding] nonjoin-term
 
-except = nonjoin-exp <'EXCEPT'> [distinct] [corresponding] nonjoin-term
+except = nonjoin-exp <'EXCEPT'> [all] [corresponding] nonjoin-term
 
 <nonjoin-exp> = nonjoin-term | union | except
 
-intersect = nonjoin-term <'INTERSECT'> [distinct] [corresponding] nonjoin-primary
+intersect = nonjoin-term <'INTERSECT'> [all] [corresponding] nonjoin-primary
 
 <nonjoin-term> = nonjoin-primary | intersect
 
@@ -42,6 +42,8 @@ row-selector = [<'ROW'>] <'('> scalar-exp (<','> scalar-exp)* <')'>
 <row-subquery> = subquery
 
 star = <'*'>
+
+distinct = <'DISTINCT'>
 
 select = <'SELECT'> [distinct] [star | select-item (<','> select-item)*]
 
@@ -112,11 +114,13 @@ boolean-not = <not> boolean-primary
 <condition> = simple-comparison-exp
             | between-exp
             | like-exp
+            | null-exp
             | in-exp
             | match-exp
             | all-or-any-exp
             | exists-exp
             | unique-exp
+            | overlaps-exp
 
 eq = <'='>
 
@@ -152,6 +156,8 @@ like-pattern = #"('.*?')+" [<'ESCAPE'> #"'\S'"]
 
 like-exp = scalar-exp [not] <'LIKE'> like-pattern
 
+null-exp = scalar-exp <'IS'> [not] <'NULL'>
+
 in = <'IN'>
 
 in-value-list = row-exp (<','> row-exp)*
@@ -163,8 +169,6 @@ unique = <'UNIQUE'>
 
 match-exp = row-exp <'MATCH'> [unique] table-subquery
 
-all = <'ALL'>
-
 all-exp = row-exp simple-comp-op <all> table-subquery
 
 any-exp = row-exp simple-comp-op <('ANY' | 'SOME')> table-subquery
@@ -174,6 +178,8 @@ any-exp = row-exp simple-comp-op <('ANY' | 'SOME')> table-subquery
 exists-exp = <'EXISTS'> table-subquery
 
 unique-exp = <unique> table-subquery
+
+overlaps-exp = row-exp <'OVERLAPS'> row-exp
 
 (* Expressions *)
 
@@ -203,6 +209,32 @@ routine-invocation = identifier  <'('> scalar-exp (<','> scalar-exp)* <')'>
 
 extract-exp = <'EXTRACT'> <'('> non-second-datetime-field <'FROM'> scalar-exp <')'>
 
+concatenation-exp = scalar-exp <'||'> scalar-exp
+
+length-exp = <('CHAR_LENGTH' | 'CHARACTER_LENGTH' | 'OCTET_LENGTH' | 'BIT_LENGTH')> <'('> scalar-exp <')'>
+
+position-exp = <'POSITION'> <'('> scalar-exp <in> scalar-exp <')'>
+
+upper = <'UPPER'>
+
+lower = <'LOWER'>
+
+fold-exp = [upper | lower] <'('> scalar-exp <')'>
+
+leading = <'LEADING'>
+
+trailing = <'TRAILING'>
+
+both = <'BOTH'>
+
+<trim-specification> = leading | trailing | both
+
+<trim-operands> = [trim-specification] [scalar-exp] <'FROM'>
+
+trim-exp = <'TRIM'> <'('> [trim-operands] scalar-exp <')'>
+
+substring-exp = <'SUBSTRING'> <'('> scalar-exp <'FROM'> scalar-exp [<'FOR'> scalar-exp ] <')'>
+
 case-exp = <'CASE'> [scalar-exp]
              (<'WHEN'> boolean-exp <'THEN'> scalar-exp )+
                 [<'ELSE'> scalar-exp]
@@ -228,6 +260,7 @@ count = <'COUNT'>
              | decimal-literal
              | string-literal
              | date-literal
+             | time-literal
              | timestamp-literal
              | interval-literal
              | boolean-literal
@@ -235,6 +268,12 @@ count = <'COUNT'>
              | numeric-value-exp
              | routine-invocation
              | extract-exp
+             | concatenation-exp
+             | position-exp
+             | length-exp
+             | substring-exp
+             | fold-exp
+             | trim-exp
              | case-exp
 
 (* Literals *)
@@ -253,7 +292,9 @@ true = <'TRUE'>
 
 false = <'FALSE'>
 
-boolean-literal = true | false
+unknown = <'UNKNOWN'>
+
+boolean-literal = true | false | unknown
 
 numeric-literal = #"[-+]?\d*\.?\d+(E[-+]?\d+)?"
 
@@ -265,7 +306,9 @@ string-literal = #"('.*?')+"
 
 date-literal = <'DATE'> #"'\d\d\d\d-\d\d-\d\d'"
 
-timestamp-literal = <'TIMESTAMP'> #"'\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d(\.\d\d\d\d)?'"
+time-literal = <'TIME'> #"'\d\d\d\d:\d\d:\d\d([+-]\d\d:\d\d)?'"
+
+timestamp-literal = <'TIMESTAMP'> #"'\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d(\.\d\d\d\d)?([+-]\d\d:\d\d)?'"
 
 interval-literal = <'INTERVAL'> #"'\d+'" non-second-datetime-field
 

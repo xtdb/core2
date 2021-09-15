@@ -75,13 +75,29 @@ table-spec = table-name [[<as>] range-variable-name]
 
 cross-join = table-spec <'CROSS JOIN'> table-spec
 
-natural-join = table-spec <'NATURAL JOIN'> table-spec
+join-condition = <'ON'> boolean-exp
 
-join-on = table-spec <'JOIN'> table-spec <'ON'> boolean-exp
+named-columns-join = <'USING'> <'('> column-name (<','> column-name)* <')'>
 
-join-using = table-spec <'JOIN'> table-spec <'USING'> <'('> column-name (<','> column-name)* <')'>
+join-specification = join-condition | named-columns-join
 
-<join-exp> = cross-join | natural-join | join-on | join-using
+natural = <'NATURAL'>
+
+inner = <'INNER'>
+
+left = <'LEFT'>
+
+right = <'RIGHT'>
+
+full = <'FULL'>
+
+outer-join-type = left | right | full
+
+join-type = inner | outer-join-type [<'OUTER'>]
+
+qualified-join = table-spec [natural] [join-type] <'JOIN'> table-spec [join-specification]
+
+<join-exp> = cross-join | qualified-join
 
 desc = <'DESC'>
 

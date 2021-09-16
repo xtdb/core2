@@ -1042,7 +1042,7 @@ non-join-query-expression ::=
      | query-expression 'UNION'  [ 'ALL' ] [ corresponding-spec ] query-term
      | query-expression 'EXCEPT' [ 'ALL' ] [ corresponding-spec ] query-term
 
-query-term ::=
+<query-term> ::=
        non-join-query-term
      | joined-table
 
@@ -1381,3 +1381,51 @@ single-datetime-field ::=
 interval-fractional-seconds-precision ::= unsigned-integer
 
 interval-leading-field-precision ::= unsigned-integer
+
+(*
+
+13  Data manipulation
+
+
+
+13.1  <declare cursor>
+
+Function
+
+Define a cursor.
+
+Format
+
+*)
+
+cursor-specification ::=
+     query-expression [ order-by-clause ]
+
+order-by-clause ::=
+     <'ORDER'> <'BY'> sort-specification-list
+
+sort-specification-list ::=
+     sort-specification ( <comma> sort-specification )*
+
+sort-specification ::=
+     sort-key [ ordering-specification ]
+
+sort-key ::=
+       column-name
+     | unsigned-integer
+
+ordering-specification ::= 'ASC' | 'DESC'
+
+(*
+
+17.6  <prepare statement>
+
+Function
+
+Prepare a statement for execution.
+
+Format
+
+*)
+
+<dynamic-select-statement> ::= cursor-specification

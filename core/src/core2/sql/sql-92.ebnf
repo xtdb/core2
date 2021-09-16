@@ -15,37 +15,37 @@ Format
 
 *)
 
-space ::=  <' '> (* !! space character in character set in use *)
+<space> ::=  ' ' (* !! space character in character set in use *)
 
-double-quote ::= <'"'>
+<double-quote> ::= '"'
 
-quote ::= <'\''>
+<quote> ::= '\''
 
-left-paren ::= <'('>
+<left-paren> ::= '('
 
-right-paren ::= <')'>
+<right-paren> ::= ')'
 
-asterisk ::= <'*'>
+<asterisk> ::= '*'
 
-plus-sign ::= <'+'>
+<plus-sign> ::= '+'
 
-comma ::= <','>
+<comma> ::= ','
 
-minus-sign ::= <'-'>
+<minus-sign> ::= '-'
 
-period ::= <'.'>
+<period> ::= '.'
 
-solidus ::= <'/'>
+<solidus> ::= '/'
 
-colon ::= <':'>
+<colon> ::= ':'
 
-less-than-operator ::= <'<'>
+<less-than-operator> ::= '<'
 
-equals-operator ::= <'='>
+<equals-operator> ::= '='
 
-greater-than-operator ::= <'>'>
+<greater-than-operator> ::= '>'
 
-question-mark ::= <'?'>
+<question-mark> ::= '?'
 
 (*
 
@@ -60,20 +60,20 @@ Format
 
 *)
 
-regular-identifier ::= #"[a-zA-Z_]\w*"
+<regular-identifier> ::= #"[a-zA-Z_]\w*"
 
-delimited-identifier ::=
+<delimited-identifier> ::=
      <double-quote> delimited-identifier-body <double-quote>
 
-delimited-identifier-body ::= #"([^\"]|\"\")*"
+<delimited-identifier-body> ::= #"([^\"]|\"\")*"
 
-not-equals-operator ::= <'<>'>
+<not-equals-operator> ::= <'<>'>
 
-greater-than-or-equals-operator ::= <'>='>
+<greater-than-or-equals-operator> ::= '>='
 
-less-than-or-equals-operator ::= <'<='>
+<less-than-or-equals-operator> ::= '<='
 
-concatenation-operator ::= <'||'>
+<concatenation-operator> ::= '||'
 
 (*
 
@@ -125,7 +125,7 @@ signed-numeric-literal ::=
 
 exact-numeric-literal ::= #"\d*\.?\d+"
 
-sign ::= plus-sign | minus-sign
+<sign> ::= plus-sign | minus-sign
 
 approximate-numeric-literal ::= mantissa <'E'> exponent
 
@@ -232,22 +232,16 @@ Format
 
 <table-name> ::=
        qualified-name
-     | qualified-local-table-name
-
-qualified-local-table-name ::=
-     <'MODULE'> <period> local-table-name
 
 <local-table-name> ::= qualified-identifier
 
-schema-name ::=
-     [ catalog-name <period> ] unqualified-schema-name
+<schema-name> ::=
+     unqualified-schema-name
 
 <unqualified-schema-name> ::= identifier
 
-<catalog-name> ::= identifier
-
-qualified-name ::=
-     [ schema-name <period> ] qualified-identifier
+<qualified-name> ::=
+     qualified-identifier
 
 <qualified-identifier> ::= identifier
 

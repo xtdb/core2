@@ -113,24 +113,18 @@ unsigned-literal ::=
 
 general-literal ::=
        character-string-literal
-     | national-character-string-literal
      | bit-string-literal
      | hex-string-literal
      | datetime-literal
      | interval-literal
 
 character-string-literal ::=
-     [ introducer character-set-specification ]
      <quote> character-representation <quote>
        ( <quote> character-representation <quote> )*
 
 introducer ::= underscore
 
 character-representation ::= #"([^']|'')*"
-
-national-character-string-literal ::=
-     <'N'> <quote> character-representation <quote>
-       ( <quote> character-representation <quote> )*
 
 bit-string-literal ::=
      <'B'> <quote> #"[01]*" <quote>
@@ -248,8 +242,7 @@ Format
 
 *)
 
-identifier ::=
-     [ introducer character-set-specification ] actual-identifier
+identifier ::=  actual-identifier
 
 actual-identifier ::=
        regular-identifier
@@ -284,14 +277,6 @@ correlation-name ::= identifier
 
 parameter-name ::= <colon> identifier
 
-collation-name ::= qualified-name
-
-character-set-name ::= [ schema-name <period> ] identifier
-
-translation-name ::= qualified-name
-
-form-of-use-conversion-name ::= qualified-name
-
 (*
 
 6  Scalar expressions
@@ -309,8 +294,7 @@ Format
 *)
 
 data-type ::=
-       character-string-type [ <'CHARACTER'> <'SET'> character-set-specification ]
-     | national-character-string-type
+       character-string-type
      | bit-string-type
      | numeric-type
      | datetime-type
@@ -322,14 +306,6 @@ character-string-type ::=
      | <'CHARACTER'> 'VARYING' <left-paren> length <right-paren>
      | <'CHAR'> 'VARYING' <left-paren> length <right-paren>
      | <'VARCHAR'> <left-paren> length <right-paren>
-
-national-character-string-type ::=
-       <'NATIONAL'> <'CHARACTER'> [ <left-paren> length <right-paren> ]
-     | <'NATIONAL'> <'CHAR'> [ <left-paren> length <right-paren> ]
-     | <'NCHAR'> [ <left-paren> length <right-paren> ]
-     | <'NATIONAL'> <'CHARACTER'> 'VARYING' <left-paren> length <right-paren>
-     | <'NATIONAL'> <'CHAR'> 'VARYING' <left-paren> length <right-paren>
-     | <'NCHAR'> 'VARYING' <left-paren> length <right-paren>
 
 bit-string-type ::=
        <'BIT'> [ <left-paren> length <right-paren> ]
@@ -561,8 +537,6 @@ string-value-function ::=
 character-value-function ::=
        character-substring-function
      | fold
-     | form-of-use-conversion
-     | character-translation
      | trim-function
 
 character-substring-function ::=
@@ -571,14 +545,6 @@ character-substring-function ::=
 
 fold ::= ( 'UPPER' | 'LOWER' ) <left-paren> character-value-expression <right-paren>
 
-
-form-of-use-conversion ::=
-     <'CONVERT'> <left-paren> character-value-expression
-         <'USING'> form-of-use-conversion-name <right-paren>
-
-character-translation ::=
-     <'TRANSLATE'> <left-paren> character-value-expression
-         <'USING'> translation-name <right-paren>
 
 trim-function ::=
      <'TRIM'> <left-paren> trim-operands <right-paren>
@@ -788,7 +754,7 @@ concatenation ::=
      character-factor
 
 character-factor ::=
-     character-primary [ collate-clause ]
+     character-primary
 
 character-primary ::=
        value-expression-primary
@@ -1049,7 +1015,7 @@ grouping-column-reference-list ::=
 
 
 grouping-column-reference ::=
-     column-reference [ collate-clause ]
+     column-reference
 
 (*
 
@@ -1454,31 +1420,3 @@ non-second-datetime-field ::= 'YEAR' | 'MONTH' | 'DAY' | 'HOUR' | 'MINUTE'
 interval-fractional-seconds-precision ::= unsigned-integer
 
 interval-leading-field-precision ::= unsigned-integer
-
-(*
-
-10.4  <character set specification>
-
-Function
-
-Identify a character set.
-
-Format
-
-*)
-
-character-set-specification ::= character-set-name
-
-(*
-
-10.5  <collate clause>
-
-Function
-
-Specify a collating sequence.
-
-Format
-
-*)
-
-collate-clause ::= <'COLLATE'> collation-name

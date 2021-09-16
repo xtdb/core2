@@ -487,7 +487,7 @@ extract-expression ::=
        'TIMEZONE_HOUR'
      | 'TIMEZONE_MINUTE'
 
-extract-source ::=
+<extract-source> ::=
        datetime-value-expression
      | interval-value-expression
 
@@ -949,7 +949,7 @@ join-type ::=
      | 'RIGHT'
      | 'FULL'
 
-join-column-list ::= column-name-list
+<join-column-list> ::= column-name-list
 
 (*
 

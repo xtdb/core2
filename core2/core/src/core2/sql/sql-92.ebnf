@@ -1428,4 +1428,4 @@ Format
 
 *)
 
-<dynamic-select-statement> ::= cursor-specification
+dynamic-select-statement ::= cursor-specification

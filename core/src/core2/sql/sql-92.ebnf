@@ -19,10 +19,6 @@ space ::=  <' '> (* !! space character in character set in use *)
 
 double-quote ::= <'"'>
 
-percent ::= <'%'>
-
-ampersand ::= <'&'>
-
 quote ::= <'\''>
 
 left-paren ::= <'('>
@@ -43,8 +39,6 @@ solidus ::= <'/'>
 
 colon ::= <':'>
 
-semicolon ::= <';'>
-
 less-than-operator ::= <'<'>
 
 equals-operator ::= <'='>
@@ -52,14 +46,6 @@ equals-operator ::= <'='>
 greater-than-operator ::= <'>'>
 
 question-mark ::= <'?'>
-
-left-bracket ::= <'['>
-
-right-bracket ::= <']'>
-
-underscore ::= <'_'>
-
-vertical-bar ::= <'|'>
 
 (*
 
@@ -88,8 +74,6 @@ greater-than-or-equals-operator ::= <'>='>
 less-than-or-equals-operator ::= <'<='>
 
 concatenation-operator ::= <'||'>
-
-double-period ::= <'..'>
 
 (*
 
@@ -121,8 +105,6 @@ general-literal ::=
 character-string-literal ::=
      <quote> character-representation <quote>
        ( <quote> character-representation <quote> )*
-
-introducer ::= underscore
 
 character-representation ::= #"([^']|'')*"
 

@@ -87,18 +87,18 @@ Format
 
 <literal> ::=
        signed-numeric-literal
-     | general-literal
+     / general-literal
 
 <unsigned-literal> ::=
        unsigned-numeric-literal
-     | general-literal
+     / general-literal
 
 <general-literal> ::=
        character-string-literal
-     | bit-string-literal
-     | hex-string-literal
-     | datetime-literal
-     | interval-literal
+     / bit-string-literal
+     / hex-string-literal
+     / datetime-literal
+     / interval-literal
 
 character-string-literal ::=
      <quote> #"([^']|'')*" <quote>
@@ -117,11 +117,11 @@ signed-numeric-literal ::=
 
 <unsigned-numeric-literal> ::=
        exact-numeric-literal
-     | approximate-numeric-literal
+     / approximate-numeric-literal
 
 exact-numeric-literal ::= #"\d*\.?\d+"
 
-<sign> ::= plus-sign | minus-sign
+<sign> ::= plus-sign / minus-sign
 
 approximate-numeric-literal ::= mantissa <'E'> exponent
 
@@ -135,8 +135,8 @@ unsigned-integer ::= #"\d+"
 
 <datetime-literal> ::=
        date-literal
-     | time-literal
-     | timestamp-literal
+     / time-literal
+     / timestamp-literal
 
 date-literal ::=
      <'DATE'> date-string
@@ -169,15 +169,15 @@ interval-literal ::=
      <'INTERVAL'> [ sign ] interval-string interval-qualifier
 
 <interval-string> ::=
-     <quote> ( year-month-literal | day-time-literal )+ <quote>
+     <quote> ( year-month-literal / day-time-literal )+ <quote>
 
 year-month-literal ::=
        years-value
-     | [ years-value <minus-sign> ] months-value
+     / [ years-value <minus-sign> ] months-value
 
 <day-time-literal> ::=
        day-time-interval
-     | time-interval
+     / time-interval
 
 day-time-interval ::=
      days-value
@@ -185,9 +185,8 @@ day-time-interval ::=
 
 time-interval ::=
        hours-value [ <colon> minutes-value [ <colon> seconds-value ] ]
-
-     | minutes-value [ <colon> seconds-value ]
-     | seconds-value
+     / minutes-value [ <colon> seconds-value ]
+     / seconds-value
 
 years-value ::= datetime-value
 
@@ -224,7 +223,7 @@ Format
 
 <actual-identifier> ::=
        regular-identifier
-     | delimited-identifier
+     / delimited-identifier
 
 table-name ::=
        qualified-name
@@ -258,38 +257,38 @@ Format
 
 <data-type> ::=
        character-string-type
-     | bit-string-type
-     | numeric-type
-     | datetime-type
-     | interval-type
+     / bit-string-type
+     / numeric-type
+     / datetime-type
+     / interval-type
 
 character-string-type ::=
        <'CHARACTER'> [ <left-paren> length <right-paren> ]
-     | <'CHAR'> [ <left-paren> length <right-paren> ]
-     | <'CHARACTER'> 'VARYING' <left-paren> length <right-paren>
-     | <'CHAR'> 'VARYING' <left-paren> length <right-paren>
-     | <'VARCHAR'> <left-paren> length <right-paren>
+     / <'CHAR'> [ <left-paren> length <right-paren> ]
+     / <'CHARACTER'> 'VARYING' <left-paren> length <right-paren>
+     / <'CHAR'> 'VARYING' <left-paren> length <right-paren>
+     / <'VARCHAR'> <left-paren> length <right-paren>
 
 bit-string-type ::=
        <'BIT'> [ <left-paren> length <right-paren> ]
-     | <'BIT'> 'VARYING' <left-paren> length <right-paren>
+     / <'BIT'> 'VARYING' <left-paren> length <right-paren>
 
 <numeric-type> ::=
        exact-numeric-type
-     | approximate-numeric-type
+     / approximate-numeric-type
 
 exact-numeric-type ::=
        'NUMERIC' [ <left-paren> precision [ <comma> scale ] <right-paren> ]
-     | 'DECIMAL' [ <left-paren> precision [ <comma> scale ] <right-paren> ]
-     | 'DEC' [ <left-paren> precision [ <comma> scale ] <right-paren> ]
-     | 'INTEGER'
-     | 'INT'
-     | 'SMALLINT'
+     / 'DECIMAL' [ <left-paren> precision [ <comma> scale ] <right-paren> ]
+     / 'DEC' [ <left-paren> precision [ <comma> scale ] <right-paren> ]
+     / 'INTEGER'
+     / 'INT'
+     / 'SMALLINT'
 
 approximate-numeric-type ::=
        'FLOAT' [ <left-paren> precision <right-paren> ]
-     | 'REAL'
-     | 'DOUBLE' 'PRECISION'
+     / 'REAL'
+     / 'DOUBLE' 'PRECISION'
 
 length ::= unsigned-integer
 
@@ -299,8 +298,8 @@ scale ::= unsigned-integer
 
 datetime-type ::=
        'DATE'
-     | 'TIME' [ <left-paren> time-precision <right-paren> ] [ 'WITH' 'TIME' 'ZONE' ]
-     | 'TIMESTAMP' [ <left-paren> timestamp-precision <right-paren> ] [ 'WITH' 'TIME' 'ZONE' ]
+     / 'TIME' [ <left-paren> time-precision <right-paren> ] [ 'WITH' 'TIME' 'ZONE' ]
+     / 'TIMESTAMP' [ <left-paren> timestamp-precision <right-paren> ] [ 'WITH' 'TIME' 'ZONE' ]
 
 time-precision ::= time-fractional-seconds-precision
 
@@ -324,24 +323,24 @@ Format
 
 <value-specification> ::=
        literal
-     | general-value-specification
+     / general-value-specification
 
 <unsigned-value-specification> ::=
        unsigned-literal
-     | general-value-specification
+     / general-value-specification
 
 <general-value-specification> ::=
        parameter-specification
-     | dynamic-parameter-specification
-     | 'USER'
-     | 'CURRENT_USER'
-     | 'SESSION_USER'
-     | 'SYSTEM_USER'
-     | 'VALUE'
+     / dynamic-parameter-specification
+     / 'USER'
+     / 'CURRENT_USER'
+     / 'SESSION_USER'
+     / 'SYSTEM_USER'
+     / 'VALUE'
 
 <simple-value-specification> ::=
        parameter-name
-     | literal
+     / literal
 
 <target-specification> ::=
        parameter-specification
@@ -372,9 +371,9 @@ Format
 table-reference ::=
        table-name [ [ <'AS'> ] correlation-name
            [ <left-paren> derived-column-list <right-paren> ] ]
-     | derived-table [ <'AS'> ] correlation-name
+     / derived-table [ <'AS'> ] correlation-name
            [ <left-paren> derived-column-list <right-paren> ]
-     | joined-table
+     / joined-table
 
 <derived-table> ::= table-subquery
 
@@ -399,7 +398,6 @@ column-reference ::= [ qualifier <period> ] column-name
 
 qualifier ::=
        table-name
-     / correlation-name
 
 (*
 
@@ -416,7 +414,7 @@ Format
 
 set-function-specification ::=
        'COUNT' <left-paren> asterisk <right-paren>
-     | general-set-function
+     / general-set-function
 
 general-set-function ::=
        set-function-type
@@ -424,9 +422,9 @@ general-set-function ::=
 
 
 set-function-type ::=
-     'AVG' | 'MAX' | 'MIN' | 'SUM' | 'COUNT'
+     'AVG' / 'MAX' / 'MIN' / 'SUM' / 'COUNT'
 
-set-quantifier ::= 'DISTINCT' | 'ALL'
+set-quantifier ::= 'DISTINCT' / 'ALL'
 
 (*
 
@@ -442,8 +440,8 @@ Format
 
 <numeric-value-function> ::=
        position-expression
-     | extract-expression
-     | length-expression
+     / extract-expression
+     / length-expression
 
 position-expression ::=
      <'POSITION'> <left-paren> character-value-expression
@@ -451,11 +449,11 @@ position-expression ::=
 
 <length-expression> ::=
        char-length-expression
-     | octet-length-expression
-     | bit-length-expression
+     / octet-length-expression
+     / bit-length-expression
 
 char-length-expression ::=
-     <( 'CHAR_LENGTH' | 'CHARACTER_LENGTH' )>
+     <( 'CHAR_LENGTH' / 'CHARACTER_LENGTH' )>
          <left-paren> string-value-expression <right-paren>
 
 octet-length-expression ::=
@@ -470,15 +468,15 @@ extract-expression ::=
 
 extract-field ::=
        datetime-field
-     | time-zone-field
+     / time-zone-field
 
 time-zone-field ::=
        'TIMEZONE_HOUR'
-     | 'TIMEZONE_MINUTE'
+     / 'TIMEZONE_MINUTE'
 
 extract-source ::=
        datetime-value-expression
-     | interval-value-expression
+     / interval-value-expression
 
 (*
 
@@ -495,18 +493,18 @@ Format
 
 <string-value-function> ::=
        character-value-function
-     | bit-value-function
+     / bit-value-function
 
 <character-value-function> ::=
        character-substring-function
-     | fold
-     | trim-function
+     / fold
+     / trim-function
 
 character-substring-function ::=
      <'SUBSTRING'> <left-paren> character-value-expression <'FROM'> start-position
                  [ <'FOR'> string-length ] <right-paren>
 
-fold ::= ( 'UPPER' | 'LOWER' ) <left-paren> character-value-expression <right-paren>
+fold ::= ( 'UPPER' / 'LOWER' ) <left-paren> character-value-expression <right-paren>
 
 
 trim-function ::=
@@ -520,8 +518,8 @@ trim-source ::= character-value-expression
 
 trim-specification ::=
        'LEADING'
-     | 'TRAILING'
-     | 'BOTH'
+     / 'TRAILING'
+     / 'BOTH'
 
 trim-character ::= character-value-expression
 
@@ -550,8 +548,8 @@ Format
 
 <datetime-value-function> ::=
        current-date-value-function
-     | current-time-value-function
-     | current-timestamp-value-function
+     / current-time-value-function
+     / current-timestamp-value-function
 
 current-date-value-function ::= <'CURRENT_DATE'>
 
@@ -575,17 +573,17 @@ Format
 
 <case-expression> ::=
        case-abbreviation
-     | case-specification
+     / case-specification
 
 case-abbreviation ::=
        <'NULLIF'> <left-paren> value-expression <comma>
              value-expression <right-paren>
-     | <'COALESCE'> <left-paren> value-expression
+     / <'COALESCE'> <left-paren> value-expression
              ( <comma> value-expression )+ <right-paren>
 
 <case-specification> ::=
        simple-case
-     | searched-case
+     / searched-case
 
 simple-case ::=
      <'CASE'> case-operand
@@ -609,7 +607,7 @@ case-operand ::= value-expression
 
 when-operand ::= value-expression
 
-result ::= result-expression | 'NULL'
+result ::= result-expression / 'NULL'
 
 result-expression ::= value-expression
 
@@ -630,7 +628,7 @@ cast-specification ::=
 
 cast-operand ::=
        value-expression
-     | 'NULL'
+     / 'NULL'
 
 cast-target ::= data-type
 
@@ -654,12 +652,12 @@ Format
 
 <value-expression-primary> ::=
        unsigned-value-specification
-     | column-reference
-     | set-function-specification
-     | scalar-subquery
-     | case-expression
-     | <left-paren> value-expression <right-paren>
-     | cast-specification
+     / column-reference
+     / set-function-specification
+     / scalar-subquery
+     / case-expression
+     / <left-paren> value-expression <right-paren>
+     / cast-specification
 
 (*
 
@@ -675,20 +673,20 @@ Format
 
 numeric-value-expression ::=
        term
-     | numeric-value-expression plus-sign term
-     | numeric-value-expression minus-sign term
+     / numeric-value-expression plus-sign term
+     / numeric-value-expression minus-sign term
 
 term ::=
        factor
-     | term asterisk factor
-     | term solidus factor
+     / term asterisk factor
+     / term solidus factor
 
 factor ::=
      [ sign ] numeric-primary
 
 <numeric-primary> ::=
-       value-expression-primary
-     | numeric-value-function
+       !general-literal value-expression-primary
+     / numeric-value-function
 
 (*
 
@@ -704,11 +702,11 @@ Format
 
 <string-value-expression> ::=
        character-value-expression
-     | bit-value-expression
+     / bit-value-expression
 
 <character-value-expression> ::=
        concatenation
-     | character-factor
+     / character-factor
 
 <concatenation> ::=
      character-value-expression concatenation-operator
@@ -717,22 +715,26 @@ Format
 <character-factor> ::=
      character-primary
 
+<non-character-string-literal> ::= unsigned-numeric-literal / bit-string-literal / hex-string-literal / datetime-literal / interval-literal
+
 <character-primary> ::=
-       value-expression-primary
-     | string-value-function
+       !non-character-string-literal value-expression-primary
+     / string-value-function
 
 <bit-value-expression> ::=
        bit-concatenation
-     | bit-factor
+     / bit-factor
 
 bit-concatenation ::=
      bit-value-expression concatenation-operator bit-factor
 
 <bit-factor> ::= bit-primary
 
+<non-bit-string-literal> ::= unsigned-numeric-literal / character-string-literal / datetime-literal / interval-literal
+
 <bit-primary> ::=
-       value-expression-primary
-     | string-value-function
+       !non-bit-string-literal value-expression-primary
+     / string-value-function
 
 (*
 
@@ -748,9 +750,9 @@ Format
 
 datetime-value-expression ::=
        datetime-term
-     | interval-value-expression plus-sign datetime-term
-     | datetime-value-expression plus-sign interval-term
-     | datetime-value-expression minus-sign interval-term
+     / interval-value-expression plus-sign datetime-term
+     / datetime-value-expression plus-sign interval-term
+     / datetime-value-expression minus-sign interval-term
 
 <datetime-term> ::=
        datetime-factor
@@ -758,16 +760,18 @@ datetime-value-expression ::=
 datetime-factor ::=
        datetime-primary [ time-zone ]
 
+<non-datetime-literal> ::= unsigned-numeric-literal / character-string-literal / bit-string-literal / hex-string-literal / interval-literal
+
 <datetime-primary> ::=
-       value-expression-primary
-     | datetime-value-function
+       !non-datetime-literal value-expression-primary
+     / datetime-value-function
 
 time-zone ::=
      <'AT'> time-zone-specifier
 
 time-zone-specifier ::=
        'LOCAL'
-     | 'TIME' 'ZONE' interval-value-expression
+     / 'TIME' 'ZONE' interval-value-expression
 
 (*
 
@@ -783,22 +787,24 @@ Format
 
 interval-value-expression ::=
        interval-term
-     | interval-value-expression-1 plus-sign interval-term-1
-     | interval-value-expression-1 minus-sign interval-term-1
-     | <left-paren> datetime-value-expression minus-sign
+     / interval-value-expression-1 plus-sign interval-term-1
+     / interval-value-expression-1 minus-sign interval-term-1
+     / <left-paren> datetime-value-expression minus-sign
            datetime-term <right-paren> interval-qualifier
 
 interval-term ::=
        interval-factor
-     | interval-term-2 asterisk factor
-     | interval-term-2 solidus factor
-     | term asterisk interval-factor
+     / interval-term-2 asterisk factor
+     / interval-term-2 solidus factor
+     / term asterisk interval-factor
 
 interval-factor ::=
      [ sign ] interval-primary
 
+<non-interval-literal> ::= unsigned-numeric-literal / character-string-literal / bit-string-literal / hex-string-literal / datetime-literal
+
 interval-primary ::=
-       value-expression-primary [ interval-qualifier ]
+       !non-interval-literal value-expression-primary [ interval-qualifier ]
 
 <interval-value-expression-1> ::= interval-value-expression
 
@@ -825,8 +831,8 @@ Format
 
 <row-value-constructor> ::=
        row-value-constructor-element
-     | <left-paren> row-value-constructor-list <right-paren>
-     | row-subquery
+     / <left-paren> row-value-constructor-list <right-paren>
+     / row-subquery
 
 row-value-constructor-list ::=
      row-value-constructor-element
@@ -834,8 +840,8 @@ row-value-constructor-list ::=
 
 <row-value-constructor-element> ::=
        value-expression
-     | null-specification
-     | default-specification
+     / null-specification
+     / default-specification
 
 null-specification ::=
      <'NULL'>
@@ -909,8 +915,8 @@ Format
 
 <joined-table> ::=
        cross-join
-     | qualified-join
-     | <left-paren> joined-table <right-paren>
+     / qualified-join
+     / <left-paren> joined-table <right-paren>
 
 cross-join ::=
      table-reference <'CROSS'> <'JOIN'> table-reference
@@ -921,7 +927,7 @@ qualified-join ::=
 
 <join-specification> ::=
        join-condition
-     | named-columns-join
+     / named-columns-join
 
 join-condition ::= <'ON'> search-condition
 
@@ -930,13 +936,13 @@ named-columns-join ::=
 
 join-type ::=
        'INNER'
-     | outer-join-type [ <'OUTER'> ]
-     | 'UNION'
+     / outer-join-type [ <'OUTER'> ]
+     / 'UNION'
 
 outer-join-type ::=
        'LEFT'
-     | 'RIGHT'
-     | 'FULL'
+     / 'RIGHT'
+     / 'FULL'
 
 <join-column-list> ::= column-name-list
 
@@ -1011,11 +1017,11 @@ query-specification ::=
 
 select-list ::=
        asterisk
-     | select-sublist ( <comma> select-sublist )*
+     / select-sublist ( <comma> select-sublist )*
 
 <select-sublist> ::=
        derived-column
-     | qualifier <period> asterisk
+     / qualifier <period> asterisk
 
 derived-column ::= value-expression [ as-clause ]
 
@@ -1035,33 +1041,33 @@ Format
 
 <query-expression> ::=
        non-join-query-expression
-     | joined-table
+     / joined-table
 
 non-join-query-expression ::=
        non-join-query-term
-     | query-expression 'UNION'  [ 'ALL' ] [ corresponding-spec ] query-term
-     | query-expression 'EXCEPT' [ 'ALL' ] [ corresponding-spec ] query-term
+     / query-expression 'UNION'  [ 'ALL' ] [ corresponding-spec ] query-term
+     / query-expression 'EXCEPT' [ 'ALL' ] [ corresponding-spec ] query-term
 
 <query-term> ::=
        non-join-query-term
-     | joined-table
+     / joined-table
 
 non-join-query-term ::=
        non-join-query-primary
-     | query-term 'INTERSECT' [ 'ALL' ] [ corresponding-spec ] query-primary
+     / query-term 'INTERSECT' [ 'ALL' ] [ corresponding-spec ] query-primary
 
 <query-primary> ::=
        non-join-query-primary
-     | joined-table
+     / joined-table
 
 <non-join-query-primary> ::=
        simple-table
-     | <left-paren> non-join-query-expression <right-paren>
+     / <left-paren> non-join-query-expression <right-paren>
 
 <simple-table> ::=
        query-specification
-     | table-value-constructor
-     | explicit-table
+     / table-value-constructor
+     / explicit-table
 
 explicit-table ::= <'TABLE'> table-name
 
@@ -1110,15 +1116,15 @@ Format
 
 <predicate> ::=
        comparison-predicate
-     | between-predicate
-     | in-predicate
-     | like-predicate
-     | null-predicate
-     | quantified-comparison-predicate
-     | exists-predicate
-     | unique-predicate
-     | match-predicate
-     | overlaps-predicate
+     / between-predicate
+     / in-predicate
+     / like-predicate
+     / null-predicate
+     / quantified-comparison-predicate
+     / exists-predicate
+     / unique-predicate
+     / match-predicate
+     / overlaps-predicate
 
 (*
 
@@ -1137,11 +1143,11 @@ comparison-predicate ::=
 
 <comp-op> ::=
        equals-operator
-     | not-equals-operator
-     | less-than-operator
-     | greater-than-operator
-     | less-than-or-equals-operator
-     | greater-than-or-equals-operator
+     / not-equals-operator
+     / less-than-operator
+     / greater-than-operator
+     / less-than-or-equals-operator
+     / greater-than-or-equals-operator
 
 (*
 
@@ -1177,7 +1183,7 @@ in-predicate ::=
 
 in-predicate-value ::=
        table-subquery
-     | <left-paren> in-value-list <right-paren>
+     / <left-paren> in-value-list <right-paren>
 
 in-value-list ::=
      value-expression ( <comma> value-expression )*
@@ -1233,11 +1239,11 @@ Format
 quantified-comparison-predicate ::=
      row-value-constructor comp-op quantifier table-subquery
 
-quantifier ::= all | some
+quantifier ::= all / some
 
 <all> ::= 'ALL'
 
-<some> ::= 'SOME' | 'ANY'
+<some> ::= 'SOME' / 'ANY'
 
 (*
 
@@ -1280,7 +1286,7 @@ Format
 *)
 
 match-predicate ::=
-     row-value-constructor <'MATCH'> [ 'UNIQUE' ] [ 'PARTIAL' | 'FULL' ] table-subquery
+     row-value-constructor <'MATCH'> [ 'UNIQUE' ] [ 'PARTIAL' / 'FULL' ] table-subquery
 
 (*
 
@@ -1317,11 +1323,11 @@ Format
 
 search-condition ::=
        boolean-term
-     | search-condition 'OR' boolean-term
+     / search-condition 'OR' boolean-term
 
 boolean-term ::=
        boolean-factor
-     | boolean-term 'AND' boolean-factor
+     / boolean-term 'AND' boolean-factor
 
 boolean-factor ::=
      [ 'NOT' ] boolean-test
@@ -1331,12 +1337,12 @@ boolean-test ::=
 
 <truth-value> ::=
        'TRUE'
-     | 'FALSE'
-     | 'UNKNOWN'
+     / 'FALSE'
+     / 'UNKNOWN'
 
 <boolean-primary> ::=
        predicate
-     | <left-paren> search-condition <right-paren>
+     / <left-paren> search-condition <right-paren>
 
 (*
 
@@ -1356,7 +1362,7 @@ Format
 
 interval-qualifier ::=
        start-field <'TO'> end-field
-     | single-datetime-field
+     / single-datetime-field
 
 start-field ::=
      non-second-datetime-field
@@ -1364,19 +1370,19 @@ start-field ::=
 
 end-field ::=
        non-second-datetime-field
-     | 'SECOND' [ <left-paren> interval-fractional-seconds-precision <right-paren> ]
+     / 'SECOND' [ <left-paren> interval-fractional-seconds-precision <right-paren> ]
 
 single-datetime-field ::=
        non-second-datetime-field
            [ <left-paren> interval-leading-field-precision <right-paren> ]
-     | 'SECOND' [ <left-paren> interval-leading-field-precision
+     / 'SECOND' [ <left-paren> interval-leading-field-precision
            [ <comma> interval-fractional-seconds-precision ] <right-paren> ]
 
 <datetime-field> ::=
        non-second-datetime-field
-     | 'SECOND'
+     / 'SECOND'
 
-<non-second-datetime-field> ::= 'YEAR' | 'MONTH' | 'DAY' | 'HOUR' | 'MINUTE'
+<non-second-datetime-field> ::= 'YEAR' / 'MONTH' / 'DAY' / 'HOUR' / 'MINUTE'
 
 interval-fractional-seconds-precision ::= unsigned-integer
 
@@ -1412,9 +1418,9 @@ sort-specification ::=
 
 sort-key ::=
        column-name
-     | unsigned-integer
+     / unsigned-integer
 
-ordering-specification ::= 'ASC' | 'DESC'
+ordering-specification ::= 'ASC' / 'DESC'
 
 (*
 

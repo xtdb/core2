@@ -69,7 +69,7 @@
   &
 
 <quote> ::=
-  '
+  !! '
 
 <left paren> ::=
   (
@@ -96,7 +96,7 @@
   /
 
 <reverse solidus> ::=
-  \
+  !! \
 
 <colon> ::=
   :
@@ -5488,32 +5488,32 @@
     <value expression>
   | <contextually typed value specification>
 
-// 14.16 <temporary table declaration>
+// // 14.16 <temporary table declaration>
 
-// Declare a declared local temporary table.
+// // Declare a declared local temporary table.
 
-<temporary table declaration> ::=
-  DECLARE LOCAL TEMPORARY TABLE <table name> <table element list>
-      [ ON COMMIT <table commit action> ROWS ]
+// <temporary table declaration> ::=
+//   DECLARE LOCAL TEMPORARY TABLE <table name> <table element list>
+//       [ ON COMMIT <table commit action> ROWS ]
 
-// 14.17 <free locator statement>
+// // 14.17 <free locator statement>
 
-// Remove the association between a locator variable and the value that is represented by that locator.
+// // Remove the association between a locator variable and the value that is represented by that locator.
 
-<free locator statement> ::=
-  FREE LOCATOR <locator reference> [ { <comma> <locator reference> }... ]
+// <free locator statement> ::=
+//   FREE LOCATOR <locator reference> [ { <comma> <locator reference> }... ]
 
-<locator reference> ::=
-    <host parameter name>
-  | <embedded variable name>
-  | <dynamic parameter specification>
+// <locator reference> ::=
+//     <host parameter name>
+//   | <embedded variable name>
+//   | <dynamic parameter specification>
 
-// 14.18 <hold locator statement>
+// // 14.18 <hold locator statement>
 
-// Mark a locator variable as being holdable.
+// // Mark a locator variable as being holdable.
 
-<hold locator statement> ::=
-  HOLD LOCATOR <locator reference> [ { <comma> <locator reference> }... ]
+// <hold locator statement> ::=
+//   HOLD LOCATOR <locator reference> [ { <comma> <locator reference> }... ]
 
 
 // 16 Control statements
@@ -5636,533 +5636,533 @@
   TO SAVEPOINT <savepoint specifier>
 
 
-// 18 Connection management
+// // 18 Connection management
 
 
-// 18.1 <connect statement>
+// // 18.1 <connect statement>
 
-// Establish an SQL-session.
+// // Establish an SQL-session.
 
-<connect statement> ::=
-  CONNECT TO <connection target>
+// <connect statement> ::=
+//   CONNECT TO <connection target>
 
-<connection target> ::=
-    <SQL-server name> [ AS <connection name> ] [ USER <connection user name> ]
-  | DEFAULT
+// <connection target> ::=
+//     <SQL-server name> [ AS <connection name> ] [ USER <connection user name> ]
+//   | DEFAULT
 
-// 18.2 <set connection statement>
+// // 18.2 <set connection statement>
 
-// Select an SQL-connection from the available SQL-connections.
+// // Select an SQL-connection from the available SQL-connections.
 
-<set connection statement> ::=
-  SET CONNECTION <connection object>
+// <set connection statement> ::=
+//   SET CONNECTION <connection object>
 
-<connection object> ::=
-    DEFAULT
-  | <connection name>
+// <connection object> ::=
+//     DEFAULT
+//   | <connection name>
 
-// 18.3 <disconnect statement>
+// // 18.3 <disconnect statement>
 
-// Terminate an SQL-connection.
+// // Terminate an SQL-connection.
 
-<disconnect statement> ::=
-  DISCONNECT <disconnect object>
+// <disconnect statement> ::=
+//   DISCONNECT <disconnect object>
 
-<disconnect object> ::=
-    <connection object>
-  | ALL
-  | CURRENT
+// <disconnect object> ::=
+//     <connection object>
+//   | ALL
+//   | CURRENT
 
-// 19 Session management
+// // 19 Session management
 
-// 19.1 <set session characteristics statement>
+// // 19.1 <set session characteristics statement>
 
-// Set one or more characteristics for the current SQL-session.
+// // Set one or more characteristics for the current SQL-session.
 
-<set session characteristics statement> ::=
-  SET SESSION CHARACTERISTICS AS <session characteristic list>
+// <set session characteristics statement> ::=
+//   SET SESSION CHARACTERISTICS AS <session characteristic list>
 
-<session characteristic list> ::=
-  <session characteristic> [ { <comma> <session characteristic> }... ]
+// <session characteristic list> ::=
+//   <session characteristic> [ { <comma> <session characteristic> }... ]
 
-<session characteristic> ::=
-  <session transaction characteristics>
+// <session characteristic> ::=
+//   <session transaction characteristics>
 
-<session transaction characteristics> ::=
-  TRANSACTION <transaction mode> [ { <comma> <transaction mode> }... ]
+// <session transaction characteristics> ::=
+//   TRANSACTION <transaction mode> [ { <comma> <transaction mode> }... ]
 
-// 19.2 <set session user identifier statement>
+// // 19.2 <set session user identifier statement>
 
-// Set the SQL-session user identifier and the current user identifier of the current SQL-session context.
+// // Set the SQL-session user identifier and the current user identifier of the current SQL-session context.
 
-<set session user identifier statement> ::=
-  SET SESSION AUTHORIZATION <value specification>
+// <set session user identifier statement> ::=
+//   SET SESSION AUTHORIZATION <value specification>
 
-// 19.3 <set role statement>
+// // 19.3 <set role statement>
 
-// Set the SQL-session role name and the current role name for the current SQL-session context.
+// // Set the SQL-session role name and the current role name for the current SQL-session context.
 
-<set role statement> ::=
-  SET ROLE <role specification>
+// <set role statement> ::=
+//   SET ROLE <role specification>
 
-<role specification> ::=
-    <value specification>
-  | NONE
+// <role specification> ::=
+//     <value specification>
+//   | NONE
 
-// 19.4 <set local time zone statement>
+// // 19.4 <set local time zone statement>
 
-// Set the current default time zone displacement for the current SQL-session.
+// // Set the current default time zone displacement for the current SQL-session.
 
-<set local time zone statement> ::=
-  SET TIME ZONE <set time zone value>
+// <set local time zone statement> ::=
+//   SET TIME ZONE <set time zone value>
 
-<set time zone value> ::=
-    <interval value expression>
-  | LOCAL
+// <set time zone value> ::=
+//     <interval value expression>
+//   | LOCAL
 
-// 19.5 <set catalog statement>
+// // 19.5 <set catalog statement>
 
-// Set the default catalog name for unqualified <schema name>s in <preparable statement>s that are prepared in
-// the current SQL-session by an <execute immediate statement> or a <prepare statement> and in <direct SQL
-// statement>s that are invoked directly.
+// // Set the default catalog name for unqualified <schema name>s in <preparable statement>s that are prepared in
+// // the current SQL-session by an <execute immediate statement> or a <prepare statement> and in <direct SQL
+// // statement>s that are invoked directly.
 
-<set catalog statement> ::=
-  SET <catalog name characteristic>
+// <set catalog statement> ::=
+//   SET <catalog name characteristic>
 
-<catalog name characteristic> ::=
-  CATALOG <value specification>
+// <catalog name characteristic> ::=
+//   CATALOG <value specification>
 
-// 19.6 <set schema statement>
+// // 19.6 <set schema statement>
 
-// Set the default schema name for unqualified <schema qualified name>s in <preparable statement>s that are
-// prepared in the current SQL-session by an <execute immediate statement> or a <prepare statement> and in
-// <direct SQL statement>s that are invoked directly.
+// // Set the default schema name for unqualified <schema qualified name>s in <preparable statement>s that are
+// // prepared in the current SQL-session by an <execute immediate statement> or a <prepare statement> and in
+// // <direct SQL statement>s that are invoked directly.
 
-<set schema statement> ::=
-  SET <schema name characteristic>
+// <set schema statement> ::=
+//   SET <schema name characteristic>
 
-<schema name characteristic> ::=
-  SCHEMA <value specification>
+// <schema name characteristic> ::=
+//   SCHEMA <value specification>
 
-// 19.7 <set names statement>
+// // 19.7 <set names statement>
 
-// Set the default character set name for <character string literal>s in <preparable statement>s that are prepared
-// in the current SQL-session by an <execute immediate statement> or a <prepare statement> and in <direct SQL
-// statement>s that are invoked directly.
+// // Set the default character set name for <character string literal>s in <preparable statement>s that are prepared
+// // in the current SQL-session by an <execute immediate statement> or a <prepare statement> and in <direct SQL
+// // statement>s that are invoked directly.
 
-<set names statement> ::=
-  SET <character set name characteristic>
+// <set names statement> ::=
+//   SET <character set name characteristic>
 
-<character set name characteristic> ::=
-  NAMES <value specification>
+// <character set name characteristic> ::=
+//   NAMES <value specification>
 
-// 19.8 <set path statement>
+// // 19.8 <set path statement>
 
-// Set the SQL-path used to determine the subject routine of <routine invocation>s with unqualified <routine
-// name>s in <preparable statement>s that are prepared in the current SQL-session by an <execute immediate
-// statement> or a <prepare statement> and in <direct SQL statement>s that are invoked directly. The SQL-path
-// remains the current SQL-path of the SQL-session until another SQL-path is successfully set.
+// // Set the SQL-path used to determine the subject routine of <routine invocation>s with unqualified <routine
+// // name>s in <preparable statement>s that are prepared in the current SQL-session by an <execute immediate
+// // statement> or a <prepare statement> and in <direct SQL statement>s that are invoked directly. The SQL-path
+// // remains the current SQL-path of the SQL-session until another SQL-path is successfully set.
 
-<set path statement> ::=
-  SET <SQL-path characteristic>
+// <set path statement> ::=
+//   SET <SQL-path characteristic>
 
-<SQL-path characteristic> ::=
-  PATH <value specification>
+// <SQL-path characteristic> ::=
+//   PATH <value specification>
 
-// 19.9 <set transform group statement>
+// // 19.9 <set transform group statement>
 
-// Set the group name that identifies the group of transform functions for mapping values of user-defined types
-// to predefined data types.
+// // Set the group name that identifies the group of transform functions for mapping values of user-defined types
+// // to predefined data types.
 
-<set transform group statement> ::=
-  SET <transform group characteristic>
+// <set transform group statement> ::=
+//   SET <transform group characteristic>
 
-<transform group characteristic> ::=
-    DEFAULT TRANSFORM GROUP <value specification>
-  | TRANSFORM GROUP FOR TYPE <path-resolved user-defined type name> <value specification>
+// <transform group characteristic> ::=
+//     DEFAULT TRANSFORM GROUP <value specification>
+//   | TRANSFORM GROUP FOR TYPE <path-resolved user-defined type name> <value specification>
 
 
-// 19.10 <set session collation statement>
+// // 19.10 <set session collation statement>
 
-// Set the SQL-session collation of the SQL-session for one or more character sets. An SQL-session collation
-// remains effective until another SQL-session collation for the same character set is successfully set.
+// // Set the SQL-session collation of the SQL-session for one or more character sets. An SQL-session collation
+// // remains effective until another SQL-session collation for the same character set is successfully set.
 
-<set session collation statement> ::=
-    SET COLLATION <collation specification> [ FOR <character set specification list> ]
-  | SET NO COLLATION [ FOR <character set specification list> ]
+// <set session collation statement> ::=
+//     SET COLLATION <collation specification> [ FOR <character set specification list> ]
+//   | SET NO COLLATION [ FOR <character set specification list> ]
 
-<collation specification> ::= <value specification>
+// <collation specification> ::= <value specification>
 
 
-// 20 Dynamic SQL
+// // 20 Dynamic SQL
 
-// 20.2 <allocate descriptor statement>
+// // 20.2 <allocate descriptor statement>
 
-// Allocate an SQL descriptor area.
+// // Allocate an SQL descriptor area.
 
-<allocate descriptor statement> ::=
-  ALLOCATE [ SQL ] DESCRIPTOR <descriptor name> [ WITH MAX <occurrences> ]
+// <allocate descriptor statement> ::=
+//   ALLOCATE [ SQL ] DESCRIPTOR <descriptor name> [ WITH MAX <occurrences> ]
 
-<occurrences> ::=
-  <simple value specification>
+// <occurrences> ::=
+//   <simple value specification>
 
 
-// 20.3 <deallocate descriptor statement>
+// // 20.3 <deallocate descriptor statement>
 
-// Deallocate an SQL descriptor area.
+// // Deallocate an SQL descriptor area.
 
-<deallocate descriptor statement> ::=
-  DEALLOCATE [ SQL ] DESCRIPTOR <descriptor name>
+// <deallocate descriptor statement> ::=
+//   DEALLOCATE [ SQL ] DESCRIPTOR <descriptor name>
 
-// 20.4 <get descriptor statement>
+// // 20.4 <get descriptor statement>
 
-// Get information from an SQL descriptor area.
+// // Get information from an SQL descriptor area.
 
-<get descriptor statement> ::=
-  GET [ SQL ] DESCRIPTOR <descriptor name> <get descriptor information>
+// <get descriptor statement> ::=
+//   GET [ SQL ] DESCRIPTOR <descriptor name> <get descriptor information>
 
-<get descriptor information> ::=
-    <get header information> [ { <comma> <get header information> }... ]
-  | VALUE <item number> <get item information>
-      [ { <comma> <get item information> }... ]
+// <get descriptor information> ::=
+//     <get header information> [ { <comma> <get header information> }... ]
+//   | VALUE <item number> <get item information>
+//       [ { <comma> <get item information> }... ]
 
-<get header information> ::=
-  <simple target specification 1> <equals operator> <header item name>
+// <get header information> ::=
+//   <simple target specification 1> <equals operator> <header item name>
 
-<header item name> ::=
-    COUNT
-  | KEY_TYPE
-  | DYNAMIC_FUNCTION
-  | DYNAMIC_FUNCTION_CODE
-  | TOP_LEVEL_COUNT
+// <header item name> ::=
+//     COUNT
+//   | KEY_TYPE
+//   | DYNAMIC_FUNCTION
+//   | DYNAMIC_FUNCTION_CODE
+//   | TOP_LEVEL_COUNT
 
-<get item information> ::=
-  <simple target specification 2> <equals operator> <descriptor item name>
+// <get item information> ::=
+//   <simple target specification 2> <equals operator> <descriptor item name>
 
-<item number> ::=
-  <simple value specification>
+// <item number> ::=
+//   <simple value specification>
 
-<simple target specification 1> ::=
-  <simple target specification>
+// <simple target specification 1> ::=
+//   <simple target specification>
 
-<simple target specification 2> ::=
-  <simple target specification>
+// <simple target specification 2> ::=
+//   <simple target specification>
 
-<descriptor item name> ::=
-    CARDINALITY
-  | CHARACTER_SET_CATALOG
-  | CHARACTER_SET_NAME
-  | CHARACTER_SET_SCHEMA
-  | COLLATION_CATALOG
-  | COLLATION_NAME
-  | COLLATION_SCHEMA
-  | DATA
-  | DATETIME_INTERVAL_CODE
-  | DATETIME_INTERVAL_PRECISION
-  | DEGREE
-  | INDICATOR
-  | KEY_MEMBER
-  | LENGTH
-  | LEVEL
-  | NAME
-  | NULLABLE
-  | OCTET_LENGTH
-  | PARAMETER_MODE
-  | PARAMETER_ORDINAL_POSITION
-  | PARAMETER_SPECIFIC_CATALOG
-  | PARAMETER_SPECIFIC_NAME
-  | PARAMETER_SPECIFIC_SCHEMA
-  | PRECISION
-  | RETURNED_CARDINALITY
-  | RETURNED_LENGTH
-  | RETURNED_OCTET_LENGTH
-  | SCALE
-  | SCOPE_CATALOG
-  | SCOPE_NAME
-  | SCOPE_SCHEMA
-  | TYPE
-  | UNNAMED
-  | USER_DEFINED_TYPE_CATALOG
-  | USER_DEFINED_TYPE_NAME
-  | USER_DEFINED_TYPE_SCHEMA
-  | USER_DEFINED_TYPE_CODE
+// <descriptor item name> ::=
+//     CARDINALITY
+//   | CHARACTER_SET_CATALOG
+//   | CHARACTER_SET_NAME
+//   | CHARACTER_SET_SCHEMA
+//   | COLLATION_CATALOG
+//   | COLLATION_NAME
+//   | COLLATION_SCHEMA
+//   | DATA
+//   | DATETIME_INTERVAL_CODE
+//   | DATETIME_INTERVAL_PRECISION
+//   | DEGREE
+//   | INDICATOR
+//   | KEY_MEMBER
+//   | LENGTH
+//   | LEVEL
+//   | NAME
+//   | NULLABLE
+//   | OCTET_LENGTH
+//   | PARAMETER_MODE
+//   | PARAMETER_ORDINAL_POSITION
+//   | PARAMETER_SPECIFIC_CATALOG
+//   | PARAMETER_SPECIFIC_NAME
+//   | PARAMETER_SPECIFIC_SCHEMA
+//   | PRECISION
+//   | RETURNED_CARDINALITY
+//   | RETURNED_LENGTH
+//   | RETURNED_OCTET_LENGTH
+//   | SCALE
+//   | SCOPE_CATALOG
+//   | SCOPE_NAME
+//   | SCOPE_SCHEMA
+//   | TYPE
+//   | UNNAMED
+//   | USER_DEFINED_TYPE_CATALOG
+//   | USER_DEFINED_TYPE_NAME
+//   | USER_DEFINED_TYPE_SCHEMA
+//   | USER_DEFINED_TYPE_CODE
 
-// 20.5 <set descriptor statement>
+// // 20.5 <set descriptor statement>
 
-// Set information in an SQL descriptor area.
+// // Set information in an SQL descriptor area.
 
-<set descriptor statement> ::=
-  SET [ SQL ] DESCRIPTOR <descriptor name> <set descriptor information>
+// <set descriptor statement> ::=
+//   SET [ SQL ] DESCRIPTOR <descriptor name> <set descriptor information>
 
-<set descriptor information> ::=
-    <set header information> [ { <comma> <set header information> }... ]
-  | VALUE <item number> <set item information>
-      [ { <comma> <set item information> }... ]
+// <set descriptor information> ::=
+//     <set header information> [ { <comma> <set header information> }... ]
+//   | VALUE <item number> <set item information>
+//       [ { <comma> <set item information> }... ]
 
-<set header information> ::=
-  <header item name> <equals operator> <simple value specification 1>
+// <set header information> ::=
+//   <header item name> <equals operator> <simple value specification 1>
 
-<set item information> ::=
-  <descriptor item name> <equals operator> <simple value specification 2>
+// <set item information> ::=
+//   <descriptor item name> <equals operator> <simple value specification 2>
 
-<simple value specification 1> ::=
-  <simple value specification>
+// <simple value specification 1> ::=
+//   <simple value specification>
 
-<simple value specification 2> ::=
-  <simple value specification>
+// <simple value specification 2> ::=
+//   <simple value specification>
 
-// 20.6 <prepare statement>
+// // 20.6 <prepare statement>
 
-// Prepare a statement for execution.
+// // Prepare a statement for execution.
 
-<prepare statement> ::=
-  PREPARE <SQL statement name> [ <attributes specification> ]
-      FROM <SQL statement variable>
+// <prepare statement> ::=
+//   PREPARE <SQL statement name> [ <attributes specification> ]
+//       FROM <SQL statement variable>
 
-<attributes specification> ::=
-  ATTRIBUTES <attributes variable>
+// <attributes specification> ::=
+//   ATTRIBUTES <attributes variable>
 
-<attributes variable> ::=
-  <simple value specification>
+// <attributes variable> ::=
+//   <simple value specification>
 
-<SQL statement variable> ::=
-  <simple value specification>
+// <SQL statement variable> ::=
+//   <simple value specification>
 
-<preparable statement> ::=
-    <preparable SQL data statement>
-  | <preparable SQL schema statement>
-  | <preparable SQL transaction statement>
-  | <preparable SQL control statement>
-  | <preparable SQL session statement>
-  | <preparable implementation-defined statement>
+// <preparable statement> ::=
+//     <preparable SQL data statement>
+//   | <preparable SQL schema statement>
+//   | <preparable SQL transaction statement>
+//   | <preparable SQL control statement>
+//   | <preparable SQL session statement>
+//   | <preparable implementation-defined statement>
 
-<preparable SQL data statement> ::=
-    <delete statement: searched>
-  | <dynamic single row select statement>
-  | <insert statement>
-  | <dynamic select statement>
-  | <update statement: searched>
-  | <truncate table statement>
-  | <merge statement>
-  | <preparable dynamic delete statement: positioned>
-  | <preparable dynamic update statement: positioned>
-  | <hold locator statement>
-  | <free locator statement>
+// <preparable SQL data statement> ::=
+//     <delete statement: searched>
+//   | <dynamic single row select statement>
+//   | <insert statement>
+//   | <dynamic select statement>
+//   | <update statement: searched>
+//   | <truncate table statement>
+//   | <merge statement>
+//   | <preparable dynamic delete statement: positioned>
+//   | <preparable dynamic update statement: positioned>
+//   | <hold locator statement>
+//   | <free locator statement>
 
-<preparable SQL schema statement> ::=
-  <SQL schema statement>
+// <preparable SQL schema statement> ::=
+//   <SQL schema statement>
 
-<preparable SQL transaction statement> ::=
-  <SQL transaction statement>
+// <preparable SQL transaction statement> ::=
+//   <SQL transaction statement>
 
-<preparable SQL control statement> ::=
-  <SQL control statement>
+// <preparable SQL control statement> ::=
+//   <SQL control statement>
 
-<preparable SQL session statement> ::=
-  <SQL session statement>
+// <preparable SQL session statement> ::=
+//   <SQL session statement>
 
-<dynamic select statement> ::=
-  <cursor specification>
+// <dynamic select statement> ::=
+//   <cursor specification>
 
-<preparable implementation-defined statement> ::=
-  !! See the Syntax Rules.
+// <preparable implementation-defined statement> ::=
+//   !! See the Syntax Rules.
 
-// 20.7 <cursor attributes>
+// // 20.7 <cursor attributes>
 
-// Specify a list of cursor attributes.
+// // Specify a list of cursor attributes.
 
-<cursor attributes> ::=
-  <cursor attribute>...
+// <cursor attributes> ::=
+//   <cursor attribute>...
 
-<cursor attribute> ::=
-    <cursor sensitivity>
-  | <cursor scrollability>
-  | <cursor holdability>
-  | <cursor returnability>
+// <cursor attribute> ::=
+//     <cursor sensitivity>
+//   | <cursor scrollability>
+//   | <cursor holdability>
+//   | <cursor returnability>
 
-// 20.8 <deallocate prepared statement>
+// // 20.8 <deallocate prepared statement>
 
-// Deallocate SQL-statements that have been prepared with a <prepare statement>.
+// // Deallocate SQL-statements that have been prepared with a <prepare statement>.
 
-<deallocate prepared statement> ::=
-  DEALLOCATE PREPARE <SQL statement name>
+// <deallocate prepared statement> ::=
+//   DEALLOCATE PREPARE <SQL statement name>
 
-// 20.9 <describe statement>
+// // 20.9 <describe statement>
 
 
-// Obtain information about the <select list> columns or <dynamic parameter specification>s contained in a prepared
-// statement or about the columns of the result set associated with a cursor.
+// // Obtain information about the <select list> columns or <dynamic parameter specification>s contained in a prepared
+// // statement or about the columns of the result set associated with a cursor.
 
-<describe statement> ::=
-    <describe input statement>
-  | <describe output statement>
+// <describe statement> ::=
+//     <describe input statement>
+//   | <describe output statement>
 
-<describe input statement> ::=
-  DESCRIBE INPUT <SQL statement name> <using descriptor> [ <nesting option> ]
+// <describe input statement> ::=
+//   DESCRIBE INPUT <SQL statement name> <using descriptor> [ <nesting option> ]
 
-<describe output statement> ::=
-  DESCRIBE [ OUTPUT ] <described object> <using descriptor> [ <nesting option> ]
+// <describe output statement> ::=
+//   DESCRIBE [ OUTPUT ] <described object> <using descriptor> [ <nesting option> ]
 
-<nesting option> ::=
-    WITH NESTING
-  | WITHOUT NESTING
+// <nesting option> ::=
+//     WITH NESTING
+//   | WITHOUT NESTING
 
-<using descriptor> ::=
-  USING [ SQL ] DESCRIPTOR <descriptor name>
+// <using descriptor> ::=
+//   USING [ SQL ] DESCRIPTOR <descriptor name>
 
-<described object> ::=
-    <SQL statement name>
-  | CURSOR <cursor name> STRUCTURE
+// <described object> ::=
+//     <SQL statement name>
+//   | CURSOR <cursor name> STRUCTURE
 
-// 20.10 <input using clause>
+// // 20.10 <input using clause>
 
-// Supply input values for an <SQL dynamic statement>.
+// // Supply input values for an <SQL dynamic statement>.
 
-<input using clause> ::=
-    <using arguments>
-  | <using input descriptor>
+// <input using clause> ::=
+//     <using arguments>
+//   | <using input descriptor>
 
-<using arguments> ::=
-  USING <using argument> [ { <comma> <using argument> }... ]
+// <using arguments> ::=
+//   USING <using argument> [ { <comma> <using argument> }... ]
 
-<using argument> ::=
-  <general value specification>
+// <using argument> ::=
+//   <general value specification>
 
-<using input descriptor> ::=
-  <using descriptor>
+// <using input descriptor> ::=
+//   <using descriptor>
 
-// 20.11 <output using clause>
+// // 20.11 <output using clause>
 
 
-// Supply output variables for an <SQL dynamic statement>.
+// // Supply output variables for an <SQL dynamic statement>.
 
-<output using clause> ::=
-    <into arguments>
-  | <into descriptor>
+// <output using clause> ::=
+//     <into arguments>
+//   | <into descriptor>
 
-<into arguments> ::=
-  INTO <into argument> [ { <comma> <into argument> }... ]
+// <into arguments> ::=
+//   INTO <into argument> [ { <comma> <into argument> }... ]
 
-<into argument> ::=
-  <target specification>
+// <into argument> ::=
+//   <target specification>
 
-<into descriptor> ::=
-  INTO [ SQL ] DESCRIPTOR <descriptor name>
+// <into descriptor> ::=
+//   INTO [ SQL ] DESCRIPTOR <descriptor name>
 
-// 20.12 <execute statement>
+// // 20.12 <execute statement>
 
-// Associate input SQL parameters and output targets with a prepared statement and execute the statement.
+// // Associate input SQL parameters and output targets with a prepared statement and execute the statement.
 
-<execute statement> ::=
-  EXECUTE <SQL statement name> [ <result using clause> ] [ <parameter using clause> ]
+// <execute statement> ::=
+//   EXECUTE <SQL statement name> [ <result using clause> ] [ <parameter using clause> ]
 
-<result using clause> ::=
-  <output using clause>
+// <result using clause> ::=
+//   <output using clause>
 
-<parameter using clause> ::=
-  <input using clause>
+// <parameter using clause> ::=
+//   <input using clause>
 
-// 20.13 <execute immediate statement>
+// // 20.13 <execute immediate statement>
 
-// Dynamically prepare and execute a preparable statement.
+// // Dynamically prepare and execute a preparable statement.
 
-<execute immediate statement> ::=
-  EXECUTE IMMEDIATE <SQL statement variable>
+// <execute immediate statement> ::=
+//   EXECUTE IMMEDIATE <SQL statement variable>
 
-// 20.14 <dynamic declare cursor>
+// // 20.14 <dynamic declare cursor>
 
-// Declare a declared dynamic cursor to be associated with a <statement name>, which may in turn be associated
-// with a <cursor specification>.
+// // Declare a declared dynamic cursor to be associated with a <statement name>, which may in turn be associated
+// // with a <cursor specification>.
 
-<dynamic declare cursor> ::=
-  DECLARE <cursor name>
-      <cursor properties>
-      FOR <statement name>
+// <dynamic declare cursor> ::=
+//   DECLARE <cursor name>
+//       <cursor properties>
+//       FOR <statement name>
 
-// 20.15 <allocate extended dynamic cursor statement>
+// // 20.15 <allocate extended dynamic cursor statement>
 
-// Define a cursor based on a prepared statement for a <cursor specification>.
+// // Define a cursor based on a prepared statement for a <cursor specification>.
 
-<allocate extended dynamic cursor statement> ::=
-  ALLOCATE <extended cursor name>
-      <cursor properties>
-      FOR <extended statement name>
+// <allocate extended dynamic cursor statement> ::=
+//   ALLOCATE <extended cursor name>
+//       <cursor properties>
+//       FOR <extended statement name>
 
-// 20.16 <allocate received cursor statement>
+// // 20.16 <allocate received cursor statement>
 
-// Assign a cursor to the result set sequence returned from an SQL-invoked procedure.
+// // Assign a cursor to the result set sequence returned from an SQL-invoked procedure.
 
-<allocate received cursor statement> ::=
-  ALLOCATE <cursor name>
-      [ CURSOR ] FOR PROCEDURE <specific routine designator>
+// <allocate received cursor statement> ::=
+//   ALLOCATE <cursor name>
+//       [ CURSOR ] FOR PROCEDURE <specific routine designator>
 
-// 20.17 <dynamic open statement>
+// // 20.17 <dynamic open statement>
 
-// Associate input dynamic parameters with a <cursor specification> and open the dynamic cursor.
+// // Associate input dynamic parameters with a <cursor specification> and open the dynamic cursor.
 
-<dynamic open statement> ::=
-  OPEN <dynamic cursor name> [ <input using clause> ]
+// <dynamic open statement> ::=
+//   OPEN <dynamic cursor name> [ <input using clause> ]
 
-// 20.18 <dynamic fetch statement>
+// // 20.18 <dynamic fetch statement>
 
-// Fetch a row for a dynamic cursor.
+// // Fetch a row for a dynamic cursor.
 
-<dynamic fetch statement> ::=
-  FETCH [ [ <fetch orientation> ] FROM ] <dynamic cursor name> <output using clause>
+// <dynamic fetch statement> ::=
+//   FETCH [ [ <fetch orientation> ] FROM ] <dynamic cursor name> <output using clause>
 
-// 20.19 <dynamic single row select statement>
+// // 20.19 <dynamic single row select statement>
 
-// Retrieve values from a dynamically-specified row of a table.
+// // Retrieve values from a dynamically-specified row of a table.
 
-<dynamic single row select statement> ::=
-  <query specification>
+// <dynamic single row select statement> ::=
+//   <query specification>
 
-// 20.20 <dynamic close statement>
+// // 20.20 <dynamic close statement>
 
-// Close a dynamic cursor.
+// // Close a dynamic cursor.
 
-<dynamic close statement> ::=
-  CLOSE <dynamic cursor name>
+// <dynamic close statement> ::=
+//   CLOSE <dynamic cursor name>
 
-// 20.21 <dynamic delete statement: positioned>
+// // 20.21 <dynamic delete statement: positioned>
 
-// Delete a row of a table.
+// // Delete a row of a table.
 
-<dynamic delete statement: positioned> ::=
-  DELETE FROM <target table> WHERE CURRENT OF <dynamic cursor name>
+// <dynamic delete statement: positioned> ::=
+//   DELETE FROM <target table> WHERE CURRENT OF <dynamic cursor name>
 
 
-// 20.22 <dynamic update statement: positioned>
+// // 20.22 <dynamic update statement: positioned>
 
-// Update a row of a table.
+// // Update a row of a table.
 
-<dynamic update statement: positioned> ::=
-  UPDATE <target table> SET <set clause list>
-      WHERE CURRENT OF <dynamic cursor name>
+// <dynamic update statement: positioned> ::=
+//   UPDATE <target table> SET <set clause list>
+//       WHERE CURRENT OF <dynamic cursor name>
 
-// 20.23 <preparable dynamic delete statement: positioned>
+// // 20.23 <preparable dynamic delete statement: positioned>
 
-// Delete a row of a table through a dynamic cursor.
+// // Delete a row of a table through a dynamic cursor.
 
-<preparable dynamic delete statement: positioned> ::=
-  DELETE [ FROM <target table> ]
-      WHERE CURRENT OF <preparable dynamic cursor name>
+// <preparable dynamic delete statement: positioned> ::=
+//   DELETE [ FROM <target table> ]
+//       WHERE CURRENT OF <preparable dynamic cursor name>
 
-// 20.24 <preparable dynamic cursor name>
+// // 20.24 <preparable dynamic cursor name>
 
-// Specify the cursor of a <preparable dynamic delete statement: positioned> or a <preparable dynamic update
-// statement: positioned>.
+// // Specify the cursor of a <preparable dynamic delete statement: positioned> or a <preparable dynamic update
+// // statement: positioned>.
 
-<preparable dynamic cursor name> ::=
-  [ <scope option> ] <cursor name>
+// <preparable dynamic cursor name> ::=
+//   [ <scope option> ] <cursor name>
 
-// 20.25 <preparable dynamic update statement: positioned>
+// // 20.25 <preparable dynamic update statement: positioned>
 
-// Update a row of a table through a dynamic cursor.
+// // Update a row of a table through a dynamic cursor.
 
-<preparable dynamic update statement: positioned> ::=
-  UPDATE [ <target table> ] SET <set clause list>
-      WHERE CURRENT OF <preparable dynamic cursor name>
+// <preparable dynamic update statement: positioned> ::=
+//   UPDATE [ <target table> ] SET <set clause list>
+//       WHERE CURRENT OF <preparable dynamic cursor name>
 
 // // 21 Embedded SQL
 
@@ -6949,121 +6949,121 @@
 //   | FLOAT { BIN | BINARY }
 
 
-// 22 Direct invocation of SQL
+// // 22 Direct invocation of SQL
 
 
-// 22.1 <direct SQL statement>
+// // 22.1 <direct SQL statement>
 
-// Specify direct execution of SQL.
+// // Specify direct execution of SQL.
 
-<direct SQL statement> ::=
-  <directly executable statement> <semicolon>
+// <direct SQL statement> ::=
+//   <directly executable statement> <semicolon>
 
-<directly executable statement> ::=
-    <direct SQL data statement>
-  | <SQL schema statement>
-  | <SQL transaction statement>
-  | <SQL connection statement>
-  | <SQL session statement>
-  | <direct implementation-defined statement>
+// <directly executable statement> ::=
+//     <direct SQL data statement>
+//   | <SQL schema statement>
+//   | <SQL transaction statement>
+//   | <SQL connection statement>
+//   | <SQL session statement>
+//   | <direct implementation-defined statement>
 
-<direct SQL data statement> ::=
-    <delete statement: searched>
-  | <direct select statement: multiple rows>
-  | <insert statement>
-  | <update statement: searched>
-  | <truncate table statement>
-  | <merge statement>
-  | <temporary table declaration>
+// <direct SQL data statement> ::=
+//     <delete statement: searched>
+//   | <direct select statement: multiple rows>
+//   | <insert statement>
+//   | <update statement: searched>
+//   | <truncate table statement>
+//   | <merge statement>
+//   | <temporary table declaration>
 
-<direct implementation-defined statement> ::=
-  !! See the Syntax Rules.
+// <direct implementation-defined statement> ::=
+//   !! See the Syntax Rules.
 
-// 22.2 <direct select statement: multiple rows>
+// // 22.2 <direct select statement: multiple rows>
 
-// Specify a statement to retrieve multiple rows from a specified table.
+// // Specify a statement to retrieve multiple rows from a specified table.
 
-<direct select statement: multiple rows> ::=
-  <cursor specification>
+// <direct select statement: multiple rows> ::=
+//   <cursor specification>
 
-// 23 Diagnostics management
+// // 23 Diagnostics management
 
 
-// 23.1 <get diagnostics statement>
+// // 23.1 <get diagnostics statement>
 
-// Get exception or completion condition information from a diagnostics area.
+// // Get exception or completion condition information from a diagnostics area.
 
-<get diagnostics statement> ::=
-  GET DIAGNOSTICS <SQL diagnostics information>
+// <get diagnostics statement> ::=
+//   GET DIAGNOSTICS <SQL diagnostics information>
 
-<SQL diagnostics information> ::=
-    <statement information>
-  | <condition information>
-  | <all information>
+// <SQL diagnostics information> ::=
+//     <statement information>
+//   | <condition information>
+//   | <all information>
 
-<statement information> ::=
-      <statement information item> [ { <comma> <statement information item> }... ]
+// <statement information> ::=
+//       <statement information item> [ { <comma> <statement information item> }... ]
 
-<statement information item> ::=
-  <simple target specification> <equals operator> <statement information item name>
+// <statement information item> ::=
+//   <simple target specification> <equals operator> <statement information item name>
 
-<statement information item name> ::=
-    NUMBER
-  | MORE
-  | COMMAND_FUNCTION
-  | COMMAND_FUNCTION_CODE
-  | DYNAMIC_FUNCTION
-  | DYNAMIC_FUNCTION_CODE
-  | ROW_COUNT
-  | TRANSACTIONS_COMMITTED
-  | TRANSACTIONS_ROLLED_BACK
-  | TRANSACTION_ACTIVE
+// <statement information item name> ::=
+//     NUMBER
+//   | MORE
+//   | COMMAND_FUNCTION
+//   | COMMAND_FUNCTION_CODE
+//   | DYNAMIC_FUNCTION
+//   | DYNAMIC_FUNCTION_CODE
+//   | ROW_COUNT
+//   | TRANSACTIONS_COMMITTED
+//   | TRANSACTIONS_ROLLED_BACK
+//   | TRANSACTION_ACTIVE
 
-<condition information> ::=
-  CONDITION <condition number> <condition information item>
-      [ { <comma> <condition information item> }... ]
+// <condition information> ::=
+//   CONDITION <condition number> <condition information item>
+//       [ { <comma> <condition information item> }... ]
 
-<condition information item> ::=
-  <simple target specification> <equals operator> <condition information item name>
+// <condition information item> ::=
+//   <simple target specification> <equals operator> <condition information item name>
 
-<condition information item name> ::=
-    CATALOG_NAME
-  | CLASS_ORIGIN
-  | COLUMN_NAME
-  | CONDITION_NUMBER
-  | CONNECTION_NAME
-  | CONSTRAINT_CATALOG
-  | CONSTRAINT_NAME
-  | CONSTRAINT_SCHEMA
-  | CURSOR_NAME
-  | MESSAGE_LENGTH
-  | MESSAGE_OCTET_LENGTH
-  | MESSAGE_TEXT
-  | PARAMETER_MODE
-  | PARAMETER_NAME
-  | PARAMETER_ORDINAL_POSITION
-  | RETURNED_SQLSTATE
-  | ROUTINE_CATALOG
-  | ROUTINE_NAME
-  | ROUTINE_SCHEMA
-  | SCHEMA_NAME
-  | SERVER_NAME
-  | SPECIFIC_NAME
-  | SUBCLASS_ORIGIN
-  | TABLE_NAME
-  | TRIGGER_CATALOG
-  | TRIGGER_NAME
-  | TRIGGER_SCHEMA
+// <condition information item name> ::=
+//     CATALOG_NAME
+//   | CLASS_ORIGIN
+//   | COLUMN_NAME
+//   | CONDITION_NUMBER
+//   | CONNECTION_NAME
+//   | CONSTRAINT_CATALOG
+//   | CONSTRAINT_NAME
+//   | CONSTRAINT_SCHEMA
+//   | CURSOR_NAME
+//   | MESSAGE_LENGTH
+//   | MESSAGE_OCTET_LENGTH
+//   | MESSAGE_TEXT
+//   | PARAMETER_MODE
+//   | PARAMETER_NAME
+//   | PARAMETER_ORDINAL_POSITION
+//   | RETURNED_SQLSTATE
+//   | ROUTINE_CATALOG
+//   | ROUTINE_NAME
+//   | ROUTINE_SCHEMA
+//   | SCHEMA_NAME
+//   | SERVER_NAME
+//   | SPECIFIC_NAME
+//   | SUBCLASS_ORIGIN
+//   | TABLE_NAME
+//   | TRIGGER_CATALOG
+//   | TRIGGER_NAME
+//   | TRIGGER_SCHEMA
 
-<all information> ::=
-  <all info target> <equals operator> ALL [ <all qualifier> ]
+// <all information> ::=
+//   <all info target> <equals operator> ALL [ <all qualifier> ]
 
-<all info target> ::=
-  <simple target specification>
+// <all info target> ::=
+//   <simple target specification>
 
-<all qualifier> ::=
-    STATEMENT
-  | CONDITION [ <condition number> ]
+// <all qualifier> ::=
+//     STATEMENT
+//   | CONDITION [ <condition number> ]
 
-<condition number> ::=
-  <simple value specification>
+// <condition number> ::=
+//   <simple value specification>

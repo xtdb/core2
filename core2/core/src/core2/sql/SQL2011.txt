@@ -90,7 +90,7 @@
   -
 
 <period> ::=
-  .
+  !! .
 
 <solidus> ::=
   /
@@ -125,13 +125,13 @@
   | <right bracket trigraph>
 
 <left bracket> ::=
-  [
+  !! [
 
 <left bracket trigraph> ::=
   ??(
 
 <right bracket> ::=
-  ]
+  !! ]
 
 <right bracket trigraph> ::=
   ??)
@@ -143,13 +143,13 @@
   _
 
 <vertical bar> ::=
-  |
+  !! |
 
 <left brace> ::=
-  {
+  !! {
 
 <right brace> ::=
-  }
+  !! }
 
 // 5.2     <token> and <separator>
 
@@ -282,7 +282,7 @@
   ::
 
 <double period> ::=
-  ..
+  !! ..
 
 <named argument assignment token> ::=
   =>
@@ -4866,17 +4866,14 @@
 <sequence generator restart value> ::=
   <signed numeric literal>
 
-11.74 <drop sequence generator statement>
+// 11.74 <drop sequence generator statement>
 
-Function
-Destroy an external sequence generator.
+// Destroy an external sequence generator.
 
-
-Format
 <drop sequence generator statement> ::=
   DROP SEQUENCE <sequence generator name> <drop behavior>
 
-12 Access control
+// 12 Access control
 
 
 // 12.1 <grant statement>
@@ -4887,13 +4884,10 @@ Format
     <grant privilege statement>
   | <grant role statement>
 
-12.2 <grant privilege statement>
+// 12.2 <grant privilege statement>
 
-Function
-Define privileges.
+// Define privileges.
 
-
-Format
 <grant privilege statement> ::=
   GRANT <privileges> TO <grantee> [ { <comma> <grantee> }... ]
       [ WITH HIERARCHY OPTION ]
@@ -4955,13 +4949,10 @@ Format
 <role definition> ::=
   CREATE ROLE <role name> [ WITH ADMIN <grantor> ]
 
-12.5 <grant role statement>
+// 12.5 <grant role statement>
 
-Function
-Define role authorizations.
+// Define role authorizations.
 
-
-Format
 <grant role statement> ::=
   GRANT <role granted> [ { <comma> <role granted> }... ]
       TO <grantee> [ { <comma> <grantee> }... ]
@@ -5269,13 +5260,10 @@ Format
 <updatability clause> ::=
   FOR { READ ONLY | UPDATE [ OF <column name list> ] }
 
-14.4 <open statement>
+// 14.4 <open statement>
 
-Function
-Open a standing cursor.
+// Open a standing cursor.
 
-
-Format
 <open statement> ::=
   OPEN <cursor name>
 
@@ -5648,16 +5636,13 @@ Format
   TO SAVEPOINT <savepoint specifier>
 
 
-18 Connection management
+// 18 Connection management
 
 
-18.1 <connect statement>
+// 18.1 <connect statement>
 
-Function
-Establish an SQL-session.
+// Establish an SQL-session.
 
-
-Format
 <connect statement> ::=
   CONNECT TO <connection target>
 
@@ -6359,17 +6344,17 @@ Format
   | <Ada derived type specification>
 
 <Ada qualified type specification> ::=
-    Interfaces.SQL.CHAR
-        [ CHARACTER SET [ IS ] <character set specification> ]
-        <left paren> 1 <double period> <character length> <right paren>
-  | Interfaces.SQL.SMALLINT
-  | Interfaces.SQL.INT
-  | Interfaces.SQL.BIGINT
-  | Interfaces.SQL.REAL
-  | Interfaces.SQL.DOUBLE_PRECISION
-  | Interfaces.SQL.BOOLEAN
-  | Interfaces.SQL.SQLSTATE_TYPE
-  | Interfaces.SQL.INDICATOR_TYPE
+  !!   Interfaces.SQL.CHAR
+  !!       [ CHARACTER SET [ IS ] <character set specification> ]
+  !!       <left paren> 1 <double period> <character length> <right paren>
+  !! | Interfaces.SQL.SMALLINT
+  !! | Interfaces.SQL.INT
+  !! | Interfaces.SQL.BIGINT
+  !! | Interfaces.SQL.REAL
+  !! | Interfaces.SQL.DOUBLE_PRECISION
+  !! | Interfaces.SQL.BOOLEAN
+  !! | Interfaces.SQL.SQLSTATE_TYPE
+  !! | Interfaces.SQL.INDICATOR_TYPE
 
 <Ada unqualified type specification> ::=
     CHAR <left paren> 1 <double period> <character length> <right paren>

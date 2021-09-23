@@ -3425,1793 +3425,1793 @@
     NULLS FIRST
   | NULLS LAST
 
-// 11 Schema definition and manipulation
-
+// // 11 Schema definition and manipulation
+
 
-// 11.1 <schema definition>
+// // 11.1 <schema definition>
 
-// Define a schema.
+// // Define a schema.
 
-<schema definition> ::=
-  CREATE SCHEMA <schema name clause>
-      [ <schema character set or path> ]
-      [ <schema element>... ]
+// <schema definition> ::=
+//   CREATE SCHEMA <schema name clause>
+//       [ <schema character set or path> ]
+//       [ <schema element>... ]
 
-<schema character set or path> ::=
-    <schema character set specification>
-  | <schema path specification>
-  | <schema character set specification> <schema path specification>
-  | <schema path specification> <schema character set specification>
-
-<schema name clause> ::=
-    <schema name>
-  | AUTHORIZATION <schema authorization identifier>
-  | <schema name> AUTHORIZATION <schema authorization identifier>
+// <schema character set or path> ::=
+//     <schema character set specification>
+//   | <schema path specification>
+//   | <schema character set specification> <schema path specification>
+//   | <schema path specification> <schema character set specification>
+
+// <schema name clause> ::=
+//     <schema name>
+//   | AUTHORIZATION <schema authorization identifier>
+//   | <schema name> AUTHORIZATION <schema authorization identifier>
 
-<schema authorization identifier> ::=
-  <authorization identifier>
+// <schema authorization identifier> ::=
+//   <authorization identifier>
 
-<schema character set specification> ::=
-  DEFAULT CHARACTER SET <character set specification>
+// <schema character set specification> ::=
+//   DEFAULT CHARACTER SET <character set specification>
 
-<schema path specification> ::=
-  <path specification>
+// <schema path specification> ::=
+//   <path specification>
 
-<schema element> ::=
-      <table definition>
-  |   <view definition>
-  |   <domain definition>
-  |   <character set definition>
-  |   <collation definition>
-  |   <transliteration definition>
-  |   <assertion definition>
-  |   <trigger definition>
-  |   <user-defined type definition>
-  |   <user-defined cast definition>
-  |   <user-defined ordering definition>
-  |   <transform definition>
-  |   <schema routine>
-  |   <sequence generator definition>
-  |   <grant statement>
-  |   <role definition>
+// <schema element> ::=
+//       <table definition>
+//   |   <view definition>
+//   |   <domain definition>
+//   |   <character set definition>
+//   |   <collation definition>
+//   |   <transliteration definition>
+//   |   <assertion definition>
+//   |   <trigger definition>
+//   |   <user-defined type definition>
+//   |   <user-defined cast definition>
+//   |   <user-defined ordering definition>
+//   |   <transform definition>
+//   |   <schema routine>
+//   |   <sequence generator definition>
+//   |   <grant statement>
+//   |   <role definition>
 
-// 11.2 <drop schema statement>
+// // 11.2 <drop schema statement>
 
-// Destroy a schema.
+// // Destroy a schema.
 
-<drop schema statement> ::=
-  DROP SCHEMA <schema name> <drop behavior>
+// <drop schema statement> ::=
+//   DROP SCHEMA <schema name> <drop behavior>
 
-<drop behavior> ::=
-    CASCADE
-  | RESTRICT
+// <drop behavior> ::=
+//     CASCADE
+//   | RESTRICT
 
-// 11.3 <table definition>
+// // 11.3 <table definition>
 
-// Define a persistent base table, a created local temporary table, or a global temporary table.
+// // Define a persistent base table, a created local temporary table, or a global temporary table.
 
-<table definition> ::=
-  CREATE [ <table scope> ] TABLE <table name> <table contents source>
-      [ WITH <system versioning clause> ]
-      [ ON COMMIT <table commit action> ROWS ]
+// <table definition> ::=
+//   CREATE [ <table scope> ] TABLE <table name> <table contents source>
+//       [ WITH <system versioning clause> ]
+//       [ ON COMMIT <table commit action> ROWS ]
 
-<table contents source> ::=
-    <table element list>
-  | <typed table clause>
-  | <as subquery clause>
+// <table contents source> ::=
+//     <table element list>
+//   | <typed table clause>
+//   | <as subquery clause>
 
-<table scope> ::=
-  <global or local> TEMPORARY
+// <table scope> ::=
+//   <global or local> TEMPORARY
 
-<global or local> ::=
-    GLOBAL
-  | LOCAL
+// <global or local> ::=
+//     GLOBAL
+//   | LOCAL
 
-<system versioning clause> ::=
-  SYSTEM VERSIONING
+// <system versioning clause> ::=
+//   SYSTEM VERSIONING
 
-<table commit action> ::=
-    PRESERVE
-  | DELETE
+// <table commit action> ::=
+//     PRESERVE
+//   | DELETE
 
-<table element list> ::=
-  <left paren> <table element> [ { <comma> <table element> }... ] <right paren>
+// <table element list> ::=
+//   <left paren> <table element> [ { <comma> <table element> }... ] <right paren>
 
-<table element> ::=
-    <column definition>
-  | <table period definition>
-  | <table constraint definition>
-  | <like clause>
+// <table element> ::=
+//     <column definition>
+//   | <table period definition>
+//   | <table constraint definition>
+//   | <like clause>
 
-<typed table clause> ::=
-  OF <path-resolved user-defined type name> [ <subtable clause> ]
-      [ <typed table element list> ]
+// <typed table clause> ::=
+//   OF <path-resolved user-defined type name> [ <subtable clause> ]
+//       [ <typed table element list> ]
 
-<typed table element list> ::=
-  <left paren> <typed table element>
-      [ { <comma> <typed table element> }... ] <right paren>
+// <typed table element list> ::=
+//   <left paren> <typed table element>
+//       [ { <comma> <typed table element> }... ] <right paren>
 
-<typed table element> ::=
-    <column options>
-  | <table constraint definition>
-  | <self-referencing column specification>
+// <typed table element> ::=
+//     <column options>
+//   | <table constraint definition>
+//   | <self-referencing column specification>
 
-<self-referencing column specification> ::=
-  REF IS <self-referencing column name> [ <reference generation> ]
+// <self-referencing column specification> ::=
+//   REF IS <self-referencing column name> [ <reference generation> ]
 
-<reference generation> ::=
-    SYSTEM GENERATED
-  | USER GENERATED
-  | DERIVED
+// <reference generation> ::=
+//     SYSTEM GENERATED
+//   | USER GENERATED
+//   | DERIVED
 
-<self-referencing column name> ::=
-  <column name>
+// <self-referencing column name> ::=
+//   <column name>
 
-<column options> ::=
-  <column name> WITH OPTIONS <column option list>
+// <column options> ::=
+//   <column name> WITH OPTIONS <column option list>
 
-<column option list> ::=
-  [ <scope clause> ] [ <default clause> ] [ <column constraint definition>... ]
+// <column option list> ::=
+//   [ <scope clause> ] [ <default clause> ] [ <column constraint definition>... ]
 
-<subtable clause> ::=
-  UNDER <supertable clause>
+// <subtable clause> ::=
+//   UNDER <supertable clause>
 
-<supertable clause> ::=
-  <supertable name>
+// <supertable clause> ::=
+//   <supertable name>
 
-<supertable name> ::=
-  <table name>
+// <supertable name> ::=
+//   <table name>
 
-<like clause> ::=
-  LIKE <table name> [ <like options> ]
+// <like clause> ::=
+//   LIKE <table name> [ <like options> ]
 
-<like options> ::=
-  <like option>...
+// <like options> ::=
+//   <like option>...
 
-<like option> ::=
-    <identity option>
-  | <column default option>
-  | <generation option>
+// <like option> ::=
+//     <identity option>
+//   | <column default option>
+//   | <generation option>
 
-<identity option> ::=
-    INCLUDING IDENTITY
-  | EXCLUDING IDENTITY
+// <identity option> ::=
+//     INCLUDING IDENTITY
+//   | EXCLUDING IDENTITY
 
-<column default option> ::=
-    INCLUDING DEFAULTS
-  | EXCLUDING DEFAULTS
+// <column default option> ::=
+//     INCLUDING DEFAULTS
+//   | EXCLUDING DEFAULTS
 
-<generation option> ::=
-    INCLUDING GENERATED
-  | EXCLUDING GENERATED
+// <generation option> ::=
+//     INCLUDING GENERATED
+//   | EXCLUDING GENERATED
 
-<as subquery clause> ::=
-  [ <left paren> <column name list> <right paren> ] AS <table subquery>
-      <with or without data>
+// <as subquery clause> ::=
+//   [ <left paren> <column name list> <right paren> ] AS <table subquery>
+//       <with or without data>
 
-<with or without data> ::=
-    WITH NO DATA
-  | WITH DATA
+// <with or without data> ::=
+//     WITH NO DATA
+//   | WITH DATA
 
-<table period definition> ::=
-  <system or application time period specification>
-      <left paren> <period begin column name> <comma> <period end column name> <right paren>
+// <table period definition> ::=
+//   <system or application time period specification>
+//       <left paren> <period begin column name> <comma> <period end column name> <right paren>
 
-<system or application time period specification> ::=
-    <system time period specification>
-  | <application time period specification>
+// <system or application time period specification> ::=
+//     <system time period specification>
+//   | <application time period specification>
 
-<system time period specification> ::=
-  PERIOD FOR SYSTEM_TIME
+// <system time period specification> ::=
+//   PERIOD FOR SYSTEM_TIME
 
-<application time period specification> ::=
-  PERIOD FOR <application time period name>
+// <application time period specification> ::=
+//   PERIOD FOR <application time period name>
 
-<application time period name> ::=
-  <identifier>
+// <application time period name> ::=
+//   <identifier>
 
-<period begin column name> ::=
-  <column name>
+// <period begin column name> ::=
+//   <column name>
 
-<period end column name> ::=
-  <column name>
+// <period end column name> ::=
+//   <column name>
 
-// 11.4 <column definition>
+// // 11.4 <column definition>
 
-// Define a column of a base table.
+// // Define a column of a base table.
 
-<column definition> ::=
-  <column name> [ <data type or domain name> ]
-      [ <default clause> | <identity column specification> | <generation clause>
-      | <system time period start column specification>
-      | <system time period end column specification> ]
-      [ <column constraint definition>... ]
-      [ <collate clause> ]
+// <column definition> ::=
+//   <column name> [ <data type or domain name> ]
+//       [ <default clause> | <identity column specification> | <generation clause>
+//       | <system time period start column specification>
+//       | <system time period end column specification> ]
+//       [ <column constraint definition>... ]
+//       [ <collate clause> ]
 
-<data type or domain name> ::=
-    <data type>
-  | <domain name>
+// <data type or domain name> ::=
+//     <data type>
+//   | <domain name>
 
-<system time period start column specification> ::=
-  <timestamp generation rule> AS ROW START
+// <system time period start column specification> ::=
+//   <timestamp generation rule> AS ROW START
 
-<system time period end column specification> ::=
-  <timestamp generation rule> AS ROW END
+// <system time period end column specification> ::=
+//   <timestamp generation rule> AS ROW END
 
-<timestamp generation rule> ::=
-  GENERATED ALWAYS
+// <timestamp generation rule> ::=
+//   GENERATED ALWAYS
 
-<column constraint definition> ::=
-  [ <constraint name definition> ] <column constraint> [ <constraint characteristics> ]
+// <column constraint definition> ::=
+//   [ <constraint name definition> ] <column constraint> [ <constraint characteristics> ]
 
-<column constraint> ::=
-    NOT NULL
-  | <unique specification>
-  | <references specification>
-  | <check constraint definition>
+// <column constraint> ::=
+//     NOT NULL
+//   | <unique specification>
+//   | <references specification>
+//   | <check constraint definition>
 
-<identity column specification> ::=
-  GENERATED { ALWAYS | BY DEFAULT } AS IDENTITY
-      [ <left paren> <common sequence generator options> <right paren> ]
+// <identity column specification> ::=
+//   GENERATED { ALWAYS | BY DEFAULT } AS IDENTITY
+//       [ <left paren> <common sequence generator options> <right paren> ]
 
-<generation clause> ::=
-  <generation rule> AS <generation expression>
+// <generation clause> ::=
+//   <generation rule> AS <generation expression>
 
-<generation rule> ::=
-  GENERATED ALWAYS
+// <generation rule> ::=
+//   GENERATED ALWAYS
 
-<generation expression> ::=
-  <left paren> <value expression> <right paren>
+// <generation expression> ::=
+//   <left paren> <value expression> <right paren>
 
-// 11.5 <default clause>
+// // 11.5 <default clause>
 
-// Specify the default for a column, domain, or attribute.
+// // Specify the default for a column, domain, or attribute.
 
-<default clause> ::=
-  DEFAULT <default option>
+// <default clause> ::=
+//   DEFAULT <default option>
 
-<default option> ::=
-    <literal>
-  | <datetime value function>
-  | USER
-  | CURRENT_USER
-  | CURRENT_ROLE
-  | SESSION_USER
-  | SYSTEM_USER
-  | CURRENT_CATALOG
-  | CURRENT_SCHEMA
-  | CURRENT_PATH
-  | <implicitly typed value specification>
+// <default option> ::=
+//     <literal>
+//   | <datetime value function>
+//   | USER
+//   | CURRENT_USER
+//   | CURRENT_ROLE
+//   | SESSION_USER
+//   | SYSTEM_USER
+//   | CURRENT_CATALOG
+//   | CURRENT_SCHEMA
+//   | CURRENT_PATH
+//   | <implicitly typed value specification>
 
-// 11.6 <table constraint definition>
+// // 11.6 <table constraint definition>
 
-// Specify an integrity constraint.
+// // Specify an integrity constraint.
 
-<table constraint definition> ::=
-  [ <constraint name definition> ] <table constraint>
-      [ <constraint characteristics> ]
+// <table constraint definition> ::=
+//   [ <constraint name definition> ] <table constraint>
+//       [ <constraint characteristics> ]
 
-<table constraint> ::=
-    <unique constraint definition>
-  | <referential constraint definition>
-  | <check constraint definition>
+// <table constraint> ::=
+//     <unique constraint definition>
+//   | <referential constraint definition>
+//   | <check constraint definition>
 
-// 11.7 <unique constraint definition>
+// // 11.7 <unique constraint definition>
 
-// Specify a uniqueness constraint for a table.
+// // Specify a uniqueness constraint for a table.
 
-<unique constraint definition> ::=
-    <unique specification> <left paren> <unique column list> [ <comma> <without overlap
-    specification> ] <right paren>
-  | UNIQUE ( VALUE )
+// <unique constraint definition> ::=
+//     <unique specification> <left paren> <unique column list> [ <comma> <without overlap
+//     specification> ] <right paren>
+//   | UNIQUE ( VALUE )
 
-<unique specification> ::=
-    UNIQUE
-  | PRIMARY KEY
+// <unique specification> ::=
+//     UNIQUE
+//   | PRIMARY KEY
 
-<unique column list> ::=
-  <column name list>
+// <unique column list> ::=
+//   <column name list>
 
-<without overlap specification> ::=
-  <application time period name> WITHOUT OVERLAPS
+// <without overlap specification> ::=
+//   <application time period name> WITHOUT OVERLAPS
 
-// 11.8 <referential constraint definition>
+// // 11.8 <referential constraint definition>
 
-// Specify a referential constraint.
+// // Specify a referential constraint.
 
-<referential constraint definition> ::=
-  FOREIGN KEY <left paren> <referencing column list>
-      [ <comma> <referencing period specification> ] <right paren>
-      <references specification>
+// <referential constraint definition> ::=
+//   FOREIGN KEY <left paren> <referencing column list>
+//       [ <comma> <referencing period specification> ] <right paren>
+//       <references specification>
 
-<references specification> ::=
-  REFERENCES <referenced table and columns>
-      [ MATCH <match type> ] [ <referential triggered action> ]
+// <references specification> ::=
+//   REFERENCES <referenced table and columns>
+//       [ MATCH <match type> ] [ <referential triggered action> ]
 
-<match type> ::=
-    FULL
-  | PARTIAL
-  | SIMPLE
+// <match type> ::=
+//     FULL
+//   | PARTIAL
+//   | SIMPLE
 
-<referencing column list> ::=
-  <column name list>
+// <referencing column list> ::=
+//   <column name list>
 
-<referencing period specification> ::=
-  PERIOD <application time period name>
+// <referencing period specification> ::=
+//   PERIOD <application time period name>
 
-<referenced table and columns> ::=
-  <table name> [ <left paren> <referenced column list>
-      [ <comma> <referenced period specification> ] <right paren> ]
+// <referenced table and columns> ::=
+//   <table name> [ <left paren> <referenced column list>
+//       [ <comma> <referenced period specification> ] <right paren> ]
 
-<referenced column list> ::=
-  <column name list>
+// <referenced column list> ::=
+//   <column name list>
 
-<referenced period specification> ::=
-  PERIOD <application time period name>
+// <referenced period specification> ::=
+//   PERIOD <application time period name>
 
-<referential triggered action> ::=
-    <update rule> [ <delete rule> ]
-  | <delete rule> [ <update rule> ]
+// <referential triggered action> ::=
+//     <update rule> [ <delete rule> ]
+//   | <delete rule> [ <update rule> ]
 
-<update rule> ::=
-  ON UPDATE <referential action>
+// <update rule> ::=
+//   ON UPDATE <referential action>
 
-<delete rule> ::=
-  ON DELETE <referential action>
+// <delete rule> ::=
+//   ON DELETE <referential action>
 
-<referential action> ::=
-    CASCADE
-  | SET NULL
-  | SET DEFAULT
-  | RESTRICT
-  | NO ACTION
+// <referential action> ::=
+//     CASCADE
+//   | SET NULL
+//   | SET DEFAULT
+//   | RESTRICT
+//   | NO ACTION
 
-// 11.9 <check constraint definition>
+// // 11.9 <check constraint definition>
 
-// Specify a condition for the SQL-data.
+// // Specify a condition for the SQL-data.
 
-<check constraint definition> ::=
-     CHECK <left paren> <search condition> <right paren>
+// <check constraint definition> ::=
+//      CHECK <left paren> <search condition> <right paren>
 
-// 11.10 <alter table statement>
+// // 11.10 <alter table statement>
 
-// Change the definition of a table.
+// // Change the definition of a table.
 
-<alter table statement> ::=
-  ALTER TABLE <table name> <alter table action>
+// <alter table statement> ::=
+//   ALTER TABLE <table name> <alter table action>
 
-<alter table action> ::=
-    <add column definition>
-  | <alter column definition>
-  | <drop column definition>
-  | <add table constraint definition>
-  | <alter table constraint definition>
-  | <drop table constraint definition>
-  | <add table period definition>
-  | <drop table period definition>
-  | <add system versioning clause>
-  | <drop system versioning clause>
+// <alter table action> ::=
+//     <add column definition>
+//   | <alter column definition>
+//   | <drop column definition>
+//   | <add table constraint definition>
+//   | <alter table constraint definition>
+//   | <drop table constraint definition>
+//   | <add table period definition>
+//   | <drop table period definition>
+//   | <add system versioning clause>
+//   | <drop system versioning clause>
 
-// 11.11 <add column definition>
+// // 11.11 <add column definition>
 
-// Add a column to a table.
+// // Add a column to a table.
 
-<add column definition> ::=
-  ADD [ COLUMN ] <column definition>
+// <add column definition> ::=
+//   ADD [ COLUMN ] <column definition>
 
-// 11.12 <alter column definition>
+// // 11.12 <alter column definition>
 
-// Change a column and its definition.
+// // Change a column and its definition.
 
-<alter column definition> ::=
+// <alter column definition> ::=
 
-  ALTER [ COLUMN ] <column name> <alter column action>
+//   ALTER [ COLUMN ] <column name> <alter column action>
 
-<alter column action> ::=
-    <set column default clause>
-  | <drop column default clause>
-  | <set column not null clause>
-  | <drop column not null clause>
-  | <add column scope clause>
-  | <drop column scope clause>
-  | <alter column data type clause>
-  | <alter identity column specification>
-  | <drop identity property clause>
-  | <drop column generation expression clause>
+// <alter column action> ::=
+//     <set column default clause>
+//   | <drop column default clause>
+//   | <set column not null clause>
+//   | <drop column not null clause>
+//   | <add column scope clause>
+//   | <drop column scope clause>
+//   | <alter column data type clause>
+//   | <alter identity column specification>
+//   | <drop identity property clause>
+//   | <drop column generation expression clause>
 
-// 11.13 <set column default clause>
+// // 11.13 <set column default clause>
 
-// Set the default clause for a column.
+// // Set the default clause for a column.
 
-<set column default clause> ::=
-  SET <default clause>
+// <set column default clause> ::=
+//   SET <default clause>
 
-// 11.14 <drop column default clause>
+// // 11.14 <drop column default clause>
 
-// Drop the default clause from a column.
+// // Drop the default clause from a column.
 
-<drop column default clause> ::=
-  DROP DEFAULT
+// <drop column default clause> ::=
+//   DROP DEFAULT
 
-// 11.15 <set column not null clause>
+// // 11.15 <set column not null clause>
 
-// Add a not null constraint to a column.
+// // Add a not null constraint to a column.
 
-<set column not null clause> ::=
-  SET NOT NULL
+// <set column not null clause> ::=
+//   SET NOT NULL
 
-// 11.16 <drop column not null clause>
+// // 11.16 <drop column not null clause>
 
-// Drop a not null constraint on a column.
+// // Drop a not null constraint on a column.
 
-<drop column not null clause> ::=
-  DROP NOT NULL
+// <drop column not null clause> ::=
+//   DROP NOT NULL
 
-// 11.17 <add column scope clause>
+// // 11.17 <add column scope clause>
 
-// Add a non-empty scope for an existing column of data type REF in a base table.
+// // Add a non-empty scope for an existing column of data type REF in a base table.
 
-<add column scope clause> ::=
-  ADD <scope clause>
+// <add column scope clause> ::=
+//   ADD <scope clause>
 
-// 11.18 <drop column scope clause>
+// // 11.18 <drop column scope clause>
 
-// Drop the scope from an existing column of data type REF in a base table.
+// // Drop the scope from an existing column of data type REF in a base table.
 
-<drop column scope clause> ::=
-  DROP SCOPE <drop behavior>
+// <drop column scope clause> ::=
+//   DROP SCOPE <drop behavior>
 
-// 11.19 <alter column data type clause>
+// // 11.19 <alter column data type clause>
 
-// Change the declared type of a column.
+// // Change the declared type of a column.
 
-<alter column data type clause> ::=
-  SET DATA TYPE <data type>
+// <alter column data type clause> ::=
+//   SET DATA TYPE <data type>
 
-// 11.20 <alter identity column specification>
+// // 11.20 <alter identity column specification>
 
-// Change the options specified for an identity column.
+// // Change the options specified for an identity column.
 
-<alter identity column specification> ::=
-    <set identity column generation clause> [ <alter identity column option>... ]
-  | <alter identity column option>...
+// <alter identity column specification> ::=
+//     <set identity column generation clause> [ <alter identity column option>... ]
+//   | <alter identity column option>...
 
-<set identity column generation clause> ::=
-  SET GENERATED { ALWAYS | BY DEFAULT }
+// <set identity column generation clause> ::=
+//   SET GENERATED { ALWAYS | BY DEFAULT }
 
-<alter identity column option> ::=
-    <alter sequence generator restart option>
-  | SET <basic sequence generator option>
+// <alter identity column option> ::=
+//     <alter sequence generator restart option>
+//   | SET <basic sequence generator option>
 
-// 11.21 <drop identity property clause>
+// // 11.21 <drop identity property clause>
 
-// Convert an identity column to a column that is not an identity column.
+// // Convert an identity column to a column that is not an identity column.
 
-<drop identity property clause> ::=
-  DROP IDENTITY
+// <drop identity property clause> ::=
+//   DROP IDENTITY
 
-// 11.22 <drop column generation expression clause>
+// // 11.22 <drop column generation expression clause>
 
-// Convert a generated column to a column that is not a generated column.
+// // Convert a generated column to a column that is not a generated column.
 
-<drop column generation expression clause> ::=
-  DROP EXPRESSION
+// <drop column generation expression clause> ::=
+//   DROP EXPRESSION
 
-// 11.23 <drop column definition>
+// // 11.23 <drop column definition>
 
-// Destroy a column of a base table.
+// // Destroy a column of a base table.
 
-<drop column definition> ::=
-  DROP [ COLUMN ] <column name> <drop behavior>
+// <drop column definition> ::=
+//   DROP [ COLUMN ] <column name> <drop behavior>
 
-// 11.24 <add table constraint definition>
+// // 11.24 <add table constraint definition>
 
-// Add a constraint to a table.
+// // Add a constraint to a table.
 
-<add table constraint definition> ::=
-  ADD <table constraint definition>
+// <add table constraint definition> ::=
+//   ADD <table constraint definition>
 
-// 11.25 <alter table constraint definition>
+// // 11.25 <alter table constraint definition>
 
-// Change the definition of a table constraint.
+// // Change the definition of a table constraint.
 
-<alter table constraint definition> ::=
-  ALTER CONSTRAINT <constraint name> <constraint enforcement>
+// <alter table constraint definition> ::=
+//   ALTER CONSTRAINT <constraint name> <constraint enforcement>
 
-// 11.26 <drop table constraint definition>
+// // 11.26 <drop table constraint definition>
 
-// Destroy a constraint on a table.
+// // Destroy a constraint on a table.
 
-<drop table constraint definition> ::=
-  DROP CONSTRAINT <constraint name> <drop behavior>
+// <drop table constraint definition> ::=
+//   DROP CONSTRAINT <constraint name> <drop behavior>
 
-// 11.27 <add table period definition>
+// // 11.27 <add table period definition>
 
-// Add a system-time period or an application-time period to a persistent base table.
+// // Add a system-time period or an application-time period to a persistent base table.
 
-<add table period definition> ::=
-  ADD <table period definition> [ <add system time period column list> ]
+// <add table period definition> ::=
+//   ADD <table period definition> [ <add system time period column list> ]
 
-<add system time period column list> ::=
-  ADD [ COLUMN ] <column definition 1> ADD [ COLUMN ] <column definition 2>
+// <add system time period column list> ::=
+//   ADD [ COLUMN ] <column definition 1> ADD [ COLUMN ] <column definition 2>
 
-<column definition 1> ::=
-  <column definition>
+// <column definition 1> ::=
+//   <column definition>
 
-<column definition 2> ::=
-  <column definition>
+// <column definition 2> ::=
+//   <column definition>
 
-// 11.28 <drop table period definition>
+// // 11.28 <drop table period definition>
 
-// Remove a system-time period or application-time period from a persistent base table.
+// // Remove a system-time period or application-time period from a persistent base table.
 
-<drop table period definition> ::=
-  DROP <system or application time period specification> <drop behavior>
+// <drop table period definition> ::=
+//   DROP <system or application time period specification> <drop behavior>
 
-// 11.29 <add system versioning clause>
+// // 11.29 <add system versioning clause>
 
-// Alter a regular persistent base table to a system-versioned table.
+// // Alter a regular persistent base table to a system-versioned table.
 
-<add system versioning clause> ::=
-  ADD <system versioning clause>
+// <add system versioning clause> ::=
+//   ADD <system versioning clause>
 
-// 11.30 <drop system versioning clause>
+// // 11.30 <drop system versioning clause>
 
-// Change a system-versioned table into a regular persistent base table.
+// // Change a system-versioned table into a regular persistent base table.
 
-<drop system versioning clause> ::=
-  DROP SYSTEM VERSIONING <drop behavior>
+// <drop system versioning clause> ::=
+//   DROP SYSTEM VERSIONING <drop behavior>
 
-// 11.31 <drop table statement>
+// // 11.31 <drop table statement>
 
-// Destroy a table.
+// // Destroy a table.
 
-<drop table statement> ::=
-  DROP TABLE <table name> <drop behavior>
+// <drop table statement> ::=
+//   DROP TABLE <table name> <drop behavior>
 
-// 11.32 <view definition>
+// // 11.32 <view definition>
 
-// Define a viewed table.
+// // Define a viewed table.
 
-<view definition> ::=
-  CREATE [ RECURSIVE ] VIEW <table name> <view specification>
-      AS <query expression> [ WITH [ <levels clause> ] CHECK OPTION ]
+// <view definition> ::=
+//   CREATE [ RECURSIVE ] VIEW <table name> <view specification>
+//       AS <query expression> [ WITH [ <levels clause> ] CHECK OPTION ]
 
-<view specification> ::=
-    <regular view specification>
-  | <referenceable view specification>
+// <view specification> ::=
+//     <regular view specification>
+//   | <referenceable view specification>
 
-<regular view specification> ::=
-  [ <left paren> <view column list> <right paren> ]
+// <regular view specification> ::=
+//   [ <left paren> <view column list> <right paren> ]
 
-<referenceable view specification> ::=
-  OF <path-resolved user-defined type name> [ <subview clause> ]
-      [ <view element list> ]
+// <referenceable view specification> ::=
+//   OF <path-resolved user-defined type name> [ <subview clause> ]
+//       [ <view element list> ]
 
-<subview clause> ::=
-  UNDER <table name>
+// <subview clause> ::=
+//   UNDER <table name>
 
-<view element list> ::=
-  <left paren> <view element> [ { <comma> <view element> }... ] <right paren>
+// <view element list> ::=
+//   <left paren> <view element> [ { <comma> <view element> }... ] <right paren>
 
-<view element> ::=
-    <self-referencing column specification>
-  | <view column option>
+// <view element> ::=
+//     <self-referencing column specification>
+//   | <view column option>
 
-<view column option> ::=
-  <column name> WITH OPTIONS <scope clause>
+// <view column option> ::=
+//   <column name> WITH OPTIONS <scope clause>
 
-<levels clause> ::=
-    CASCADED
-  | LOCAL
+// <levels clause> ::=
+//     CASCADED
+//   | LOCAL
 
-<view column list> ::=
-  <column name list>
+// <view column list> ::=
+//   <column name list>
 
-// 11.33 <drop view statement>
+// // 11.33 <drop view statement>
 
-// Destroy a view.
+// // Destroy a view.
 
-<drop view statement> ::=
-  DROP VIEW <table name> <drop behavior>
+// <drop view statement> ::=
+//   DROP VIEW <table name> <drop behavior>
 
-// 11.34 <domain definition>
+// // 11.34 <domain definition>
 
-// Define a domain.
+// // Define a domain.
 
-<domain definition> ::=
-  CREATE DOMAIN <domain name> [ AS ] <predefined type>
-      [ <default clause> ]
-      [ <domain constraint>... ]
-      [ <collate clause> ]
+// <domain definition> ::=
+//   CREATE DOMAIN <domain name> [ AS ] <predefined type>
+//       [ <default clause> ]
+//       [ <domain constraint>... ]
+//       [ <collate clause> ]
 
-<domain constraint> ::=
-  [ <constraint name definition> ] <check constraint definition> [
-      <constraint characteristics> ]
+// <domain constraint> ::=
+//   [ <constraint name definition> ] <check constraint definition> [
+//       <constraint characteristics> ]
 
-// 11.35 <alter domain statement>
+// // 11.35 <alter domain statement>
 
-// Change a domain and its definition.
+// // Change a domain and its definition.
 
-<alter domain statement> ::=
-  ALTER DOMAIN <domain name> <alter domain action>
+// <alter domain statement> ::=
+//   ALTER DOMAIN <domain name> <alter domain action>
 
-<alter domain action> ::=
-    <set domain default clause>
-  | <drop domain default clause>
-  | <add domain constraint definition>
-  | <drop domain constraint definition>
+// <alter domain action> ::=
+//     <set domain default clause>
+//   | <drop domain default clause>
+//   | <add domain constraint definition>
+//   | <drop domain constraint definition>
 
-// 11.36 <set domain default clause>
+// // 11.36 <set domain default clause>
 
-// Set the default value in a domain.
+// // Set the default value in a domain.
 
-<set domain default clause> ::=
-  SET <default clause>
+// <set domain default clause> ::=
+//   SET <default clause>
 
-// 11.37 <drop domain default clause>
+// // 11.37 <drop domain default clause>
 
-// Remove the default clause of a domain.
+// // Remove the default clause of a domain.
 
-<drop domain default clause> ::=
-  DROP DEFAULT
+// <drop domain default clause> ::=
+//   DROP DEFAULT
 
-// 11.38 <add domain constraint definition>
+// // 11.38 <add domain constraint definition>
 
-// Add a constraint to a domain.
+// // Add a constraint to a domain.
 
-<add domain constraint definition> ::=
-  ADD <domain constraint>
+// <add domain constraint definition> ::=
+//   ADD <domain constraint>
 
-// 11.39 <drop domain constraint definition>
+// // 11.39 <drop domain constraint definition>
 
-// Destroy a constraint on a domain.
+// // Destroy a constraint on a domain.
 
-<drop domain constraint definition> ::=
-  DROP CONSTRAINT <constraint name>
+// <drop domain constraint definition> ::=
+//   DROP CONSTRAINT <constraint name>
 
-// 11.40 <drop domain statement>
+// // 11.40 <drop domain statement>
 
-// Destroy a domain.
+// // Destroy a domain.
 
-<drop domain statement> ::=
-  DROP DOMAIN <domain name> <drop behavior>
+// <drop domain statement> ::=
+//   DROP DOMAIN <domain name> <drop behavior>
 
-// 11.41 <character set definition>
+// // 11.41 <character set definition>
 
-// Define a character set.
+// // Define a character set.
 
-<character set definition> ::=
-  CREATE CHARACTER SET <character set name> [ AS ]
-      <character set source> [ <collate clause> ]
+// <character set definition> ::=
+//   CREATE CHARACTER SET <character set name> [ AS ]
+//       <character set source> [ <collate clause> ]
 
-<character set source> ::=
-  GET <character set specification>
+// <character set source> ::=
+//   GET <character set specification>
 
-// 11.42 <drop character set statement>
+// // 11.42 <drop character set statement>
 
-// Destroy a character set.
+// // Destroy a character set.
 
-<drop character set statement> ::=
-  DROP CHARACTER SET <character set name>
+// <drop character set statement> ::=
+//   DROP CHARACTER SET <character set name>
 
-// 11.43 <collation definition>
+// // 11.43 <collation definition>
 
-// Define a collation.
+// // Define a collation.
 
-<collation definition> ::=
-  CREATE COLLATION <collation name> FOR <character set specification>
-      FROM <existing collation name> [ <pad characteristic> ]
+// <collation definition> ::=
+//   CREATE COLLATION <collation name> FOR <character set specification>
+//       FROM <existing collation name> [ <pad characteristic> ]
 
-<existing collation name> ::=
-  <collation name>
+// <existing collation name> ::=
+//   <collation name>
 
-<pad characteristic> ::=
-    NO PAD
-  | PAD SPACE
+// <pad characteristic> ::=
+//     NO PAD
+//   | PAD SPACE
 
-// 11.44 <drop collation statement>
+// // 11.44 <drop collation statement>
 
-// Destroy a collation.
+// // Destroy a collation.
 
-<drop collation statement> ::=
-  DROP COLLATION <collation name> <drop behavior>
+// <drop collation statement> ::=
+//   DROP COLLATION <collation name> <drop behavior>
 
-// 11.45 <transliteration definition>
+// // 11.45 <transliteration definition>
 
-// Define a character transliteration.
+// // Define a character transliteration.
 
-<transliteration definition> ::=
-  CREATE TRANSLATION <transliteration name> FOR <source character set specification>
-      TO <target character set specification> FROM <transliteration source>
+// <transliteration definition> ::=
+//   CREATE TRANSLATION <transliteration name> FOR <source character set specification>
+//       TO <target character set specification> FROM <transliteration source>
 
-<source character set specification> ::=
-  <character set specification>
+// <source character set specification> ::=
+//   <character set specification>
 
-<target character set specification> ::=
-  <character set specification>
+// <target character set specification> ::=
+//   <character set specification>
 
-<transliteration source> ::=
-    <existing transliteration name>
-  | <transliteration routine>
+// <transliteration source> ::=
+//     <existing transliteration name>
+//   | <transliteration routine>
 
-<existing transliteration name> ::=
-  <transliteration name>
+// <existing transliteration name> ::=
+//   <transliteration name>
 
-<transliteration routine> ::=
-  <specific routine designator>
+// <transliteration routine> ::=
+//   <specific routine designator>
 
-// 11.46 <drop transliteration statement>
+// // 11.46 <drop transliteration statement>
 
-// Destroy a character transliteration.
+// // Destroy a character transliteration.
 
-<drop transliteration statement> ::=
-  DROP TRANSLATION <transliteration name>
+// <drop transliteration statement> ::=
+//   DROP TRANSLATION <transliteration name>
 
-// 11.47 <assertion definition>
+// // 11.47 <assertion definition>
 
-// Specify an integrity constraint.
+// // Specify an integrity constraint.
 
-<assertion definition> ::=
-     CREATE ASSERTION <constraint name>
-         CHECK <left paren> <search condition> <right paren>
-         [ <constraint characteristics> ]
+// <assertion definition> ::=
+//      CREATE ASSERTION <constraint name>
+//          CHECK <left paren> <search condition> <right paren>
+//          [ <constraint characteristics> ]
 
-// 11.48 <drop assertion statement>
+// // 11.48 <drop assertion statement>
 
-// Destroy an assertion.
+// // Destroy an assertion.
 
-<drop assertion statement> ::=
-  DROP ASSERTION <constraint name> [ <drop behavior> ]
+// <drop assertion statement> ::=
+//   DROP ASSERTION <constraint name> [ <drop behavior> ]
 
-// 11.49 <trigger definition>
+// // 11.49 <trigger definition>
 
-// Define triggered SQL-statements.
+// // Define triggered SQL-statements.
 
-<trigger definition> ::=
-  CREATE TRIGGER <trigger name> <trigger action time> <trigger event>
-      ON <table name> [ REFERENCING <transition table or variable list> ]
-      <triggered action>
+// <trigger definition> ::=
+//   CREATE TRIGGER <trigger name> <trigger action time> <trigger event>
+//       ON <table name> [ REFERENCING <transition table or variable list> ]
+//       <triggered action>
 
-<trigger action time> ::=
-    BEFORE
-  | AFTER
-  | INSTEAD OF
+// <trigger action time> ::=
+//     BEFORE
+//   | AFTER
+//   | INSTEAD OF
 
-<trigger event> ::=
-    INSERT
-  | DELETE
-  | UPDATE [ OF <trigger column list> ]
+// <trigger event> ::=
+//     INSERT
+//   | DELETE
+//   | UPDATE [ OF <trigger column list> ]
 
-<trigger column list> ::=
-  <column name list>
+// <trigger column list> ::=
+//   <column name list>
 
-<triggered action> ::=
-  [ FOR EACH { ROW | STATEMENT } ]
-      [ <triggered when clause> ]
-      <triggered SQL statement>
+// <triggered action> ::=
+//   [ FOR EACH { ROW | STATEMENT } ]
+//       [ <triggered when clause> ]
+//       <triggered SQL statement>
 
-<triggered when clause> ::=
-  WHEN <left paren> <search condition> <right paren>
+// <triggered when clause> ::=
+//   WHEN <left paren> <search condition> <right paren>
 
-<triggered SQL statement> ::=
-    <SQL procedure statement>
-  | BEGIN ATOMIC { <SQL procedure statement> <semicolon> }... END
+// <triggered SQL statement> ::=
+//     <SQL procedure statement>
+//   | BEGIN ATOMIC { <SQL procedure statement> <semicolon> }... END
 
-<transition table or variable list> ::=
-  <transition table or variable>...
+// <transition table or variable list> ::=
+//   <transition table or variable>...
 
-<transition table or variable> ::=
-    OLD [ ROW ] [ AS ] <old transition variable name>
-  | NEW [ ROW ] [ AS ] <new transition variable name>
-  | OLD TABLE [ AS ] <old transition table name>
-  | NEW TABLE [ AS ] <new transition table name>
+// <transition table or variable> ::=
+//     OLD [ ROW ] [ AS ] <old transition variable name>
+//   | NEW [ ROW ] [ AS ] <new transition variable name>
+//   | OLD TABLE [ AS ] <old transition table name>
+//   | NEW TABLE [ AS ] <new transition table name>
 
-<old transition table name> ::=
-  <transition table name>
+// <old transition table name> ::=
+//   <transition table name>
 
-<new transition table name> ::=
-  <transition table name>
+// <new transition table name> ::=
+//   <transition table name>
 
-<transition table name> ::=
-  <identifier>
+// <transition table name> ::=
+//   <identifier>
 
-<old transition variable name> ::=
-  <correlation name>
+// <old transition variable name> ::=
+//   <correlation name>
 
-<new transition variable name> ::=
-  <correlation name>
+// <new transition variable name> ::=
+//   <correlation name>
 
-// 11.50 <drop trigger statement>
+// // 11.50 <drop trigger statement>
 
-// Destroy a trigger.
+// // Destroy a trigger.
 
-<drop trigger statement> ::=
-  DROP TRIGGER <trigger name>
+// <drop trigger statement> ::=
+//   DROP TRIGGER <trigger name>
 
-// 11.51 <user-defined type definition>
+// // 11.51 <user-defined type definition>
 
-// Define a user-defined type.
+// // Define a user-defined type.
 
-<user-defined type definition> ::=
-  CREATE TYPE <user-defined type body>
+// <user-defined type definition> ::=
+//   CREATE TYPE <user-defined type body>
 
-<user-defined type body> ::=
-  <schema-resolved user-defined type name>
-      [ <subtype clause> ]
-      [ AS <representation> ]
-      [ <user-defined type option list> ]
-      [ <method specification list> ]
+// <user-defined type body> ::=
+//   <schema-resolved user-defined type name>
+//       [ <subtype clause> ]
+//       [ AS <representation> ]
+//       [ <user-defined type option list> ]
+//       [ <method specification list> ]
 
-<user-defined type option list> ::=
-  <user-defined type option> [ <user-defined type option>... ]
+// <user-defined type option list> ::=
+//   <user-defined type option> [ <user-defined type option>... ]
 
-<user-defined type option> ::=
-    <instantiable clause>
-  | <finality>
-  | <reference type specification>
-  | <cast to ref>
-  | <cast to type>
-  | <cast to distinct>
-  | <cast to source>
+// <user-defined type option> ::=
+//     <instantiable clause>
+//   | <finality>
+//   | <reference type specification>
+//   | <cast to ref>
+//   | <cast to type>
+//   | <cast to distinct>
+//   | <cast to source>
 
-<subtype clause> ::=
-  UNDER <supertype name>
+// <subtype clause> ::=
+//   UNDER <supertype name>
 
-<supertype name> ::=
-  <path-resolved user-defined type name>
+// <supertype name> ::=
+//   <path-resolved user-defined type name>
 
-<representation> ::=
-    <predefined type>
-  | <collection type>
-  | <member list>
+// <representation> ::=
+//     <predefined type>
+//   | <collection type>
+//   | <member list>
 
-<member list> ::=
-  <left paren> <member> [ { <comma> <member> }... ] <right paren>
+// <member list> ::=
+//   <left paren> <member> [ { <comma> <member> }... ] <right paren>
 
-<member> ::=
-  <attribute definition>
+// <member> ::=
+//   <attribute definition>
 
-<instantiable clause> ::=
-    INSTANTIABLE
-  | NOT INSTANTIABLE
+// <instantiable clause> ::=
+//     INSTANTIABLE
+//   | NOT INSTANTIABLE
 
-<finality> ::=
-    FINAL
-  | NOT FINAL
+// <finality> ::=
+//     FINAL
+//   | NOT FINAL
 
-<reference type specification> ::=
-    <user-defined representation>
-  | <derived representation>
-  | <system-generated representation>
+// <reference type specification> ::=
+//     <user-defined representation>
+//   | <derived representation>
+//   | <system-generated representation>
 
-<user-defined representation> ::=
-  REF USING <predefined type>
+// <user-defined representation> ::=
+//   REF USING <predefined type>
 
-<derived representation> ::=
-  REF FROM <list of attributes>
+// <derived representation> ::=
+//   REF FROM <list of attributes>
 
-<system-generated representation> ::=
-  REF IS SYSTEM GENERATED
+// <system-generated representation> ::=
+//   REF IS SYSTEM GENERATED
 
-<cast to ref> ::=
-  CAST <left paren> SOURCE AS REF <right paren> WITH <cast to ref identifier>
+// <cast to ref> ::=
+//   CAST <left paren> SOURCE AS REF <right paren> WITH <cast to ref identifier>
 
-<cast to ref identifier> ::=
-  <identifier>
+// <cast to ref identifier> ::=
+//   <identifier>
 
-<cast to type> ::=
-  CAST <left paren> REF AS SOURCE <right paren> WITH <cast to type identifier>
+// <cast to type> ::=
+//   CAST <left paren> REF AS SOURCE <right paren> WITH <cast to type identifier>
 
-<cast to type identifier> ::=
-  <identifier>
+// <cast to type identifier> ::=
+//   <identifier>
 
-<list of attributes> ::=
-  <left paren> <attribute name> [ { <comma> <attribute name> }... ] <right paren>
+// <list of attributes> ::=
+//   <left paren> <attribute name> [ { <comma> <attribute name> }... ] <right paren>
 
-<cast to distinct> ::=
-  CAST <left paren> SOURCE AS DISTINCT <right paren>
-      WITH <cast to distinct identifier>
+// <cast to distinct> ::=
+//   CAST <left paren> SOURCE AS DISTINCT <right paren>
+//       WITH <cast to distinct identifier>
 
-<cast to distinct identifier> ::=
-  <identifier>
+// <cast to distinct identifier> ::=
+//   <identifier>
 
-<cast to source> ::=
-  CAST <left paren> DISTINCT AS SOURCE <right paren>
-      WITH <cast to source identifier>
+// <cast to source> ::=
+//   CAST <left paren> DISTINCT AS SOURCE <right paren>
+//       WITH <cast to source identifier>
 
-<cast to source identifier> ::=
-  <identifier>
+// <cast to source identifier> ::=
+//   <identifier>
 
-<method specification list> ::=
-  <method specification> [ { <comma> <method specification> }... ]
+// <method specification list> ::=
+//   <method specification> [ { <comma> <method specification> }... ]
 
-<method specification> ::=
-    <original method specification>
-  | <overriding method specification>
+// <method specification> ::=
+//     <original method specification>
+//   | <overriding method specification>
 
-<original method specification> ::=
-  <partial method specification> [ SELF AS RESULT ] [ SELF AS LOCATOR ]
-      [ <method characteristics> ]
+// <original method specification> ::=
+//   <partial method specification> [ SELF AS RESULT ] [ SELF AS LOCATOR ]
+//       [ <method characteristics> ]
 
-<overriding method specification> ::=
-  OVERRIDING <partial method specification>
+// <overriding method specification> ::=
+//   OVERRIDING <partial method specification>
 
-<partial method specification> ::=
-  [ INSTANCE | STATIC | CONSTRUCTOR ]
-      METHOD <method name> <SQL parameter declaration list>
-      <returns clause>
-      [ SPECIFIC <specific method name> ]
+// <partial method specification> ::=
+//   [ INSTANCE | STATIC | CONSTRUCTOR ]
+//       METHOD <method name> <SQL parameter declaration list>
+//       <returns clause>
+//       [ SPECIFIC <specific method name> ]
 
-<specific method name> ::=
-  [ <schema name> <period> ] <qualified identifier>
+// <specific method name> ::=
+//   [ <schema name> <period> ] <qualified identifier>
 
-<method characteristics> ::=
-  <method characteristic>...
+// <method characteristics> ::=
+//   <method characteristic>...
 
-<method characteristic> ::=
-       <language clause>
-     | <parameter style clause>
-     | <deterministic characteristic>
-     | <SQL-data access indication>
-     | <null-call clause>
+// <method characteristic> ::=
+//        <language clause>
+//      | <parameter style clause>
+//      | <deterministic characteristic>
+//      | <SQL-data access indication>
+//      | <null-call clause>
 
-// 11.52 <attribute definition>
+// // 11.52 <attribute definition>
 
-// Define an attribute of a structured type.
+// // Define an attribute of a structured type.
 
-<attribute definition> ::=
-     <attribute name> <data type>
-         [ <attribute default> ]
-         [ <collate clause> ]
+// <attribute definition> ::=
+//      <attribute name> <data type>
+//          [ <attribute default> ]
+//          [ <collate clause> ]
 
-<attribute default> ::=
-  <default clause>
+// <attribute default> ::=
+//   <default clause>
 
-// 11.53 <alter type statement>
+// // 11.53 <alter type statement>
 
-// Change the definition of a user-defined type.
+// // Change the definition of a user-defined type.
 
-<alter type statement> ::=
-  ALTER TYPE <schema-resolved user-defined type name> <alter type action>
+// <alter type statement> ::=
+//   ALTER TYPE <schema-resolved user-defined type name> <alter type action>
 
-<alter type action> ::=
-    <add attribute definition>
-  | <drop attribute definition>
-  | <add original method specification>
-  | <add overriding method specification>
-  | <drop method specification>
+// <alter type action> ::=
+//     <add attribute definition>
+//   | <drop attribute definition>
+//   | <add original method specification>
+//   | <add overriding method specification>
+//   | <drop method specification>
 
-// 11.54 <add attribute definition>
+// // 11.54 <add attribute definition>
 
-// Add an attribute to a user-defined type.
+// // Add an attribute to a user-defined type.
 
-<add attribute definition> ::=
-  ADD ATTRIBUTE <attribute definition>
+// <add attribute definition> ::=
+//   ADD ATTRIBUTE <attribute definition>
 
-// 11.55 <drop attribute definition>
+// // 11.55 <drop attribute definition>
 
-// Destroy an attribute of a user-defined type.
+// // Destroy an attribute of a user-defined type.
 
-<drop attribute definition> ::=
-  DROP ATTRIBUTE <attribute name> RESTRICT
+// <drop attribute definition> ::=
+//   DROP ATTRIBUTE <attribute name> RESTRICT
 
-// 11.56 <add original method specification>
+// // 11.56 <add original method specification>
 
-// Add an original method specification to a user-defined type.
+// // Add an original method specification to a user-defined type.
 
-<add original method specification> ::=
-  ADD <original method specification>
+// <add original method specification> ::=
+//   ADD <original method specification>
 
-// 11.57 <add overriding method specification>
+// // 11.57 <add overriding method specification>
 
-// Add an overriding method specification to a user-defined type.
+// // Add an overriding method specification to a user-defined type.
 
-<add overriding method specification> ::=
-  ADD <overriding method specification>
+// <add overriding method specification> ::=
+//   ADD <overriding method specification>
 
-// 11.58 <drop method specification>
+// // 11.58 <drop method specification>
 
-// Remove a method specification from a user-defined type.
+// // Remove a method specification from a user-defined type.
 
-<drop method specification> ::=
-  DROP <specific method specification designator> RESTRICT
+// <drop method specification> ::=
+//   DROP <specific method specification designator> RESTRICT
 
-<specific method specification designator> ::=
-  [ INSTANCE | STATIC | CONSTRUCTOR ]
-      METHOD <method name> <data type list>
+// <specific method specification designator> ::=
+//   [ INSTANCE | STATIC | CONSTRUCTOR ]
+//       METHOD <method name> <data type list>
 
-// 11.59 <drop data type statement>
+// // 11.59 <drop data type statement>
 
 
-// Destroy a user-defined type.
+// // Destroy a user-defined type.
 
-<drop data type statement> ::=
-  DROP TYPE <schema-resolved user-defined type name> <drop behavior>
+// <drop data type statement> ::=
+//   DROP TYPE <schema-resolved user-defined type name> <drop behavior>
 
-// 11.60 <SQL-invoked routine>
+// // 11.60 <SQL-invoked routine>
 
-// Define an SQL-invoked routine.
+// // Define an SQL-invoked routine.
 
-<SQL-invoked routine> ::=
-  <schema routine>
+// <SQL-invoked routine> ::=
+//   <schema routine>
 
-<schema routine> ::=
-    <schema procedure>
-  | <schema function>
+// <schema routine> ::=
+//     <schema procedure>
+//   | <schema function>
 
-<schema procedure> ::=
-  CREATE <SQL-invoked procedure>
+// <schema procedure> ::=
+//   CREATE <SQL-invoked procedure>
 
-<schema function> ::=
-  CREATE <SQL-invoked function>
+// <schema function> ::=
+//   CREATE <SQL-invoked function>
 
-<SQL-invoked procedure> ::=
-  PROCEDURE <schema qualified routine name> <SQL parameter declaration list>
-      <routine characteristics>
-      <routine body>
+// <SQL-invoked procedure> ::=
+//   PROCEDURE <schema qualified routine name> <SQL parameter declaration list>
+//       <routine characteristics>
+//       <routine body>
 
-<SQL-invoked function> ::=
-  { <function specification> | <method specification designator> } <routine body>
+// <SQL-invoked function> ::=
+//   { <function specification> | <method specification designator> } <routine body>
 
-<SQL parameter declaration list> ::=
-  <left paren> [ <SQL parameter declaration>
-      [ { <comma> <SQL parameter declaration> }... ] ] <right paren>
+// <SQL parameter declaration list> ::=
+//   <left paren> [ <SQL parameter declaration>
+//       [ { <comma> <SQL parameter declaration> }... ] ] <right paren>
 
-<SQL parameter declaration> ::=
-  [ <parameter mode> ]
-      [ <SQL parameter name> ]
-      <parameter type> [ RESULT ]
-      [ DEFAULT <parameter default> ]
+// <SQL parameter declaration> ::=
+//   [ <parameter mode> ]
+//       [ <SQL parameter name> ]
+//       <parameter type> [ RESULT ]
+//       [ DEFAULT <parameter default> ]
 
-<parameter default> ::=
-    <value expression>
-  | <contextually typed value specification>
+// <parameter default> ::=
+//     <value expression>
+//   | <contextually typed value specification>
 
-<parameter mode> ::=
-    IN
-  | OUT
-  | INOUT
+// <parameter mode> ::=
+//     IN
+//   | OUT
+//   | INOUT
 
-<parameter type> ::=
-  <data type> [ <locator indication> ]
+// <parameter type> ::=
+//   <data type> [ <locator indication> ]
 
-<locator indication> ::=
-  AS LOCATOR
+// <locator indication> ::=
+//   AS LOCATOR
 
-<function specification> ::=
-  FUNCTION <schema qualified routine name> <SQL parameter declaration list>
-      <returns clause>
-      <routine characteristics>
-      [ <dispatch clause> ]
+// <function specification> ::=
+//   FUNCTION <schema qualified routine name> <SQL parameter declaration list>
+//       <returns clause>
+//       <routine characteristics>
+//       [ <dispatch clause> ]
 
-<method specification designator> ::=
-    SPECIFIC METHOD <specific method name>
-  | [ INSTANCE | STATIC | CONSTRUCTOR ]
-      METHOD <method name> <SQL parameter declaration list>
-      [ <returns clause> ]
-      FOR <schema-resolved user-defined type name>
+// <method specification designator> ::=
+//     SPECIFIC METHOD <specific method name>
+//   | [ INSTANCE | STATIC | CONSTRUCTOR ]
+//       METHOD <method name> <SQL parameter declaration list>
+//       [ <returns clause> ]
+//       FOR <schema-resolved user-defined type name>
 
-<routine characteristics> ::=
-  [ <routine characteristic>... ]
+// <routine characteristics> ::=
+//   [ <routine characteristic>... ]
 
-<routine characteristic> ::=
-    <language clause>
-  | <parameter style clause>
-  | SPECIFIC <specific name>
-  | <deterministic characteristic>
-  | <SQL-data access indication>
-  | <null-call clause>
-  | <returned result sets characteristic>
-  | <savepoint level indication>
+// <routine characteristic> ::=
+//     <language clause>
+//   | <parameter style clause>
+//   | SPECIFIC <specific name>
+//   | <deterministic characteristic>
+//   | <SQL-data access indication>
+//   | <null-call clause>
+//   | <returned result sets characteristic>
+//   | <savepoint level indication>
 
-<savepoint level indication> ::=
-    NEW SAVEPOINT LEVEL
-  | OLD SAVEPOINT LEVEL
+// <savepoint level indication> ::=
+//     NEW SAVEPOINT LEVEL
+//   | OLD SAVEPOINT LEVEL
 
-<returned result sets characteristic> ::=
-  DYNAMIC RESULT SETS <maximum returned result sets>
+// <returned result sets characteristic> ::=
+//   DYNAMIC RESULT SETS <maximum returned result sets>
 
-<parameter style clause> ::=
-  PARAMETER STYLE <parameter style>
+// <parameter style clause> ::=
+//   PARAMETER STYLE <parameter style>
 
-<dispatch clause> ::=
-  STATIC DISPATCH
+// <dispatch clause> ::=
+//   STATIC DISPATCH
 
-<returns clause> ::=
-  RETURNS <returns type>
+// <returns clause> ::=
+//   RETURNS <returns type>
 
-<returns type> ::=
-    <returns data type> [ <result cast> ]
-  | <returns table type>
+// <returns type> ::=
+//     <returns data type> [ <result cast> ]
+//   | <returns table type>
 
-<returns table type> ::=
-  TABLE <table function column list>
+// <returns table type> ::=
+//   TABLE <table function column list>
 
-<table function column list> ::=
-  <left paren> <table function column list element>
-      [ { <comma> <table function column list element> }... ] <right paren>
+// <table function column list> ::=
+//   <left paren> <table function column list element>
+//       [ { <comma> <table function column list element> }... ] <right paren>
 
-<table function column list element> ::=
-  <column name> <data type>
+// <table function column list element> ::=
+//   <column name> <data type>
 
-<result cast> ::=
-  CAST FROM <result cast from type>
+// <result cast> ::=
+//   CAST FROM <result cast from type>
 
-<result cast from type> ::=
-  <data type> [ <locator indication> ]
+// <result cast from type> ::=
+//   <data type> [ <locator indication> ]
 
-<returns data type> ::=
-  <data type> [ <locator indication> ]
+// <returns data type> ::=
+//   <data type> [ <locator indication> ]
 
-<routine body> ::=
-    <SQL routine spec>
-  | <external body reference>
+// <routine body> ::=
+//     <SQL routine spec>
+//   | <external body reference>
 
-<SQL routine spec> ::=
-  [ <rights clause> ] <SQL routine body>
+// <SQL routine spec> ::=
+//   [ <rights clause> ] <SQL routine body>
 
-<rights clause> ::=
-    SQL SECURITY INVOKER
-  | SQL SECURITY DEFINER
+// <rights clause> ::=
+//     SQL SECURITY INVOKER
+//   | SQL SECURITY DEFINER
 
-<SQL routine body> ::=
-  <SQL procedure statement>
+// <SQL routine body> ::=
+//   <SQL procedure statement>
 
-<external body reference> ::=
-  EXTERNAL [ NAME <external routine name> ]
-      [ <parameter style clause> ]
-      [ <transform group specification> ]
-      [ <external security clause> ]
+// <external body reference> ::=
+//   EXTERNAL [ NAME <external routine name> ]
+//       [ <parameter style clause> ]
+//       [ <transform group specification> ]
+//       [ <external security clause> ]
 
-<external security clause> ::=
-    EXTERNAL SECURITY DEFINER
-  | EXTERNAL SECURITY INVOKER
-  | EXTERNAL SECURITY IMPLEMENTATION DEFINED
+// <external security clause> ::=
+//     EXTERNAL SECURITY DEFINER
+//   | EXTERNAL SECURITY INVOKER
+//   | EXTERNAL SECURITY IMPLEMENTATION DEFINED
 
-<parameter style> ::=
-    SQL
-  | GENERAL
+// <parameter style> ::=
+//     SQL
+//   | GENERAL
 
-<deterministic characteristic> ::=
-    DETERMINISTIC
-  | NOT DETERMINISTIC
+// <deterministic characteristic> ::=
+//     DETERMINISTIC
+//   | NOT DETERMINISTIC
 
-<SQL-data access indication> ::=
-    NO SQL
-  | CONTAINS SQL
-  | READS SQL DATA
-  | MODIFIES SQL DATA
+// <SQL-data access indication> ::=
+//     NO SQL
+//   | CONTAINS SQL
+//   | READS SQL DATA
+//   | MODIFIES SQL DATA
 
-<null-call clause> ::=
-    RETURNS NULL ON NULL INPUT
-  | CALLED ON NULL INPUT
+// <null-call clause> ::=
+//     RETURNS NULL ON NULL INPUT
+//   | CALLED ON NULL INPUT
 
-<maximum returned result sets> ::=
-  <unsigned integer>
+// <maximum returned result sets> ::=
+//   <unsigned integer>
 
-<transform group specification> ::=
-  TRANSFORM GROUP { <single group specification> | <multiple group specification> }
+// <transform group specification> ::=
+//   TRANSFORM GROUP { <single group specification> | <multiple group specification> }
 
-<single group specification> ::=
-  <group name>
+// <single group specification> ::=
+//   <group name>
 
-<multiple group specification> ::=
-  <group specification> [ { <comma> <group specification> }... ]
+// <multiple group specification> ::=
+//   <group specification> [ { <comma> <group specification> }... ]
 
-<group specification> ::=
-  <group name> FOR TYPE <path-resolved user-defined type name>
+// <group specification> ::=
+//   <group name> FOR TYPE <path-resolved user-defined type name>
 
-// 11.61 <alter routine statement>
+// // 11.61 <alter routine statement>
 
-// Alter a characteristic of an SQL-invoked routine.
+// // Alter a characteristic of an SQL-invoked routine.
 
-<alter routine statement> ::=
-  ALTER <specific routine designator>
-      <alter routine characteristics> <alter routine behavior>
+// <alter routine statement> ::=
+//   ALTER <specific routine designator>
+//       <alter routine characteristics> <alter routine behavior>
 
-<alter routine characteristics> ::=
-  <alter routine characteristic>...
+// <alter routine characteristics> ::=
+//   <alter routine characteristic>...
 
-<alter routine characteristic> ::=
-    <language clause>
-  | <parameter style clause>
-  | <SQL-data access indication>
-  | <null-call clause>
-  | <returned result sets characteristic>
-  | NAME <external routine name>
+// <alter routine characteristic> ::=
+//     <language clause>
+//   | <parameter style clause>
+//   | <SQL-data access indication>
+//   | <null-call clause>
+//   | <returned result sets characteristic>
+//   | NAME <external routine name>
 
-<alter routine behavior> ::=
-  RESTRICT
+// <alter routine behavior> ::=
+//   RESTRICT
 
-// 11.62 <drop routine statement>
+// // 11.62 <drop routine statement>
 
-// Destroy an SQL-invoked routine.
+// // Destroy an SQL-invoked routine.
 
-<drop routine statement> ::=
-  DROP <specific routine designator> <drop behavior>
+// <drop routine statement> ::=
+//   DROP <specific routine designator> <drop behavior>
 
-// 11.63 <user-defined cast definition>
+// // 11.63 <user-defined cast definition>
 
-// Define a user-defined cast.
+// // Define a user-defined cast.
 
-<user-defined cast definition> ::=
-  CREATE CAST <left paren> <source data type> AS <target data type> <right paren>
-      WITH <cast function>
-      [ AS ASSIGNMENT ]
+// <user-defined cast definition> ::=
+//   CREATE CAST <left paren> <source data type> AS <target data type> <right paren>
+//       WITH <cast function>
+//       [ AS ASSIGNMENT ]
 
-<cast function> ::=
-  <specific routine designator>
+// <cast function> ::=
+//   <specific routine designator>
 
-<source data type> ::=
-  <data type>
+// <source data type> ::=
+//   <data type>
 
-<target data type> ::=
-  <data type>
+// <target data type> ::=
+//   <data type>
 
-// 11.64 <drop user-defined cast statement>
+// // 11.64 <drop user-defined cast statement>
 
-// Destroy a user-defined cast.
+// // Destroy a user-defined cast.
 
-<drop user-defined cast statement> ::=
-  DROP CAST <left paren> <source data type> AS <target data type> <right paren>
-      <drop behavior>
+// <drop user-defined cast statement> ::=
+//   DROP CAST <left paren> <source data type> AS <target data type> <right paren>
+//       <drop behavior>
 
-// 11.65 <user-defined ordering definition>
+// // 11.65 <user-defined ordering definition>
 
-// Define a user-defined ordering for a user-defined type.
+// // Define a user-defined ordering for a user-defined type.
 
-<user-defined ordering definition> ::=
-  CREATE ORDERING FOR <schema-resolved user-defined type name> <ordering form>
+// <user-defined ordering definition> ::=
+//   CREATE ORDERING FOR <schema-resolved user-defined type name> <ordering form>
 
-<ordering form> ::=
-    <equals ordering form>
-  | <full ordering form>
+// <ordering form> ::=
+//     <equals ordering form>
+//   | <full ordering form>
 
-<equals ordering form> ::=
-  EQUALS ONLY BY <ordering category>
+// <equals ordering form> ::=
+//   EQUALS ONLY BY <ordering category>
 
-<full ordering form> ::=
-  ORDER FULL BY <ordering category>
+// <full ordering form> ::=
+//   ORDER FULL BY <ordering category>
 
-<ordering category> ::=
-    <relative category>
-  | <map category>
-  | <state category>
+// <ordering category> ::=
+//     <relative category>
+//   | <map category>
+//   | <state category>
 
-<relative category> ::=
-  RELATIVE WITH <relative function specification>
+// <relative category> ::=
+//   RELATIVE WITH <relative function specification>
 
-<map category> ::=
-  MAP WITH <map function specification>
+// <map category> ::=
+//   MAP WITH <map function specification>
 
-<state category> ::=
-  STATE [ <specific name> ]
+// <state category> ::=
+//   STATE [ <specific name> ]
 
-<relative function specification> ::=
-  <specific routine designator>
+// <relative function specification> ::=
+//   <specific routine designator>
 
-<map function specification> ::=
-  <specific routine designator>
+// <map function specification> ::=
+//   <specific routine designator>
 
-// 11.66 <drop user-defined ordering statement>
+// // 11.66 <drop user-defined ordering statement>
 
-// Destroy a user-defined ordering method.
+// // Destroy a user-defined ordering method.
 
-<drop user-defined ordering statement> ::=
-  DROP ORDERING FOR <schema-resolved user-defined type name> <drop behavior>
+// <drop user-defined ordering statement> ::=
+//   DROP ORDERING FOR <schema-resolved user-defined type name> <drop behavior>
 
-// 11.67 <transform definition>
+// // 11.67 <transform definition>
 
-// Define one or more transform functions for a user-defined type.
+// // Define one or more transform functions for a user-defined type.
 
-<transform definition> ::=
-  CREATE { TRANSFORM | TRANSFORMS } FOR
-      <schema-resolved user-defined type name> <transform group>...
+// <transform definition> ::=
+//   CREATE { TRANSFORM | TRANSFORMS } FOR
+//       <schema-resolved user-defined type name> <transform group>...
 
-<transform group> ::=
-  <group name> <left paren> <transform element list> <right paren>
+// <transform group> ::=
+//   <group name> <left paren> <transform element list> <right paren>
 
-<group name> ::=
-  <identifier>
+// <group name> ::=
+//   <identifier>
 
-<transform element list> ::=
-  <transform element> [ <comma> <transform element> ]
+// <transform element list> ::=
+//   <transform element> [ <comma> <transform element> ]
 
-<transform element> ::=
-    <to sql>
-  | <from sql>
+// <transform element> ::=
+//     <to sql>
+//   | <from sql>
 
-<to sql> ::=
-  TO SQL WITH <to sql function>
+// <to sql> ::=
+//   TO SQL WITH <to sql function>
 
-<from sql> ::=
-  FROM SQL WITH <from sql function>
+// <from sql> ::=
+//   FROM SQL WITH <from sql function>
 
-<to sql function> ::=
-  <specific routine designator>
+// <to sql function> ::=
+//   <specific routine designator>
 
-<from sql function> ::=
-  <specific routine designator>
+// <from sql function> ::=
+//   <specific routine designator>
 
-// 11.68 <alter transform statement>
+// // 11.68 <alter transform statement>
 
-// Change the definition of one or more transform groups.
+// // Change the definition of one or more transform groups.
 
-<alter transform statement> ::=
-  ALTER { TRANSFORM | TRANSFORMS }
-      FOR <schema-resolved user-defined type name> <alter group>...
+// <alter transform statement> ::=
+//   ALTER { TRANSFORM | TRANSFORMS }
+//       FOR <schema-resolved user-defined type name> <alter group>...
 
-<alter group> ::=
-  <group name> <left paren> <alter transform action list> <right paren>
+// <alter group> ::=
+//   <group name> <left paren> <alter transform action list> <right paren>
 
-<alter transform action list> ::=
-  <alter transform action> [ { <comma> <alter transform action> }... ]
+// <alter transform action list> ::=
+//   <alter transform action> [ { <comma> <alter transform action> }... ]
 
-<alter transform action> ::=
-    <add transform element list>
-  | <drop transform element list>
+// <alter transform action> ::=
+//     <add transform element list>
+//   | <drop transform element list>
 
-// 11.69 <add transform element list>
+// // 11.69 <add transform element list>
 
-// Add a transform element (<to sql> and/or <from sql>) to an existing transform group.
+// // Add a transform element (<to sql> and/or <from sql>) to an existing transform group.
 
-<add transform element list> ::=
-  ADD <left paren> <transform element list> <right paren>
+// <add transform element list> ::=
+//   ADD <left paren> <transform element list> <right paren>
 
-// 11.70 <drop transform element list>
+// // 11.70 <drop transform element list>
 
-// Remove a transform element (<to sql> and/or <from sql>) from a transform group.
+// // Remove a transform element (<to sql> and/or <from sql>) from a transform group.
 
-<drop transform element list> ::=
-  DROP <left paren> <transform kind>
-      [ <comma> <transform kind> ] <drop behavior> <right paren>
+// <drop transform element list> ::=
+//   DROP <left paren> <transform kind>
+//       [ <comma> <transform kind> ] <drop behavior> <right paren>
 
-<transform kind> ::=
-    TO SQL
-  | FROM SQL
+// <transform kind> ::=
+//     TO SQL
+//   | FROM SQL
 
-// 11.71 <drop transform statement>
+// // 11.71 <drop transform statement>
 
-// Remove one or more transform functions associated with a transform.
+// // Remove one or more transform functions associated with a transform.
 
-<drop transform statement> ::=
-  DROP { TRANSFORM | TRANSFORMS } <transforms to be dropped>
-      FOR <schema-resolved user-defined type name> <drop behavior>
+// <drop transform statement> ::=
+//   DROP { TRANSFORM | TRANSFORMS } <transforms to be dropped>
+//       FOR <schema-resolved user-defined type name> <drop behavior>
 
-<transforms to be dropped> ::=
-    ALL
-  | <transform group element>
+// <transforms to be dropped> ::=
+//     ALL
+//   | <transform group element>
 
-<transform group element> ::=
-  <group name>
+// <transform group element> ::=
+//   <group name>
 
-// 11.72 <sequence generator definition>
+// // 11.72 <sequence generator definition>
 
-// Define an external sequence generator.
+// // Define an external sequence generator.
 
-<sequence generator definition> ::=
-  CREATE SEQUENCE <sequence generator name> [ <sequence generator options> ]
+// <sequence generator definition> ::=
+//   CREATE SEQUENCE <sequence generator name> [ <sequence generator options> ]
 
-<sequence generator options> ::=
-  <sequence generator option>...
+// <sequence generator options> ::=
+//   <sequence generator option>...
 
-<sequence generator option> ::=
-    <sequence generator data type option>
-  | <common sequence generator options>
+// <sequence generator option> ::=
+//     <sequence generator data type option>
+//   | <common sequence generator options>
 
-<common sequence generator options> ::=
-  <common sequence generator option>...
+// <common sequence generator options> ::=
+//   <common sequence generator option>...
 
-<common sequence generator option> ::=
-    <sequence generator start with option>
-  | <basic sequence generator option>
+// <common sequence generator option> ::=
+//     <sequence generator start with option>
+//   | <basic sequence generator option>
 
-<basic sequence generator option> ::=
-    <sequence generator increment by option>
-  | <sequence generator maxvalue option>
-  | <sequence generator minvalue option>
-  | <sequence generator cycle option>
+// <basic sequence generator option> ::=
+//     <sequence generator increment by option>
+//   | <sequence generator maxvalue option>
+//   | <sequence generator minvalue option>
+//   | <sequence generator cycle option>
 
-<sequence generator data type option> ::=
-  AS <data type>
+// <sequence generator data type option> ::=
+//   AS <data type>
 
-<sequence generator start with option> ::=
-  START WITH <sequence generator start value>
+// <sequence generator start with option> ::=
+//   START WITH <sequence generator start value>
 
-<sequence generator start value> ::=
-  <signed numeric literal>
+// <sequence generator start value> ::=
+//   <signed numeric literal>
 
-<sequence generator increment by option> ::=
-  INCREMENT BY <sequence generator increment>
+// <sequence generator increment by option> ::=
+//   INCREMENT BY <sequence generator increment>
 
-<sequence generator increment> ::=
-  <signed numeric literal>
+// <sequence generator increment> ::=
+//   <signed numeric literal>
 
-<sequence generator maxvalue option> ::=
-    MAXVALUE <sequence generator max value>
-  | NO MAXVALUE
+// <sequence generator maxvalue option> ::=
+//     MAXVALUE <sequence generator max value>
+//   | NO MAXVALUE
 
-<sequence generator max value> ::=
-  <signed numeric literal>
+// <sequence generator max value> ::=
+//   <signed numeric literal>
 
-<sequence generator minvalue option> ::=
-    MINVALUE <sequence generator min value>
-  | NO MINVALUE
+// <sequence generator minvalue option> ::=
+//     MINVALUE <sequence generator min value>
+//   | NO MINVALUE
 
-<sequence generator min value> ::=
-  <signed numeric literal>
+// <sequence generator min value> ::=
+//   <signed numeric literal>
 
-<sequence generator cycle option> ::=
-    CYCLE
-  | NO CYCLE
+// <sequence generator cycle option> ::=
+//     CYCLE
+//   | NO CYCLE
 
-// 11.73 <alter sequence generator statement>
+// // 11.73 <alter sequence generator statement>
 
-// Change the definition of an external sequence generator.
+// // Change the definition of an external sequence generator.
 
-<alter sequence generator statement> ::=
-  ALTER SEQUENCE <sequence generator name> <alter sequence generator options>
+// <alter sequence generator statement> ::=
+//   ALTER SEQUENCE <sequence generator name> <alter sequence generator options>
 
-<alter sequence generator options> ::=
-  <alter sequence generator option>...
+// <alter sequence generator options> ::=
+//   <alter sequence generator option>...
 
-<alter sequence generator option> ::=
-    <alter sequence generator restart option>
-  | <basic sequence generator option>
+// <alter sequence generator option> ::=
+//     <alter sequence generator restart option>
+//   | <basic sequence generator option>
 
-<alter sequence generator restart option> ::=
-  RESTART [ WITH <sequence generator restart value> ]
+// <alter sequence generator restart option> ::=
+//   RESTART [ WITH <sequence generator restart value> ]
 
-<sequence generator restart value> ::=
-  <signed numeric literal>
+// <sequence generator restart value> ::=
+//   <signed numeric literal>
 
-// 11.74 <drop sequence generator statement>
+// // 11.74 <drop sequence generator statement>
 
-// Destroy an external sequence generator.
+// // Destroy an external sequence generator.
 
-<drop sequence generator statement> ::=
-  DROP SEQUENCE <sequence generator name> <drop behavior>
+// <drop sequence generator statement> ::=
+//   DROP SEQUENCE <sequence generator name> <drop behavior>
 
-// 12 Access control
+// // 12 Access control
 
 
-// 12.1 <grant statement>
+// // 12.1 <grant statement>
 
-// Define privileges and role authorizations.
+// // Define privileges and role authorizations.
 
-<grant statement> ::=
-    <grant privilege statement>
-  | <grant role statement>
+// <grant statement> ::=
+//     <grant privilege statement>
+//   | <grant role statement>
 
-// 12.2 <grant privilege statement>
+// // 12.2 <grant privilege statement>
 
-// Define privileges.
+// // Define privileges.
 
-<grant privilege statement> ::=
-  GRANT <privileges> TO <grantee> [ { <comma> <grantee> }... ]
-      [ WITH HIERARCHY OPTION ]
-      [ WITH GRANT OPTION ]
-      [ GRANTED BY <grantor> ]
+// <grant privilege statement> ::=
+//   GRANT <privileges> TO <grantee> [ { <comma> <grantee> }... ]
+//       [ WITH HIERARCHY OPTION ]
+//       [ WITH GRANT OPTION ]
+//       [ GRANTED BY <grantor> ]
 
-// 12.3 <privileges>
+// // 12.3 <privileges>
 
-// Specify privileges.
+// // Specify privileges.
 
-<privileges> ::=
-  <object privileges> ON <object name>
+// <privileges> ::=
+//   <object privileges> ON <object name>
 
-<object name> ::=
-      [ TABLE ] <table name>
-  |   DOMAIN <domain name>
-  |   COLLATION <collation name>
-  |   CHARACTER SET <character set name>
-  |   TRANSLATION <transliteration name>
-  |   TYPE <schema-resolved user-defined type name>
-  |   SEQUENCE <sequence generator name>
-  |   <specific routine designator>
+// <object name> ::=
+//       [ TABLE ] <table name>
+//   |   DOMAIN <domain name>
+//   |   COLLATION <collation name>
+//   |   CHARACTER SET <character set name>
+//   |   TRANSLATION <transliteration name>
+//   |   TYPE <schema-resolved user-defined type name>
+//   |   SEQUENCE <sequence generator name>
+//   |   <specific routine designator>
 
-<object privileges> ::=
-    ALL PRIVILEGES
-  | <action> [ { <comma> <action> }... ]
+// <object privileges> ::=
+//     ALL PRIVILEGES
+//   | <action> [ { <comma> <action> }... ]
 
-<action> ::=
-    SELECT
-  | SELECT <left paren> <privilege column list> <right paren>
-  | SELECT <left paren> <privilege method list> <right paren>
-  | DELETE
-  | INSERT [ <left paren> <privilege column list> <right paren> ]
-  | UPDATE [ <left paren> <privilege column list> <right paren> ]
-  | REFERENCES [ <left paren> <privilege column list> <right paren> ]
-  | USAGE
-  | TRIGGER
-  | UNDER
-  | EXECUTE
+// <action> ::=
+//     SELECT
+//   | SELECT <left paren> <privilege column list> <right paren>
+//   | SELECT <left paren> <privilege method list> <right paren>
+//   | DELETE
+//   | INSERT [ <left paren> <privilege column list> <right paren> ]
+//   | UPDATE [ <left paren> <privilege column list> <right paren> ]
+//   | REFERENCES [ <left paren> <privilege column list> <right paren> ]
+//   | USAGE
+//   | TRIGGER
+//   | UNDER
+//   | EXECUTE
 
-<privilege method list> ::=
-  <specific routine designator> [ { <comma> <specific routine designator> }... ]
+// <privilege method list> ::=
+//   <specific routine designator> [ { <comma> <specific routine designator> }... ]
 
-<privilege column list> ::=
-  <column name list>
+// <privilege column list> ::=
+//   <column name list>
 
-<grantee> ::=
-    PUBLIC
-  | <authorization identifier>
+// <grantee> ::=
+//     PUBLIC
+//   | <authorization identifier>
 
-<grantor> ::=
-    CURRENT_USER
-  | CURRENT_ROLE
+// <grantor> ::=
+//     CURRENT_USER
+//   | CURRENT_ROLE
 
-// 12.4 <role definition>
+// // 12.4 <role definition>
 
-// Define a role.
+// // Define a role.
 
-<role definition> ::=
-  CREATE ROLE <role name> [ WITH ADMIN <grantor> ]
+// <role definition> ::=
+//   CREATE ROLE <role name> [ WITH ADMIN <grantor> ]
 
-// 12.5 <grant role statement>
+// // 12.5 <grant role statement>
 
-// Define role authorizations.
+// // Define role authorizations.
 
-<grant role statement> ::=
-  GRANT <role granted> [ { <comma> <role granted> }... ]
-      TO <grantee> [ { <comma> <grantee> }... ]
-      [ WITH ADMIN OPTION ]
-      [ GRANTED BY <grantor> ]
+// <grant role statement> ::=
+//   GRANT <role granted> [ { <comma> <role granted> }... ]
+//       TO <grantee> [ { <comma> <grantee> }... ]
+//       [ WITH ADMIN OPTION ]
+//       [ GRANTED BY <grantor> ]
 
-<role granted> ::=
-  <role name>
+// <role granted> ::=
+//   <role name>
 
-// 12.6 <drop role statement>
+// // 12.6 <drop role statement>
 
-// Destroy a role.
+// // Destroy a role.
 
-<drop role statement> ::=
-  DROP ROLE <role name>
+// <drop role statement> ::=
+//   DROP ROLE <role name>
 
-// 12.7 <revoke statement>
+// // 12.7 <revoke statement>
 
-// Destroy privileges and role authorizations.
+// // Destroy privileges and role authorizations.
 
-<revoke statement> ::=
-    <revoke privilege statement>
-  | <revoke role statement>
+// <revoke statement> ::=
+//     <revoke privilege statement>
+//   | <revoke role statement>
 
-<revoke privilege statement> ::=
-  REVOKE [ <revoke option extension> ] <privileges>
-      FROM <grantee> [ { <comma> <grantee> }... ]
-      [ GRANTED BY <grantor> ]
-      <drop behavior>
+// <revoke privilege statement> ::=
+//   REVOKE [ <revoke option extension> ] <privileges>
+//       FROM <grantee> [ { <comma> <grantee> }... ]
+//       [ GRANTED BY <grantor> ]
+//       <drop behavior>
 
-<revoke option extension> ::=
-    GRANT OPTION FOR
-  | HIERARCHY OPTION FOR
+// <revoke option extension> ::=
+//     GRANT OPTION FOR
+//   | HIERARCHY OPTION FOR
 
-<revoke role statement> ::=
-  REVOKE [ ADMIN OPTION FOR ] <role revoked> [ { <comma> <role revoked> }... ]
-      FROM <grantee> [ { <comma> <grantee> }... ]
-      [ GRANTED BY <grantor> ]
-      <drop behavior>
+// <revoke role statement> ::=
+//   REVOKE [ ADMIN OPTION FOR ] <role revoked> [ { <comma> <role revoked> }... ]
+//       FROM <grantee> [ { <comma> <grantee> }... ]
+//       [ GRANTED BY <grantor> ]
+//       <drop behavior>
 
-<role revoked> ::=
-  <role name>
+// <role revoked> ::=
+//   <role name>
 
-// 13 SQL-client modules
+// // 13 SQL-client modules
 
 
-// 13.1 <SQL-client module definition>
+// // 13.1 <SQL-client module definition>
 
-// Define an SQL-client module.
+// // Define an SQL-client module.
 
-<SQL-client module definition> ::=
-  <module name clause> <language clause> <module authorization clause>
-      [ <module path specification> ]
-      [ <module transform group specification> ]
-      [ <module collations> ]
-      [ <temporary table declaration>... ]
-      <module contents>...
+// <SQL-client module definition> ::=
+//   <module name clause> <language clause> <module authorization clause>
+//       [ <module path specification> ]
+//       [ <module transform group specification> ]
+//       [ <module collations> ]
+//       [ <temporary table declaration>... ]
+//       <module contents>...
 
-<module authorization clause> ::=
-    SCHEMA <schema name>
-  | AUTHORIZATION <module authorization identifier>
-      [ FOR STATIC { ONLY | AND DYNAMIC } ]
-  | SCHEMA <schema name> AUTHORIZATION <module authorization identifier>
-      [ FOR STATIC { ONLY | AND DYNAMIC } ]
+// <module authorization clause> ::=
+//     SCHEMA <schema name>
+//   | AUTHORIZATION <module authorization identifier>
+//       [ FOR STATIC { ONLY | AND DYNAMIC } ]
+//   | SCHEMA <schema name> AUTHORIZATION <module authorization identifier>
+//       [ FOR STATIC { ONLY | AND DYNAMIC } ]
 
-<module authorization identifier> ::=
-  <authorization identifier>
+// <module authorization identifier> ::=
+//   <authorization identifier>
 
-<module path specification> ::=
-  <path specification>
+// <module path specification> ::=
+//   <path specification>
 
-<module transform group specification> ::=
-  <transform group specification>
+// <module transform group specification> ::=
+//   <transform group specification>
 
-<module collations> ::=
-  <module collation specification>...
+// <module collations> ::=
+//   <module collation specification>...
 
-<module collation specification> ::=
-  COLLATION <collation name> [ FOR <character set specification list> ]
+// <module collation specification> ::=
+//   COLLATION <collation name> [ FOR <character set specification list> ]
 
-<character set specification list> ::=
-  <character set specification> [ { <comma> <character set specification> }... ]
+// <character set specification list> ::=
+//   <character set specification> [ { <comma> <character set specification> }... ]
 
-<module contents> ::=
-    <declare cursor>
-  | <dynamic declare cursor>
-  | <externally-invoked procedure>
+// <module contents> ::=
+//     <declare cursor>
+//   | <dynamic declare cursor>
+//   | <externally-invoked procedure>
 
-// 13.2 <module name clause>
+// // 13.2 <module name clause>
 
-// Name an SQL-client module.
+// // Name an SQL-client module.
 
-<module name clause> ::=
-  MODULE [ <SQL-client module name> ] [ <module character set specification> ]
+// <module name clause> ::=
+//   MODULE [ <SQL-client module name> ] [ <module character set specification> ]
 
-<module character set specification> ::=
-  NAMES ARE <character set specification>
+// <module character set specification> ::=
+//   NAMES ARE <character set specification>
 
-// 13.3 <externally-invoked procedure>
+// // 13.3 <externally-invoked procedure>
 
-// Define an externally-invoked procedure.
+// // Define an externally-invoked procedure.
 
-<externally-invoked procedure> ::=
-  PROCEDURE <procedure name> <host parameter declaration list> <semicolon>
-      <SQL procedure statement> <semicolon>
+// <externally-invoked procedure> ::=
+//   PROCEDURE <procedure name> <host parameter declaration list> <semicolon>
+//       <SQL procedure statement> <semicolon>
 
-<host parameter declaration list> ::=
-  <left paren> <host parameter declaration>
-      [ { <comma> <host parameter declaration> }... ] <right paren>
+// <host parameter declaration list> ::=
+//   <left paren> <host parameter declaration>
+//       [ { <comma> <host parameter declaration> }... ] <right paren>
 
-<host parameter declaration> ::=
-    <host parameter name> <host parameter data type>
-  | <status parameter>
+// <host parameter declaration> ::=
+//     <host parameter name> <host parameter data type>
+//   | <status parameter>
 
-<host parameter data type> ::=
-  <data type> [ <locator indication> ]
+// <host parameter data type> ::=
+//   <data type> [ <locator indication> ]
 
-<status parameter> ::=
-  SQLSTATE
+// <status parameter> ::=
+//   SQLSTATE
 
-// 13.4 <SQL procedure statement>
+// // 13.4 <SQL procedure statement>
 
-// Define all of the SQL-statements that are <SQL procedure statement>s.
+// // Define all of the SQL-statements that are <SQL procedure statement>s.
 
-<SQL procedure statement> ::=
-  <SQL executable statement>
+// <SQL procedure statement> ::=
+//   <SQL executable statement>
 
-<SQL executable statement> ::=
-    <SQL schema statement>
-  | <SQL data statement>
-  | <SQL control statement>
-  | <SQL transaction statement>
-  | <SQL connection statement>
-  | <SQL session statement>
-  | <SQL diagnostics statement>
-  | <SQL dynamic statement>
+// <SQL executable statement> ::=
+//     <SQL schema statement>
+//   | <SQL data statement>
+//   | <SQL control statement>
+//   | <SQL transaction statement>
+//   | <SQL connection statement>
+//   | <SQL session statement>
+//   | <SQL diagnostics statement>
+//   | <SQL dynamic statement>
 
-<SQL schema statement> ::=
-    <SQL schema definition statement>
-  | <SQL schema manipulation statement>
+// <SQL schema statement> ::=
+//     <SQL schema definition statement>
+//   | <SQL schema manipulation statement>
 
-<SQL schema definition statement> ::=
-    <schema definition>
-  | <table definition>
-  | <view definition>
-  | <SQL-invoked routine>
-  | <grant statement>
-  | <role definition>
-  | <domain definition>
-  | <character set definition>
-  | <collation definition>
-  | <transliteration definition>
-  | <assertion definition>
-  | <trigger definition>
-  | <user-defined type definition>
-  | <user-defined cast definition>
-  | <user-defined ordering definition>
-  | <transform definition>
-  | <sequence generator definition>
+// <SQL schema definition statement> ::=
+//     <schema definition>
+//   | <table definition>
+//   | <view definition>
+//   | <SQL-invoked routine>
+//   | <grant statement>
+//   | <role definition>
+//   | <domain definition>
+//   | <character set definition>
+//   | <collation definition>
+//   | <transliteration definition>
+//   | <assertion definition>
+//   | <trigger definition>
+//   | <user-defined type definition>
+//   | <user-defined cast definition>
+//   | <user-defined ordering definition>
+//   | <transform definition>
+//   | <sequence generator definition>
 
-<SQL schema manipulation statement> ::=
-    <drop schema statement>
-  | <alter table statement>
-  | <drop table statement>
-  | <drop view statement>
-  | <alter routine statement>
-  | <drop routine statement>
-  | <drop user-defined cast statement>
-  | <revoke statement>
-  | <drop role statement>
-  | <alter domain statement>
-  | <drop domain statement>
-  | <drop character set statement>
-  | <drop collation statement>
-  | <drop transliteration statement>
-  | <drop assertion statement>
-  | <drop trigger statement>
-  | <alter type statement>
-  | <drop data type statement>
-  | <drop user-defined ordering statement>
-  | <alter transform statement>
-  | <drop transform statement>
-  | <alter sequence generator statement>
-  | <drop sequence generator statement>
+// <SQL schema manipulation statement> ::=
+//     <drop schema statement>
+//   | <alter table statement>
+//   | <drop table statement>
+//   | <drop view statement>
+//   | <alter routine statement>
+//   | <drop routine statement>
+//   | <drop user-defined cast statement>
+//   | <revoke statement>
+//   | <drop role statement>
+//   | <alter domain statement>
+//   | <drop domain statement>
+//   | <drop character set statement>
+//   | <drop collation statement>
+//   | <drop transliteration statement>
+//   | <drop assertion statement>
+//   | <drop trigger statement>
+//   | <alter type statement>
+//   | <drop data type statement>
+//   | <drop user-defined ordering statement>
+//   | <alter transform statement>
+//   | <drop transform statement>
+//   | <alter sequence generator statement>
+//   | <drop sequence generator statement>
 
-<SQL data statement> ::=
-    <open statement>
-  | <fetch statement>
-  | <close statement>
-  | <select statement: single row>
-  | <free locator statement>
-  | <hold locator statement>
-  | <SQL data change statement>
+// <SQL data statement> ::=
+//     <open statement>
+//   | <fetch statement>
+//   | <close statement>
+//   | <select statement: single row>
+//   | <free locator statement>
+//   | <hold locator statement>
+//   | <SQL data change statement>
 
-<SQL data change statement> ::=
-    <delete statement: positioned>
-  | <delete statement: searched>
-  | <insert statement>
-  | <update statement: positioned>
-  | <update statement: searched>
-  | <truncate table statement>
-  | <merge statement>
+// <SQL data change statement> ::=
+//     <delete statement: positioned>
+//   | <delete statement: searched>
+//   | <insert statement>
+//   | <update statement: positioned>
+//   | <update statement: searched>
+//   | <truncate table statement>
+//   | <merge statement>
 
-<SQL control statement> ::=
-    <call statement>
-  | <return statement>
+// <SQL control statement> ::=
+//     <call statement>
+//   | <return statement>
 
-<SQL transaction statement> ::=
-    <start transaction statement>
-  | <set transaction statement>
-  | <set constraints mode statement>
-  | <savepoint statement>
-  | <release savepoint statement>
-  | <commit statement>
-  | <rollback statement>
+// <SQL transaction statement> ::=
+//     <start transaction statement>
+//   | <set transaction statement>
+//   | <set constraints mode statement>
+//   | <savepoint statement>
+//   | <release savepoint statement>
+//   | <commit statement>
+//   | <rollback statement>
 
-<SQL connection statement> ::=
-    <connect statement>
-  | <set connection statement>
-  | <disconnect statement>
+// <SQL connection statement> ::=
+//     <connect statement>
+//   | <set connection statement>
+//   | <disconnect statement>
 
-<SQL session statement> ::=
-    <set session user identifier statement>
-  | <set role statement>
-  | <set local time zone statement>
-  | <set session characteristics statement>
-  | <set catalog statement>
-  | <set schema statement>
-  | <set names statement>
-  | <set path statement>
-  | <set transform group statement>
-  | <set session collation statement>
+// <SQL session statement> ::=
+//     <set session user identifier statement>
+//   | <set role statement>
+//   | <set local time zone statement>
+//   | <set session characteristics statement>
+//   | <set catalog statement>
+//   | <set schema statement>
+//   | <set names statement>
+//   | <set path statement>
+//   | <set transform group statement>
+//   | <set session collation statement>
 
-<SQL diagnostics statement> ::=
-  <get diagnostics statement>
+// <SQL diagnostics statement> ::=
+//   <get diagnostics statement>
 
-<SQL dynamic statement> ::=
-    <SQL descriptor statement>
-  | <prepare statement>
-  | <deallocate prepared statement>
-  | <describe statement>
-  | <execute statement>
-  | <execute immediate statement>
-  | <SQL dynamic data statement>
+// <SQL dynamic statement> ::=
+//     <SQL descriptor statement>
+//   | <prepare statement>
+//   | <deallocate prepared statement>
+//   | <describe statement>
+//   | <execute statement>
+//   | <execute immediate statement>
+//   | <SQL dynamic data statement>
 
-<SQL dynamic data statement> ::=
-    <allocate extended dynamic cursor statement>
-  | <allocate received cursor statement>
-  | <dynamic open statement>
-  | <dynamic fetch statement>
-  | <dynamic close statement>
-  | <dynamic delete statement: positioned>
-  | <dynamic update statement: positioned>
+// <SQL dynamic data statement> ::=
+//     <allocate extended dynamic cursor statement>
+//   | <allocate received cursor statement>
+//   | <dynamic open statement>
+//   | <dynamic fetch statement>
+//   | <dynamic close statement>
+//   | <dynamic delete statement: positioned>
+//   | <dynamic update statement: positioned>
 
-<SQL descriptor statement> ::=
-    <allocate descriptor statement>
-  | <deallocate descriptor statement>
-  | <set descriptor statement>
-  | <get descriptor statement>
+// <SQL descriptor statement> ::=
+//     <allocate descriptor statement>
+//   | <deallocate descriptor statement>
+//   | <set descriptor statement>
+//   | <get descriptor statement>
 
 // 14 Data manipulation
 
@@ -6164,789 +6164,789 @@
   UPDATE [ <target table> ] SET <set clause list>
       WHERE CURRENT OF <preparable dynamic cursor name>
 
-// 21 Embedded SQL
-
-
-// 21.1 <embedded SQL host program>
-
-// Specify an <embedded SQL host program>.
-
-<embedded SQL host program> ::=
-    <embedded SQL Ada program>
-  | <embedded SQL C program>
-  | <embedded SQL COBOL program>
-  | <embedded SQL Fortran program>
-  | <embedded SQL MUMPS program>
-  | <embedded SQL Pascal program>
-  | <embedded SQL PL/I program>
-
-<embedded SQL statement> ::=
-  <SQL prefix> <statement or declaration> [ <SQL terminator> ]
-
-<statement or declaration> ::=
-    <declare cursor>
-  | <dynamic declare cursor>
-  | <temporary table declaration>
-  | <embedded authorization declaration>
-  | <embedded path specification>
-  | <embedded transform group specification>
-  | <embedded collation specification>
-  | <embedded exception declaration>
-  | <SQL procedure statement>
-
-<SQL prefix> ::=
-    EXEC SQL
-  | <ampersand>SQL <left paren>
-
-<SQL terminator> ::=
-    END- EXEC
-  | <semicolon>
-  | <right paren>
-
-<embedded authorization declaration> ::=
-  DECLARE <embedded authorization clause>
-
-<embedded authorization clause> ::=
-    SCHEMA <schema name>
-  | AUTHORIZATION <embedded authorization identifier>
-      [ FOR STATIC { ONLY | AND DYNAMIC } ]
-  | SCHEMA <schema name> AUTHORIZATION <embedded authorization identifier>
-      [ FOR STATIC { ONLY | AND DYNAMIC } ]
-
-<embedded authorization identifier> ::=
-  <module authorization identifier>
-
-<embedded path specification> ::=
-  <path specification>
-
-<embedded transform group specification> ::=
-  <transform group specification>
-
-<embedded collation specification> ::=
-  <module collations>
-
-<embedded SQL declare section> ::=
-    <embedded SQL begin declare>
-        [ <embedded character set declaration> ]
-        [ <host variable definition>... ]
-        <embedded SQL end declare>
-  | <embedded SQL MUMPS declare>
-
-<embedded character set declaration> ::=
-  SQL NAMES ARE <character set specification>
-
-<embedded SQL begin declare> ::=
-  <SQL prefix> BEGIN DECLARE SECTION [ <SQL terminator> ]
-
-<embedded SQL end declare> ::=
-  <SQL prefix> END DECLARE SECTION [ <SQL terminator> ]
+// // 21 Embedded SQL
+
+
+// // 21.1 <embedded SQL host program>
+
+// // Specify an <embedded SQL host program>.
+
+// <embedded SQL host program> ::=
+//     <embedded SQL Ada program>
+//   | <embedded SQL C program>
+//   | <embedded SQL COBOL program>
+//   | <embedded SQL Fortran program>
+//   | <embedded SQL MUMPS program>
+//   | <embedded SQL Pascal program>
+//   | <embedded SQL PL/I program>
+
+// <embedded SQL statement> ::=
+//   <SQL prefix> <statement or declaration> [ <SQL terminator> ]
+
+// <statement or declaration> ::=
+//     <declare cursor>
+//   | <dynamic declare cursor>
+//   | <temporary table declaration>
+//   | <embedded authorization declaration>
+//   | <embedded path specification>
+//   | <embedded transform group specification>
+//   | <embedded collation specification>
+//   | <embedded exception declaration>
+//   | <SQL procedure statement>
+
+// <SQL prefix> ::=
+//     EXEC SQL
+//   | <ampersand>SQL <left paren>
+
+// <SQL terminator> ::=
+//     END- EXEC
+//   | <semicolon>
+//   | <right paren>
+
+// <embedded authorization declaration> ::=
+//   DECLARE <embedded authorization clause>
+
+// <embedded authorization clause> ::=
+//     SCHEMA <schema name>
+//   | AUTHORIZATION <embedded authorization identifier>
+//       [ FOR STATIC { ONLY | AND DYNAMIC } ]
+//   | SCHEMA <schema name> AUTHORIZATION <embedded authorization identifier>
+//       [ FOR STATIC { ONLY | AND DYNAMIC } ]
+
+// <embedded authorization identifier> ::=
+//   <module authorization identifier>
+
+// <embedded path specification> ::=
+//   <path specification>
+
+// <embedded transform group specification> ::=
+//   <transform group specification>
+
+// <embedded collation specification> ::=
+//   <module collations>
+
+// <embedded SQL declare section> ::=
+//     <embedded SQL begin declare>
+//         [ <embedded character set declaration> ]
+//         [ <host variable definition>... ]
+//         <embedded SQL end declare>
+//   | <embedded SQL MUMPS declare>
+
+// <embedded character set declaration> ::=
+//   SQL NAMES ARE <character set specification>
+
+// <embedded SQL begin declare> ::=
+//   <SQL prefix> BEGIN DECLARE SECTION [ <SQL terminator> ]
+
+// <embedded SQL end declare> ::=
+//   <SQL prefix> END DECLARE SECTION [ <SQL terminator> ]
 
-<embedded SQL MUMPS declare> ::=
-  <SQL prefix>
-      BEGIN DECLARE SECTION
-      [ <embedded character set declaration> ]
-      [ <host variable definition>... ]
-      END DECLARE SECTION
-      <SQL terminator>
-
-<host variable definition> ::=
-    <Ada variable definition>
-  | <C variable definition>
-  | <COBOL variable definition>
-  | <Fortran variable definition>
-  | <MUMPS variable definition>
-  | <Pascal variable definition>
-  | <PL/I variable definition>
-
-<embedded variable name> ::=
-  <colon> <host identifier>
-
-<host identifier> ::=
-    <Ada host identifier>
-  | <C host identifier>
-  | <COBOL host identifier>
-  | <Fortran host identifier>
-  | <MUMPS host identifier>
-  | <Pascal host identifier>
-  | <PL/I host identifier>
-
-// 21.2 <embedded exception declaration>
-
-// Specify the action to be taken when an SQL-statement causes a specific class of condition to be raised.
-
-<embedded exception declaration> ::=
-  WHENEVER <condition> <condition action>
-
-<condition> ::=
-  <SQL condition>
-
-<SQL condition> ::=
-    <major category>
-  | SQLSTATE ( <SQLSTATE class value> [ , <SQLSTATE subclass value> ] )
-  | CONSTRAINT <constraint name>
-
-<major category> ::=
-    SQLEXCEPTION
-  | SQLWARNING
-  | NOT FOUND
-
-<SQLSTATE class value> ::=
-  <SQLSTATE char> <SQLSTATE char>!! See the Syntax Rules.
-
-<SQLSTATE subclass value> ::=
-  <SQLSTATE char> <SQLSTATE char> <SQLSTATE char>!! See the Syntax Rules.
-
-<SQLSTATE char> ::=
-    <simple Latin upper case letter>
-  | <digit>
-
-<condition action> ::=
-    CONTINUE
-  | <go to>
-
-<go to> ::=
-  { GOTO | GO TO } <goto target>
-
-<goto target> ::=
-    <host label identifier>
-  | <unsigned integer>
-  | <host PL/I label variable>
-
-<host label identifier> ::=
-  !! See the Syntax Rules.
-
-<host PL/I label variable> ::=
-  !! See the Syntax Rules.
-
-// 21.3 <embedded SQL Ada program>
+// <embedded SQL MUMPS declare> ::=
+//   <SQL prefix>
+//       BEGIN DECLARE SECTION
+//       [ <embedded character set declaration> ]
+//       [ <host variable definition>... ]
+//       END DECLARE SECTION
+//       <SQL terminator>
+
+// <host variable definition> ::=
+//     <Ada variable definition>
+//   | <C variable definition>
+//   | <COBOL variable definition>
+//   | <Fortran variable definition>
+//   | <MUMPS variable definition>
+//   | <Pascal variable definition>
+//   | <PL/I variable definition>
+
+// <embedded variable name> ::=
+//   <colon> <host identifier>
+
+// <host identifier> ::=
+//     <Ada host identifier>
+//   | <C host identifier>
+//   | <COBOL host identifier>
+//   | <Fortran host identifier>
+//   | <MUMPS host identifier>
+//   | <Pascal host identifier>
+//   | <PL/I host identifier>
+
+// // 21.2 <embedded exception declaration>
+
+// // Specify the action to be taken when an SQL-statement causes a specific class of condition to be raised.
+
+// <embedded exception declaration> ::=
+//   WHENEVER <condition> <condition action>
+
+// <condition> ::=
+//   <SQL condition>
+
+// <SQL condition> ::=
+//     <major category>
+//   | SQLSTATE ( <SQLSTATE class value> [ , <SQLSTATE subclass value> ] )
+//   | CONSTRAINT <constraint name>
+
+// <major category> ::=
+//     SQLEXCEPTION
+//   | SQLWARNING
+//   | NOT FOUND
+
+// <SQLSTATE class value> ::=
+//   <SQLSTATE char> <SQLSTATE char>!! See the Syntax Rules.
+
+// <SQLSTATE subclass value> ::=
+//   <SQLSTATE char> <SQLSTATE char> <SQLSTATE char>!! See the Syntax Rules.
+
+// <SQLSTATE char> ::=
+//     <simple Latin upper case letter>
+//   | <digit>
+
+// <condition action> ::=
+//     CONTINUE
+//   | <go to>
+
+// <go to> ::=
+//   { GOTO | GO TO } <goto target>
+
+// <goto target> ::=
+//     <host label identifier>
+//   | <unsigned integer>
+//   | <host PL/I label variable>
+
+// <host label identifier> ::=
+//   !! See the Syntax Rules.
+
+// <host PL/I label variable> ::=
+//   !! See the Syntax Rules.
+
+// // 21.3 <embedded SQL Ada program>
 
-// Specify an <embedded SQL Ada program>.
+// // Specify an <embedded SQL Ada program>.
 
-<embedded SQL Ada program> ::=
-  !! See the Syntax Rules.
+// <embedded SQL Ada program> ::=
+//   !! See the Syntax Rules.
 
-<Ada variable definition> ::=
-  <Ada host identifier> [ { <comma> <Ada host identifier> }... ] <colon>
-      <Ada type specification> [ <Ada initial value> ]
+// <Ada variable definition> ::=
+//   <Ada host identifier> [ { <comma> <Ada host identifier> }... ] <colon>
+//       <Ada type specification> [ <Ada initial value> ]
 
-<Ada initial value> ::=
-  <Ada assignment operator> <character representation>...
+// <Ada initial value> ::=
+//   <Ada assignment operator> <character representation>...
 
-<Ada assignment operator> ::=
-  <colon> <equals operator>
-
-<Ada host identifier> ::=
-  !! See the Syntax Rules.
-
-<Ada type specification> ::=
-    <Ada qualified type specification>
-  | <Ada unqualified type specification>
-  | <Ada derived type specification>
-
-<Ada qualified type specification> ::=
-  !!   Interfaces.SQL.CHAR
-  !!       [ CHARACTER SET [ IS ] <character set specification> ]
-  !!       <left paren> 1 <double period> <character length> <right paren>
-  !! | Interfaces.SQL.SMALLINT
-  !! | Interfaces.SQL.INT
-  !! | Interfaces.SQL.BIGINT
-  !! | Interfaces.SQL.REAL
-  !! | Interfaces.SQL.DOUBLE_PRECISION
-  !! | Interfaces.SQL.BOOLEAN
-  !! | Interfaces.SQL.SQLSTATE_TYPE
-  !! | Interfaces.SQL.INDICATOR_TYPE
-
-<Ada unqualified type specification> ::=
-    CHAR <left paren> 1 <double period> <character length> <right paren>
-  | SMALLINT
-  | INT
-  | BIGINT
-  | REAL
-  | DOUBLE_PRECISION
-  | BOOLEAN
-  | SQLSTATE_TYPE
-  | INDICATOR_TYPE
-
-<Ada derived type specification> ::=
-    <Ada CLOB variable>
-  | <Ada CLOB locator variable>
-  | <Ada BINARY variable>
-  | <Ada VARBINARY variable>
-  | <Ada BLOB variable>
-  | <Ada BLOB locator variable>
-  | <Ada user-defined type variable>
-  | <Ada user-defined type locator variable>
-  | <Ada REF variable>
-  | <Ada array locator variable>
-  | <Ada multiset locator variable>
-
-<Ada CLOB variable> ::=
-  SQL TYPE IS CLOB <left paren> <character large object length> <right paren>
-      [ CHARACTER SET [ IS ] <character set specification> ]
-
-<Ada CLOB locator variable> ::=
-  SQL TYPE IS CLOB AS LOCATOR
-
-<Ada BINARY variable> ::=
-  SQL TYPE IS BINARY <left paren> <length> <right paren>
-
-<Ada VARBINARY variable> ::=
-  SQL TYPE IS VARBINARY <left paren> <length> <right paren>
-
-<Ada BLOB variable> ::=
-  SQL TYPE IS BLOB <left paren> <large object length> <right paren>
-
-<Ada BLOB locator variable> ::=
-  SQL TYPE IS BLOB AS LOCATOR
-
-<Ada user-defined type variable> ::=
-  SQL TYPE IS <path-resolved user-defined type name> AS <predefined type>
-
-<Ada user-defined type locator variable> ::=
-  SQL TYPE IS <path-resolved user-defined type name> AS LOCATOR
-
-<Ada REF variable> ::=
-  SQL TYPE IS <reference type>
-
-<Ada array locator variable> ::=
-  SQL TYPE IS <array type> AS LOCATOR
-
-<Ada multiset locator variable> ::=
-  SQL TYPE IS <multiset type> AS LOCATOR
-
-// 21.4 <embedded SQL C program>
-
-// Specify an <embedded SQL C program>.
-
-<embedded SQL C program> ::=
-  !! See the Syntax Rules.
-
-<C variable definition> ::=
-  [ <C storage class> ] [ <C class modifier> ]
-      <C variable specification> <semicolon>
-
-<C variable specification> ::=
-    <C numeric variable>
-  | <C character variable>
-  | <C derived variable>
-
-<C storage class> ::=
-    auto
-  | extern
-  | static
-
-<C class modifier> ::=
-    const
-  | volatile
-
-<C numeric variable> ::=
-  { long long | long | short | float | double }
-      <C host identifier> [ <C initial value> ]
-      [ { <comma> <C host identifier> [ <C initial value> ] }... ]
-
-<C character variable> ::=
-  <C character type> [ CHARACTER SET [ IS ] <character set specification> ]
-      <C host identifier> <C array specification> [ <C initial value> ]
-      [ { <comma> <C host identifier> <C array specification>
-      [ <C initial value> ] }... ]
-
-<C character type> ::=
-    char
-  | unsigned char
-  | unsigned short
-
-<C array specification> ::=
-  <left bracket> <character length> <right bracket>
-
-<C host identifier> ::=
-  !! See the Syntax Rules.
-
-<C derived variable> ::=
-    <C VARCHAR variable>
-  | <C NCHAR variable>
-  | <C NCHAR VARYING variable>
-  | <C CLOB variable>
-  | <C NCLOB variable>
-  | <C BINARY variable>
-  | <C VARBINARY variable>
-  | <C BLOB variable>
-  | <C user-defined type variable>
-  | <C CLOB locator variable>
-  | <C BLOB locator variable>
-  | <C array locator variable>
-  | <C multiset locator variable>
-  | <C user-defined type locator variable>
-  | <C REF variable>
-
-<C VARCHAR variable> ::=
-  VARCHAR [ CHARACTER SET [ IS ] <character set specification> ]
-      <C host identifier> <C array specification> [ <C initial value> ]
-      [ { <comma> <C host identifier> <C array specification> [
-      <C initial value> ] }... ]
-
-<C NCHAR variable> ::=
-  NCHAR [ CHARACTER SET [ IS ] <character set specification> ]
-      <C host identifier> <C array specification> [ <C initial value> ]
-      [ { <comma> <C host identifier> <C array specification>
-      [ <C initial value> ] } ... ]
-
-<C NCHAR VARYING variable> ::=
-  NCHAR VARYING [ CHARACTER SET [ IS ] <character set specification> ]
-      <C host identifier> <C array specification> [ <C initial value> ]
-      [ { <comma> <C host identifier> <C array specification> [
-      <C initial value> ] } ... ]
-
-<C CLOB variable> ::=
-  SQL TYPE IS CLOB <left paren> <character large object length> <right paren>
-      [ CHARACTER SET [ IS ] <character set specification> ]
-      <C host identifier> [ <C initial value> ] [ { <comma> <C host identifier> [
-      <C initial value> ] }... ]
-
-<C NCLOB variable> ::=
-  SQL TYPE IS NCLOB <left paren> <character large object length> <right paren>
-      [ CHARACTER SET [ IS ] <character set specification> ]
-      <C host identifier> [ <C initial value> ] [ { <comma> <C host identifier>
-      [ <C initial value> ] }... ]
-
-<C user-defined type variable> ::=
-  SQL TYPE IS <path-resolved user-defined type name> AS <predefined type>
-      <C host identifier> [ <C initial value> ]
-      [ { <comma> <C host identifier> [
-      <C initial value> ] } ... ]
-
-<C BINARY variable> ::=
-  SQL TYPE IS BINARY <left paren> <length> <right paren>
-      <C host identifier> [ <C initial value> ]
-      [ { <comma> <C host identifier> [ <C initial value> ] }... ]
-
-<C VARBINARY variable> ::=
-  SQL TYPE IS VARBINARY <left paren> <length> <right paren>
-      <C host identifier> [ <C initial value> ]
-      [ { <comma> <C host identifier> [ <C initial value> ] }... ]
-
-<C BLOB variable> ::=
-  SQL TYPE IS BLOB <left paren> <large object length> <right paren>
-      <C host identifier> [ <C initial value> ]
-      [ { <comma> <C host identifier> [
-      <C initial value> ] } ... ]
-
-<C CLOB locator variable> ::=
-  SQL TYPE IS CLOB AS LOCATOR
-      <C host identifier> [ <C initial value> ]
-      [ { <comma> <C host identifier> [
-      <C initial value> ] } ... ]
-
-<C BLOB locator variable> ::=
-  SQL TYPE IS BLOB AS LOCATOR
-      <C host identifier> [ <C initial value> ]
-      [ { <comma> <C host identifier> [
-      <C initial value> ] } ... ]
-
-<C array locator variable> ::=
-  SQL TYPE IS <array type> AS LOCATOR
-      <C host identifier> [ <C initial value> ]
-      [ { <comma> <C host identifier> [
-      <C initial value> ] } ... ]
-
-<C multiset locator variable> ::=
-  SQL TYPE IS <multiset type> AS LOCATOR
-      <C host identifier> [ <C initial value> ]
-      [ { <comma> <C host identifier> [
-      <C initial value> ] } ... ]
-
-<C user-defined type locator variable> ::=
-  SQL TYPE IS <path-resolved user-defined type name> AS LOCATOR
-      <C host identifier> [ <C initial value> ]
-      [ { <comma> <C host identifier> [
-      <C initial value> ] }... ]
-
-<C REF variable> ::=
-  SQL TYPE IS <reference type> <C host identifier> [ <C initial value> ]
-      [ { <comma> <C host identifier> [ <C initial value> ] }... ]
-
-<C initial value> ::=
-  <equals operator> <character representation>...
-
-// 21.5 <embedded SQL COBOL program>
-
-// Specify an <embedded SQL COBOL program>.
-
-<embedded SQL COBOL program> ::=
-  !! See the Syntax Rules.
-
-<COBOL variable definition> ::=
-  { 01 |77 } <COBOL host identifier>
-      <COBOL type specification> [ <character representation>... ] <period>
-
-<COBOL host identifier> ::=
-  !! See the Syntax Rules.
-
-<COBOL type specification> ::=
-    <COBOL character type>
-  | <COBOL national character type>
-  | <COBOL numeric type>
-  | <COBOL integer type>
-  | <COBOL derived type specification>
-
-<COBOL derived type specification> ::=
-    <COBOL CLOB variable>
-  | <COBOL NCLOB variable>
-  | <COBOL BINARY variable>
-  | <COBOL BLOB variable>
-  | <COBOL user-defined type variable>
-  | <COBOL CLOB locator variable>
-  | <COBOL BLOB locator variable>
-  | <COBOL array locator variable>
-  | <COBOL multiset locator variable>
-  | <COBOL user-defined type locator variable>
-  | <COBOL REF variable>
-
-<COBOL character type> ::=
-  [ CHARACTER SET [ IS ] <character set specification> ]
-      { PIC | PICTURE } [ IS ] { X [ <left paren> <character length> <right paren> ] }...
-
-<COBOL national character type> ::=
-  [ CHARACTER SET [ IS ] <character set specification> ]
-      { PIC | PICTURE } [ IS ] { N [ <left paren> <character length> <right paren> ] }...
-
-<COBOL CLOB variable> ::=
-  [ USAGE [ IS ] ] SQL TYPE IS CLOB <left paren> <character large object length> <right
-  paren>
-      [ CHARACTER SET [ IS ] <character set specification> ]
-
-<COBOL NCLOB variable> ::=
-  [ USAGE [ IS ] ] SQL TYPE IS NCLOB <left paren> <character large object length> <right
-  paren>
-      [ CHARACTER SET [ IS ] <character set specification> ]
-
-<COBOL BINARY variable> ::=
-  [ USAGE [ IS ] ] SQL TYPE IS BINARY <left paren> <length> <right paren>
-
-<COBOL BLOB variable> ::=
-  [ USAGE [ IS ] ] SQL TYPE IS BLOB <left paren> <large object length> <right paren>
-
-<COBOL user-defined type variable> ::=
-  [ USAGE [ IS ] ] SQL TYPE IS <path-resolved user-defined type name>
-      AS <predefined type>
-
-<COBOL CLOB locator variable> ::=
-  [ USAGE [ IS ] ] SQL TYPE IS CLOB AS LOCATOR
-
-<COBOL BLOB locator variable> ::=
-  [ USAGE [ IS ] ] SQL TYPE IS BLOB AS LOCATOR
-
-<COBOL array locator variable> ::=
-  [ USAGE [ IS ] ] SQL TYPE IS <array type> AS LOCATOR
-
-<COBOL multiset locator variable> ::=
-  [ USAGE [ IS ] ] SQL TYPE IS <multiset type> AS LOCATOR
-
-<COBOL user-defined type locator variable> ::=
-  [ USAGE [ IS ] ] SQL TYPE IS <path-resolved user-defined type name> AS LOCATOR
-
-<COBOL REF variable> ::=
-  [ USAGE [ IS ] ] SQL TYPE IS <reference type>
-
-<COBOL numeric type> ::=
-  { PIC | PICTURE } [ IS ] S <COBOL nines specification>
-      [ USAGE [ IS ] ] DISPLAY SIGN LEADING SEPARATE
-
-<COBOL nines specification> ::=
-    <COBOL nines> [ V [ <COBOL nines> ] ]
-  | V <COBOL nines>
-
-<COBOL integer type> ::=
-  { PIC | PICTURE } [ IS ] S <COBOL nines>
-      [ USAGE [ IS ] ] BINARY
-
-<COBOL nines> ::=
-  { 9 [ <left paren> <length> <right paren> ] }...
-
-// 21.6 <embedded SQL Fortran program>
-
-// Specify an <embedded SQL Fortran program>.
-
-<embedded SQL Fortran program> ::=
-  !! See the Syntax Rules.
-
-<Fortran variable definition> ::=
-  <Fortran type specification> <Fortran host identifier>
-      [ { <comma> <Fortran host identifier> }... ]
-
-<Fortran host identifier> ::=
-  !! See the Syntax Rules.
-
-<Fortran type specification> ::=
-    CHARACTER [ <asterisk> <character length> ] [ CHARACTER SET
-         [ IS ] <character set specification> ]
-  | CHARACTER KIND = n [ <asterisk> <character length> ]
-      [ CHARACTER SET [ IS ] <character set specification> ]
-  | INTEGER
-  | REAL
-  | DOUBLE PRECISION
-  | LOGICAL
-  | <Fortran derived type specification>
-
-<Fortran derived type specification> ::=
-    <Fortran CLOB variable>
-  | <Fortran BINARY variable>
-  | <Fortran VARBINARY variable>
-  | <Fortran BLOB variable>
-  | <Fortran user-defined type variable>
-  | <Fortran CLOB locator variable>
-  | <Fortran BLOB locator variable>
-  | <Fortran user-defined type locator variable>
-  | <Fortran array locator variable>
-  | <Fortran multiset locator variable>
-  | <Fortran REF variable>
-
-<Fortran CLOB variable> ::=
-  SQL TYPE IS CLOB <left paren> <character large object length> <right paren>
-      [ CHARACTER SET [ IS ] <character set specification> ]
-
-<Fortran BINARY variable> ::=
-  SQL TYPE IS BINARY <left paren> <length> <right paren>
-
-<Fortran VARBINARY variable> ::=
-  SQL TYPE IS VARBINARY <left paren> <length> <right paren>
-
-<Fortran BLOB variable> ::=
-  SQL TYPE IS BLOB <left paren> <large object length> <right paren>
-
-<Fortran user-defined type variable> ::=
-  SQL TYPE IS <path-resolved user-defined type name> AS <predefined type>
-
-<Fortran CLOB locator variable> ::=
-  SQL TYPE IS CLOB AS LOCATOR
-
-<Fortran BLOB locator variable> ::=
-  SQL TYPE IS BLOB AS LOCATOR
-
-<Fortran user-defined type locator variable> ::=
-  SQL TYPE IS <path-resolved user-defined type name> AS LOCATOR
-
-<Fortran array locator variable> ::=
-  SQL TYPE IS <array type> AS LOCATOR
-
-<Fortran multiset locator variable> ::=
-  SQL TYPE IS <multiset type> AS LOCATOR
-
-<Fortran REF variable> ::=
-  SQL TYPE IS <reference type>
-
-// 21.7 <embedded SQL MUMPS program>
-
-// Specify an <embedded SQL MUMPS program>.
-
-<embedded SQL MUMPS program> ::=
-  !! See the Syntax Rules.
-
-<MUMPS variable definition> ::=
-    <MUMPS numeric variable> <semicolon>
-  | <MUMPS character variable> <semicolon>
-  | <MUMPS derived type specification> <MUMPS host identifier> <semicolon>
-
-<MUMPS character variable> ::=
-  VARCHAR <MUMPS character variable specifier>
-      [ { <comma> <MUMPS character variable specifier> }... ]
-
-<MUMPS character variable specifier> ::=
-  <MUMPS host identifier> <MUMPS length specification>
-      [ CHARACTER SET [ IS ] <character set specification> ]
-
-<MUMPS host identifier> ::=
-  !! See the Syntax Rules.
-
-<MUMPS length specification> ::=
-  <left paren> <character length> <right paren>
-
-<MUMPS numeric variable> ::=
-  <MUMPS type specification> <MUMPS host identifier>
-      [ { <comma> <MUMPS host identifier> }... ]
-
-<MUMPS type specification> ::=
-    INT
-  | DEC [ <left paren> <precision> [ <comma> <scale> ] <right paren> ]
-  | REAL
-
-<MUMPS derived type specification> ::=
-    <MUMPS user-defined type variable>
-  | <MUMPS CLOB locator variable>
-  | <MUMPS BLOB locator variable>
-  | <MUMPS user-defined type locator variable>
-  | <MUMPS array locator variable>
-  | <MUMPS multiset locator variable>
-  | <MUMPS REF variable>
-
-<MUMPS user-defined type variable> ::=
-  SQL TYPE IS <path-resolved user-defined type name> AS <predefined type>
-
-<MUMPS CLOB locator variable> ::=
-  SQL TYPE IS CLOB AS LOCATOR
-
-<MUMPS BLOB locator variable> ::=
-  SQL TYPE IS BLOB AS LOCATOR
-
-<MUMPS user-defined type locator variable> ::=
-  SQL TYPE IS <path-resolved user-defined type name> AS LOCATOR
-
-<MUMPS array locator variable> ::=
-  SQL TYPE IS <array type> AS LOCATOR
-
-<MUMPS multiset locator variable> ::=
-  SQL TYPE IS <multiset type> AS LOCATOR
-
-<MUMPS REF variable> ::=
-  SQL TYPE IS <reference type>
-
-// 21.8 <embedded SQL Pascal program>
-
-// Specify an <embedded SQL Pascal program>.
-
-<embedded SQL Pascal program> ::=
-  !! See the Syntax Rules.
-
-<Pascal variable definition> ::=
-  <Pascal host identifier> [ { <comma> <Pascal host identifier> }... ] <colon>
-      <Pascal type specification> <semicolon>
-
-<Pascal host identifier> ::=
-  !! See the Syntax Rules.
-
-<Pascal type specification> ::=
-    PACKED ARRAY <left bracket> 1 <double period> <character length> <right bracket>
-        OF CHAR [ CHARACTER SET [ IS ] <character set specification> ]
-  | INTEGER
-  | REAL
-  | CHAR [ CHARACTER SET [ IS ] <character set specification> ]
-  | BOOLEAN
-  | <Pascal derived type specification>
-
-<Pascal derived type specification> ::=
-    <Pascal CLOB variable>
-  | <Pascal BINARY variable>
-  | <Pascal BLOB variable>
-  | <Pascal user-defined type variable>
-  | <Pascal CLOB locator variable>
-  | <Pascal BLOB locator variable>
-  | <Pascal user-defined type locator variable>
-  | <Pascal array locator variable>
-  | <Pascal multiset locator variable>
-  | <Pascal REF variable>
-
-<Pascal CLOB variable> ::=
-  SQL TYPE IS CLOB <left paren> <character large object length> <right paren>
-      [ CHARACTER SET [ IS ] <character set specification> ]
-
-<Pascal BINARY variable> ::=
-  SQL TYPE IS BINARY <left paren> <length> <right paren>
-
-<Pascal BLOB variable> ::=
-  SQL TYPE IS BLOB <left paren> <large object length> <right paren>
-
-<Pascal CLOB locator variable> ::=
-  SQL TYPE IS CLOB AS LOCATOR
-
-<Pascal user-defined type variable> ::=
-  SQL TYPE IS <path-resolved user-defined type name> AS <predefined type>
-
-<Pascal BLOB locator variable> ::=
-  SQL TYPE IS BLOB AS LOCATOR
-
-<Pascal user-defined type locator variable> ::=
-  SQL TYPE IS <path-resolved user-defined type name> AS LOCATOR
-
-<Pascal array locator variable> ::=
-  SQL TYPE IS <array type> AS LOCATOR
-
-<Pascal multiset locator variable> ::=
-  SQL TYPE IS <multiset type> AS LOCATOR
-
-<Pascal REF variable> ::=
-  SQL TYPE IS <reference type>
-
-// 21.9 <embedded SQL PL/I program>
-
-// Specify an <embedded SQL PL/I program>.
-
-<embedded SQL PL/I program> ::=
-  !! See the Syntax Rules.
-
-<PL/I variable definition> ::=
-    { DCL | DECLARE } <PL/I type specification> [ <character representation>... ] <semicolon>
-  | { <PL/I host identifier> | <left paren> <PL/I host identifier>
-      [ { <comma> <PL/I host identifier> }... ] <right paren> }
-      <PL/I type specification> [ <character representation>... ] <semicolon>
-
-<PL/I host identifier> ::=
-  !! See the Syntax Rules.
-
-<PL/I type specification> ::=
-    { CHAR | CHARACTER } [ VARYING ] <left paren> <character length> <right paren>
-        [ CHARACTER SET [ IS ] <character set specification> ]
-  | <PL/I type fixed decimal> <left paren> <precision> [ <comma> <scale> ] <right paren>
-  | <PL/I type fixed binary> [ <left paren> <precision> <right paren> ]
-  | <PL/I type float binary> <left paren> <precision> <right paren>
-  | <PL/I derived type specification>
-
-<PL/I derived type specification> ::=
-    <PL/I CLOB variable>
-  | <PL/I BINARY variable>
-  | <PL/I VARBINARY variable>
-  | <PL/I BLOB variable>
-  | <PL/I user-defined type variable>
-  | <PL/I CLOB locator variable>
-  | <PL/I BLOB locator variable>
-  | <PL/I user-defined type locator variable>
-  | <PL/I array locator variable>
-  | <PL/I multiset locator variable>
-  | <PL/I REF variable>
-
-<PL/I CLOB variable> ::=
-  SQL TYPE IS CLOB <left paren> <character large object length> <right paren>
-      [ CHARACTER SET [ IS ] <character set specification> ]
-
-<PL/I BINARY variable> ::=
-  SQL TYPE IS BINARY <left paren> <length> <right paren>
-
-<PL/I VARBINARY variable> ::=
-  SQL TYPE IS VARBINARY <left paren> <length> <right paren>
-
-<PL/I BLOB variable> ::=
-  SQL TYPE IS BLOB <left paren> <large object length> <right paren>
-
-<PL/I user-defined type variable> ::=
-  SQL TYPE IS <path-resolved user-defined type name> AS <predefined type>
-
-<PL/I CLOB locator variable> ::=
-  SQL TYPE IS CLOB AS LOCATOR
-
-<PL/I BLOB locator variable> ::=
-  SQL TYPE IS BLOB AS LOCATOR
-
-<PL/I user-defined type locator variable> ::=
-  SQL TYPE IS <path-resolved user-defined type name> AS LOCATOR
-
-<PL/I array locator variable> ::=
-  SQL TYPE IS <array type> AS LOCATOR
-
-<PL/I multiset locator variable> ::=
-  SQL TYPE IS <multiset type> AS LOCATOR
-
-<PL/I REF variable> ::=
-  SQL TYPE IS <reference type>
-
-<PL/I type fixed decimal> ::=
-    { DEC | DECIMAL } FIXED
-  | FIXED { DEC | DECIMAL }
-
-<PL/I type fixed binary> ::=
-    { BIN | BINARY } FIXED
-  | FIXED { BIN | BINARY }
-
-<PL/I type float binary> ::=
-    { BIN | BINARY } FLOAT
-  | FLOAT { BIN | BINARY }
+// <Ada assignment operator> ::=
+//   <colon> <equals operator>
+
+// <Ada host identifier> ::=
+//   !! See the Syntax Rules.
+
+// <Ada type specification> ::=
+//     <Ada qualified type specification>
+//   | <Ada unqualified type specification>
+//   | <Ada derived type specification>
+
+// <Ada qualified type specification> ::=
+//   !!   Interfaces.SQL.CHAR
+//   !!       [ CHARACTER SET [ IS ] <character set specification> ]
+//   !!       <left paren> 1 <double period> <character length> <right paren>
+//   !! | Interfaces.SQL.SMALLINT
+//   !! | Interfaces.SQL.INT
+//   !! | Interfaces.SQL.BIGINT
+//   !! | Interfaces.SQL.REAL
+//   !! | Interfaces.SQL.DOUBLE_PRECISION
+//   !! | Interfaces.SQL.BOOLEAN
+//   !! | Interfaces.SQL.SQLSTATE_TYPE
+//   !! | Interfaces.SQL.INDICATOR_TYPE
+
+// <Ada unqualified type specification> ::=
+//     CHAR <left paren> 1 <double period> <character length> <right paren>
+//   | SMALLINT
+//   | INT
+//   | BIGINT
+//   | REAL
+//   | DOUBLE_PRECISION
+//   | BOOLEAN
+//   | SQLSTATE_TYPE
+//   | INDICATOR_TYPE
+
+// <Ada derived type specification> ::=
+//     <Ada CLOB variable>
+//   | <Ada CLOB locator variable>
+//   | <Ada BINARY variable>
+//   | <Ada VARBINARY variable>
+//   | <Ada BLOB variable>
+//   | <Ada BLOB locator variable>
+//   | <Ada user-defined type variable>
+//   | <Ada user-defined type locator variable>
+//   | <Ada REF variable>
+//   | <Ada array locator variable>
+//   | <Ada multiset locator variable>
+
+// <Ada CLOB variable> ::=
+//   SQL TYPE IS CLOB <left paren> <character large object length> <right paren>
+//       [ CHARACTER SET [ IS ] <character set specification> ]
+
+// <Ada CLOB locator variable> ::=
+//   SQL TYPE IS CLOB AS LOCATOR
+
+// <Ada BINARY variable> ::=
+//   SQL TYPE IS BINARY <left paren> <length> <right paren>
+
+// <Ada VARBINARY variable> ::=
+//   SQL TYPE IS VARBINARY <left paren> <length> <right paren>
+
+// <Ada BLOB variable> ::=
+//   SQL TYPE IS BLOB <left paren> <large object length> <right paren>
+
+// <Ada BLOB locator variable> ::=
+//   SQL TYPE IS BLOB AS LOCATOR
+
+// <Ada user-defined type variable> ::=
+//   SQL TYPE IS <path-resolved user-defined type name> AS <predefined type>
+
+// <Ada user-defined type locator variable> ::=
+//   SQL TYPE IS <path-resolved user-defined type name> AS LOCATOR
+
+// <Ada REF variable> ::=
+//   SQL TYPE IS <reference type>
+
+// <Ada array locator variable> ::=
+//   SQL TYPE IS <array type> AS LOCATOR
+
+// <Ada multiset locator variable> ::=
+//   SQL TYPE IS <multiset type> AS LOCATOR
+
+// // 21.4 <embedded SQL C program>
+
+// // Specify an <embedded SQL C program>.
+
+// <embedded SQL C program> ::=
+//   !! See the Syntax Rules.
+
+// <C variable definition> ::=
+//   [ <C storage class> ] [ <C class modifier> ]
+//       <C variable specification> <semicolon>
+
+// <C variable specification> ::=
+//     <C numeric variable>
+//   | <C character variable>
+//   | <C derived variable>
+
+// <C storage class> ::=
+//     auto
+//   | extern
+//   | static
+
+// <C class modifier> ::=
+//     const
+//   | volatile
+
+// <C numeric variable> ::=
+//   { long long | long | short | float | double }
+//       <C host identifier> [ <C initial value> ]
+//       [ { <comma> <C host identifier> [ <C initial value> ] }... ]
+
+// <C character variable> ::=
+//   <C character type> [ CHARACTER SET [ IS ] <character set specification> ]
+//       <C host identifier> <C array specification> [ <C initial value> ]
+//       [ { <comma> <C host identifier> <C array specification>
+//       [ <C initial value> ] }... ]
+
+// <C character type> ::=
+//     char
+//   | unsigned char
+//   | unsigned short
+
+// <C array specification> ::=
+//   <left bracket> <character length> <right bracket>
+
+// <C host identifier> ::=
+//   !! See the Syntax Rules.
+
+// <C derived variable> ::=
+//     <C VARCHAR variable>
+//   | <C NCHAR variable>
+//   | <C NCHAR VARYING variable>
+//   | <C CLOB variable>
+//   | <C NCLOB variable>
+//   | <C BINARY variable>
+//   | <C VARBINARY variable>
+//   | <C BLOB variable>
+//   | <C user-defined type variable>
+//   | <C CLOB locator variable>
+//   | <C BLOB locator variable>
+//   | <C array locator variable>
+//   | <C multiset locator variable>
+//   | <C user-defined type locator variable>
+//   | <C REF variable>
+
+// <C VARCHAR variable> ::=
+//   VARCHAR [ CHARACTER SET [ IS ] <character set specification> ]
+//       <C host identifier> <C array specification> [ <C initial value> ]
+//       [ { <comma> <C host identifier> <C array specification> [
+//       <C initial value> ] }... ]
+
+// <C NCHAR variable> ::=
+//   NCHAR [ CHARACTER SET [ IS ] <character set specification> ]
+//       <C host identifier> <C array specification> [ <C initial value> ]
+//       [ { <comma> <C host identifier> <C array specification>
+//       [ <C initial value> ] } ... ]
+
+// <C NCHAR VARYING variable> ::=
+//   NCHAR VARYING [ CHARACTER SET [ IS ] <character set specification> ]
+//       <C host identifier> <C array specification> [ <C initial value> ]
+//       [ { <comma> <C host identifier> <C array specification> [
+//       <C initial value> ] } ... ]
+
+// <C CLOB variable> ::=
+//   SQL TYPE IS CLOB <left paren> <character large object length> <right paren>
+//       [ CHARACTER SET [ IS ] <character set specification> ]
+//       <C host identifier> [ <C initial value> ] [ { <comma> <C host identifier> [
+//       <C initial value> ] }... ]
+
+// <C NCLOB variable> ::=
+//   SQL TYPE IS NCLOB <left paren> <character large object length> <right paren>
+//       [ CHARACTER SET [ IS ] <character set specification> ]
+//       <C host identifier> [ <C initial value> ] [ { <comma> <C host identifier>
+//       [ <C initial value> ] }... ]
+
+// <C user-defined type variable> ::=
+//   SQL TYPE IS <path-resolved user-defined type name> AS <predefined type>
+//       <C host identifier> [ <C initial value> ]
+//       [ { <comma> <C host identifier> [
+//       <C initial value> ] } ... ]
+
+// <C BINARY variable> ::=
+//   SQL TYPE IS BINARY <left paren> <length> <right paren>
+//       <C host identifier> [ <C initial value> ]
+//       [ { <comma> <C host identifier> [ <C initial value> ] }... ]
+
+// <C VARBINARY variable> ::=
+//   SQL TYPE IS VARBINARY <left paren> <length> <right paren>
+//       <C host identifier> [ <C initial value> ]
+//       [ { <comma> <C host identifier> [ <C initial value> ] }... ]
+
+// <C BLOB variable> ::=
+//   SQL TYPE IS BLOB <left paren> <large object length> <right paren>
+//       <C host identifier> [ <C initial value> ]
+//       [ { <comma> <C host identifier> [
+//       <C initial value> ] } ... ]
+
+// <C CLOB locator variable> ::=
+//   SQL TYPE IS CLOB AS LOCATOR
+//       <C host identifier> [ <C initial value> ]
+//       [ { <comma> <C host identifier> [
+//       <C initial value> ] } ... ]
+
+// <C BLOB locator variable> ::=
+//   SQL TYPE IS BLOB AS LOCATOR
+//       <C host identifier> [ <C initial value> ]
+//       [ { <comma> <C host identifier> [
+//       <C initial value> ] } ... ]
+
+// <C array locator variable> ::=
+//   SQL TYPE IS <array type> AS LOCATOR
+//       <C host identifier> [ <C initial value> ]
+//       [ { <comma> <C host identifier> [
+//       <C initial value> ] } ... ]
+
+// <C multiset locator variable> ::=
+//   SQL TYPE IS <multiset type> AS LOCATOR
+//       <C host identifier> [ <C initial value> ]
+//       [ { <comma> <C host identifier> [
+//       <C initial value> ] } ... ]
+
+// <C user-defined type locator variable> ::=
+//   SQL TYPE IS <path-resolved user-defined type name> AS LOCATOR
+//       <C host identifier> [ <C initial value> ]
+//       [ { <comma> <C host identifier> [
+//       <C initial value> ] }... ]
+
+// <C REF variable> ::=
+//   SQL TYPE IS <reference type> <C host identifier> [ <C initial value> ]
+//       [ { <comma> <C host identifier> [ <C initial value> ] }... ]
+
+// <C initial value> ::=
+//   <equals operator> <character representation>...
+
+// // 21.5 <embedded SQL COBOL program>
+
+// // Specify an <embedded SQL COBOL program>.
+
+// <embedded SQL COBOL program> ::=
+//   !! See the Syntax Rules.
+
+// <COBOL variable definition> ::=
+//   { 01 |77 } <COBOL host identifier>
+//       <COBOL type specification> [ <character representation>... ] <period>
+
+// <COBOL host identifier> ::=
+//   !! See the Syntax Rules.
+
+// <COBOL type specification> ::=
+//     <COBOL character type>
+//   | <COBOL national character type>
+//   | <COBOL numeric type>
+//   | <COBOL integer type>
+//   | <COBOL derived type specification>
+
+// <COBOL derived type specification> ::=
+//     <COBOL CLOB variable>
+//   | <COBOL NCLOB variable>
+//   | <COBOL BINARY variable>
+//   | <COBOL BLOB variable>
+//   | <COBOL user-defined type variable>
+//   | <COBOL CLOB locator variable>
+//   | <COBOL BLOB locator variable>
+//   | <COBOL array locator variable>
+//   | <COBOL multiset locator variable>
+//   | <COBOL user-defined type locator variable>
+//   | <COBOL REF variable>
+
+// <COBOL character type> ::=
+//   [ CHARACTER SET [ IS ] <character set specification> ]
+//       { PIC | PICTURE } [ IS ] { X [ <left paren> <character length> <right paren> ] }...
+
+// <COBOL national character type> ::=
+//   [ CHARACTER SET [ IS ] <character set specification> ]
+//       { PIC | PICTURE } [ IS ] { N [ <left paren> <character length> <right paren> ] }...
+
+// <COBOL CLOB variable> ::=
+//   [ USAGE [ IS ] ] SQL TYPE IS CLOB <left paren> <character large object length> <right
+//   paren>
+//       [ CHARACTER SET [ IS ] <character set specification> ]
+
+// <COBOL NCLOB variable> ::=
+//   [ USAGE [ IS ] ] SQL TYPE IS NCLOB <left paren> <character large object length> <right
+//   paren>
+//       [ CHARACTER SET [ IS ] <character set specification> ]
+
+// <COBOL BINARY variable> ::=
+//   [ USAGE [ IS ] ] SQL TYPE IS BINARY <left paren> <length> <right paren>
+
+// <COBOL BLOB variable> ::=
+//   [ USAGE [ IS ] ] SQL TYPE IS BLOB <left paren> <large object length> <right paren>
+
+// <COBOL user-defined type variable> ::=
+//   [ USAGE [ IS ] ] SQL TYPE IS <path-resolved user-defined type name>
+//       AS <predefined type>
+
+// <COBOL CLOB locator variable> ::=
+//   [ USAGE [ IS ] ] SQL TYPE IS CLOB AS LOCATOR
+
+// <COBOL BLOB locator variable> ::=
+//   [ USAGE [ IS ] ] SQL TYPE IS BLOB AS LOCATOR
+
+// <COBOL array locator variable> ::=
+//   [ USAGE [ IS ] ] SQL TYPE IS <array type> AS LOCATOR
+
+// <COBOL multiset locator variable> ::=
+//   [ USAGE [ IS ] ] SQL TYPE IS <multiset type> AS LOCATOR
+
+// <COBOL user-defined type locator variable> ::=
+//   [ USAGE [ IS ] ] SQL TYPE IS <path-resolved user-defined type name> AS LOCATOR
+
+// <COBOL REF variable> ::=
+//   [ USAGE [ IS ] ] SQL TYPE IS <reference type>
+
+// <COBOL numeric type> ::=
+//   { PIC | PICTURE } [ IS ] S <COBOL nines specification>
+//       [ USAGE [ IS ] ] DISPLAY SIGN LEADING SEPARATE
+
+// <COBOL nines specification> ::=
+//     <COBOL nines> [ V [ <COBOL nines> ] ]
+//   | V <COBOL nines>
+
+// <COBOL integer type> ::=
+//   { PIC | PICTURE } [ IS ] S <COBOL nines>
+//       [ USAGE [ IS ] ] BINARY
+
+// <COBOL nines> ::=
+//   { 9 [ <left paren> <length> <right paren> ] }...
+
+// // 21.6 <embedded SQL Fortran program>
+
+// // Specify an <embedded SQL Fortran program>.
+
+// <embedded SQL Fortran program> ::=
+//   !! See the Syntax Rules.
+
+// <Fortran variable definition> ::=
+//   <Fortran type specification> <Fortran host identifier>
+//       [ { <comma> <Fortran host identifier> }... ]
+
+// <Fortran host identifier> ::=
+//   !! See the Syntax Rules.
+
+// <Fortran type specification> ::=
+//     CHARACTER [ <asterisk> <character length> ] [ CHARACTER SET
+//          [ IS ] <character set specification> ]
+//   | CHARACTER KIND = n [ <asterisk> <character length> ]
+//       [ CHARACTER SET [ IS ] <character set specification> ]
+//   | INTEGER
+//   | REAL
+//   | DOUBLE PRECISION
+//   | LOGICAL
+//   | <Fortran derived type specification>
+
+// <Fortran derived type specification> ::=
+//     <Fortran CLOB variable>
+//   | <Fortran BINARY variable>
+//   | <Fortran VARBINARY variable>
+//   | <Fortran BLOB variable>
+//   | <Fortran user-defined type variable>
+//   | <Fortran CLOB locator variable>
+//   | <Fortran BLOB locator variable>
+//   | <Fortran user-defined type locator variable>
+//   | <Fortran array locator variable>
+//   | <Fortran multiset locator variable>
+//   | <Fortran REF variable>
+
+// <Fortran CLOB variable> ::=
+//   SQL TYPE IS CLOB <left paren> <character large object length> <right paren>
+//       [ CHARACTER SET [ IS ] <character set specification> ]
+
+// <Fortran BINARY variable> ::=
+//   SQL TYPE IS BINARY <left paren> <length> <right paren>
+
+// <Fortran VARBINARY variable> ::=
+//   SQL TYPE IS VARBINARY <left paren> <length> <right paren>
+
+// <Fortran BLOB variable> ::=
+//   SQL TYPE IS BLOB <left paren> <large object length> <right paren>
+
+// <Fortran user-defined type variable> ::=
+//   SQL TYPE IS <path-resolved user-defined type name> AS <predefined type>
+
+// <Fortran CLOB locator variable> ::=
+//   SQL TYPE IS CLOB AS LOCATOR
+
+// <Fortran BLOB locator variable> ::=
+//   SQL TYPE IS BLOB AS LOCATOR
+
+// <Fortran user-defined type locator variable> ::=
+//   SQL TYPE IS <path-resolved user-defined type name> AS LOCATOR
+
+// <Fortran array locator variable> ::=
+//   SQL TYPE IS <array type> AS LOCATOR
+
+// <Fortran multiset locator variable> ::=
+//   SQL TYPE IS <multiset type> AS LOCATOR
+
+// <Fortran REF variable> ::=
+//   SQL TYPE IS <reference type>
+
+// // 21.7 <embedded SQL MUMPS program>
+
+// // Specify an <embedded SQL MUMPS program>.
+
+// <embedded SQL MUMPS program> ::=
+//   !! See the Syntax Rules.
+
+// <MUMPS variable definition> ::=
+//     <MUMPS numeric variable> <semicolon>
+//   | <MUMPS character variable> <semicolon>
+//   | <MUMPS derived type specification> <MUMPS host identifier> <semicolon>
+
+// <MUMPS character variable> ::=
+//   VARCHAR <MUMPS character variable specifier>
+//       [ { <comma> <MUMPS character variable specifier> }... ]
+
+// <MUMPS character variable specifier> ::=
+//   <MUMPS host identifier> <MUMPS length specification>
+//       [ CHARACTER SET [ IS ] <character set specification> ]
+
+// <MUMPS host identifier> ::=
+//   !! See the Syntax Rules.
+
+// <MUMPS length specification> ::=
+//   <left paren> <character length> <right paren>
+
+// <MUMPS numeric variable> ::=
+//   <MUMPS type specification> <MUMPS host identifier>
+//       [ { <comma> <MUMPS host identifier> }... ]
+
+// <MUMPS type specification> ::=
+//     INT
+//   | DEC [ <left paren> <precision> [ <comma> <scale> ] <right paren> ]
+//   | REAL
+
+// <MUMPS derived type specification> ::=
+//     <MUMPS user-defined type variable>
+//   | <MUMPS CLOB locator variable>
+//   | <MUMPS BLOB locator variable>
+//   | <MUMPS user-defined type locator variable>
+//   | <MUMPS array locator variable>
+//   | <MUMPS multiset locator variable>
+//   | <MUMPS REF variable>
+
+// <MUMPS user-defined type variable> ::=
+//   SQL TYPE IS <path-resolved user-defined type name> AS <predefined type>
+
+// <MUMPS CLOB locator variable> ::=
+//   SQL TYPE IS CLOB AS LOCATOR
+
+// <MUMPS BLOB locator variable> ::=
+//   SQL TYPE IS BLOB AS LOCATOR
+
+// <MUMPS user-defined type locator variable> ::=
+//   SQL TYPE IS <path-resolved user-defined type name> AS LOCATOR
+
+// <MUMPS array locator variable> ::=
+//   SQL TYPE IS <array type> AS LOCATOR
+
+// <MUMPS multiset locator variable> ::=
+//   SQL TYPE IS <multiset type> AS LOCATOR
+
+// <MUMPS REF variable> ::=
+//   SQL TYPE IS <reference type>
+
+// // 21.8 <embedded SQL Pascal program>
+
+// // Specify an <embedded SQL Pascal program>.
+
+// <embedded SQL Pascal program> ::=
+//   !! See the Syntax Rules.
+
+// <Pascal variable definition> ::=
+//   <Pascal host identifier> [ { <comma> <Pascal host identifier> }... ] <colon>
+//       <Pascal type specification> <semicolon>
+
+// <Pascal host identifier> ::=
+//   !! See the Syntax Rules.
+
+// <Pascal type specification> ::=
+//     PACKED ARRAY <left bracket> 1 <double period> <character length> <right bracket>
+//         OF CHAR [ CHARACTER SET [ IS ] <character set specification> ]
+//   | INTEGER
+//   | REAL
+//   | CHAR [ CHARACTER SET [ IS ] <character set specification> ]
+//   | BOOLEAN
+//   | <Pascal derived type specification>
+
+// <Pascal derived type specification> ::=
+//     <Pascal CLOB variable>
+//   | <Pascal BINARY variable>
+//   | <Pascal BLOB variable>
+//   | <Pascal user-defined type variable>
+//   | <Pascal CLOB locator variable>
+//   | <Pascal BLOB locator variable>
+//   | <Pascal user-defined type locator variable>
+//   | <Pascal array locator variable>
+//   | <Pascal multiset locator variable>
+//   | <Pascal REF variable>
+
+// <Pascal CLOB variable> ::=
+//   SQL TYPE IS CLOB <left paren> <character large object length> <right paren>
+//       [ CHARACTER SET [ IS ] <character set specification> ]
+
+// <Pascal BINARY variable> ::=
+//   SQL TYPE IS BINARY <left paren> <length> <right paren>
+
+// <Pascal BLOB variable> ::=
+//   SQL TYPE IS BLOB <left paren> <large object length> <right paren>
+
+// <Pascal CLOB locator variable> ::=
+//   SQL TYPE IS CLOB AS LOCATOR
+
+// <Pascal user-defined type variable> ::=
+//   SQL TYPE IS <path-resolved user-defined type name> AS <predefined type>
+
+// <Pascal BLOB locator variable> ::=
+//   SQL TYPE IS BLOB AS LOCATOR
+
+// <Pascal user-defined type locator variable> ::=
+//   SQL TYPE IS <path-resolved user-defined type name> AS LOCATOR
+
+// <Pascal array locator variable> ::=
+//   SQL TYPE IS <array type> AS LOCATOR
+
+// <Pascal multiset locator variable> ::=
+//   SQL TYPE IS <multiset type> AS LOCATOR
+
+// <Pascal REF variable> ::=
+//   SQL TYPE IS <reference type>
+
+// // 21.9 <embedded SQL PL/I program>
+
+// // Specify an <embedded SQL PL/I program>.
+
+// <embedded SQL PL/I program> ::=
+//   !! See the Syntax Rules.
+
+// <PL/I variable definition> ::=
+//     { DCL | DECLARE } <PL/I type specification> [ <character representation>... ] <semicolon>
+//   | { <PL/I host identifier> | <left paren> <PL/I host identifier>
+//       [ { <comma> <PL/I host identifier> }... ] <right paren> }
+//       <PL/I type specification> [ <character representation>... ] <semicolon>
+
+// <PL/I host identifier> ::=
+//   !! See the Syntax Rules.
+
+// <PL/I type specification> ::=
+//     { CHAR | CHARACTER } [ VARYING ] <left paren> <character length> <right paren>
+//         [ CHARACTER SET [ IS ] <character set specification> ]
+//   | <PL/I type fixed decimal> <left paren> <precision> [ <comma> <scale> ] <right paren>
+//   | <PL/I type fixed binary> [ <left paren> <precision> <right paren> ]
+//   | <PL/I type float binary> <left paren> <precision> <right paren>
+//   | <PL/I derived type specification>
+
+// <PL/I derived type specification> ::=
+//     <PL/I CLOB variable>
+//   | <PL/I BINARY variable>
+//   | <PL/I VARBINARY variable>
+//   | <PL/I BLOB variable>
+//   | <PL/I user-defined type variable>
+//   | <PL/I CLOB locator variable>
+//   | <PL/I BLOB locator variable>
+//   | <PL/I user-defined type locator variable>
+//   | <PL/I array locator variable>
+//   | <PL/I multiset locator variable>
+//   | <PL/I REF variable>
+
+// <PL/I CLOB variable> ::=
+//   SQL TYPE IS CLOB <left paren> <character large object length> <right paren>
+//       [ CHARACTER SET [ IS ] <character set specification> ]
+
+// <PL/I BINARY variable> ::=
+//   SQL TYPE IS BINARY <left paren> <length> <right paren>
+
+// <PL/I VARBINARY variable> ::=
+//   SQL TYPE IS VARBINARY <left paren> <length> <right paren>
+
+// <PL/I BLOB variable> ::=
+//   SQL TYPE IS BLOB <left paren> <large object length> <right paren>
+
+// <PL/I user-defined type variable> ::=
+//   SQL TYPE IS <path-resolved user-defined type name> AS <predefined type>
+
+// <PL/I CLOB locator variable> ::=
+//   SQL TYPE IS CLOB AS LOCATOR
+
+// <PL/I BLOB locator variable> ::=
+//   SQL TYPE IS BLOB AS LOCATOR
+
+// <PL/I user-defined type locator variable> ::=
+//   SQL TYPE IS <path-resolved user-defined type name> AS LOCATOR
+
+// <PL/I array locator variable> ::=
+//   SQL TYPE IS <array type> AS LOCATOR
+
+// <PL/I multiset locator variable> ::=
+//   SQL TYPE IS <multiset type> AS LOCATOR
+
+// <PL/I REF variable> ::=
+//   SQL TYPE IS <reference type>
+
+// <PL/I type fixed decimal> ::=
+//     { DEC | DECIMAL } FIXED
+//   | FIXED { DEC | DECIMAL }
+
+// <PL/I type fixed binary> ::=
+//     { BIN | BINARY } FIXED
+//   | FIXED { BIN | BINARY }
+
+// <PL/I type float binary> ::=
+//     { BIN | BINARY } FLOAT
+//   | FLOAT { BIN | BINARY }
 
 
 // 22 Direct invocation of SQL

@@ -4,6 +4,7 @@
 // 5.1     <SQL terminal character>
 
 // Define the terminal symbols of the SQL language and the elements of strings.
+
 <SQL terminal character> ::=
   <SQL language character>
 

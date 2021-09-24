@@ -6956,25 +6956,25 @@
 
 // // Specify direct execution of SQL.
 
-// <direct SQL statement> ::=
-//   <directly executable statement> <semicolon>
+<direct SQL statement> ::=
+  <directly executable statement> <semicolon>
 
-// <directly executable statement> ::=
-//     <direct SQL data statement>
-//   | <SQL schema statement>
-//   | <SQL transaction statement>
-//   | <SQL connection statement>
-//   | <SQL session statement>
-//   | <direct implementation-defined statement>
+<directly executable statement> ::=
+    <direct SQL data statement>
+  // | <SQL schema statement>
+  // | <SQL transaction statement>
+  // | <SQL connection statement>
+  // | <SQL session statement>
+  // | <direct implementation-defined statement>
 
-// <direct SQL data statement> ::=
-//     <delete statement: searched>
-//   | <direct select statement: multiple rows>
-//   | <insert statement>
-//   | <update statement: searched>
-//   | <truncate table statement>
-//   | <merge statement>
-//   | <temporary table declaration>
+<direct SQL data statement> ::=
+    <delete statement: searched>
+  | <direct select statement: multiple rows>
+  | <insert statement>
+  | <update statement: searched>
+  | <truncate table statement>
+  | <merge statement>
+  // | <temporary table declaration>
 
 // <direct implementation-defined statement> ::=
 //   !! See the Syntax Rules.
@@ -6983,8 +6983,8 @@
 
 // // Specify a statement to retrieve multiple rows from a specified table.
 
-// <direct select statement: multiple rows> ::=
-//   <cursor specification>
+<direct select statement: multiple rows> ::=
+  <cursor specification>
 
 // // 23 Diagnostics management
 

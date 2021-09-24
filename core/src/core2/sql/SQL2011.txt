@@ -5,13 +5,13 @@
 
 // Define the terminal symbols of the SQL language and the elements of strings.
 
-<SQL terminal character> ::=
-  <SQL language character>
+// <SQL terminal character> ::=
+//   <SQL language character>
 
-<SQL language character> ::=
-    <simple Latin letter>
-  | <digit>
-  | <SQL special character>
+// <SQL language character> ::=
+//     <simple Latin letter>
+//   | <digit>
+//   | <SQL special character>
 
 <simple Latin letter> ::=
     <simple Latin upper case letter>
@@ -155,20 +155,20 @@
 
 // Specify lexical units (tokens and separators) that participate in SQL language.
 
-<token> ::=
-    <nondelimiter token>
-  | <delimiter token>
+// <token> ::=
+//     <nondelimiter token>
+//   | <delimiter token>
 
-<nondelimiter token> ::=
-    <regular identifier>
-  | <key word>
-  | <unsigned numeric literal>
-  | <national character string literal>
-  | <binary string literal>
-  | <large object length token>
-  | <Unicode delimited identifier>
-  | <Unicode character string literal>
-  | <SQL language identifier>
+// <nondelimiter token> ::=
+//     <regular identifier>
+//   | <key word>
+//   | <unsigned numeric literal>
+//   | <national character string literal>
+//   | <binary string literal>
+//   | <large object length token>
+//   | <Unicode delimited identifier>
+//   | <Unicode character string literal>
+//   | <SQL language identifier>
 
 <regular identifier> ::=
   <identifier body>
@@ -324,153 +324,153 @@
 <newline> ::=
   !! See the Syntax Rules.
 
-<key word> ::=
-    <reserved word>
-  | <non-reserved word>
+// <key word> ::=
+//     <reserved word>
+//   | <non-reserved word>
 
-<non-reserved word> ::=
-    A | ABSOLUTE | ACTION | ADA | ADD | ADMIN | AFTER | ALWAYS | ASC
-  | ASSERTION | ASSIGNMENT | ATTRIBUTE | ATTRIBUTES
+// <non-reserved word> ::=
+//     A | ABSOLUTE | ACTION | ADA | ADD | ADMIN | AFTER | ALWAYS | ASC
+//   | ASSERTION | ASSIGNMENT | ATTRIBUTE | ATTRIBUTES
 
-  | BEFORE | BERNOULLI | BREADTH
+//   | BEFORE | BERNOULLI | BREADTH
 
-  | C | CASCADE | CATALOG | CATALOG_NAME | CHAIN | CHARACTER_SET_CATALOG
-  | CHARACTER_SET_NAME | CHARACTER_SET_SCHEMA | CHARACTERISTICS | CHARACTERS
-  | CLASS_ORIGIN | COBOL | COLLATION | COLLATION_CATALOG | COLLATION_NAME | COLLATION_SCHEMA
-  | COLUMN_NAME | COMMAND_FUNCTION | COMMAND_FUNCTION_CODE | COMMITTED
-  | CONDITION_NUMBER | CONNECTION | CONNECTION_NAME | CONSTRAINT_CATALOG | CONSTRAINT_NAME
-  | CONSTRAINT_SCHEMA | CONSTRAINTS | CONSTRUCTOR | CONTINUE | CURSOR_NAME
+//   | C | CASCADE | CATALOG | CATALOG_NAME | CHAIN | CHARACTER_SET_CATALOG
+//   | CHARACTER_SET_NAME | CHARACTER_SET_SCHEMA | CHARACTERISTICS | CHARACTERS
+//   | CLASS_ORIGIN | COBOL | COLLATION | COLLATION_CATALOG | COLLATION_NAME | COLLATION_SCHEMA
+//   | COLUMN_NAME | COMMAND_FUNCTION | COMMAND_FUNCTION_CODE | COMMITTED
+//   | CONDITION_NUMBER | CONNECTION | CONNECTION_NAME | CONSTRAINT_CATALOG | CONSTRAINT_NAME
+//   | CONSTRAINT_SCHEMA | CONSTRAINTS | CONSTRUCTOR | CONTINUE | CURSOR_NAME
 
-  | DATA | DATETIME_INTERVAL_CODE | DATETIME_INTERVAL_PRECISION | DEFAULTS | DEFERRABLE
-  | DEFERRED | DEFINED | DEFINER | DEGREE | DEPTH | DERIVED | DESC | DESCRIPTOR
-  | DIAGNOSTICS | DISPATCH | DOMAIN | DYNAMIC_FUNCTION | DYNAMIC_FUNCTION_CODE
+//   | DATA | DATETIME_INTERVAL_CODE | DATETIME_INTERVAL_PRECISION | DEFAULTS | DEFERRABLE
+//   | DEFERRED | DEFINED | DEFINER | DEGREE | DEPTH | DERIVED | DESC | DESCRIPTOR
+//   | DIAGNOSTICS | DISPATCH | DOMAIN | DYNAMIC_FUNCTION | DYNAMIC_FUNCTION_CODE
 
-  | ENFORCED | EXCLUDE | EXCLUDING | EXPRESSION
+//   | ENFORCED | EXCLUDE | EXCLUDING | EXPRESSION
 
-  | FINAL | FIRST | FLAG | FOLLOWING | FORTRAN | FOUND
+//   | FINAL | FIRST | FLAG | FOLLOWING | FORTRAN | FOUND
 
-  | G | GENERAL | GENERATED | GO | GOTO | GRANTED
+//   | G | GENERAL | GENERATED | GO | GOTO | GRANTED
 
-  | HIERARCHY
+//   | HIERARCHY
 
-  | IGNORE | IMMEDIATE | IMMEDIATELY | IMPLEMENTATION | INCLUDING | INCREMENT | INITIALLY
-  | INPUT | INSTANCE | INSTANTIABLE | INSTEAD | INVOKER | ISOLATION
+//   | IGNORE | IMMEDIATE | IMMEDIATELY | IMPLEMENTATION | INCLUDING | INCREMENT | INITIALLY
+//   | INPUT | INSTANCE | INSTANTIABLE | INSTEAD | INVOKER | ISOLATION
 
-  | K | KEY | KEY_MEMBER | KEY_TYPE
+//   | K | KEY | KEY_MEMBER | KEY_TYPE
 
-  | LAST | LENGTH | LEVEL | LOCATOR
+//   | LAST | LENGTH | LEVEL | LOCATOR
 
-  | M | MAP | MATCHED | MAXVALUE | MESSAGE_LENGTH | MESSAGE_OCTET_LENGTH
-  | MESSAGE_TEXT | MINVALUE | MORE | MUMPS
+//   | M | MAP | MATCHED | MAXVALUE | MESSAGE_LENGTH | MESSAGE_OCTET_LENGTH
+//   | MESSAGE_TEXT | MINVALUE | MORE | MUMPS
 
-  | NAME | NAMES | NESTING | NEXT | NFC | NFD | NFKC | NFKD
-  | NORMALIZED | NULLABLE | NULLS | NUMBER
+//   | NAME | NAMES | NESTING | NEXT | NFC | NFD | NFKC | NFKD
+//   | NORMALIZED | NULLABLE | NULLS | NUMBER
 
-  | OBJECT | OCTETS | OPTION | OPTIONS | ORDERING | ORDINALITY | OTHERS
-  | OUTPUT | OVERRIDING
+//   | OBJECT | OCTETS | OPTION | OPTIONS | ORDERING | ORDINALITY | OTHERS
+//   | OUTPUT | OVERRIDING
 
-  | P | PAD | PARAMETER_MODE | PARAMETER_NAME | PARAMETER_ORDINAL_POSITION
-  | PARAMETER_SPECIFIC_CATALOG | PARAMETER_SPECIFIC_NAME | PARAMETER_SPECIFIC_SCHEMA
-  | PARTIAL | PASCAL | PATH | PLACING | PLI | PRECEDING | PRESERVE | PRIOR
-  | PRIVILEGES | PUBLIC
+//   | P | PAD | PARAMETER_MODE | PARAMETER_NAME | PARAMETER_ORDINAL_POSITION
+//   | PARAMETER_SPECIFIC_CATALOG | PARAMETER_SPECIFIC_NAME | PARAMETER_SPECIFIC_SCHEMA
+//   | PARTIAL | PASCAL | PATH | PLACING | PLI | PRECEDING | PRESERVE | PRIOR
+//   | PRIVILEGES | PUBLIC
 
-  | READ | RELATIVE | REPEATABLE | RESPECT | RESTART | RESTRICT | RETURNED_CARDINALITY
-  | RETURNED_LENGTH | RETURNED_OCTET_LENGTH | RETURNED_SQLSTATE | ROLE
-  | ROUTINE | ROUTINE_CATALOG | ROUTINE_NAME | ROUTINE_SCHEMA | ROW_COUNT
-  | SCALE | SCHEMA | SCHEMA_NAME | SCOPE_CATALOG | SCOPE_NAME | SCOPE_SCHEMA
-  | SECTION | SECURITY | SELF | SEQUENCE | SERIALIZABLE | SERVER_NAME | SESSION
-  | SETS | SIMPLE | SIZE | SOURCE | SPACE | SPECIFIC_NAME | STATE | STATEMENT
-  | STRUCTURE | STYLE | SUBCLASS_ORIGIN
+//   | READ | RELATIVE | REPEATABLE | RESPECT | RESTART | RESTRICT | RETURNED_CARDINALITY
+//   | RETURNED_LENGTH | RETURNED_OCTET_LENGTH | RETURNED_SQLSTATE | ROLE
+//   | ROUTINE | ROUTINE_CATALOG | ROUTINE_NAME | ROUTINE_SCHEMA | ROW_COUNT
+//   | SCALE | SCHEMA | SCHEMA_NAME | SCOPE_CATALOG | SCOPE_NAME | SCOPE_SCHEMA
+//   | SECTION | SECURITY | SELF | SEQUENCE | SERIALIZABLE | SERVER_NAME | SESSION
+//   | SETS | SIMPLE | SIZE | SOURCE | SPACE | SPECIFIC_NAME | STATE | STATEMENT
+//   | STRUCTURE | STYLE | SUBCLASS_ORIGIN
 
-  | T | TABLE_NAME | TEMPORARY | TIES | TOP_LEVEL_COUNT | TRANSACTION
-  | TRANSACTION_ACTIVE | TRANSACTIONS_COMMITTED | TRANSACTIONS_ROLLED_BACK
-  | TRANSFORM | TRANSFORMS | TRIGGER_CATALOG | TRIGGER_NAME | TRIGGER_SCHEMA | TYPE
+//   | T | TABLE_NAME | TEMPORARY | TIES | TOP_LEVEL_COUNT | TRANSACTION
+//   | TRANSACTION_ACTIVE | TRANSACTIONS_COMMITTED | TRANSACTIONS_ROLLED_BACK
+//   | TRANSFORM | TRANSFORMS | TRIGGER_CATALOG | TRIGGER_NAME | TRIGGER_SCHEMA | TYPE
 
-  | UNBOUNDED | UNCOMMITTED | UNDER | UNNAMED | USAGE | USER_DEFINED_TYPE_CATALOG
-  | USER_DEFINED_TYPE_CODE | USER_DEFINED_TYPE_NAME | USER_DEFINED_TYPE_SCHEMA
+//   | UNBOUNDED | UNCOMMITTED | UNDER | UNNAMED | USAGE | USER_DEFINED_TYPE_CATALOG
+//   | USER_DEFINED_TYPE_CODE | USER_DEFINED_TYPE_NAME | USER_DEFINED_TYPE_SCHEMA
 
-  | VIEW
+//   | VIEW
 
-  | WORK | WRITE
+//   | WORK | WRITE
 
-  | ZONE
+//   | ZONE
 
-<reserved word> ::=
-    ABS | ALL | ALLOCATE | ALTER | AND | ANY | ARE | ARRAY | ARRAY_AGG
-  | ARRAY_MAX_CARDINALITY | AS | ASENSITIVE | ASYMMETRIC | AT | ATOMIC | AUTHORIZATION
-  | AVG
+// <reserved word> ::=
+//     ABS | ALL | ALLOCATE | ALTER | AND | ANY | ARE | ARRAY | ARRAY_AGG
+//   | ARRAY_MAX_CARDINALITY | AS | ASENSITIVE | ASYMMETRIC | AT | ATOMIC | AUTHORIZATION
+//   | AVG
 
-  | BEGIN | BEGIN_FRAME | BEGIN_PARTITION | BETWEEN | BIGINT | BINARY
-  | BLOB | BOOLEAN | BOTH | BY
+//   | BEGIN | BEGIN_FRAME | BEGIN_PARTITION | BETWEEN | BIGINT | BINARY
+//   | BLOB | BOOLEAN | BOTH | BY
 
-  | CALL | CALLED | CARDINALITY | CASCADED | CASE | CAST | CEIL | CEILING
-  | CHAR | CHAR_LENGTH | CHARACTER | CHARACTER_LENGTH | CHECK | CLOB | CLOSE
-  | COALESCE | COLLATE | COLLECT | COLUMN | COMMIT | CONDITION | CONNECT
-  | CONSTRAINT | CONTAINS | CONVERT | CORR | CORRESPONDING | COUNT | COVAR_POP
-  | COVAR_SAMP | CREATE | CROSS | CUBE | CUME_DIST | CURRENT | CURRENT_CATALOG
-  | CURRENT_DATE | CURRENT_DEFAULT_TRANSFORM_GROUP | CURRENT_PATH | CURRENT_ROLE
-  | CURRENT_ROW | CURRENT_SCHEMA | CURRENT_TIME | CURRENT_TIMESTAMP
-  | CURRENT_TRANSFORM_GROUP_FOR_TYPE | CURRENT_USER | CURSOR | CYCLE
+//   | CALL | CALLED | CARDINALITY | CASCADED | CASE | CAST | CEIL | CEILING
+//   | CHAR | CHAR_LENGTH | CHARACTER | CHARACTER_LENGTH | CHECK | CLOB | CLOSE
+//   | COALESCE | COLLATE | COLLECT | COLUMN | COMMIT | CONDITION | CONNECT
+//   | CONSTRAINT | CONTAINS | CONVERT | CORR | CORRESPONDING | COUNT | COVAR_POP
+//   | COVAR_SAMP | CREATE | CROSS | CUBE | CUME_DIST | CURRENT | CURRENT_CATALOG
+//   | CURRENT_DATE | CURRENT_DEFAULT_TRANSFORM_GROUP | CURRENT_PATH | CURRENT_ROLE
+//   | CURRENT_ROW | CURRENT_SCHEMA | CURRENT_TIME | CURRENT_TIMESTAMP
+//   | CURRENT_TRANSFORM_GROUP_FOR_TYPE | CURRENT_USER | CURSOR | CYCLE
 
-  | DATE | DAY | DEALLOCATE | DEC | DECIMAL | DECLARE | DEFAULT | DELETE
-  | DENSE_RANK | DEREF | DESCRIBE | DETERMINISTIC | DISCONNECT | DISTINCT
-  | DOUBLE | DROP | DYNAMIC
+//   | DATE | DAY | DEALLOCATE | DEC | DECIMAL | DECLARE | DEFAULT | DELETE
+//   | DENSE_RANK | DEREF | DESCRIBE | DETERMINISTIC | DISCONNECT | DISTINCT
+//   | DOUBLE | DROP | DYNAMIC
 
-  | EACH | ELEMENT | ELSE | END | END_FRAME | END_PARTITION | END-EXEC
-  | EQUALS | ESCAPE | EVERY | EXCEPT | EXEC | EXECUTE | EXISTS | EXP
-  | EXTERNAL | EXTRACT
+//   | EACH | ELEMENT | ELSE | END | END_FRAME | END_PARTITION | END-EXEC
+//   | EQUALS | ESCAPE | EVERY | EXCEPT | EXEC | EXECUTE | EXISTS | EXP
+//   | EXTERNAL | EXTRACT
 
-  | FALSE | FETCH | FILTER | FIRST_VALUE | FLOAT | FLOOR | FOR | FOREIGN
-  | FRAME_ROW | FREE | FROM | FULL | FUNCTION | FUSION
+//   | FALSE | FETCH | FILTER | FIRST_VALUE | FLOAT | FLOOR | FOR | FOREIGN
+//   | FRAME_ROW | FREE | FROM | FULL | FUNCTION | FUSION
 
-  | GET | GLOBAL | GRANT | GROUP | GROUPING | GROUPS
+//   | GET | GLOBAL | GRANT | GROUP | GROUPING | GROUPS
 
-  | HAVING | HOLD | HOUR
+//   | HAVING | HOLD | HOUR
 
-  | IDENTITY | IN | INDICATOR | INNER | INOUT | INSENSITIVE | INSERT
-  | INT | INTEGER | INTERSECT | INTERSECTION | INTERVAL | INTO | IS
+//   | IDENTITY | IN | INDICATOR | INNER | INOUT | INSENSITIVE | INSERT
+//   | INT | INTEGER | INTERSECT | INTERSECTION | INTERVAL | INTO | IS
 
-  | JOIN
+//   | JOIN
 
-  | LAG | LANGUAGE | LARGE | LAST_VALUE | LATERAL | LEAD | LEADING | LEFT
-  | LIKE | LIKE_REGEX | LN | LOCAL | LOCALTIME | LOCALTIMESTAMP | LOWER
+//   | LAG | LANGUAGE | LARGE | LAST_VALUE | LATERAL | LEAD | LEADING | LEFT
+//   | LIKE | LIKE_REGEX | LN | LOCAL | LOCALTIME | LOCALTIMESTAMP | LOWER
 
-  | MATCH | MAX | MEMBER | MERGE | METHOD | MIN | MINUTE
-  | MOD | MODIFIES | MODULE | MONTH | MULTISET
+//   | MATCH | MAX | MEMBER | MERGE | METHOD | MIN | MINUTE
+//   | MOD | MODIFIES | MODULE | MONTH | MULTISET
 
-  | NATIONAL | NATURAL | NCHAR | NCLOB | NEW | NO | NONE | NORMALIZE | NOT
-  | NTH_VALUE | NTILE | NULL | NULLIF | NUMERIC
+//   | NATIONAL | NATURAL | NCHAR | NCLOB | NEW | NO | NONE | NORMALIZE | NOT
+//   | NTH_VALUE | NTILE | NULL | NULLIF | NUMERIC
 
-  | OCTET_LENGTH | OCCURRENCES_REGEX | OF | OFFSET | OLD | ON | ONLY | OPEN
-  | OR | ORDER | OUT | OUTER | OVER | OVERLAPS | OVERLAY
+//   | OCTET_LENGTH | OCCURRENCES_REGEX | OF | OFFSET | OLD | ON | ONLY | OPEN
+//   | OR | ORDER | OUT | OUTER | OVER | OVERLAPS | OVERLAY
 
-  | PARAMETER | PARTITION | PERCENT | PERCENT_RANK | PERCENTILE_CONT
-  | PERCENTILE_DISC | PERIOD | PORTION | POSITION | POSITION_REGEX | POWER | PRECEDES
-  | PRECISION | PREPARE | PRIMARY | PROCEDURE
+//   | PARAMETER | PARTITION | PERCENT | PERCENT_RANK | PERCENTILE_CONT
+//   | PERCENTILE_DISC | PERIOD | PORTION | POSITION | POSITION_REGEX | POWER | PRECEDES
+//   | PRECISION | PREPARE | PRIMARY | PROCEDURE
 
-  | RANGE | RANK | READS | REAL | RECURSIVE | REF | REFERENCES | REFERENCING
-  | REGR_AVGX | REGR_AVGY | REGR_COUNT | REGR_INTERCEPT | REGR_R2 | REGR_SLOPE
-  | REGR_SXX | REGR_SXY | REGR_SYY | RELEASE | RESULT | RETURN | RETURNS
-  | REVOKE | RIGHT | ROLLBACK | ROLLUP | ROW | ROW_NUMBER | ROWS
+//   | RANGE | RANK | READS | REAL | RECURSIVE | REF | REFERENCES | REFERENCING
+//   | REGR_AVGX | REGR_AVGY | REGR_COUNT | REGR_INTERCEPT | REGR_R2 | REGR_SLOPE
+//   | REGR_SXX | REGR_SXY | REGR_SYY | RELEASE | RESULT | RETURN | RETURNS
+//   | REVOKE | RIGHT | ROLLBACK | ROLLUP | ROW | ROW_NUMBER | ROWS
 
-  | SAVEPOINT | SCOPE | SCROLL | SEARCH | SECOND | SELECT
-  | SENSITIVE | SESSION_USER | SET | SIMILAR | SMALLINT | SOME | SPECIFIC
-  | SPECIFICTYPE | SQL | SQLEXCEPTION | SQLSTATE | SQLWARNING | SQRT | START
-  | STATIC | STDDEV_POP | STDDEV_SAMP | SUBMULTISET | SUBSTRING | SUBSTRING_REGEX
-  | SUCCEEDS | SUM | SYMMETRIC | SYSTEM | SYSTEM_TIME | SYSTEM_USER
+//   | SAVEPOINT | SCOPE | SCROLL | SEARCH | SECOND | SELECT
+//   | SENSITIVE | SESSION_USER | SET | SIMILAR | SMALLINT | SOME | SPECIFIC
+//   | SPECIFICTYPE | SQL | SQLEXCEPTION | SQLSTATE | SQLWARNING | SQRT | START
+//   | STATIC | STDDEV_POP | STDDEV_SAMP | SUBMULTISET | SUBSTRING | SUBSTRING_REGEX
+//   | SUCCEEDS | SUM | SYMMETRIC | SYSTEM | SYSTEM_TIME | SYSTEM_USER
 
-  | TABLE | TABLESAMPLE | THEN | TIME | TIMESTAMP | TIMEZONE_HOUR | TIMEZONE_MINUTE
-  | TO | TRAILING | TRANSLATE | TRANSLATE_REGEX | TRANSLATION | TREAT
-  | TRIGGER | TRUNCATE | TRIM | TRIM_ARRAY | TRUE
+//   | TABLE | TABLESAMPLE | THEN | TIME | TIMESTAMP | TIMEZONE_HOUR | TIMEZONE_MINUTE
+//   | TO | TRAILING | TRANSLATE | TRANSLATE_REGEX | TRANSLATION | TREAT
+//   | TRIGGER | TRUNCATE | TRIM | TRIM_ARRAY | TRUE
 
-  | UESCAPE | UNION | UNIQUE | UNKNOWN | UNNEST | UPDATE | UPPER | USER | USING
+//   | UESCAPE | UNION | UNIQUE | UNKNOWN | UNNEST | UPDATE | UPPER | USER | USING
 
-  | VALUE | VALUES | VALUE_OF | VAR_POP | VAR_SAMP | VARBINARY
-  | VARCHAR | VARYING | VERSIONING
+//   | VALUE | VALUES | VALUE_OF | VAR_POP | VAR_SAMP | VARBINARY
+//   | VARCHAR | VARYING | VERSIONING
 
-  | WHEN | WHENEVER | WHERE | WIDTH_BUCKET | WINDOW | WITH | WITHIN | WITHOUT
+//   | WHEN | WHENEVER | WHERE | WIDTH_BUCKET | WINDOW | WITH | WITHIN | WITHOUT
 
-  | YEAR
+//   | YEAR
 
 // 5.3     <literal>
 
@@ -486,7 +486,7 @@
 
 <general literal> ::=
     <character string literal>
-  | <national character string literal>
+  // | <national character string literal>
   | <Unicode character string literal>
   | <binary string literal>
   | <datetime literal>
@@ -511,9 +511,9 @@
 <quote symbol> ::=
   <quote> <quote>
 
-<national character string literal> ::=
-  N <quote> [ <character representation>... ]
-      <quote> [ { <separator> <quote> [ <character representation>... ] <quote> }... ]
+// <national character string literal> ::=
+//   N <quote> [ <character representation>... ]
+//       <quote> [ { <separator> <quote> [ <character representation>... ] <quote> }... ]
 
 <Unicode character string literal> ::=
   [ <introducer> <character set specification> ]
@@ -862,7 +862,7 @@
 <predefined type> ::=
       <character string type> [ CHARACTER SET <character set specification> ]
           [ <collate clause> ]
-  |   <national character string type> [ <collate clause> ]
+  // |   <national character string type> [ <collate clause> ]
   |   <binary string type>
   |   <numeric type>
   |   <boolean type>
@@ -882,20 +882,20 @@
   | CHAR LARGE OBJECT [ <left paren> <character large object length> <right paren> ]
   | CLOB [ <left paren> <character large object length> <right paren> ]
 
-<national character string type> ::=
-    NATIONAL CHARACTER [ <left paren> <character length> <right paren> ]
-  | NATIONAL CHAR [ <left paren> <character length> <right paren> ]
-  | NCHAR [ <left paren> <character length> <right paren> ]
-  | NATIONAL CHARACTER VARYING <left paren> <character length> <right paren>
-  | NATIONAL CHAR VARYING <left paren> <character length> <right paren>
-  | NCHAR VARYING <left paren> <character length> <right paren>
-  | <national character large object type>
+// <national character string type> ::=
+//     NATIONAL CHARACTER [ <left paren> <character length> <right paren> ]
+//   | NATIONAL CHAR [ <left paren> <character length> <right paren> ]
+//   | NCHAR [ <left paren> <character length> <right paren> ]
+//   | NATIONAL CHARACTER VARYING <left paren> <character length> <right paren>
+//   | NATIONAL CHAR VARYING <left paren> <character length> <right paren>
+//   | NCHAR VARYING <left paren> <character length> <right paren>
+//   | <national character large object type>
 
-<national character large object type> ::=
-    NATIONAL CHARACTER LARGE OBJECT [ <left paren> <character large object length> <right
-    paren> ]
-  | NCHAR LARGE OBJECT [ <left paren> <character large object length> <right paren> ]
-  | NCLOB [ <left paren> <character large object length> <right paren> ]
+// <national character large object type> ::=
+//     NATIONAL CHARACTER LARGE OBJECT [ <left paren> <character large object length> <right
+//     paren> ]
+//   | NCHAR LARGE OBJECT [ <left paren> <character large object length> <right paren> ]
+//   | NCLOB [ <left paren> <character large object length> <right paren> ]
 
 <binary string type> ::=
     BINARY [ <left paren> <length> <right paren> ]
@@ -991,19 +991,19 @@
 <path-resolved user-defined type name> ::=
   <user-defined type name>
 
-<collection type> ::=
-    <array type>
-  | <multiset type>
+// <collection type> ::=
+//     <array type>
+//   | <multiset type>
 
-<array type> ::=
-  <data type> ARRAY
-      [ <left bracket or trigraph> <maximum cardinality> <right bracket or trigraph> ]
+// <array type> ::=
+//   <data type> ARRAY
+//       [ <left bracket or trigraph> <maximum cardinality> <right bracket or trigraph> ]
 
 <maximum cardinality> ::=
   <unsigned integer>
 
-<multiset type> ::=
-  <data type> MULTISET
+// <multiset type> ::=
+//   <data type> MULTISET
 
 // 6.2        <field definition>
 
@@ -1023,27 +1023,27 @@
 <parenthesized value expression> ::=
   <left paren> <value expression> <right paren>
 
-<nonparenthesized value expression primary> ::=
-       <unsigned value specification>
-     | <column reference>
-     | <set function specification>
-     | <window function>
-     | <nested window function>
-     | <scalar subquery>
-     | <case expression>
-     | <cast specification>
-     | <field reference>
-     | <subtype treatment>
-     | <method invocation>
-     | <static method invocation>
-     | <new specification>
-     | <attribute or method reference>
-     | <reference resolution>
-     | <collection value constructor>
-     | <array element reference>
-     | <multiset element reference>
-     | <next value expression>
-     | <routine invocation>
+// <nonparenthesized value expression primary> ::=
+//        <unsigned value specification>
+//      | <column reference>
+//      | <set function specification>
+//      | <window function>
+//      | <nested window function>
+//      | <scalar subquery>
+//      | <case expression>
+//      | <cast specification>
+//      | <field reference>
+//      | <subtype treatment>
+//      | <method invocation>
+//      | <static method invocation>
+//      | <new specification>
+//      | <attribute or method reference>
+//      | <reference resolution>
+//      | <collection value constructor>
+//      | <array element reference>
+//      | <multiset element reference>
+//      | <next value expression>
+//      | <routine invocation>
 
 <collection value constructor> ::=
     <array value constructor>
@@ -1389,8 +1389,8 @@
 
 // Reference a field of a row value.
 
-<field reference> ::=
-  <value expression primary> <period> <field name>
+// <field reference> ::=
+//   <value expression primary> <period> <field name>
 
 // 6.16 <subtype treatment>
 
@@ -1454,9 +1454,9 @@
 // Return a value acquired by accessing a column of the row identified by a value of a reference type or by
 // invoking an SQL-invoked method.
 
-<attribute or method reference> ::=
-  <value expression primary> <dereference operator> <qualified identifier>
-      [ <SQL argument list> ]
+// <attribute or method reference> ::=
+//   <value expression primary> <dereference operator> <qualified identifier>
+//       [ <SQL argument list> ]
 
 <dereference operator> ::=
   <right arrow>
@@ -1721,8 +1721,8 @@
     <concatenation>
   | <character factor>
 
-<concatenation> ::=
-  <character value expression> <concatenation operator> <character factor>
+// <concatenation> ::=
+//   <character value expression> <concatenation operator> <character factor>
 
 <character factor> ::=
   <character primary> [ <collate clause> ]
@@ -1742,8 +1742,8 @@
     <value expression primary>
   | <string value function>
 
-<binary concatenation> ::=
-  <binary value expression> <concatenation operator> <binary factor>
+// <binary concatenation> ::=
+//   <binary value expression> <concatenation operator> <binary factor>
 
 // 6.30 <string value function>
 
@@ -1960,14 +1960,14 @@
     <value expression primary> [ <interval qualifier> ]
   | <interval value function>
 
-<interval value expression 1> ::=
-  <interval value expression>
+// <interval value expression 1> ::=
+//   <interval value expression>
 
 <interval term 1> ::=
   <interval term>
 
-<interval term 2> ::=
-  <interval term>
+// <interval term 2> ::=
+//   <interval term>
 
 // 6.34 <interval value function>
 
@@ -2021,11 +2021,11 @@
     <array concatenation>
   | <array primary>
 
-<array concatenation> ::=
-  <array value expression 1> <concatenation operator> <array primary>
+// <array concatenation> ::=
+//   <array value expression 1> <concatenation operator> <array primary>
 
-<array value expression 1> ::=
-  <array value expression>
+// <array value expression 1> ::=
+//   <array value expression>
 
 <array primary> ::=
     <array value function>
@@ -2039,8 +2039,7 @@
   <trim array function>
 
 <trim array function> ::=
-  TRIM_ARRAY <left paren> <array value expression> <comma> <numeric value expression> <right
-  paren>
+  TRIM_ARRAY <left paren> <array value expression> <comma> <numeric value expression> <right paren>
 
 // 6.38 <array value constructor>
 
@@ -2300,7 +2299,7 @@
 
 <table or query name> ::=
     <table name>
-  | <transition table name>
+  // | <transition table name>
   | <query name>
 
 <derived column list> ::=
@@ -2323,27 +2322,27 @@
   | NEW
   | OLD
 
-<parenthesized joined table> ::=
-    <left paren> <parenthesized joined table> <right paren>
-  | <left paren> <joined table> <right paren>
+// <parenthesized joined table> ::=
+//     <left paren> <parenthesized joined table> <right paren>
+//   | <left paren> <joined table> <right paren>
 
 // 7.7     <joined table>
 
 // Specify a table derived from a Cartesian product, inner join, or outer join.
 
-<joined table> ::=
-    <cross join>
-  | <qualified join>
-  | <natural join>
+// <joined table> ::=
+//     <cross join>
+//   | <qualified join>
+//   | <natural join>
 
-<cross join> ::=
-  <table reference> CROSS JOIN <table factor>
+// <cross join> ::=
+//   <table reference> CROSS JOIN <table factor>
 
-<qualified join> ::=
-  { <table reference> | <partitioned join table> }
-      [ <join type> ] JOIN
-      { <table reference> | <partitioned join table> }
-      <join specification>
+// <qualified join> ::=
+//   { <table reference> | <partitioned join table> }
+//       [ <join type> ] JOIN
+//       { <table reference> | <partitioned join table> }
+//       <join specification>
 
 <partitioned join table> ::=
   <table factor> PARTITION BY
@@ -2357,10 +2356,10 @@
 <partitioned join column reference> ::=
   <column reference>
 
-<natural join> ::=
-  { <table reference> | <partitioned join table> }
-      NATURAL [ <join type> ] JOIN
-      { <table factor> | <partitioned join table> }
+// <natural join> ::=
+//   { <table reference> | <partitioned join table> }
+//       NATURAL [ <join type> ] JOIN
+//       { <table factor> | <partitioned join table> }
 
 <join specification> ::=
     <join condition>
@@ -5480,9 +5479,9 @@
 <mutated set clause> ::=
   <mutated target> <period> <method name>
 
-<mutated target> ::=
-    <object column>
-  | <mutated set clause>
+// <mutated target> ::=
+//     <object column>
+//   | <mutated set clause>
 
 <update source> ::=
     <value expression>

@@ -28,33 +28,33 @@
 <digit> ::=
     0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
 
-<SQL special character> ::=
-      <space>
-  |   <double quote>
-  |   <percent>
-  |   <ampersand>
-  |   <quote>
-  |   <left paren>
-  |   <right paren>
-  |   <asterisk>
-  |   <plus sign>
-  |   <comma>
-  |   <minus sign>
-  |   <period>
-  |   <solidus>
-  |   <colon>
-  |   <semicolon>
-  |   <less than operator>
-  |   <equals operator>
-  |   <greater than operator>
-  |   <question mark>
-  |   <left bracket>
-  |   <right bracket>
-  |   <circumflex>
-  |   <underscore>
-  |   <vertical bar>
-  |   <left brace>
-  |   <right brace>
+// <SQL special character> ::=
+//       <space>
+//   |   <double quote>
+//   |   <percent>
+//   |   <ampersand>
+//   |   <quote>
+//   |   <left paren>
+//   |   <right paren>
+//   |   <asterisk>
+//   |   <plus sign>
+//   |   <comma>
+//   |   <minus sign>
+//   |   <period>
+//   |   <solidus>
+//   |   <colon>
+//   |   <semicolon>
+//   |   <less than operator>
+//   |   <equals operator>
+//   |   <greater than operator>
+//   |   <question mark>
+//   |   <left bracket>
+//   |   <right bracket>
+//   |   <circumflex>
+//   |   <underscore>
+//   |   <vertical bar>
+//   |   <left brace>
+//   |   <right brace>
 
 <space> ::=
   !! See the Syntax Rules.
@@ -244,24 +244,24 @@
 <doublequote symbol> ::=
   ""!! two consecutive double quote characters
 
-<delimiter token> ::=
-    <character string literal>
-  | <date string>
-  | <time string>
-  | <timestamp string>
-  | <interval string>
-  | <delimited identifier>
-  | <SQL special character>
-  | <not equals operator>
-  | <greater than or equals operator>
-  | <less than or equals operator>
-  | <concatenation operator>
-  | <right arrow>
-  | <left bracket trigraph>
-  | <right bracket trigraph>
-  | <double colon>
-  | <double period>
-  | <named argument assignment token>
+// <delimiter token> ::=
+//     <character string literal>
+//   | <date string>
+//   | <time string>
+//   | <timestamp string>
+//   | <interval string>
+//   | <delimited identifier>
+//   | <SQL special character>
+//   | <not equals operator>
+//   | <greater than or equals operator>
+//   | <less than or equals operator>
+//   | <concatenation operator>
+//   | <right arrow>
+//   | <left bracket trigraph>
+//   | <right bracket trigraph>
+//   | <double colon>
+//   | <double period>
+//   | <named argument assignment token>
 
 <not equals operator> ::=
   <>
@@ -498,8 +498,8 @@
       <quote> [ <character representation>... ] <quote>
       [ { <separator> <quote> [ <character representation>... ] <quote> }... ]
 
-<introducer> ::=
-  <underscore>
+// <introducer> ::=
+//   <underscore>
 
 <character representation> ::=
     <nonquote character>
@@ -674,16 +674,16 @@
   | <delimited identifier>
   | <Unicode delimited identifier>
 
-<SQL language identifier> ::=
-  <SQL language identifier start> [ <SQL language identifier part>... ]
+// <SQL language identifier> ::=
+//   <SQL language identifier start> [ <SQL language identifier part>... ]
 
-<SQL language identifier start> ::=
-  <simple Latin letter>
+// <SQL language identifier start> ::=
+//   <simple Latin letter>
 
-<SQL language identifier part> ::=
-    <simple Latin letter>
-  | <digit>
-  | <underscore>
+// <SQL language identifier part> ::=
+//     <simple Latin letter>
+//   | <digit>
+//   | <underscore>
 
 <authorization identifier> ::=
     <role name>

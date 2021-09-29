@@ -685,15 +685,15 @@
 //   | <digit>
 //   | <underscore>
 
-<authorization identifier> ::=
-    <role name>
-  | <user identifier>
+// <authorization identifier> ::=
+//     <role name>
+//   | <user identifier>
 
 <table name> ::=
   <local or schema qualified name>
 
-<domain name> ::=
-  <schema qualified name>
+// <domain name> ::=
+//   <schema qualified name>
 
 <schema name> ::=
   [ <catalog name> <period> ] <unqualified schema name>
@@ -753,18 +753,18 @@
 <host parameter name> ::=
   <colon> <identifier>
 
-<SQL parameter name> ::=
-  <identifier>
+// <SQL parameter name> ::=
+//   <identifier>
 
-<constraint name> ::=
-  <schema qualified name>
+// <constraint name> ::=
+//   <schema qualified name>
 
-<external routine name> ::=
-    <identifier>
-  | <character string literal>
+// <external routine name> ::=
+//     <identifier>
+//   | <character string literal>
 
-<trigger name> ::=
-  <schema qualified name>
+// <trigger name> ::=
+//   <schema qualified name>
 
 <collation name> ::=
   <schema qualified name>
@@ -772,17 +772,17 @@
 <character set name> ::=
   [ <schema name> <period> ] <SQL language identifier>
 
-<transliteration name> ::=
-  <schema qualified name>
+// <transliteration name> ::=
+//   <schema qualified name>
 
-<transcoding name> ::=
-  <schema qualified name>
+// <transcoding name> ::=
+//   <schema qualified name>
 
-<schema-resolved user-defined type name> ::=
-  <user-defined type name>
+// <schema-resolved user-defined type name> ::=
+//   <user-defined type name>
 
-<user-defined type name> ::=
-  [ <schema name> <period> ] <qualified identifier>
+// <user-defined type name> ::=
+//   [ <schema name> <period> ] <qualified identifier>
 
 <attribute name> ::=
   <identifier>
@@ -793,11 +793,11 @@
 <savepoint name> ::=
   <identifier>
 
-<sequence generator name> ::=
-  <schema qualified name>
+// <sequence generator name> ::=
+//   <schema qualified name>
 
-<role name> ::=
-  <identifier>
+// <role name> ::=
+//   <identifier>
 
 <user identifier> ::=
   <identifier>
@@ -855,8 +855,8 @@
 <data type> ::=
     <predefined type>
   | <row type>
-  | <path-resolved user-defined type name>
-  | <reference type>
+  // | <path-resolved user-defined type name>
+  // | <reference type>
   | <collection type>
 
 <predefined type> ::=
@@ -979,17 +979,17 @@
 <row type body> ::=
   <left paren> <field definition> [ { <comma> <field definition> }... ] <right paren>
 
-<reference type> ::=
-  REF <left paren> <referenced type> <right paren> [ <scope clause> ]
+// <reference type> ::=
+//   REF <left paren> <referenced type> <right paren> [ <scope clause> ]
 
 <scope clause> ::=
   SCOPE <table name>
 
-<referenced type> ::=
-  <path-resolved user-defined type name>
+// <referenced type> ::=
+//   <path-resolved user-defined type name>
 
-<path-resolved user-defined type name> ::=
-  <user-defined type name>
+// <path-resolved user-defined type name> ::=
+//   <user-defined type name>
 
 <collection type> ::=
     <array type>
@@ -1033,17 +1033,17 @@
      | <case expression>
      | <cast specification>
      | <field reference>
-     | <subtype treatment>
-     | <method invocation>
-     | <static method invocation>
-     | <new specification>
+     // | <subtype treatment>
+     // | <method invocation>
+     // | <static method invocation>
+     // | <new specification>
      // | <attribute or method reference>
-     | <reference resolution>
+     // | <reference resolution>
      | <collection value constructor>
      | <array element reference>
      | <multiset element reference>
-     | <next value expression>
-     | <routine invocation>
+     // | <next value expression>
+     // | <routine invocation>
 
 <collection value constructor> ::=
     <array value constructor>
@@ -1063,16 +1063,16 @@
 
 <general value specification> ::=
     <host parameter specification>
-  | <SQL parameter reference>
+  // | <SQL parameter reference>
   | <dynamic parameter specification>
-  | <embedded variable specification>
+  // | <embedded variable specification>
   | <current collation specification>
   | CURRENT_CATALOG
   | CURRENT_DEFAULT_TRANSFORM_GROUP
   | CURRENT_PATH
   | CURRENT_ROLE
   | CURRENT_SCHEMA
-  | CURRENT_TRANSFORM_GROUP_FOR_TYPE <path-resolved user-defined type name>
+  // | CURRENT_TRANSFORM_GROUP_FOR_TYPE <path-resolved user-defined type name>
   | CURRENT_USER
   | SESSION_USER
   | SYSTEM_USER
@@ -1082,22 +1082,22 @@
 <simple value specification> ::=
     <literal>
   | <host parameter name>
-  | <SQL parameter reference>
-  | <embedded variable name>
+  // | <SQL parameter reference>
+  // | <embedded variable name>
 
 <target specification> ::=
     <host parameter specification>
-  | <SQL parameter reference>
+  // | <SQL parameter reference>
   | <column reference>
   | <target array element specification>
   | <dynamic parameter specification>
-  | <embedded variable specification>
+  // | <embedded variable specification>
 
 <simple target specification> ::=
     <host parameter name>
-  | <SQL parameter reference>
+  // | <SQL parameter reference>
   | <column reference>
-  | <embedded variable name>
+  // | <embedded variable name>
 
 <host parameter specification> ::=
   <host parameter name> [ <indicator parameter> ]
@@ -1105,11 +1105,11 @@
 <dynamic parameter specification> ::=
   <question mark>
 
-<embedded variable specification> ::=
-  <embedded variable name> [ <indicator variable> ]
+// <embedded variable specification> ::=
+//   <embedded variable name> [ <indicator variable> ]
 
-<indicator variable> ::=
-  [ INDICATOR ] <embedded variable name>
+// <indicator variable> ::=
+//   [ INDICATOR ] <embedded variable name>
 
 <indicator parameter> ::=
   [ INDICATOR ] <host parameter name>
@@ -1165,12 +1165,12 @@
     <basic identifier chain>
   | MODULE <period> <qualified identifier> <period> <column name>
 
-// 6.8      <SQL parameter reference>
+// // 6.8      <SQL parameter reference>
 
 // Reference an SQL parameter.
 
-<SQL parameter reference> ::=
-  <basic identifier chain>
+// <SQL parameter reference> ::=
+//   <basic identifier chain>
 
 // 6.9        <set function specification>
 
@@ -1352,7 +1352,7 @@
   | <member predicate part 2>
   | <submultiset predicate part 2>
   | <set predicate part 2>
-  | <type predicate part 2>
+  // | <type predicate part 2>
 
 <result> ::=
     <result expression>
@@ -1376,12 +1376,13 @@
     <domain name>
   | <data type>
 
-// 6.14 <next value expression>
+// // 6.14 <next value expression>
 
 // Return the next value of a sequence generator.
 
-<next value expression> ::=
-  NEXT VALUE FOR <sequence generator name>
+// <next value expression> ::=
+//   NEXT VALUE FOR <sequence generator name>
+
 // 6.15 <field reference>
 
 // Reference a field of a row value.
@@ -1393,59 +1394,60 @@
 
 // Modify the declared type of an expression.
 
-<subtype treatment> ::=
-  TREAT <left paren> <subtype operand> AS <target subtype> <right paren>
+// <subtype treatment> ::=
+//   TREAT <left paren> <subtype operand> AS <target subtype> <right paren>
 
-<subtype operand> ::=
-  <value expression>
+// <subtype operand> ::=
+//   <value expression>
 
-<target subtype> ::=
-    <path-resolved user-defined type name>
-  | <reference type>
+// <target subtype> ::=
+//     <path-resolved user-defined type name>
+//   | <reference type>
 
-// 6.17 <method invocation>
+// // 6.17 <method invocation>
 
 // Reference an SQL-invoked method of a user-defined type value.
 
-<method invocation> ::=
-    <direct invocation>
-  | <generalized invocation>
+// <method invocation> ::=
+//     <direct invocation>
+//   | <generalized invocation>
 
-<direct invocation> ::=
-  <value expression primary> <period> <method name> [ <SQL argument list> ]
+// <direct invocation> ::=
+//   <value expression primary> <period> <method name> [ <SQL argument list> ]
 
-<generalized invocation> ::=
-  <left paren> <value expression primary> AS <data type> <right paren>
-      <period> <method name> [ <SQL argument list> ]
+// <generalized invocation> ::=
+//   <left paren> <value expression primary> AS <data type> <right paren>
+//       <period> <method name> [ <SQL argument list> ]
 
-<method selection> ::=
-  <routine invocation>
+// <method selection> ::=
+//   <routine invocation>
 
-<constructor method selection> ::=
-  <routine invocation>
+// <constructor method selection> ::=
+//   <routine invocation>
 
-// 6.18 <static method invocation>
+// // 6.18 <static method invocation>
 
 // Invoke a static method.
 
-<static method invocation> ::=
-  <path-resolved user-defined type name> <double colon> <method name>
-      [ <SQL argument list> ]
+// <static method invocation> ::=
+//   <path-resolved user-defined type name> <double colon> <method name>
+//       [ <SQL argument list> ]
 
-<static method selection> ::=
-  <routine invocation>
-// 6.19 <new specification>
+// <static method selection> ::=
+//   <routine invocation>
+
+// // 6.19 <new specification>
 
 // Invoke a method on a newly-constructed value of a structured type.
 
-<new specification> ::=
-  NEW <path-resolved user-defined type name> <SQL argument list>
+// <new specification> ::=
+//   NEW <path-resolved user-defined type name> <SQL argument list>
 
-<new invocation> ::=
-    <method invocation>
-  | <routine invocation>
+// <new invocation> ::=
+//     <method invocation>
+//   | <routine invocation>
 
-// 6.20 <attribute or method reference>
+// // 6.20 <attribute or method reference>
 
 // Return a value acquired by accessing a column of the row identified by a value of a reference type or by
 // invoking an SQL-invoked method.
@@ -1454,29 +1456,29 @@
 //   <value expression primary> <dereference operator> <qualified identifier>
 //       [ <SQL argument list> ]
 
-<dereference operator> ::=
-  <right arrow>
+// <dereference operator> ::=
+//   <right arrow>
 
-// 6.21 <dereference operation>
+// // 6.21 <dereference operation>
 
 // Access a column of the row identified by a value of a reference type.
 
-<dereference operation> ::=
-  <reference value expression> <dereference operator> <attribute name>
+// <dereference operation> ::=
+//   <reference value expression> <dereference operator> <attribute name>
 
-// 6.22 <method reference>
+// // 6.22 <method reference>
 
 // Return a value acquired from invoking an SQL-invoked routine that is a method.
 
-<method reference> ::=
-  <value expression primary> <dereference operator> <method name> <SQL argument list>
+// <method reference> ::=
+//   <value expression primary> <dereference operator> <method name> <SQL argument list>
 
-// 6.23 <reference resolution>
+// // 6.23 <reference resolution>
 
 // Obtain the value referenced by a reference value.
 
-<reference resolution> ::=
-  DEREF <left paren> <reference value expression> <right paren>
+// <reference resolution> ::=
+//   DEREF <left paren> <reference value expression> <right paren>
 
 // 6.24 <array element reference>
 
@@ -1753,9 +1755,9 @@
   | <regular expression substring function>
   | <regex substring function>
   | <fold>
-  | <transcoding>
-  | <character transliteration>
-  | <regex transliteration>
+  // | <transcoding>
+  // | <character transliteration>
+  // | <regex transliteration>
   | <trim function>
   | <character overlay function>
   | <normalize function>
@@ -1782,23 +1784,23 @@
 <fold> ::=
   { UPPER | LOWER } <left paren> <character value expression> <right paren>
 
-<transcoding> ::=
-  CONVERT <left paren> <character value expression>
-      USING <transcoding name> <right paren>
+// <transcoding> ::=
+//   CONVERT <left paren> <character value expression>
+//       USING <transcoding name> <right paren>
 
-<character transliteration> ::=
-  TRANSLATE <left paren> <character value expression>
-      USING <transliteration name> <right paren>
+// <character transliteration> ::=
+//   TRANSLATE <left paren> <character value expression>
+//       USING <transliteration name> <right paren>
 
-<regex transliteration> ::=
-  TRANSLATE_REGEX <left paren>
-      <XQuery pattern> [ FLAG <XQuery option flag> ]
-      IN <regex subject string>
-      [ WITH <XQuery replacement string> ]
-      [ FROM <start position> ]
-      [ USING <char length units> ]
-      [ OCCURRENCE <regex transliteration occurrence> ]
-      <right paren>
+// <regex transliteration> ::=
+//   TRANSLATE_REGEX <left paren>
+//       <XQuery pattern> [ FLAG <XQuery option flag> ]
+//       IN <regex subject string>
+//       [ WITH <XQuery replacement string> ]
+//       [ FROM <start position> ]
+//       [ USING <char length units> ]
+//       [ OCCURRENCE <regex transliteration occurrence> ]
+//       <right paren>
 
 <XQuery replacement string> ::=
   <character value expression>
@@ -2723,7 +2725,7 @@
   | <member predicate>
   | <submultiset predicate>
   | <set predicate>
-  | <type predicate>
+  // | <type predicate>
   | <period predicate>
 
 // 8.2        <comparison predicate>
@@ -3021,29 +3023,29 @@
 <set predicate part 2> ::=
   IS [ NOT ] A SET
 
-// 8.19 <type predicate>
+// // 8.19 <type predicate>
 
 // Specify a type test.
 
-<type predicate> ::=
-  <row value predicand> <type predicate part 2>
+// <type predicate> ::=
+//   <row value predicand> <type predicate part 2>
 
-<type predicate part 2> ::=
-  IS [ NOT ] OF <left paren> <type list> <right paren>
+// <type predicate part 2> ::=
+//   IS [ NOT ] OF <left paren> <type list> <right paren>
 
-<type list> ::=
-  <user-defined type specification>
-      [ { <comma> <user-defined type specification> }... ]
+// <type list> ::=
+//   <user-defined type specification>
+//       [ { <comma> <user-defined type specification> }... ]
 
-<user-defined type specification> ::=
-    <inclusive user-defined type specification>
-  | <exclusive user-defined type specification>
+// <user-defined type specification> ::=
+//     <inclusive user-defined type specification>
+//   | <exclusive user-defined type specification>
 
-<inclusive user-defined type specification> ::=
-  <path-resolved user-defined type name>
+// <inclusive user-defined type specification> ::=
+//   <path-resolved user-defined type name>
 
-<exclusive user-defined type specification> ::=
-  ONLY <path-resolved user-defined type name>
+// <exclusive user-defined type specification> ::=
+//   ONLY <path-resolved user-defined type name>
 
 // 8.20 <period predicate>
 
@@ -3190,47 +3192,47 @@
   | PLI
   | SQL
 
-// 10.3 <path specification>
+// // 10.3 <path specification>
 
 // Specify an order for searching for an SQL-invoked routine.
 
-<path specification> ::=
-  PATH <schema name list>
+// <path specification> ::=
+//   PATH <schema name list>
 
-<schema name list> ::=
-  <schema name> [ { <comma> <schema name> }... ]
+// <schema name list> ::=
+//   <schema name> [ { <comma> <schema name> }... ]
 
-// 10.4 <routine invocation>
+// // 10.4 <routine invocation>
 
 // Invoke an SQL-invoked routine.
 
-<routine invocation> ::=
-  <routine name> <SQL argument list>
+// <routine invocation> ::=
+//   <routine name> <SQL argument list>
 
-<routine name> ::=
-  [ <schema name> <period> ] <qualified identifier>
+// <routine name> ::=
+//   [ <schema name> <period> ] <qualified identifier>
 
-<SQL argument list> ::=
-  <left paren> [ <SQL argument> [ { <comma> <SQL argument> }... ] ] <right paren>
+// <SQL argument list> ::=
+//   <left paren> [ <SQL argument> [ { <comma> <SQL argument> }... ] ] <right paren>
 
-<SQL argument> ::=
-    <value expression>
-  | <generalized expression>
-  | <target specification>
-  | <contextually typed value specification>
-  | <named argument specification>
+// <SQL argument> ::=
+//     <value expression>
+//   | <generalized expression>
+//   | <target specification>
+//   | <contextually typed value specification>
+//   | <named argument specification>
 
-<generalized expression> ::=
-  <value expression> AS <path-resolved user-defined type name>
+// <generalized expression> ::=
+//   <value expression> AS <path-resolved user-defined type name>
 
-<named argument specification> ::=
-  <SQL parameter name> <named argument assignment token>
-      <named argument SQL argument>
+// <named argument specification> ::=
+//   <SQL parameter name> <named argument assignment token>
+//       <named argument SQL argument>
 
-<named argument SQL argument> ::=
-    <value expression>
-  | <target specification>
-  | <contextually typed value specification>
+// <named argument SQL argument> ::=
+//     <value expression>
+//   | <target specification>
+//   | <contextually typed value specification>
 
 // 10.5 <character set specification>
 
@@ -3250,29 +3252,29 @@
 <user-defined character set name> ::=
   <character set name>
 
-// 10.6 <specific routine designator>
+// // 10.6 <specific routine designator>
 
 // Specify an SQL-invoked routine.
 
-<specific routine designator> ::=
-    SPECIFIC <routine type> <specific name>
-  | <routine type> <member name> [ FOR <schema-resolved user-defined type name> ]
+// <specific routine designator> ::=
+//     SPECIFIC <routine type> <specific name>
+//   | <routine type> <member name> [ FOR <schema-resolved user-defined type name> ]
 
-<routine type> ::=
-    ROUTINE
-  | FUNCTION
-  | PROCEDURE
-  | [ INSTANCE | STATIC | CONSTRUCTOR ] METHOD
+// <routine type> ::=
+//     ROUTINE
+//   | FUNCTION
+//   | PROCEDURE
+//   | [ INSTANCE | STATIC | CONSTRUCTOR ] METHOD
 
-<member name> ::=
-  <member name alternatives> [ <data type list> ]
+// <member name> ::=
+//   <member name alternatives> [ <data type list> ]
 
-<member name alternatives> ::=
-    <schema qualified routine name>
-  | <method name>
+// <member name alternatives> ::=
+//     <schema qualified routine name>
+//   | <method name>
 
-<data type list> ::=
-  <left paren> [ <data type> [ { <comma> <data type> }... ] ] <right paren>
+// <data type list> ::=
+//   <left paren> [ <data type> [ { <comma> <data type> }... ] ] <right paren>
 
 // 10.7 <collate clause>
 
@@ -3281,24 +3283,24 @@
 <collate clause> ::=
   COLLATE <collation name>
 
-// 10.8 <constraint name definition> and <constraint characteristics>
+// // 10.8 <constraint name definition> and <constraint characteristics>
 
 // Specify the name of a constraint and its characteristics.
 
-<constraint name definition> ::=
-  CONSTRAINT <constraint name>
+// <constraint name definition> ::=
+//   CONSTRAINT <constraint name>
 
-<constraint characteristics> ::=
-    <constraint check time> [ [ NOT ] DEFERRABLE ] [ <constraint enforcement> ]
-  | [ NOT ] DEFERRABLE [ <constraint check time> ] [ <constraint enforcement> ]
-  | <constraint enforcement>
+// <constraint characteristics> ::=
+//     <constraint check time> [ [ NOT ] DEFERRABLE ] [ <constraint enforcement> ]
+//   | [ NOT ] DEFERRABLE [ <constraint check time> ] [ <constraint enforcement> ]
+//   | <constraint enforcement>
 
-<constraint check time> ::=
-    INITIALLY DEFERRED
-  | INITIALLY IMMEDIATE
+// <constraint check time> ::=
+//     INITIALLY DEFERRED
+//   | INITIALLY IMMEDIATE
 
-<constraint enforcement> ::=
-  [ NOT ] ENFORCED
+// <constraint enforcement> ::=
+//   [ NOT ] ENFORCED
 
 // 10.9 <aggregate function>
 
@@ -5511,13 +5513,13 @@
 
 // 16 Control statements
 
-// 16.1 <call statement>
+// // 16.1 <call statement>
 
 
 // Invoke an SQL-invoked routine.
 
-<call statement> ::=
-  CALL <routine invocation>
+// <call statement> ::=
+//   CALL <routine invocation>
 
 // 16.2 <return statement>
 
@@ -5579,19 +5581,19 @@
 <number of conditions> ::=
   <simple value specification>
 
-// 17.4 <set constraints mode statement>
+// // 17.4 <set constraints mode statement>
 
 // If an SQL-transaction is currently active, then set the constraint mode for that SQL-transaction in the current
 // SQL-session. If no SQL-transaction is currently active, then set the constraint mode for the next SQL-transaction
 // in the current SQL-session for the SQL-agent.
 //     NOTE 524 - This statement has no effect on any SQL-transactions subsequent to this SQL-transaction.
 
-<set constraints mode statement> ::=
-  SET CONSTRAINTS <constraint name list> { DEFERRED | IMMEDIATE }
+// <set constraints mode statement> ::=
+//   SET CONSTRAINTS <constraint name list> { DEFERRED | IMMEDIATE }
 
-<constraint name list> ::=
-    ALL
-  | <constraint name> [ { <comma> <constraint name> }... ]
+// <constraint name list> ::=
+//     ALL
+//   | <constraint name> [ { <comma> <constraint name> }... ]
 
 // 17.5 <savepoint statement>
 

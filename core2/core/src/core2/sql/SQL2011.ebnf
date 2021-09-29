@@ -1713,23 +1713,11 @@ cross_join
     ;
 
 qualified_join
-    : ( table_reference / partitioned_join_table ) [ join_type ] 'JOIN' ( table_reference / partitioned_join_table ) join_specification
-    ;
-
-partitioned_join_table
-    : table_factor 'PARTITION' 'BY' partitioned_join_column_reference_list
-    ;
-
-partitioned_join_column_reference_list
-    : left_paren partitioned_join_column_reference [ ( comma partitioned_join_column_reference )+ ] right_paren
-    ;
-
-partitioned_join_column_reference
-    : column_reference
+    : table_reference [ join_type ] 'JOIN' table_reference join_specification
     ;
 
 natural_join
-    : ( table_reference / partitioned_join_table ) 'NATURAL' [ join_type ] 'JOIN' ( table_factor / partitioned_join_table )
+    : table_reference 'NATURAL' [ join_type ] 'JOIN' table_factor
     ;
 
 join_specification

@@ -1510,15 +1510,15 @@
      |   <string value expression>
      |   <datetime value expression>
      |   <interval value expression>
-     |   <user-defined type value expression>
-     |   <reference value expression>
+     // |   <user-defined type value expression>
+     // |   <reference value expression>
      |   <collection value expression>
 
-<user-defined type value expression> ::=
-  <value expression primary>
+// <user-defined type value expression> ::=
+//   <value expression primary>
 
-<reference value expression> ::=
-  <value expression primary>
+// <reference value expression> ::=
+//   <value expression primary>
 
 <collection value expression> ::=
     <array value expression>
@@ -1761,8 +1761,8 @@
   // | <regex transliteration>
   | <trim function>
   | <character overlay function>
-  | <normalize function>
-  | <specific type method>
+  // | <normalize function>
+  // | <specific type method>
 
 <character substring function> ::=
   SUBSTRING <left paren> <character value expression> FROM <start position>
@@ -1832,23 +1832,23 @@
       FROM <start position> [ FOR <string length> ]
       [ USING <char length units> ] <right paren>
 
-<normalize function> ::=
-  NORMALIZE <left paren> <character value expression>
-      [ <comma> <normal form> [ <comma> <normalize function result length> ] ] <right paren>
+// <normalize function> ::=
+//   NORMALIZE <left paren> <character value expression>
+//       [ <comma> <normal form> [ <comma> <normalize function result length> ] ] <right paren>
 
-<normal form> ::=
-    NFC
-  | NFD
-  | NFKC
-  | NFKD
+// <normal form> ::=
+//     NFC
+//   | NFD
+//   | NFKC
+//   | NFKD
 
-<normalize function result length> ::=
-    <character length>
-  | <character large object length>
+// <normalize function result length> ::=
+//     <character length>
+//   | <character large object length>
 
-<specific type method> ::=
-  <user-defined type value expression> <period> SPECIFICTYPE
-      [ <left paren> <right paren> ]
+// <specific type method> ::=
+//   <user-defined type value expression> <period> SPECIFICTYPE
+//       [ <left paren> <right paren> ]
 
 <binary value function> ::=
        <binary substring function>

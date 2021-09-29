@@ -926,17 +926,7 @@ common_value_expression
     / string_value_expression
     / datetime_value_expression
     / interval_value_expression
-    / user_defined_type_value_expression
-    / reference_value_expression
     / collection_value_expression
-    ;
-
-user_defined_type_value_expression
-    : value_expression_primary
-    ;
-
-reference_value_expression
-    : value_expression_primary
     ;
 
 collection_value_expression
@@ -1209,8 +1199,6 @@ character_value_function
     / fold
     / trim_function
     / character_overlay_function
-    / normalize_function
-    / specific_type_method
     ;
 
 character_substring_function
@@ -1262,26 +1250,6 @@ trim_character
 
 character_overlay_function
     : 'OVERLAY' left_paren character_value_expression 'PLACING' character_value_expression 'FROM' start_position [ 'FOR' string_length ] [ 'USING' char_length_units ] right_paren
-    ;
-
-normalize_function
-    : 'NORMALIZE' left_paren character_value_expression [ comma normal_form [ comma normalize_function_result_length ] ] right_paren
-    ;
-
-normal_form
-    : 'NFC'
-    / 'NFD'
-    / 'NFKC'
-    / 'NFKD'
-    ;
-
-normalize_function_result_length
-    : character_length
-    / character_large_object_length
-    ;
-
-specific_type_method
-    : user_defined_type_value_expression period 'SPECIFICTYPE' [ left_paren right_paren ]
     ;
 
 binary_value_function

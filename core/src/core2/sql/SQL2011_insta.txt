@@ -2228,22 +2228,22 @@
 <table factor> ::=
   <table primary> [ <sample clause> ]
 
-<sample clause> ::=
-  TABLESAMPLE <sample method> <left paren> <sample percentage> <right paren>
-      [ <repeatable clause> ]
+// <sample clause> ::=
+//   TABLESAMPLE <sample method> <left paren> <sample percentage> <right paren>
+//       [ <repeatable clause> ]
 
-<sample method> ::=
-    BERNOULLI
-  | SYSTEM
+// <sample method> ::=
+//     BERNOULLI
+//   | SYSTEM
 
-<repeatable clause> ::=
-  REPEATABLE <left paren> <repeat argument> <right paren>
+// <repeatable clause> ::=
+//   REPEATABLE <left paren> <repeat argument> <right paren>
 
-<sample percentage> ::=
-  <numeric value expression>
+// <sample percentage> ::=
+//   <numeric value expression>
 
-<repeat argument> ::=
-  <numeric value expression>
+// <repeat argument> ::=
+//   <numeric value expression>
 
 <table primary> ::=
       <table or query name> [ <query system time period specification> ]
@@ -2448,7 +2448,7 @@
 <having clause> ::=
   HAVING <search condition>
 
-// 7.11 <window clause>
+// // 7.11 <window clause>
 
 // Specify one or more window definitions.
 
@@ -5421,7 +5421,7 @@
     <value expression>
   | <contextually typed value specification>
 
-// 14.13 <update statement: positioned>
+// // 14.13 <update statement: positioned>
 
 // Update a row of a table.
 

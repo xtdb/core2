@@ -1,6 +1,4 @@
 
-(*  5 Lexical elements *)
-
 (*  5.1     <SQL terminal character> *)
 
 simple_latin_letter
@@ -508,17 +506,8 @@ actual_identifier
     | unicode_delimited_identifier
     ;
 
-authorization_identifier
-    : role_name
-    | user_identifier
-    ;
-
 table_name
     : local_or_schema_qualified_name
-    ;
-
-domain_name
-    : schema_qualified_name
     ;
 
 schema_name
@@ -598,45 +587,12 @@ host_parameter_name
     : colon identifier
     ;
 
-sql_parameter_name
-    : identifier
-    ;
-
-constraint_name
-    : schema_qualified_name
-    ;
-
-external_routine_name
-    : identifier
-    | character_string_literal
-    ;
-
-trigger_name
-    : schema_qualified_name
-    ;
-
 collation_name
     : schema_qualified_name
     ;
 
 character_set_name
     : (schema_name period)? identifier
-    ;
-
-transliteration_name
-    : schema_qualified_name
-    ;
-
-transcoding_name
-    : schema_qualified_name
-    ;
-
-schema_resolved_user_defined_type_name
-    : user_defined_type_name
-    ;
-
-user_defined_type_name
-    : [ schema_name period ] qualified_identifier
     ;
 
 attribute_name
@@ -648,14 +604,6 @@ field_name
     ;
 
 savepoint_name
-    : identifier
-    ;
-
-sequence_generator_name
-    : schema_qualified_name
-    ;
-
-role_name
     : identifier
     ;
 
@@ -719,13 +667,13 @@ window_name
     : identifier
     ;
 
+(*  6 Scalar expressions *)
+
 (*  6.1     <data type> *)
 
 data_type
     : predefined_type
     | row_type
-    | path_resolved_user_defined_type_name
-    | reference_type
     | collection_type
     ;
 
@@ -855,20 +803,8 @@ row_type_body
     : left_paren field_definition [ ( comma field_definition )+ ] right_paren
     ;
 
-reference_type
-    : 'REF' left_paren referenced_type right_paren [ scope_clause ]
-    ;
-
 scope_clause
     : 'SCOPE' table_name
-    ;
-
-referenced_type
-    : path_resolved_user_defined_type_name
-    ;
-
-path_resolved_user_defined_type_name
-    : user_defined_type_name
     ;
 
 collection_type
@@ -915,16 +851,9 @@ nonparenthesized_value_expression_primary
     | case_expression
     | cast_specification
     | field_reference
-    | subtype_treatment
-    | method_invocation
-    | static_method_invocation
-    | new_specification
-    | reference_resolution
     | collection_value_constructor
     | array_element_reference
     | multiset_element_reference
-    | next_value_expression
-    | routine_invocation
     ;
 
 collection_value_constructor
@@ -946,16 +875,13 @@ unsigned_value_specification
 
 general_value_specification
     : host_parameter_specification
-    | sql_parameter_reference
     | dynamic_parameter_specification
-    | embedded_variable_specification
     | current_collation_specification
     | 'CURRENT_CATALOG'
     | 'CURRENT_DEFAULT_TRANSFORM_GROUP'
     | 'CURRENT_PATH'
     | 'CURRENT_ROLE'
     | 'CURRENT_SCHEMA'
-    | 'CURRENT_TRANSFORM_GROUP_FOR_TYPE' path_resolved_user_defined_type_name
     | 'CURRENT_USER'
     | 'SESSION_USER'
     | 'SYSTEM_USER'
@@ -966,24 +892,18 @@ general_value_specification
 simple_value_specification
     : literal
     | host_parameter_name
-    | sql_parameter_reference
-    | embedded_variable_name
     ;
 
 target_specification
     : host_parameter_specification
-    | sql_parameter_reference
     | column_reference
     | target_array_element_specification
     | dynamic_parameter_specification
-    | embedded_variable_specification
     ;
 
 simple_target_specification
     : host_parameter_name
-    | sql_parameter_reference
     | column_reference
-    | embedded_variable_name
     ;
 
 host_parameter_specification
@@ -992,14 +912,6 @@ host_parameter_specification
 
 dynamic_parameter_specification
     : question_mark
-    ;
-
-embedded_variable_specification
-    : embedded_variable_name [ indicator_variable ]
-    ;
-
-indicator_variable
-    : [ 'INDICATOR' ] embedded_variable_name
     ;
 
 indicator_parameter
@@ -1011,8 +923,7 @@ target_array_element_specification
     ;
 
 target_array_reference
-    : sql_parameter_reference
-    | column_reference
+    : column_reference
     ;
 
 current_collation_specification
@@ -1059,12 +970,6 @@ basic_identifier_chain
 column_reference
     : basic_identifier_chain
     | 'MODULE' period qualified_identifier period column_name
-    ;
-
-(*  6.8      <SQL parameter reference> *)
-
-sql_parameter_reference
-    : basic_identifier_chain
     ;
 
 (*  6.9        <set function specification> *)
@@ -1274,7 +1179,6 @@ when_operand
     | member_predicate_part_2
     | submultiset_predicate_part_2
     | set_predicate_part_2
-    | type_predicate_part_2
     ;
 
 result
@@ -1298,103 +1202,13 @@ cast_operand
     ;
 
 cast_target
-    : domain_name
-    | data_type
-    ;
-
-(*  6.14 <next value expression> *)
-
-next_value_expression
-    : 'NEXT' 'VALUE' 'FOR' sequence_generator_name
+    : data_type
     ;
 
 (*  6.15 <field reference> *)
 
 field_reference
     : value_expression_primary period field_name
-    ;
-
-(*  6.16 <subtype treatment> *)
-
-subtype_treatment
-    : 'TREAT' left_paren subtype_operand 'AS' target_subtype right_paren
-    ;
-
-subtype_operand
-    : value_expression
-    ;
-
-target_subtype
-    : path_resolved_user_defined_type_name
-    | reference_type
-    ;
-
-(*  6.17 <method invocation> *)
-
-method_invocation
-    : direct_invocation
-    | generalized_invocation
-    ;
-
-direct_invocation
-    : value_expression_primary period method_name [ sql_argument_list ]
-    ;
-
-generalized_invocation
-    : left_paren value_expression_primary 'AS' data_type right_paren period method_name [ sql_argument_list ]
-    ;
-
-method_selection
-    : routine_invocation
-    ;
-
-constructor_method_selection
-    : routine_invocation
-    ;
-
-(*  6.18 <static method invocation> *)
-
-static_method_invocation
-    : path_resolved_user_defined_type_name double_colon method_name [ sql_argument_list ]
-    ;
-
-static_method_selection
-    : routine_invocation
-    ;
-
-(*  6.19 <new specification> *)
-
-new_specification
-    : 'NEW' path_resolved_user_defined_type_name sql_argument_list
-    ;
-
-new_invocation
-    : method_invocation
-    | routine_invocation
-    ;
-
-(*  6.20 <attribute or method reference> *)
-
-dereference_operator
-    : right_arrow
-    ;
-
-(*  6.21 <dereference operation> *)
-
-dereference_operation
-    : reference_value_expression dereference_operator attribute_name
-    ;
-
-(*  6.22 <method reference> *)
-
-method_reference
-    : value_expression_primary dereference_operator method_name sql_argument_list
-    ;
-
-(*  6.23 <reference resolution> *)
-
-reference_resolution
-    : 'DEREF' left_paren reference_value_expression right_paren
     ;
 
 (*  6.24 <array element reference> *)
@@ -1704,9 +1518,6 @@ character_value_function
     | regular_expression_substring_function
     | regex_substring_function
     | fold
-    | transcoding
-    | character_transliteration
-    | regex_transliteration
     | trim_function
     | character_overlay_function
     | normalize_function
@@ -1727,18 +1538,6 @@ regex_substring_function
 
 fold
     : ( 'UPPER' | 'LOWER' ) left_paren character_value_expression right_paren
-    ;
-
-transcoding
-    : 'CONVERT' left_paren character_value_expression 'USING' transcoding_name right_paren
-    ;
-
-character_transliteration
-    : 'TRANSLATE' left_paren character_value_expression 'USING' transliteration_name right_paren
-    ;
-
-regex_transliteration
-    : 'TRANSLATE_REGEX' left_paren xquery_pattern [ 'FLAG' xquery_option_flag ] 'IN' regex_subject_string [ 'WITH' xquery_replacement_string ] [ 'FROM' start_position ] [ 'USING' char_length_units ] [ 'OCCURRENCE' regex_transliteration_occurrence ] right_paren
     ;
 
 xquery_replacement_string
@@ -2090,6 +1889,8 @@ multiset_value_constructor_by_query
 table_value_constructor_by_query
     : 'TABLE' table_subquery
     ;
+
+(*  7 Query expressions *)
 
 (*  7.1     <row value constructor> *)
 
@@ -2745,8 +2546,6 @@ subquery
     : left_paren query_expression right_paren
     ;
 
-(*  8 Predicates *)
-
 (*  8.1      <predicate> *)
 
 predicate
@@ -2767,7 +2566,6 @@ predicate
     | member_predicate
     | submultiset_predicate
     | set_predicate
-    | type_predicate
     | period_predicate
     ;
 
@@ -3097,33 +2895,6 @@ set_predicate_part_2
     : 'IS' [ 'NOT' ] 'A' 'SET'
     ;
 
-(*  8.19 <type predicate> *)
-
-type_predicate
-    : row_value_predicand type_predicate_part_2
-    ;
-
-type_predicate_part_2
-    : 'IS' [ 'NOT' ] 'OF' left_paren type_list right_paren
-    ;
-
-type_list
-    : user_defined_type_specification [ ( comma user_defined_type_specification )+ ]
-    ;
-
-user_defined_type_specification
-    : inclusive_user_defined_type_specification
-    | exclusive_user_defined_type_specification
-    ;
-
-inclusive_user_defined_type_specification
-    : path_resolved_user_defined_type_name
-    ;
-
-exclusive_user_defined_type_specification
-    : 'ONLY' path_resolved_user_defined_type_name
-    ;
-
 (*  8.20 <period predicate> *)
 
 period_predicate
@@ -3290,52 +3061,6 @@ language_name
     | 'SQL'
     ;
 
-(*  10.3 <path specification> *)
-
-path_specification
-    : 'PATH' schema_name_list
-    ;
-
-schema_name_list
-    : schema_name [ ( comma schema_name )+ ]
-    ;
-
-(*  10.4 <routine invocation> *)
-
-routine_invocation
-    : routine_name sql_argument_list
-    ;
-
-routine_name
-    : [ schema_name period ] qualified_identifier
-    ;
-
-sql_argument_list
-    : left_paren [ sql_argument [ ( comma sql_argument )+ ] ] right_paren
-    ;
-
-sql_argument
-    : value_expression
-    | generalized_expression
-    | target_specification
-    | contextually_typed_value_specification
-    | named_argument_specification
-    ;
-
-generalized_expression
-    : value_expression 'AS' path_resolved_user_defined_type_name
-    ;
-
-named_argument_specification
-    : sql_parameter_name named_argument_assignment_token named_argument_sql_argument
-    ;
-
-named_argument_sql_argument
-    : value_expression
-    | target_specification
-    | contextually_typed_value_specification
-    ;
-
 (*  10.5 <character set specification> *)
 
 character_set_specification
@@ -3356,58 +3081,10 @@ user_defined_character_set_name
     : character_set_name
     ;
 
-(*  10.6 <specific routine designator> *)
-
-specific_routine_designator
-    : 'SPECIFIC' routine_type specific_name
-    | routine_type member_name [ 'FOR' schema_resolved_user_defined_type_name ]
-    ;
-
-routine_type
-    : 'ROUTINE'
-    | 'FUNCTION'
-    | 'PROCEDURE'
-    | [ 'INSTANCE' | 'STATIC' | 'CONSTRUCTOR' ] 'METHOD'
-    ;
-
-member_name
-    : member_name_alternatives [ data_type_list ]
-    ;
-
-member_name_alternatives
-    : schema_qualified_routine_name
-    | method_name
-    ;
-
-data_type_list
-    : left_paren [ data_type [ ( comma data_type )+ ] ] right_paren
-    ;
-
 (*  10.7 <collate clause> *)
 
 collate_clause
     : 'COLLATE' collation_name
-    ;
-
-(*  10.8 <constraint name definition> and <constraint characteristics> *)
-
-constraint_name_definition
-    : 'CONSTRAINT' constraint_name
-    ;
-
-constraint_characteristics
-    : constraint_check_time [ [ 'NOT' ] 'DEFERRABLE' ] [ constraint_enforcement ]
-    | [ 'NOT' ] 'DEFERRABLE' [ constraint_check_time ] [ constraint_enforcement ]
-    | constraint_enforcement
-    ;
-
-constraint_check_time
-    : 'INITIALLY' 'DEFERRED'
-    | 'INITIALLY' 'IMMEDIATE'
-    ;
-
-constraint_enforcement
-    : [ 'NOT' ] 'ENFORCED'
     ;
 
 (*  10.9 <aggregate function> *)
@@ -3539,6 +3216,8 @@ null_ordering
     : 'NULLS' 'FIRST'
     | 'NULLS' 'LAST'
     ;
+
+(*  14 Data manipulation *)
 
 (*  14.1 <declare cursor> *)
 
@@ -3806,12 +3485,6 @@ update_source
 
 (*  16 Control statements *)
 
-(*  16.1 <call statement> *)
-
-call_statement
-    : 'CALL' routine_invocation
-    ;
-
 (*  16.2 <return statement> *)
 
 return_statement
@@ -3822,6 +3495,8 @@ return_value
     : value_expression
     | 'NULL'
     ;
+
+(*  17 Transaction management *)
 
 (*  17.1 <start transaction statement> *)
 
@@ -3869,17 +3544,6 @@ diagnostics_size
 
 number_of_conditions
     : simple_value_specification
-    ;
-
-(*  17.4 <set constraints mode statement> *)
-
-set_constraints_mode_statement
-    : 'SET' 'CONSTRAINTS' constraint_name_list ( 'DEFERRED' | 'IMMEDIATE' )
-    ;
-
-constraint_name_list
-    : 'ALL'
-    | constraint_name [ ( comma constraint_name )+ ]
     ;
 
 (*  17.5 <savepoint statement> *)

@@ -648,10 +648,6 @@ row_type_body
     : left_paren field_definition [ ( comma field_definition )+ ] right_paren
     ;
 
-scope_clause
-    : 'SCOPE' table_name
-    ;
-
 collection_type
     : array_type
     ;

@@ -982,8 +982,8 @@
 // <reference type> ::=
 //   REF <left paren> <referenced type> <right paren> [ <scope clause> ]
 
-<scope clause> ::=
-  SCOPE <table name>
+// <scope clause> ::=
+//   SCOPE <table name>
 
 // <referenced type> ::=
 //   <path-resolved user-defined type name>

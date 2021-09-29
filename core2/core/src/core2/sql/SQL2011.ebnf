@@ -1,4 +1,6 @@
 
+(*  5 Lexical elements *)
+
 (*  5.1     <SQL terminal character> *)
 
 simple_latin_letter
@@ -1643,28 +1645,7 @@ table_reference
     ;
 
 table_factor
-    : table_primary [ sample_clause ]
-    ;
-
-sample_clause
-    : 'TABLESAMPLE' sample_method left_paren sample_percentage right_paren [ repeatable_clause ]
-    ;
-
-sample_method
-    : 'BERNOULLI'
-    / 'SYSTEM'
-    ;
-
-repeatable_clause
-    : 'REPEATABLE' left_paren repeat_argument right_paren
-    ;
-
-sample_percentage
-    : numeric_value_expression
-    ;
-
-repeat_argument
-    : numeric_value_expression
+    : table_primary
     ;
 
 table_primary
@@ -2462,6 +2443,8 @@ period_immediately_succeeds_predicate_part_2
 search_condition
     : boolean_value_expression
     ;
+
+(*  10 Additional common elements *)
 
 (*  10.1 <interval qualifier> *)
 

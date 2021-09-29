@@ -212,7 +212,7 @@ regular_identifier
     ;
 
 identifier_body
-    : identifier_start (identifier_part+)?
+    : identifier_start [ identifier_part+ ]
     ;
 
 identifier_part
@@ -260,7 +260,7 @@ unicode_delimited_identifier
     ;
 
 unicode_escape_specifier
-    : ('UESCAPE' quote unicode_escape_character quote)?
+    : [ 'UESCAPE' quote unicode_escape_character quote ]
     ;
 
 unicode_delimiter_body
@@ -295,7 +295,7 @@ unicode_escape_character
     ;
 
 nondoublequote_character
-    : #'[^\"]'
+    : #'[^"]'
     ;
 
 doublequote_symbol
@@ -386,7 +386,7 @@ unicode_representation
     ;
 
 binary_string_literal
-    : 'X' quote (space+)? ((hexit (space+)? hexit (space+)?)+)? quote ((separator quote (space+)? ((hexit (space+)? hexit (space+)?)+)? quote)+)?
+    : 'X' quote [ space+ ] [ ( hexit [ space+ ] hexit [ space+ ] )+ ] quote [ ( separator quote [ space+ ] [ ( hexit [ space+ ] hexit [ space+ ] )+ ] quote )+ ]
     ;
 
 hexit
@@ -406,7 +406,7 @@ hexit
     ;
 
 signed_numeric_literal
-    : (sign)? unsigned_numeric_literal
+    : [ sign ] unsigned_numeric_literal
     ;
 
 unsigned_numeric_literal
@@ -415,7 +415,7 @@ unsigned_numeric_literal
     ;
 
 exact_numeric_literal
-    : unsigned_integer (period (unsigned_integer)?)?
+    : unsigned_integer [ period [ unsigned_integer ] ]
     | period unsigned_integer
     ;
 
@@ -437,7 +437,7 @@ exponent
     ;
 
 signed_integer
-    : (sign)? unsigned_integer
+    : [ sign ] unsigned_integer
     ;
 
 unsigned_integer
@@ -487,7 +487,7 @@ time_value
     ;
 
 interval_literal
-    : 'INTERVAL' (sign)? interval_string interval_qualifier
+    : 'INTERVAL' [ sign ] interval_string interval_qualifier
     ;
 
 interval_string
@@ -499,7 +499,7 @@ unquoted_date_string
     ;
 
 unquoted_time_string
-    : time_value (time_zone_interval)?
+    : time_value [ time_zone_interval ]
     ;
 
 unquoted_timestamp_string
@@ -507,11 +507,11 @@ unquoted_timestamp_string
     ;
 
 unquoted_interval_string
-    : (sign)? (year_month_literal | day_time_literal)
+    : [ sign ] ( year_month_literal | day_time_literal )
     ;
 
 year_month_literal
-    : years_value (minus_sign months_value)?
+    : years_value [ minus_sign months_value ]
     | months_value
     ;
 
@@ -521,12 +521,12 @@ day_time_literal
     ;
 
 day_time_interval
-    : days_value (space hours_value (colon minutes_value (colon seconds_value)?)?)?
+    : days_value [ space hours_value [ colon minutes_value [ colon seconds_value ] ] ]
     ;
 
 time_interval
-    : hours_value (colon minutes_value (colon seconds_value)?)?
-    | minutes_value (colon seconds_value)?
+    : hours_value [ colon minutes_value [ colon seconds_value ] ]
+    | minutes_value [ colon seconds_value ]
     | seconds_value
     ;
 
@@ -551,7 +551,7 @@ minutes_value
     ;
 
 seconds_value
-    : seconds_integer_value (period (seconds_fraction)?)?
+    : seconds_integer_value [ period [ seconds_fraction ] ]
     ;
 
 seconds_integer_value
@@ -598,7 +598,7 @@ domain_name
     ;
 
 schema_name
-    : (catalog_name period)? unqualified_schema_name
+    : [ catalog_name period ] unqualified_schema_name
     ;
 
 unqualified_schema_name
@@ -610,11 +610,11 @@ catalog_name
     ;
 
 schema_qualified_name
-    : (schema_name period)? qualified_identifier
+    : [ schema_name period ] qualified_identifier
     ;
 
 local_or_schema_qualified_name
-    : (local_or_schema_qualifier period)? qualified_identifier
+    : [ local_or_schema_qualifier period ] qualified_identifier
     ;
 
 local_or_schema_qualifier
@@ -663,7 +663,7 @@ cursor_name
     ;
 
 local_qualified_name
-    : (local_qualifier period)? qualified_identifier
+    : [ local_qualifier period ] qualified_identifier
     ;
 
 local_qualifier
@@ -712,7 +712,7 @@ schema_resolved_user_defined_type_name
     ;
 
 user_defined_type_name
-    : (schema_name period)? qualified_identifier
+    : [ schema_name period ] qualified_identifier
     ;
 
 attribute_name
@@ -761,7 +761,7 @@ statement_name
     ;
 
 extended_statement_name
-    : (scope_option)? simple_value_specification
+    : [ scope_option ] simple_value_specification
     ;
 
 dynamic_cursor_name
@@ -770,7 +770,7 @@ dynamic_cursor_name
     ;
 
 extended_cursor_name
-    : (scope_option)? simple_value_specification
+    : [ scope_option ] simple_value_specification
     ;
 
 descriptor_name
@@ -783,7 +783,7 @@ non_extended_descriptor_name
     ;
 
 extended_descriptor_name
-    : (scope_option)? simple_value_specification
+    : [ scope_option ] simple_value_specification
     ;
 
 scope_option
@@ -806,7 +806,7 @@ data_type
     ;
 
 predefined_type
-    : character_string_type ('CHARACTER' 'SET' character_set_specification)? (collate_clause)?
+    : character_string_type [ 'CHARACTER' 'SET' character_set_specification ] [ collate_clause ]
     | binary_string_type
     | numeric_type
     | boolean_type
@@ -815,8 +815,8 @@ predefined_type
     ;
 
 character_string_type
-    : 'CHARACTER' (left_paren character_length right_paren)?
-    | 'CHAR' (left_paren character_length right_paren)?
+    : 'CHARACTER' [ left_paren character_length right_paren ]
+    | 'CHAR' [ left_paren character_length right_paren ]
     | 'CHARACTER' 'VARYING' left_paren character_length right_paren
     | 'CHAR' 'VARYING' left_paren character_length right_paren
     | 'VARCHAR' left_paren character_length right_paren
@@ -824,21 +824,21 @@ character_string_type
     ;
 
 character_large_object_type
-    : 'CHARACTER' 'LARGE' 'OBJECT' (left_paren character_large_object_length right_paren)?
-    | 'CHAR' 'LARGE' 'OBJECT' (left_paren character_large_object_length right_paren)?
-    | 'CLOB' (left_paren character_large_object_length right_paren)?
+    : 'CHARACTER' 'LARGE' 'OBJECT' [ left_paren character_large_object_length right_paren ]
+    | 'CHAR' 'LARGE' 'OBJECT' [ left_paren character_large_object_length right_paren ]
+    | 'CLOB' [ left_paren character_large_object_length right_paren ]
     ;
 
 binary_string_type
-    : 'BINARY' (left_paren length right_paren)?
+    : 'BINARY' [ left_paren length right_paren ]
     | 'BINARY' 'VARYING' left_paren length right_paren
     | 'VARBINARY' left_paren length right_paren
     | binary_large_object_string_type
     ;
 
 binary_large_object_string_type
-    : 'BINARY' 'LARGE' 'OBJECT' (left_paren large_object_length right_paren)?
-    | 'BLOB' (left_paren large_object_length right_paren)?
+    : 'BINARY' 'LARGE' 'OBJECT' [ left_paren large_object_length right_paren ]
+    | 'BLOB' [ left_paren large_object_length right_paren ]
     ;
 
 numeric_type
@@ -847,9 +847,9 @@ numeric_type
     ;
 
 exact_numeric_type
-    : 'NUMERIC' (left_paren precision (comma scale)? right_paren)?
-    | 'DECIMAL' (left_paren precision (comma scale)? right_paren)?
-    | 'DEC' (left_paren precision (comma scale)? right_paren)?
+    : 'NUMERIC' [ left_paren precision [ comma scale ] right_paren ]
+    | 'DECIMAL' [ left_paren precision [ comma scale ] right_paren ]
+    | 'DEC' [ left_paren precision [ comma scale ] right_paren ]
     | 'SMALLINT'
     | 'INTEGER'
     | 'INT'
@@ -857,7 +857,7 @@ exact_numeric_type
     ;
 
 approximate_numeric_type
-    : 'FLOAT' (left_paren precision right_paren)?
+    : 'FLOAT' [ left_paren precision right_paren ]
     | 'REAL'
     | 'DOUBLE' 'PRECISION'
     ;
@@ -867,16 +867,16 @@ length
     ;
 
 character_length
-    : length (char_length_units)?
+    : length [ char_length_units ]
     ;
 
 large_object_length
-    : length (multiplier)?
+    : length [ multiplier ]
     | large_object_length_token
     ;
 
 character_large_object_length
-    : large_object_length (char_length_units)?
+    : large_object_length [ char_length_units ]
     ;
 
 char_length_units
@@ -898,8 +898,8 @@ boolean_type
 
 datetime_type
     : 'DATE'
-    | 'TIME' (left_paren time_precision right_paren)? (with_or_without_time_zone)?
-    | 'TIMESTAMP' (left_paren timestamp_precision right_paren)? (with_or_without_time_zone)?
+    | 'TIME' [ left_paren time_precision right_paren ] [ with_or_without_time_zone ]
+    | 'TIMESTAMP' [ left_paren timestamp_precision right_paren ] [ with_or_without_time_zone ]
     ;
 
 with_or_without_time_zone
@@ -928,11 +928,11 @@ row_type
     ;
 
 row_type_body
-    : left_paren field_definition ((comma field_definition)+)? right_paren
+    : left_paren field_definition [ ( comma field_definition )+ ] right_paren
     ;
 
 reference_type
-    : 'REF' left_paren referenced_type right_paren (scope_clause)?
+    : 'REF' left_paren referenced_type right_paren [ scope_clause ]
     ;
 
 scope_clause
@@ -953,7 +953,7 @@ collection_type
     ;
 
 array_type
-    : data_type 'ARRAY' (left_bracket_or_trigraph maximum_cardinality right_bracket_or_trigraph)?
+    : data_type 'ARRAY' [ left_bracket_or_trigraph maximum_cardinality right_bracket_or_trigraph ]
     ;
 
 maximum_cardinality
@@ -1063,7 +1063,7 @@ simple_target_specification
     ;
 
 host_parameter_specification
-    : host_parameter_name (indicator_parameter)?
+    : host_parameter_name [ indicator_parameter ]
     ;
 
 dynamic_parameter_specification
@@ -1071,15 +1071,15 @@ dynamic_parameter_specification
     ;
 
 embedded_variable_specification
-    : embedded_variable_name (indicator_variable)?
+    : embedded_variable_name [ indicator_variable ]
     ;
 
 indicator_variable
-    : ('INDICATOR')? embedded_variable_name
+    : [ 'INDICATOR' ] embedded_variable_name
     ;
 
 indicator_parameter
-    : ('INDICATOR')? host_parameter_name
+    : [ 'INDICATOR' ] host_parameter_name
     ;
 
 target_array_element_specification
@@ -1123,7 +1123,7 @@ default_specification
 (*  6.6        <identifier chain> *)
 
 identifier_chain
-    : identifier ((period identifier)+)?
+    : identifier [ ( period identifier )+ ]
     ;
 
 basic_identifier_chain
@@ -1151,7 +1151,7 @@ set_function_specification
     ;
 
 grouping_operation
-    : 'GROUPING' left_paren column_reference ((comma column_reference)+)? right_paren
+    : 'GROUPING' left_paren column_reference [ ( comma column_reference )+ ] right_paren
     ;
 
 (*  6.10 <window function> *)
@@ -1187,7 +1187,7 @@ number_of_tiles
     ;
 
 lead_or_lag_function
-    : lead_or_lag left_paren lead_or_lag_extent (comma offset (comma default_expression)?)? right_paren (null_treatment)?
+    : lead_or_lag left_paren lead_or_lag_extent [ comma offset [ comma default_expression ] ] right_paren [ null_treatment ]
     ;
 
 lead_or_lag
@@ -1213,7 +1213,7 @@ null_treatment
     ;
 
 first_or_last_value_function
-    : first_or_last_value left_paren value_expression right_paren (null_treatment)?
+    : first_or_last_value left_paren value_expression right_paren [ null_treatment ]
     ;
 
 first_or_last_value
@@ -1222,7 +1222,7 @@ first_or_last_value
     ;
 
 nth_value_function
-    : 'NTH_VALUE' left_paren value_expression comma nth_row right_paren (from_first_or_last)? (null_treatment)?
+    : 'NTH_VALUE' left_paren value_expression comma nth_row right_paren [ from_first_or_last ] [ null_treatment ]
     ;
 
 nth_row
@@ -1256,7 +1256,7 @@ nested_row_number_function
     ;
 
 value_of_expression_at_row
-    : 'VALUE_OF' left_paren value_expression 'AT' row_marker_expression (comma value_of_default_value)? right_paren
+    : 'VALUE_OF' left_paren value_expression 'AT' row_marker_expression [ comma value_of_default_value ] right_paren
     ;
 
 row_marker
@@ -1269,7 +1269,7 @@ row_marker
     ;
 
 row_marker_expression
-    : row_marker (row_marker_delta)?
+    : row_marker [ row_marker_delta ]
     ;
 
 row_marker_delta
@@ -1295,7 +1295,7 @@ case_expression
 
 case_abbreviation
     : 'NULLIF' left_paren value_expression comma value_expression right_paren
-    | 'COALESCE' left_paren value_expression (comma value_expression)+ right_paren
+    | 'COALESCE' left_paren value_expression ( comma value_expression )+ right_paren
     ;
 
 case_specification
@@ -1304,11 +1304,11 @@ case_specification
     ;
 
 simple_case
-    : 'CASE' case_operand simple_when_clause+ (else_clause)? 'END'
+    : 'CASE' case_operand simple_when_clause+ [ else_clause ] 'END'
     ;
 
 searched_case
-    : 'CASE' searched_when_clause+ (else_clause)? 'END'
+    : 'CASE' searched_when_clause+ [ else_clause ] 'END'
     ;
 
 simple_when_clause
@@ -1329,7 +1329,7 @@ case_operand
     ;
 
 when_operand_list
-    : when_operand ((comma when_operand)+)?
+    : when_operand [ ( comma when_operand )+ ]
     ;
 
 when_operand
@@ -1413,11 +1413,11 @@ method_invocation
     ;
 
 direct_invocation
-    : value_expression_primary period method_name (sql_argument_list)?
+    : value_expression_primary period method_name [ sql_argument_list ]
     ;
 
 generalized_invocation
-    : left_paren value_expression_primary 'AS' data_type right_paren period method_name (sql_argument_list)?
+    : left_paren value_expression_primary 'AS' data_type right_paren period method_name [ sql_argument_list ]
     ;
 
 method_selection
@@ -1431,7 +1431,7 @@ constructor_method_selection
 (*  6.18 <static method invocation> *)
 
 static_method_invocation
-    : path_resolved_user_defined_type_name double_colon method_name (sql_argument_list)?
+    : path_resolved_user_defined_type_name double_colon method_name [ sql_argument_list ]
     ;
 
 static_method_selection
@@ -1531,7 +1531,7 @@ term
     ;
 
 factor
-    : (sign)? numeric_primary
+    : [ sign ] numeric_primary
     ;
 
 numeric_primary
@@ -1569,7 +1569,7 @@ position_expression
     ;
 
 regex_occurrences_function
-    : 'OCCURRENCES_REGEX' left_paren xquery_pattern ('FLAG' xquery_option_flag)? 'IN' regex_subject_string ('FROM' start_position)? ('USING' char_length_units)? right_paren
+    : 'OCCURRENCES_REGEX' left_paren xquery_pattern [ 'FLAG' xquery_option_flag ] 'IN' regex_subject_string [ 'FROM' start_position ] [ 'USING' char_length_units ] right_paren
     ;
 
 xquery_pattern
@@ -1585,7 +1585,7 @@ regex_subject_string
     ;
 
 regex_position_expression
-    : 'POSITION_REGEX' left_paren (regex_position_start_or_after)? xquery_pattern ('FLAG' xquery_option_flag)? 'IN' regex_subject_string ('FROM' start_position)? ('USING' char_length_units)? ('OCCURRENCE' regex_occurrence)? ('GROUP' regex_capture_group)? right_paren
+    : 'POSITION_REGEX' left_paren [ regex_position_start_or_after ] xquery_pattern [ 'FLAG' xquery_option_flag ] 'IN' regex_subject_string [ 'FROM' start_position ] [ 'USING' char_length_units ] [ 'OCCURRENCE' regex_occurrence ] [ 'GROUP' regex_capture_group ] right_paren
     ;
 
 regex_position_start_or_after
@@ -1602,7 +1602,7 @@ regex_capture_group
     ;
 
 character_position_expression
-    : 'POSITION' left_paren character_value_expression_1 'IN' character_value_expression_2 ('USING' char_length_units)? right_paren
+    : 'POSITION' left_paren character_value_expression_1 'IN' character_value_expression_2 [ 'USING' char_length_units ] right_paren
     ;
 
 character_value_expression_1
@@ -1623,7 +1623,7 @@ length_expression
     ;
 
 char_length_expression
-    : ('CHAR_LENGTH' | 'CHARACTER_LENGTH') left_paren character_value_expression ('USING' char_length_units)? right_paren
+    : ( 'CHAR_LENGTH' | 'CHARACTER_LENGTH' ) left_paren character_value_expression [ 'USING' char_length_units ] right_paren
     ;
 
 octet_length_expression
@@ -1702,7 +1702,7 @@ floor_function
     ;
 
 ceiling_function
-    : ('CEIL' | 'CEILING') left_paren numeric_value_expression right_paren
+    : ( 'CEIL' | 'CEILING' ) left_paren numeric_value_expression right_paren
     ;
 
 width_bucket_function
@@ -1742,7 +1742,7 @@ concatenation
     ;
 
 character_factor
-    : character_primary (collate_clause)?
+    : character_primary [ collate_clause ]
     ;
 
 character_primary
@@ -1790,7 +1790,7 @@ character_value_function
     ;
 
 character_substring_function
-    : 'SUBSTRING' left_paren character_value_expression 'FROM' start_position ('FOR' string_length)? ('USING' char_length_units)? right_paren
+    : 'SUBSTRING' left_paren character_value_expression 'FROM' start_position [ 'FOR' string_length ] [ 'USING' char_length_units ] right_paren
     ;
 
 regular_expression_substring_function
@@ -1798,11 +1798,11 @@ regular_expression_substring_function
     ;
 
 regex_substring_function
-    : 'SUBSTRING_REGEX' left_paren xquery_pattern ('FLAG' xquery_option_flag)? 'IN' regex_subject_string ('FROM' start_position)? ('USING' char_length_units)? ('OCCURRENCE' regex_occurrence)? ('GROUP' regex_capture_group)? right_paren
+    : 'SUBSTRING_REGEX' left_paren xquery_pattern [ 'FLAG' xquery_option_flag ] 'IN' regex_subject_string [ 'FROM' start_position ] [ 'USING' char_length_units ] [ 'OCCURRENCE' regex_occurrence ] [ 'GROUP' regex_capture_group ] right_paren
     ;
 
 fold
-    : ('UPPER' | 'LOWER') left_paren character_value_expression right_paren
+    : ( 'UPPER' | 'LOWER' ) left_paren character_value_expression right_paren
     ;
 
 transcoding
@@ -1814,7 +1814,7 @@ character_transliteration
     ;
 
 regex_transliteration
-    : 'TRANSLATE_REGEX' left_paren xquery_pattern ('FLAG' xquery_option_flag)? 'IN' regex_subject_string ('WITH' xquery_replacement_string)? ('FROM' start_position)? ('USING' char_length_units)? ('OCCURRENCE' regex_transliteration_occurrence)? right_paren
+    : 'TRANSLATE_REGEX' left_paren xquery_pattern [ 'FLAG' xquery_option_flag ] 'IN' regex_subject_string [ 'WITH' xquery_replacement_string ] [ 'FROM' start_position ] [ 'USING' char_length_units ] [ 'OCCURRENCE' regex_transliteration_occurrence ] right_paren
     ;
 
 xquery_replacement_string
@@ -1831,7 +1831,7 @@ trim_function
     ;
 
 trim_operands
-    : ((trim_specification)? (trim_character)? 'FROM')? trim_source
+    : [ [ trim_specification ] [ trim_character ] 'FROM' ] trim_source
     ;
 
 trim_source
@@ -1849,11 +1849,11 @@ trim_character
     ;
 
 character_overlay_function
-    : 'OVERLAY' left_paren character_value_expression 'PLACING' character_value_expression 'FROM' start_position ('FOR' string_length)? ('USING' char_length_units)? right_paren
+    : 'OVERLAY' left_paren character_value_expression 'PLACING' character_value_expression 'FROM' start_position [ 'FOR' string_length ] [ 'USING' char_length_units ] right_paren
     ;
 
 normalize_function
-    : 'NORMALIZE' left_paren character_value_expression (comma normal_form (comma normalize_function_result_length)?)? right_paren
+    : 'NORMALIZE' left_paren character_value_expression [ comma normal_form [ comma normalize_function_result_length ] ] right_paren
     ;
 
 normal_form
@@ -1869,7 +1869,7 @@ normalize_function_result_length
     ;
 
 specific_type_method
-    : user_defined_type_value_expression period 'SPECIFICTYPE' (left_paren right_paren)?
+    : user_defined_type_value_expression period 'SPECIFICTYPE' [ left_paren right_paren ]
     ;
 
 binary_value_function
@@ -1879,7 +1879,7 @@ binary_value_function
     ;
 
 binary_substring_function
-    : 'SUBSTRING' left_paren binary_value_expression 'FROM' start_position ('FOR' string_length)? right_paren
+    : 'SUBSTRING' left_paren binary_value_expression 'FROM' start_position [ 'FOR' string_length ] right_paren
     ;
 
 binary_trim_function
@@ -1887,7 +1887,7 @@ binary_trim_function
     ;
 
 binary_trim_operands
-    : ((trim_specification)? (trim_octet)? 'FROM')? binary_trim_source
+    : [ [ trim_specification ] [ trim_octet ] 'FROM' ] binary_trim_source
     ;
 
 binary_trim_source
@@ -1899,7 +1899,7 @@ trim_octet
     ;
 
 binary_overlay_function
-    : 'OVERLAY' left_paren binary_value_expression 'PLACING' binary_value_expression 'FROM' start_position ('FOR' string_length)? right_paren
+    : 'OVERLAY' left_paren binary_value_expression 'PLACING' binary_value_expression 'FROM' start_position [ 'FOR' string_length ] right_paren
     ;
 
 start_position
@@ -1924,7 +1924,7 @@ datetime_term
     ;
 
 datetime_factor
-    : datetime_primary (time_zone)?
+    : datetime_primary [ time_zone ]
     ;
 
 datetime_primary
@@ -1956,19 +1956,19 @@ current_date_value_function
     ;
 
 current_time_value_function
-    : 'CURRENT_TIME' (left_paren time_precision right_paren)?
+    : 'CURRENT_TIME' [ left_paren time_precision right_paren ]
     ;
 
 current_local_time_value_function
-    : 'LOCALTIME' (left_paren time_precision right_paren)?
+    : 'LOCALTIME' [ left_paren time_precision right_paren ]
     ;
 
 current_timestamp_value_function
-    : 'CURRENT_TIMESTAMP' (left_paren timestamp_precision right_paren)?
+    : 'CURRENT_TIMESTAMP' [ left_paren timestamp_precision right_paren ]
     ;
 
 current_local_timestamp_value_function
-    : 'LOCALTIMESTAMP' (left_paren timestamp_precision right_paren)?
+    : 'LOCALTIMESTAMP' [ left_paren timestamp_precision right_paren ]
     ;
 
 (*  6.33 <interval value expression> *)
@@ -1988,11 +1988,11 @@ interval_term
     ;
 
 interval_factor
-    : (sign)? interval_primary
+    : [ sign ] interval_primary
     ;
 
 interval_primary
-    : value_expression_primary (interval_qualifier)?
+    : value_expression_primary [ interval_qualifier ]
     | interval_value_function
     ;
 
@@ -2031,11 +2031,11 @@ boolean_term
     ;
 
 boolean_factor
-    : ('NOT')? boolean_test
+    : [ 'NOT' ] boolean_test
     ;
 
 boolean_test
-    : boolean_primary ('IS' ('NOT')? truth_value)?
+    : boolean_primary [ 'IS' [ 'NOT' ] truth_value ]
     ;
 
 truth_value
@@ -2100,7 +2100,7 @@ array_value_constructor_by_enumeration
     ;
 
 array_element_list
-    : array_element ((comma array_element)+)?
+    : array_element [ ( comma array_element )+ ]
     ;
 
 array_element
@@ -2115,13 +2115,13 @@ array_value_constructor_by_query
 
 multiset_value_expression
     : multiset_term
-    | multiset_value_expression 'MULTISET' 'UNION' ('ALL' | 'DISTINCT')? multiset_term
-    | multiset_value_expression 'MULTISET' 'EXCEPT' ('ALL' | 'DISTINCT')? multiset_term
+    | multiset_value_expression 'MULTISET' 'UNION' [ 'ALL' | 'DISTINCT' ] multiset_term
+    | multiset_value_expression 'MULTISET' 'EXCEPT' [ 'ALL' | 'DISTINCT' ] multiset_term
     ;
 
 multiset_term
     : multiset_primary
-    | multiset_term 'MULTISET' 'INTERSECT' ('ALL' | 'DISTINCT')? multiset_primary
+    | multiset_term 'MULTISET' 'INTERSECT' [ 'ALL' | 'DISTINCT' ] multiset_primary
     ;
 
 multiset_primary
@@ -2152,7 +2152,7 @@ multiset_value_constructor_by_enumeration
     ;
 
 multiset_element_list
-    : multiset_element ((comma multiset_element)+)?
+    : multiset_element [ ( comma multiset_element )+ ]
     ;
 
 multiset_element
@@ -2182,7 +2182,7 @@ explicit_row_value_constructor
     ;
 
 row_value_constructor_element_list
-    : row_value_constructor_element ((comma row_value_constructor_element)+)?
+    : row_value_constructor_element [ ( comma row_value_constructor_element )+ ]
     ;
 
 row_value_constructor_element
@@ -2199,7 +2199,7 @@ contextually_typed_row_value_constructor
     ;
 
 contextually_typed_row_value_constructor_element_list
-    : contextually_typed_row_value_constructor_element ((comma contextually_typed_row_value_constructor_element)+)?
+    : contextually_typed_row_value_constructor_element [ ( comma contextually_typed_row_value_constructor_element )+ ]
     ;
 
 contextually_typed_row_value_constructor_element
@@ -2246,7 +2246,7 @@ table_value_constructor
     ;
 
 row_value_expression_list
-    : table_row_value_expression ((comma table_row_value_expression)+)?
+    : table_row_value_expression [ ( comma table_row_value_expression )+ ]
     ;
 
 contextually_typed_table_value_constructor
@@ -2254,13 +2254,13 @@ contextually_typed_table_value_constructor
     ;
 
 contextually_typed_row_value_expression_list
-    : contextually_typed_row_value_expression ((comma contextually_typed_row_value_expression)+)?
+    : contextually_typed_row_value_expression [ ( comma contextually_typed_row_value_expression )+ ]
     ;
 
 (*  7.4      <table expression> *)
 
 table_expression
-    : from_clause (where_clause)? (group_by_clause)? (having_clause)? (window_clause)?
+    : from_clause [ where_clause ] [ group_by_clause ] [ having_clause ] [ window_clause ]
     ;
 
 (*  7.5        <from clause> *)
@@ -2270,7 +2270,7 @@ from_clause
     ;
 
 table_reference_list
-    : table_reference ((comma table_reference)+)?
+    : table_reference [ ( comma table_reference )+ ]
     ;
 
 (*  7.6     <table reference> *)
@@ -2281,11 +2281,11 @@ table_reference
     ;
 
 table_factor
-    : table_primary (sample_clause)?
+    : table_primary [ sample_clause ]
     ;
 
 sample_clause
-    : 'TABLESAMPLE' sample_method left_paren sample_percentage right_paren (repeatable_clause)?
+    : 'TABLESAMPLE' sample_method left_paren sample_percentage right_paren [ repeatable_clause ]
     ;
 
 sample_method
@@ -2306,19 +2306,19 @@ repeat_argument
     ;
 
 table_primary
-    : table_or_query_name (query_system_time_period_specification)? (('AS')? correlation_name (left_paren derived_column_list right_paren)?)?
-    | derived_table ('AS')? correlation_name (left_paren derived_column_list right_paren)?
-    | lateral_derived_table ('AS')? correlation_name (left_paren derived_column_list right_paren)?
-    | collection_derived_table ('AS')? correlation_name (left_paren derived_column_list right_paren)?
-    | table_function_derived_table ('AS')? correlation_name (left_paren derived_column_list right_paren)?
-    | only_spec (('AS')? correlation_name (left_paren derived_column_list right_paren)?)?
-    | data_change_delta_table (('AS')? correlation_name (left_paren derived_column_list right_paren)?)?
+    : table_or_query_name [ query_system_time_period_specification ] [ [ 'AS' ] correlation_name [ left_paren derived_column_list right_paren ] ]
+    | derived_table [ 'AS' ] correlation_name [ left_paren derived_column_list right_paren ]
+    | lateral_derived_table [ 'AS' ] correlation_name [ left_paren derived_column_list right_paren ]
+    | collection_derived_table [ 'AS' ] correlation_name [ left_paren derived_column_list right_paren ]
+    | table_function_derived_table [ 'AS' ] correlation_name [ left_paren derived_column_list right_paren ]
+    | only_spec [ [ 'AS' ] correlation_name [ left_paren derived_column_list right_paren ] ]
+    | data_change_delta_table [ [ 'AS' ] correlation_name [ left_paren derived_column_list right_paren ] ]
     | parenthesized_joined_table
     ;
 
 query_system_time_period_specification
     : 'FOR' 'SYSTEM_TIME' 'AS' 'OF' point_in_time_1
-    | 'FOR' 'SYSTEM_TIME' 'BETWEEN' ('ASYMMETRIC' | 'SYMMETRIC')? point_in_time_1 'AND' point_in_time_2
+    | 'FOR' 'SYSTEM_TIME' 'BETWEEN' [ 'ASYMMETRIC' | 'SYMMETRIC' ] point_in_time_1 'AND' point_in_time_2
     | 'FOR' 'SYSTEM_TIME' 'FROM' point_in_time_1 'TO' point_in_time_2
     ;
 
@@ -2343,7 +2343,7 @@ lateral_derived_table
     ;
 
 collection_derived_table
-    : 'UNNEST' left_paren collection_value_expression ((comma collection_value_expression)+)? right_paren ('WITH' 'ORDINALITY')?
+    : 'UNNEST' left_paren collection_value_expression [ ( comma collection_value_expression )+ ] right_paren [ 'WITH' 'ORDINALITY' ]
     ;
 
 table_function_derived_table
@@ -2364,7 +2364,7 @@ derived_column_list
     ;
 
 column_name_list
-    : column_name ((comma column_name)+)?
+    : column_name [ ( comma column_name )+ ]
     ;
 
 data_change_delta_table
@@ -2402,7 +2402,7 @@ cross_join
     ;
 
 qualified_join
-    : (table_reference | partitioned_join_table) (join_type)? 'JOIN' (table_reference | partitioned_join_table) join_specification
+    : ( table_reference | partitioned_join_table ) [ join_type ] 'JOIN' ( table_reference | partitioned_join_table ) join_specification
     ;
 
 partitioned_join_table
@@ -2410,7 +2410,7 @@ partitioned_join_table
     ;
 
 partitioned_join_column_reference_list
-    : left_paren partitioned_join_column_reference ((comma partitioned_join_column_reference)+)? right_paren
+    : left_paren partitioned_join_column_reference [ ( comma partitioned_join_column_reference )+ ] right_paren
     ;
 
 partitioned_join_column_reference
@@ -2418,7 +2418,7 @@ partitioned_join_column_reference
     ;
 
 natural_join
-    : (table_reference | partitioned_join_table) 'NATURAL' (join_type)? 'JOIN' (table_factor | partitioned_join_table)
+    : ( table_reference | partitioned_join_table ) 'NATURAL' [ join_type ] 'JOIN' ( table_factor | partitioned_join_table )
     ;
 
 join_specification
@@ -2436,7 +2436,7 @@ named_columns_join
 
 join_type
     : 'INNER'
-    | outer_join_type ('OUTER')?
+    | outer_join_type [ 'OUTER' ]
     ;
 
 outer_join_type
@@ -2458,11 +2458,11 @@ where_clause
 (*  7.9     <group by clause> *)
 
 group_by_clause
-    : 'GROUP' 'BY' (set_quantifier)? grouping_element_list
+    : 'GROUP' 'BY' [ set_quantifier ] grouping_element_list
     ;
 
 grouping_element_list
-    : grouping_element ((comma grouping_element)+)?
+    : grouping_element [ ( comma grouping_element )+ ]
     ;
 
 grouping_element
@@ -2479,11 +2479,11 @@ ordinary_grouping_set
     ;
 
 grouping_column_reference
-    : column_reference (collate_clause)?
+    : column_reference [ collate_clause ]
     ;
 
 grouping_column_reference_list
-    : grouping_column_reference ((comma grouping_column_reference)+)?
+    : grouping_column_reference [ ( comma grouping_column_reference )+ ]
     ;
 
 rollup_list
@@ -2491,7 +2491,7 @@ rollup_list
     ;
 
 ordinary_grouping_set_list
-    : ordinary_grouping_set ((comma ordinary_grouping_set)+)?
+    : ordinary_grouping_set [ ( comma ordinary_grouping_set )+ ]
     ;
 
 cube_list
@@ -2503,7 +2503,7 @@ grouping_sets_specification
     ;
 
 grouping_set_list
-    : grouping_set ((comma grouping_set)+)?
+    : grouping_set [ ( comma grouping_set )+ ]
     ;
 
 grouping_set
@@ -2531,7 +2531,7 @@ window_clause
     ;
 
 window_definition_list
-    : window_definition ((comma window_definition)+)?
+    : window_definition [ ( comma window_definition )+ ]
     ;
 
 window_definition
@@ -2547,7 +2547,7 @@ window_specification
     ;
 
 window_specification_details
-    : (existing_window_name)? (window_partition_clause)? (window_order_clause)? (window_frame_clause)?
+    : [ existing_window_name ] [ window_partition_clause ] [ window_order_clause ] [ window_frame_clause ]
     ;
 
 existing_window_name
@@ -2559,11 +2559,11 @@ window_partition_clause
     ;
 
 window_partition_column_reference_list
-    : window_partition_column_reference ((comma window_partition_column_reference)+)?
+    : window_partition_column_reference [ ( comma window_partition_column_reference )+ ]
     ;
 
 window_partition_column_reference
-    : column_reference (collate_clause)?
+    : column_reference [ collate_clause ]
     ;
 
 window_order_clause
@@ -2571,7 +2571,7 @@ window_order_clause
     ;
 
 window_frame_clause
-    : window_frame_units window_frame_extent (window_frame_exclusion)?
+    : window_frame_units window_frame_extent [ window_frame_exclusion ]
     ;
 
 window_frame_units
@@ -2627,12 +2627,12 @@ window_frame_exclusion
 (*  7.12 <query specification> *)
 
 query_specification
-    : 'SELECT' (set_quantifier)? select_list table_expression
+    : 'SELECT' [ set_quantifier ] select_list table_expression
     ;
 
 select_list
     : asterisk
-    | select_sublist ((comma select_sublist)+)?
+    | select_sublist [ ( comma select_sublist )+ ]
     ;
 
 select_sublist
@@ -2646,7 +2646,7 @@ qualified_asterisk
     ;
 
 asterisked_identifier_chain
-    : asterisked_identifier ((period asterisked_identifier)+)?
+    : asterisked_identifier [ ( period asterisked_identifier )+ ]
     ;
 
 asterisked_identifier
@@ -2654,15 +2654,15 @@ asterisked_identifier
     ;
 
 derived_column
-    : value_expression (as_clause)?
+    : value_expression [ as_clause ]
     ;
 
 as_clause
-    : ('AS')? column_name
+    : [ 'AS' ] column_name
     ;
 
 all_fields_reference
-    : value_expression_primary period asterisk ('AS' left_paren all_fields_column_name_list right_paren)?
+    : value_expression_primary period asterisk [ 'AS' left_paren all_fields_column_name_list right_paren ]
     ;
 
 all_fields_column_name_list
@@ -2672,19 +2672,19 @@ all_fields_column_name_list
 (*  7.13 <query expression> *)
 
 query_expression
-    : (with_clause)? query_expression_body (order_by_clause)? (result_offset_clause)? (fetch_first_clause)?
+    : [ with_clause ] query_expression_body [ order_by_clause ] [ result_offset_clause ] [ fetch_first_clause ]
     ;
 
 with_clause
-    : 'WITH' ('RECURSIVE')? with_list
+    : 'WITH' [ 'RECURSIVE' ] with_list
     ;
 
 with_list
-    : with_list_element ((comma with_list_element)+)?
+    : with_list_element [ ( comma with_list_element )+ ]
     ;
 
 with_list_element
-    : query_name (left_paren with_column_list right_paren)? 'AS' table_subquery (search_or_cycle_clause)?
+    : query_name [ left_paren with_column_list right_paren ] 'AS' table_subquery [ search_or_cycle_clause ]
     ;
 
 with_column_list
@@ -2693,18 +2693,18 @@ with_column_list
 
 query_expression_body
     : query_term
-    | query_expression_body 'UNION' ('ALL' | 'DISTINCT')? (corresponding_spec)? query_term
-    | query_expression_body 'EXCEPT' ('ALL' | 'DISTINCT')? (corresponding_spec)? query_term
+    | query_expression_body 'UNION' [ 'ALL' | 'DISTINCT' ] [ corresponding_spec ] query_term
+    | query_expression_body 'EXCEPT' [ 'ALL' | 'DISTINCT' ] [ corresponding_spec ] query_term
     ;
 
 query_term
     : query_primary
-    | query_term 'INTERSECT' ('ALL' | 'DISTINCT')? (corresponding_spec)? query_primary
+    | query_term 'INTERSECT' [ 'ALL' | 'DISTINCT' ] [ corresponding_spec ] query_primary
     ;
 
 query_primary
     : simple_table
-    | left_paren query_expression_body (order_by_clause)? (result_offset_clause)? (fetch_first_clause)? right_paren
+    | left_paren query_expression_body [ order_by_clause ] [ result_offset_clause ] [ fetch_first_clause ] right_paren
     ;
 
 simple_table
@@ -2718,7 +2718,7 @@ explicit_table
     ;
 
 corresponding_spec
-    : 'CORRESPONDING' ('BY' left_paren corresponding_column_list right_paren)?
+    : 'CORRESPONDING' [ 'BY' left_paren corresponding_column_list right_paren ]
     ;
 
 corresponding_column_list
@@ -2730,11 +2730,11 @@ order_by_clause
     ;
 
 result_offset_clause
-    : 'OFFSET' offset_row_count ('ROW' | 'ROWS')
+    : 'OFFSET' offset_row_count ( 'ROW' | 'ROWS' )
     ;
 
 fetch_first_clause
-    : 'FETCH' ('FIRST' | 'NEXT') (fetch_first_quantity)? ('ROW' | 'ROWS') ('ONLY' | 'WITH' 'TIES')
+    : 'FETCH' ( 'FIRST' | 'NEXT' ) [ fetch_first_quantity ] ( 'ROW' | 'ROWS' ) ( 'ONLY' | 'WITH' 'TIES' )
     ;
 
 fetch_first_quantity
@@ -2780,7 +2780,7 @@ cycle_clause
     ;
 
 cycle_column_list
-    : cycle_column ((comma cycle_column)+)?
+    : cycle_column [ ( comma cycle_column )+ ]
     ;
 
 cycle_column
@@ -2873,7 +2873,7 @@ between_predicate
     ;
 
 between_predicate_part_2
-    : ('NOT')? 'BETWEEN' ('ASYMMETRIC' | 'SYMMETRIC')? row_value_predicand 'AND' row_value_predicand
+    : [ 'NOT' ] 'BETWEEN' [ 'ASYMMETRIC' | 'SYMMETRIC' ] row_value_predicand 'AND' row_value_predicand
     ;
 
 (*  8.4      <in predicate> *)
@@ -2883,7 +2883,7 @@ in_predicate
     ;
 
 in_predicate_part_2
-    : ('NOT')? 'IN' in_predicate_value
+    : [ 'NOT' ] 'IN' in_predicate_value
     ;
 
 in_predicate_value
@@ -2892,7 +2892,7 @@ in_predicate_value
     ;
 
 in_value_list
-    : row_value_expression ((comma row_value_expression)+)?
+    : row_value_expression [ ( comma row_value_expression )+ ]
     ;
 
 (*  8.5        <like predicate> *)
@@ -2907,7 +2907,7 @@ character_like_predicate
     ;
 
 character_like_predicate_part_2
-    : ('NOT')? 'LIKE' character_pattern ('ESCAPE' escape_character)?
+    : [ 'NOT' ] 'LIKE' character_pattern [ 'ESCAPE' escape_character ]
     ;
 
 character_pattern
@@ -2923,7 +2923,7 @@ octet_like_predicate
     ;
 
 octet_like_predicate_part_2
-    : ('NOT')? 'LIKE' octet_pattern ('ESCAPE' escape_octet)?
+    : [ 'NOT' ] 'LIKE' octet_pattern [ 'ESCAPE' escape_octet ]
     ;
 
 octet_pattern
@@ -2941,7 +2941,7 @@ similar_predicate
     ;
 
 similar_predicate_part_2
-    : ('NOT')? 'SIMILAR' 'TO' similar_pattern ('ESCAPE' escape_character)?
+    : [ 'NOT' ] 'SIMILAR' 'TO' similar_pattern [ 'ESCAPE' escape_character ]
     ;
 
 similar_pattern
@@ -2967,11 +2967,11 @@ regular_factor
     ;
 
 repeat_factor
-    : left_brace low_value (upper_limit)? right_brace
+    : left_brace low_value [ upper_limit ] right_brace
     ;
 
 upper_limit
-    : comma (high_value)?
+    : comma [ high_value ]
     ;
 
 low_value
@@ -3034,7 +3034,7 @@ regex_like_predicate
     ;
 
 regex_like_predicate_part_2
-    : ('NOT')? 'LIKE_REGEX' xquery_pattern ('FLAG' xquery_option_flag)?
+    : [ 'NOT' ] 'LIKE_REGEX' xquery_pattern [ 'FLAG' xquery_option_flag ]
     ;
 
 (*  8.8        <null predicate> *)
@@ -3044,7 +3044,7 @@ null_predicate
     ;
 
 null_predicate_part_2
-    : 'IS' ('NOT')? 'NULL'
+    : 'IS' [ 'NOT' ] 'NULL'
     ;
 
 (*  8.9        <quantified comparison predicate> *)
@@ -3090,7 +3090,7 @@ normalized_predicate
     ;
 
 normalized_predicate_part_2
-    : 'IS' ('NOT')? (normal_form)? 'NORMALIZED'
+    : 'IS' [ 'NOT' ] [ normal_form ] 'NORMALIZED'
     ;
 
 (*  8.13 <match predicate> *)
@@ -3100,7 +3100,7 @@ match_predicate
     ;
 
 match_predicate_part_2
-    : 'MATCH' ('UNIQUE')? ('SIMPLE' | 'PARTIAL' | 'FULL')? table_subquery
+    : 'MATCH' [ 'UNIQUE' ] [ 'SIMPLE' | 'PARTIAL' | 'FULL' ] table_subquery
     ;
 
 (*  8.14 <overlaps predicate> *)
@@ -3132,7 +3132,7 @@ distinct_predicate
     ;
 
 distinct_predicate_part_2
-    : 'IS' ('NOT')? 'DISTINCT' 'FROM' row_value_predicand_4
+    : 'IS' [ 'NOT' ] 'DISTINCT' 'FROM' row_value_predicand_4
     ;
 
 row_value_predicand_3
@@ -3150,7 +3150,7 @@ member_predicate
     ;
 
 member_predicate_part_2
-    : ('NOT')? 'MEMBER' ('OF')? multiset_value_expression
+    : [ 'NOT' ] 'MEMBER' [ 'OF' ] multiset_value_expression
     ;
 
 (*  8.17 <submultiset predicate> *)
@@ -3160,7 +3160,7 @@ submultiset_predicate
     ;
 
 submultiset_predicate_part_2
-    : ('NOT')? 'SUBMULTISET' ('OF')? multiset_value_expression
+    : [ 'NOT' ] 'SUBMULTISET' [ 'OF' ] multiset_value_expression
     ;
 
 (*  8.18 <set predicate> *)
@@ -3170,7 +3170,7 @@ set_predicate
     ;
 
 set_predicate_part_2
-    : 'IS' ('NOT')? 'A' 'SET'
+    : 'IS' [ 'NOT' ] 'A' 'SET'
     ;
 
 (*  8.19 <type predicate> *)
@@ -3180,11 +3180,11 @@ type_predicate
     ;
 
 type_predicate_part_2
-    : 'IS' ('NOT')? 'OF' left_paren type_list right_paren
+    : 'IS' [ 'NOT' ] 'OF' left_paren type_list right_paren
     ;
 
 type_list
-    : user_defined_type_specification ((comma user_defined_type_specification)+)?
+    : user_defined_type_specification [ ( comma user_defined_type_specification )+ ]
     ;
 
 user_defined_type_specification
@@ -3314,17 +3314,17 @@ interval_qualifier
     ;
 
 start_field
-    : non_second_primary_datetime_field (left_paren interval_leading_field_precision right_paren)?
+    : non_second_primary_datetime_field [ left_paren interval_leading_field_precision right_paren ]
     ;
 
 end_field
     : non_second_primary_datetime_field
-    | 'SECOND' (left_paren interval_fractional_seconds_precision right_paren)?
+    | 'SECOND' [ left_paren interval_fractional_seconds_precision right_paren ]
     ;
 
 single_datetime_field
-    : non_second_primary_datetime_field (left_paren interval_leading_field_precision right_paren)?
-    | 'SECOND' (left_paren interval_leading_field_precision (comma interval_fractional_seconds_precision)? right_paren)?
+    : non_second_primary_datetime_field [ left_paren interval_leading_field_precision right_paren ]
+    | 'SECOND' [ left_paren interval_leading_field_precision [ comma interval_fractional_seconds_precision ] right_paren ]
     ;
 
 primary_datetime_field
@@ -3373,7 +3373,7 @@ path_specification
     ;
 
 schema_name_list
-    : schema_name ((comma schema_name)+)?
+    : schema_name [ ( comma schema_name )+ ]
     ;
 
 (*  10.4 <routine invocation> *)
@@ -3383,11 +3383,11 @@ routine_invocation
     ;
 
 routine_name
-    : (schema_name period)? qualified_identifier
+    : [ schema_name period ] qualified_identifier
     ;
 
 sql_argument_list
-    : left_paren (sql_argument ((comma sql_argument)+)?)? right_paren
+    : left_paren [ sql_argument [ ( comma sql_argument )+ ] ] right_paren
     ;
 
 sql_argument
@@ -3436,18 +3436,18 @@ user_defined_character_set_name
 
 specific_routine_designator
     : 'SPECIFIC' routine_type specific_name
-    | routine_type member_name ('FOR' schema_resolved_user_defined_type_name)?
+    | routine_type member_name [ 'FOR' schema_resolved_user_defined_type_name ]
     ;
 
 routine_type
     : 'ROUTINE'
     | 'FUNCTION'
     | 'PROCEDURE'
-    | ('INSTANCE' | 'STATIC' | 'CONSTRUCTOR')? 'METHOD'
+    | [ 'INSTANCE' | 'STATIC' | 'CONSTRUCTOR' ] 'METHOD'
     ;
 
 member_name
-    : member_name_alternatives (data_type_list)?
+    : member_name_alternatives [ data_type_list ]
     ;
 
 member_name_alternatives
@@ -3456,7 +3456,7 @@ member_name_alternatives
     ;
 
 data_type_list
-    : left_paren (data_type ((comma data_type)+)?)? right_paren
+    : left_paren [ data_type [ ( comma data_type )+ ] ] right_paren
     ;
 
 (*  10.7 <collate clause> *)
@@ -3472,8 +3472,8 @@ constraint_name_definition
     ;
 
 constraint_characteristics
-    : constraint_check_time (('NOT')? 'DEFERRABLE')? (constraint_enforcement)?
-    | ('NOT')? 'DEFERRABLE' (constraint_check_time)? (constraint_enforcement)?
+    : constraint_check_time [ [ 'NOT' ] 'DEFERRABLE' ] [ constraint_enforcement ]
+    | [ 'NOT' ] 'DEFERRABLE' [ constraint_check_time ] [ constraint_enforcement ]
     | constraint_enforcement
     ;
 
@@ -3483,21 +3483,21 @@ constraint_check_time
     ;
 
 constraint_enforcement
-    : ('NOT')? 'ENFORCED'
+    : [ 'NOT' ] 'ENFORCED'
     ;
 
 (*  10.9 <aggregate function> *)
 
 aggregate_function
-    : 'COUNT' left_paren asterisk right_paren (filter_clause)?
-    | general_set_function (filter_clause)?
-    | binary_set_function (filter_clause)?
-    | ordered_set_function (filter_clause)?
-    | array_aggregate_function (filter_clause)?
+    : 'COUNT' left_paren asterisk right_paren [ filter_clause ]
+    | general_set_function [ filter_clause ]
+    | binary_set_function [ filter_clause ]
+    | ordered_set_function [ filter_clause ]
+    | array_aggregate_function [ filter_clause ]
     ;
 
 general_set_function
-    : set_function_type left_paren (set_quantifier)? value_expression right_paren
+    : set_function_type left_paren [ set_quantifier ] value_expression right_paren
     ;
 
 set_function_type
@@ -3572,7 +3572,7 @@ within_group_specification
     ;
 
 hypothetical_set_function_value_expression_list
-    : value_expression ((comma value_expression)+)?
+    : value_expression [ ( comma value_expression )+ ]
     ;
 
 inverse_distribution_function
@@ -3589,17 +3589,17 @@ inverse_distribution_function_type
     ;
 
 array_aggregate_function
-    : 'ARRAY_AGG' left_paren value_expression ('ORDER' 'BY' sort_specification_list)? right_paren
+    : 'ARRAY_AGG' left_paren value_expression [ 'ORDER' 'BY' sort_specification_list ] right_paren
     ;
 
 (*  10.10 <sort specification list> *)
 
 sort_specification_list
-    : sort_specification ((comma sort_specification)+)?
+    : sort_specification [ ( comma sort_specification )+ ]
     ;
 
 sort_specification
-    : sort_key (ordering_specification)? (null_ordering)?
+    : sort_key [ ordering_specification ] [ null_ordering ]
     ;
 
 sort_key
@@ -3625,7 +3625,7 @@ declare_cursor
 (*  14.2 <cursor properties> *)
 
 cursor_properties
-    : (cursor_sensitivity)? (cursor_scrollability)? 'CURSOR' (cursor_holdability)? (cursor_returnability)?
+    : [ cursor_sensitivity ] [ cursor_scrollability ] 'CURSOR' [ cursor_holdability ] [ cursor_returnability ]
     ;
 
 cursor_sensitivity
@@ -3652,11 +3652,11 @@ cursor_returnability
 (*  14.3 <cursor specification> *)
 
 cursor_specification
-    : query_expression (updatability_clause)?
+    : query_expression [ updatability_clause ]
     ;
 
 updatability_clause
-    : 'FOR' ('READ' 'ONLY' | 'UPDATE' ('OF' column_name_list)?)
+    : 'FOR' ( 'READ' 'ONLY' | 'UPDATE' [ 'OF' column_name_list ] )
     ;
 
 (*  14.4 <open statement> *)
@@ -3668,7 +3668,7 @@ open_statement
 (*  14.5 <fetch statement> *)
 
 fetch_statement
-    : 'FETCH' ((fetch_orientation)? 'FROM')? cursor_name 'INTO' fetch_target_list
+    : 'FETCH' [ [ fetch_orientation ] 'FROM' ] cursor_name 'INTO' fetch_target_list
     ;
 
 fetch_orientation
@@ -3676,11 +3676,11 @@ fetch_orientation
     | 'PRIOR'
     | 'FIRST'
     | 'LAST'
-    | ('ABSOLUTE' | 'RELATIVE') simple_value_specification
+    | ( 'ABSOLUTE' | 'RELATIVE' ) simple_value_specification
     ;
 
 fetch_target_list
-    : target_specification ((comma target_specification)+)?
+    : target_specification [ ( comma target_specification )+ ]
     ;
 
 (*  14.6 <close statement> *)
@@ -3692,17 +3692,17 @@ close_statement
 (*  14.7 <select statement: single row> *)
 
 select_statement__single_row
-    : 'SELECT' (set_quantifier)? select_list 'INTO' select_target_list table_expression
+    : 'SELECT' [ set_quantifier ] select_list 'INTO' select_target_list table_expression
     ;
 
 select_target_list
-    : target_specification ((comma target_specification)+)?
+    : target_specification [ ( comma target_specification )+ ]
     ;
 
 (*  14.8 <delete statement: positioned> *)
 
 delete_statement__positioned
-    : 'DELETE' 'FROM' target_table (('AS')? correlation_name)? 'WHERE' 'CURRENT' 'OF' cursor_name
+    : 'DELETE' 'FROM' target_table [ [ 'AS' ] correlation_name ] 'WHERE' 'CURRENT' 'OF' cursor_name
     ;
 
 target_table
@@ -3713,13 +3713,13 @@ target_table
 (*  14.9 <delete statement: searched> *)
 
 delete_statement__searched
-    : 'DELETE' 'FROM' target_table ('FOR' 'PORTION' 'OF' application_time_period_name 'FROM' point_in_time_1 'TO' point_in_time_2)? (('AS')? correlation_name)? ('WHERE' search_condition)?
+    : 'DELETE' 'FROM' target_table [ 'FOR' 'PORTION' 'OF' application_time_period_name 'FROM' point_in_time_1 'TO' point_in_time_2 ] [ [ 'AS' ] correlation_name ] [ 'WHERE' search_condition ]
     ;
 
 (*  14.10 <truncate table statement> *)
 
 truncate_table_statement
-    : 'TRUNCATE' 'TABLE' target_table (identity_column_restart_option)?
+    : 'TRUNCATE' 'TABLE' target_table [ identity_column_restart_option ]
     ;
 
 identity_column_restart_option
@@ -3744,11 +3744,11 @@ insert_columns_and_source
     ;
 
 from_subquery
-    : (left_paren insert_column_list right_paren)? (override_clause)? query_expression
+    : [ left_paren insert_column_list right_paren ] [ override_clause ] query_expression
     ;
 
 from_constructor
-    : (left_paren insert_column_list right_paren)? (override_clause)? contextually_typed_table_value_constructor
+    : [ left_paren insert_column_list right_paren ] [ override_clause ] contextually_typed_table_value_constructor
     ;
 
 override_clause
@@ -3767,7 +3767,7 @@ insert_column_list
 (*  14.12 <merge statement> *)
 
 merge_statement
-    : 'MERGE' 'INTO' target_table (('AS')? merge_correlation_name)? 'USING' table_reference 'ON' search_condition merge_operation_specification
+    : 'MERGE' 'INTO' target_table [ [ 'AS' ] merge_correlation_name ] 'USING' table_reference 'ON' search_condition merge_operation_specification
     ;
 
 merge_correlation_name
@@ -3784,7 +3784,7 @@ merge_when_clause
     ;
 
 merge_when_matched_clause
-    : 'WHEN' 'MATCHED' ('AND' search_condition)? 'THEN' merge_update_or_delete_specification
+    : 'WHEN' 'MATCHED' [ 'AND' search_condition ] 'THEN' merge_update_or_delete_specification
     ;
 
 merge_update_or_delete_specification
@@ -3793,7 +3793,7 @@ merge_update_or_delete_specification
     ;
 
 merge_when_not_matched_clause
-    : 'WHEN' 'NOT' 'MATCHED' ('AND' search_condition)? 'THEN' merge_insert_specification
+    : 'WHEN' 'NOT' 'MATCHED' [ 'AND' search_condition ] 'THEN' merge_insert_specification
     ;
 
 merge_update_specification
@@ -3805,11 +3805,11 @@ merge_delete_specification
     ;
 
 merge_insert_specification
-    : 'INSERT' (left_paren insert_column_list right_paren)? (override_clause)? 'VALUES' merge_insert_value_list
+    : 'INSERT' [ left_paren insert_column_list right_paren ] [ override_clause ] 'VALUES' merge_insert_value_list
     ;
 
 merge_insert_value_list
-    : left_paren merge_insert_value_element ((comma merge_insert_value_element)+)? right_paren
+    : left_paren merge_insert_value_element [ ( comma merge_insert_value_element )+ ] right_paren
     ;
 
 merge_insert_value_element
@@ -3820,19 +3820,19 @@ merge_insert_value_element
 (*  14.13 <update statement: positioned> *)
 
 update_statement__positioned
-    : 'UPDATE' target_table (('AS')? correlation_name)? 'SET' set_clause_list 'WHERE' 'CURRENT' 'OF' cursor_name
+    : 'UPDATE' target_table [ [ 'AS' ] correlation_name ] 'SET' set_clause_list 'WHERE' 'CURRENT' 'OF' cursor_name
     ;
 
 (*  14.14 <update statement: searched> *)
 
 update_statement__searched
-    : 'UPDATE' target_table ('FOR' 'PORTION' 'OF' application_time_period_name 'FROM' point_in_time_1 'TO' point_in_time_2)? (('AS')? correlation_name)? 'SET' set_clause_list ('WHERE' search_condition)?
+    : 'UPDATE' target_table [ 'FOR' 'PORTION' 'OF' application_time_period_name 'FROM' point_in_time_1 'TO' point_in_time_2 ] [ [ 'AS' ] correlation_name ] 'SET' set_clause_list [ 'WHERE' search_condition ]
     ;
 
 (*  14.15 <set clause list> *)
 
 set_clause_list
-    : set_clause ((comma set_clause)+)?
+    : set_clause [ ( comma set_clause )+ ]
     ;
 
 set_clause
@@ -3850,7 +3850,7 @@ multiple_column_assignment
     ;
 
 set_target_list
-    : left_paren set_target ((comma set_target)+)? right_paren
+    : left_paren set_target [ ( comma set_target )+ ] right_paren
     ;
 
 assigned_row
@@ -3902,19 +3902,19 @@ return_value
 (*  17.1 <start transaction statement> *)
 
 start_transaction_statement
-    : 'START' 'TRANSACTION' (transaction_characteristics)?
+    : 'START' 'TRANSACTION' [ transaction_characteristics ]
     ;
 
 (*  17.2 <set transaction statement> *)
 
 set_transaction_statement
-    : 'SET' ('LOCAL')? 'TRANSACTION' transaction_characteristics
+    : 'SET' [ 'LOCAL' ] 'TRANSACTION' transaction_characteristics
     ;
 
 (*  17.3 <transaction characteristics> *)
 
 transaction_characteristics
-    : (transaction_mode ((comma transaction_mode)+)?)?
+    : [ transaction_mode [ ( comma transaction_mode )+ ] ]
     ;
 
 transaction_mode
@@ -3950,12 +3950,12 @@ number_of_conditions
 (*  17.4 <set constraints mode statement> *)
 
 set_constraints_mode_statement
-    : 'SET' 'CONSTRAINTS' constraint_name_list ('DEFERRED' | 'IMMEDIATE')
+    : 'SET' 'CONSTRAINTS' constraint_name_list ( 'DEFERRED' | 'IMMEDIATE' )
     ;
 
 constraint_name_list
     : 'ALL'
-    | constraint_name ((comma constraint_name)+)?
+    | constraint_name [ ( comma constraint_name )+ ]
     ;
 
 (*  17.5 <savepoint statement> *)
@@ -3977,13 +3977,13 @@ release_savepoint_statement
 (*  17.7 <commit statement> *)
 
 commit_statement
-    : 'COMMIT' ('WORK')? ('AND' ('NO')? 'CHAIN')?
+    : 'COMMIT' [ 'WORK' ] [ 'AND' [ 'NO' ] 'CHAIN' ]
     ;
 
 (*  17.8 <rollback statement> *)
 
 rollback_statement
-    : 'ROLLBACK' ('WORK')? ('AND' ('NO')? 'CHAIN')? (savepoint_clause)?
+    : 'ROLLBACK' [ 'WORK' ] [ 'AND' [ 'NO' ] 'CHAIN' ] [ savepoint_clause ]
     ;
 
 savepoint_clause

@@ -190,53 +190,6 @@ delimited_identifier_part
     : #'(""|[^"])'
     ;
 
-unicode_delimited_identifier
-    : 'U' ampersand double_quote unicode_delimiter_body double_quote unicode_escape_specifier
-    ;
-
-unicode_escape_specifier
-    : [ 'UESCAPE' quote unicode_escape_character quote ]
-    ;
-
-unicode_delimiter_body
-    : unicode_identifier_part+
-    ;
-
-unicode_identifier_part
-    : delimited_identifier_part
-    / unicode_escape_value
-    ;
-
-unicode_escape_value
-    : unicode_4_digit_escape_value
-    / unicode_6_digit_escape_value
-    / unicode_character_escape_value
-    ;
-
-unicode_4_digit_escape_value
-    : unicode_escape_character hexit hexit hexit hexit
-    ;
-
-unicode_6_digit_escape_value
-    : unicode_escape_character plus_sign hexit hexit hexit hexit hexit hexit
-    ;
-
-unicode_character_escape_value
-    : unicode_escape_character unicode_escape_character
-    ;
-
-unicode_escape_character
-    : '\\'
-    ;
-
-nondoublequote_character
-    : #'[^"]'
-    ;
-
-doublequote_symbol
-    : '""'
-    ;
-
 not_equals_operator
     : '<>'
     ;
@@ -287,7 +240,6 @@ unsigned_literal
 
 general_literal
     : character_string_literal
-    / unicode_character_string_literal
     / binary_string_literal
     / datetime_literal
     / interval_literal
@@ -308,15 +260,6 @@ nonquote_character
 
 quote_symbol
     : quote quote
-    ;
-
-unicode_character_string_literal
-    : 'U' ampersand quote unicode_representation* quote (separator quote unicode_representation* quote)* unicode_escape_specifier
-    ;
-
-unicode_representation
-    : character_representation
-    / unicode_escape_value
     ;
 
 binary_string_literal
@@ -503,7 +446,6 @@ identifier
 actual_identifier
     : regular_identifier
     / delimited_identifier
-    / unicode_delimited_identifier
     ;
 
 table_name
@@ -551,34 +493,6 @@ query_name
     : identifier
     ;
 
-sql_client_module_name
-    : identifier
-    ;
-
-procedure_name
-    : identifier
-    ;
-
-schema_qualified_routine_name
-    : schema_qualified_name
-    ;
-
-method_name
-    : identifier
-    ;
-
-specific_name
-    : schema_qualified_name
-    ;
-
-cursor_name
-    : local_qualified_name
-    ;
-
-local_qualified_name
-    : [ local_qualifier period ] qualified_identifier
-    ;
-
 local_qualifier
     : 'MODULE'
     ;
@@ -591,79 +505,7 @@ collation_name
     : schema_qualified_name
     ;
 
-character_set_name
-    : (schema_name period)? identifier
-    ;
-
-attribute_name
-    : identifier
-    ;
-
 field_name
-    : identifier
-    ;
-
-savepoint_name
-    : identifier
-    ;
-
-user_identifier
-    : identifier
-    ;
-
-connection_name
-    : simple_value_specification
-    ;
-
-sql_server_name
-    : simple_value_specification
-    ;
-
-connection_user_name
-    : simple_value_specification
-    ;
-
-sql_statement_name
-    : statement_name
-    / extended_statement_name
-    ;
-
-statement_name
-    : identifier
-    ;
-
-extended_statement_name
-    : [ scope_option ] simple_value_specification
-    ;
-
-dynamic_cursor_name
-    : cursor_name
-    / extended_cursor_name
-    ;
-
-extended_cursor_name
-    : [ scope_option ] simple_value_specification
-    ;
-
-descriptor_name
-    : non_extended_descriptor_name
-    / extended_descriptor_name
-    ;
-
-non_extended_descriptor_name
-    : identifier
-    ;
-
-extended_descriptor_name
-    : [ scope_option ] simple_value_specification
-    ;
-
-scope_option
-    : 'GLOBAL'
-    / 'LOCAL'
-    ;
-
-window_name
     : identifier
     ;
 
@@ -678,12 +520,13 @@ data_type
     ;
 
 predefined_type
-    : character_string_type [ 'CHARACTER' 'SET' character_set_specification ] [ collate_clause ]
+    : character_string_type [ collate_clause ]
     / binary_string_type
     / numeric_type
     / boolean_type
     / datetime_type
     / interval_type
+
     ;
 
 character_string_type
@@ -809,7 +652,6 @@ scope_clause
 
 collection_type
     : array_type
-    / multiset_type
     ;
 
 array_type
@@ -818,10 +660,6 @@ array_type
 
 maximum_cardinality
     : unsigned_integer
-    ;
-
-multiset_type
-    : data_type 'MULTISET'
     ;
 
 (*  6.2        <field definition> *)
@@ -845,20 +683,16 @@ nonparenthesized_value_expression_primary
     : unsigned_value_specification
     / column_reference
     / set_function_specification
-    / window_function
-    / nested_window_function
     / scalar_subquery
     / case_expression
     / cast_specification
     / field_reference
     / collection_value_constructor
     / array_element_reference
-    / multiset_element_reference
     ;
 
 collection_value_constructor
     : array_value_constructor
-    / multiset_value_constructor
     ;
 
 (*  6.4     <value specification> and <target specification> *)
@@ -948,7 +782,6 @@ null_specification
 
 empty_specification
     : 'ARRAY' left_bracket_or_trigraph right_bracket_or_trigraph
-    / 'MULTISET' left_bracket_or_trigraph right_bracket_or_trigraph
     ;
 
 default_specification
@@ -976,143 +809,6 @@ column_reference
 
 set_function_specification
     : aggregate_function
-    / grouping_operation
-    ;
-
-grouping_operation
-    : 'GROUPING' left_paren column_reference [ ( comma column_reference )+ ] right_paren
-    ;
-
-(*  6.10 <window function> *)
-
-window_function
-    : window_function_type 'OVER' window_name_or_specification
-    ;
-
-window_function_type
-    : rank_function_type left_paren right_paren
-    / 'ROW_NUMBER' left_paren right_paren
-    / aggregate_function
-    / ntile_function
-    / lead_or_lag_function
-    / first_or_last_value_function
-    / nth_value_function
-    ;
-
-rank_function_type
-    : 'RANK'
-    / 'DENSE_RANK'
-    / 'PERCENT_RANK'
-    / 'CUME_DIST'
-    ;
-
-ntile_function
-    : 'NTILE' left_paren number_of_tiles right_paren
-    ;
-
-number_of_tiles
-    : simple_value_specification
-    / dynamic_parameter_specification
-    ;
-
-lead_or_lag_function
-    : lead_or_lag left_paren lead_or_lag_extent [ comma offset [ comma default_expression ] ] right_paren [ null_treatment ]
-    ;
-
-lead_or_lag
-    : 'LEAD'
-    / 'LAG'
-    ;
-
-lead_or_lag_extent
-    : value_expression
-    ;
-
-offset
-    : exact_numeric_literal
-    ;
-
-default_expression
-    : value_expression
-    ;
-
-null_treatment
-    : 'RESPECT' 'NULLS'
-    / 'IGNORE' 'NULLS'
-    ;
-
-first_or_last_value_function
-    : first_or_last_value left_paren value_expression right_paren [ null_treatment ]
-    ;
-
-first_or_last_value
-    : 'FIRST_VALUE'
-    / 'LAST_VALUE'
-    ;
-
-nth_value_function
-    : 'NTH_VALUE' left_paren value_expression comma nth_row right_paren [ from_first_or_last ] [ null_treatment ]
-    ;
-
-nth_row
-    : simple_value_specification
-    / dynamic_parameter_specification
-    ;
-
-from_first_or_last
-    : 'FROM' 'FIRST'
-    / 'FROM' 'LAST'
-    ;
-
-window_name_or_specification
-    : window_name
-    / in_line_window_specification
-    ;
-
-in_line_window_specification
-    : window_specification
-    ;
-
-(*  6.11 <nested window function> *)
-
-nested_window_function
-    : nested_row_number_function
-    / value_of_expression_at_row
-    ;
-
-nested_row_number_function
-    : 'ROW_NUMBER' left_paren row_marker right_paren
-    ;
-
-value_of_expression_at_row
-    : 'VALUE_OF' left_paren value_expression 'AT' row_marker_expression [ comma value_of_default_value ] right_paren
-    ;
-
-row_marker
-    : 'BEGIN_PARTITION'
-    / 'BEGIN_FRAME'
-    / 'CURRENT_ROW'
-    / 'FRAME_ROW'
-    / 'END_FRAME'
-    / 'END_PARTITION'
-    ;
-
-row_marker_expression
-    : row_marker [ row_marker_delta ]
-    ;
-
-row_marker_delta
-    : plus_sign row_marker_offset
-    / minus_sign row_marker_offset
-    ;
-
-row_marker_offset
-    : simple_value_specification
-    / dynamic_parameter_specification
-    ;
-
-value_of_default_value
-    : value_expression
     ;
 
 (*  6.12 <case expression> *)
@@ -1172,13 +868,9 @@ when_operand
     / regex_like_predicate_part_2
     / null_predicate_part_2
     / quantified_comparison_predicate_part_2
-    / normalized_predicate_part_2
     / match_predicate_part_2
     / overlaps_predicate_part_2
     / distinct_predicate_part_2
-    / member_predicate_part_2
-    / submultiset_predicate_part_2
-    / set_predicate_part_2
     ;
 
 result
@@ -1211,16 +903,12 @@ field_reference
     : value_expression_primary period field_name
     ;
 
+(*  6.16 <subtype treatment> *)
+
 (*  6.24 <array element reference> *)
 
 array_element_reference
     : array_value_expression left_bracket_or_trigraph numeric_value_expression right_bracket_or_trigraph
-    ;
-
-(*  6.25 <multiset element reference> *)
-
-multiset_element_reference
-    : 'ELEMENT' left_paren multiset_value_expression right_paren
     ;
 
 (*  6.26 <value expression> *)
@@ -1251,7 +939,6 @@ reference_value_expression
 
 collection_value_expression
     : array_value_expression
-    / multiset_value_expression
     ;
 
 (*  6.27 <numeric value expression> *)
@@ -1281,24 +968,24 @@ numeric_primary
 
 numeric_value_function
     : position_expression
-    | regex_occurrences_function
-    | regex_position_expression
-    | extract_expression
-    | length_expression
-    | cardinality_expression
-    | max_cardinality_expression
-    | absolute_value_expression
-    | modulus_expression
-    | trigonometric_function
-    | general_logarithm_function
-    | common_logarithm
-    | natural_logarithm
-    | exponential_function
-    | power_function
-    | square_root
-    | floor_function
-    | ceiling_function
-    | width_bucket_function
+    / regex_occurrences_function
+    / regex_position_expression
+    / extract_expression
+    / length_expression
+    / cardinality_expression
+    / max_cardinality_expression
+    / absolute_value_expression
+    / modulus_expression
+    / trigonometric_function
+    / general_logarithm_function
+    / common_logarithm
+    / natural_logarithm
+    / exponential_function
+    / power_function
+    / square_root
+    / floor_function
+    / ceiling_function
+    / width_bucket_function
     ;
 
 position_expression
@@ -1834,57 +1521,7 @@ array_value_constructor_by_query
     : 'ARRAY' table_subquery
     ;
 
-(*  6.39 <multiset value expression> *)
-
-multiset_value_expression
-    : multiset_term
-    / multiset_value_expression 'MULTISET' 'UNION' [ 'ALL' / 'DISTINCT' ] multiset_term
-    / multiset_value_expression 'MULTISET' 'EXCEPT' [ 'ALL' / 'DISTINCT' ] multiset_term
-    ;
-
-multiset_term
-    : multiset_primary
-    / multiset_term 'MULTISET' 'INTERSECT' [ 'ALL' / 'DISTINCT' ] multiset_primary
-    ;
-
-multiset_primary
-    : multiset_value_function
-    / value_expression_primary
-    ;
-
-(*  6.40 <multiset value function> *)
-
-multiset_value_function
-    : multiset_set_function
-    ;
-
-multiset_set_function
-    : 'SET' left_paren multiset_value_expression right_paren
-    ;
-
 (*  6.41 <multiset value constructor> *)
-
-multiset_value_constructor
-    : multiset_value_constructor_by_enumeration
-    / multiset_value_constructor_by_query
-    / table_value_constructor_by_query
-    ;
-
-multiset_value_constructor_by_enumeration
-    : 'MULTISET' left_bracket_or_trigraph multiset_element_list right_bracket_or_trigraph
-    ;
-
-multiset_element_list
-    : multiset_element [ ( comma multiset_element )+ ]
-    ;
-
-multiset_element
-    : value_expression
-    ;
-
-multiset_value_constructor_by_query
-    : 'MULTISET' table_subquery
-    ;
 
 table_value_constructor_by_query
     : 'TABLE' table_subquery
@@ -1985,7 +1622,7 @@ contextually_typed_row_value_expression_list
 (*  7.4      <table expression> *)
 
 table_expression
-    : from_clause [ where_clause ] [ group_by_clause ] [ having_clause ] [ window_clause ]
+    : from_clause [ where_clause ] [ group_by_clause ] [ having_clause ]
     ;
 
 (*  7.5        <from clause> *)
@@ -2192,9 +1829,6 @@ grouping_element_list
 
 grouping_element
     : ordinary_grouping_set
-    / rollup_list
-    / cube_list
-    / grouping_sets_specification
     / empty_grouping_set
     ;
 
@@ -2211,34 +1845,6 @@ grouping_column_reference_list
     : grouping_column_reference [ ( comma grouping_column_reference )+ ]
     ;
 
-rollup_list
-    : 'ROLLUP' left_paren ordinary_grouping_set_list right_paren
-    ;
-
-ordinary_grouping_set_list
-    : ordinary_grouping_set [ ( comma ordinary_grouping_set )+ ]
-    ;
-
-cube_list
-    : 'CUBE' left_paren ordinary_grouping_set_list right_paren
-    ;
-
-grouping_sets_specification
-    : 'GROUPING' 'SETS' left_paren grouping_set_list right_paren
-    ;
-
-grouping_set_list
-    : grouping_set [ ( comma grouping_set )+ ]
-    ;
-
-grouping_set
-    : ordinary_grouping_set
-    / rollup_list
-    / cube_list
-    / grouping_sets_specification
-    / empty_grouping_set
-    ;
-
 empty_grouping_set
     : left_paren right_paren
     ;
@@ -2247,106 +1853,6 @@ empty_grouping_set
 
 having_clause
     : 'HAVING' search_condition
-    ;
-
-(*  7.11 <window clause> *)
-
-window_clause
-    : 'WINDOW' window_definition_list
-    ;
-
-window_definition_list
-    : window_definition [ ( comma window_definition )+ ]
-    ;
-
-window_definition
-    : new_window_name 'AS' window_specification
-    ;
-
-new_window_name
-    : window_name
-    ;
-
-window_specification
-    : left_paren window_specification_details right_paren
-    ;
-
-window_specification_details
-    : [ existing_window_name ] [ window_partition_clause ] [ window_order_clause ] [ window_frame_clause ]
-    ;
-
-existing_window_name
-    : window_name
-    ;
-
-window_partition_clause
-    : 'PARTITION' 'BY' window_partition_column_reference_list
-    ;
-
-window_partition_column_reference_list
-    : window_partition_column_reference [ ( comma window_partition_column_reference )+ ]
-    ;
-
-window_partition_column_reference
-    : column_reference [ collate_clause ]
-    ;
-
-window_order_clause
-    : 'ORDER' 'BY' sort_specification_list
-    ;
-
-window_frame_clause
-    : window_frame_units window_frame_extent [ window_frame_exclusion ]
-    ;
-
-window_frame_units
-    : 'ROWS'
-    / 'RANGE'
-    / 'GROUPS'
-    ;
-
-window_frame_extent
-    : window_frame_start
-    / window_frame_between
-    ;
-
-window_frame_start
-    : 'UNBOUNDED' 'PRECEDING'
-    / window_frame_preceding
-    / 'CURRENT' 'ROW'
-    ;
-
-window_frame_preceding
-    : unsigned_value_specification 'PRECEDING'
-    ;
-
-window_frame_between
-    : 'BETWEEN' window_frame_bound_1 'AND' window_frame_bound_2
-    ;
-
-window_frame_bound_1
-    : window_frame_bound
-    ;
-
-window_frame_bound_2
-    : window_frame_bound
-    ;
-
-window_frame_bound
-    : window_frame_start
-    / 'UNBOUNDED' 'FOLLOWING'
-    / window_frame_following
-    ;
-
-window_frame_following
-    : unsigned_value_specification 'FOLLOWING'
-    ;
-
-window_frame_exclusion
-    : 'EXCLUDE' 'CURRENT' 'ROW'
-    / 'EXCLUDE' 'GROUP'
-    / 'EXCLUDE' 'TIES'
-    / 'EXCLUDE' 'NO' 'OTHERS'
     ;
 
 (*  7.12 <query specification> *)
@@ -2546,6 +2052,8 @@ subquery
     : left_paren query_expression right_paren
     ;
 
+(*  8 Predicates *)
+
 (*  8.1      <predicate> *)
 
 predicate
@@ -2559,13 +2067,9 @@ predicate
     / quantified_comparison_predicate
     / exists_predicate
     / unique_predicate
-    / normalized_predicate
     / match_predicate
     / overlaps_predicate
     / distinct_predicate
-    / member_predicate
-    / submultiset_predicate
-    / set_predicate
     / period_predicate
     ;
 
@@ -2805,16 +2309,6 @@ unique_predicate
     : 'UNIQUE' table_subquery
     ;
 
-(*  8.12 <normalized predicate> *)
-
-normalized_predicate
-    : row_value_predicand normalized_predicate_part_2
-    ;
-
-normalized_predicate_part_2
-    : 'IS' [ 'NOT' ] [ normal_form ] 'NORMALIZED'
-    ;
-
 (*  8.13 <match predicate> *)
 
 match_predicate
@@ -2863,36 +2357,6 @@ row_value_predicand_3
 
 row_value_predicand_4
     : row_value_predicand
-    ;
-
-(*  8.16 <member predicate> *)
-
-member_predicate
-    : row_value_predicand member_predicate_part_2
-    ;
-
-member_predicate_part_2
-    : [ 'NOT' ] 'MEMBER' [ 'OF' ] multiset_value_expression
-    ;
-
-(*  8.17 <submultiset predicate> *)
-
-submultiset_predicate
-    : row_value_predicand submultiset_predicate_part_2
-    ;
-
-submultiset_predicate_part_2
-    : [ 'NOT' ] 'SUBMULTISET' [ 'OF' ] multiset_value_expression
-    ;
-
-(*  8.18 <set predicate> *)
-
-set_predicate
-    : row_value_predicand set_predicate_part_2
-    ;
-
-set_predicate_part_2
-    : 'IS' [ 'NOT' ] 'A' 'SET'
     ;
 
 (*  8.20 <period predicate> *)
@@ -2999,8 +2463,6 @@ search_condition
     : boolean_value_expression
     ;
 
-(*  10 Additional common elements *)
-
 (*  10.1 <interval qualifier> *)
 
 interval_qualifier
@@ -3043,44 +2505,6 @@ interval_leading_field_precision
     : unsigned_integer
     ;
 
-(*  10.2 <language clause> *)
-
-language_clause
-    : 'LANGUAGE' language_name
-    ;
-
-language_name
-    : 'ADA'
-    / 'C'
-    / 'COBOL'
-    / 'FORTRAN'
-    / 'M'
-    / 'MUMPS'
-    / 'PASCAL'
-    / 'PLI'
-    / 'SQL'
-    ;
-
-(*  10.5 <character set specification> *)
-
-character_set_specification
-    : standard_character_set_name
-    / implementation_defined_character_set_name
-    / user_defined_character_set_name
-    ;
-
-standard_character_set_name
-    : character_set_name
-    ;
-
-implementation_defined_character_set_name
-    : character_set_name
-    ;
-
-user_defined_character_set_name
-    : character_set_name
-    ;
-
 (*  10.7 <collate clause> *)
 
 collate_clause
@@ -3090,11 +2514,9 @@ collate_clause
 (*  10.9 <aggregate function> *)
 
 aggregate_function
-    : 'COUNT' left_paren asterisk right_paren [ filter_clause ]
-    / general_set_function [ filter_clause ]
-    / binary_set_function [ filter_clause ]
-    / ordered_set_function [ filter_clause ]
-    / array_aggregate_function [ filter_clause ]
+    : 'COUNT' left_paren asterisk right_paren
+    / general_set_function
+    / array_aggregate_function
     ;
 
 general_set_function
@@ -3114,79 +2536,11 @@ computational_operation
     / 'ANY'
     / 'SOME'
     / 'COUNT'
-    / 'STDDEV_POP'
-    / 'STDDEV_SAMP'
-    / 'VAR_SAMP'
-    / 'VAR_POP'
-    / 'COLLECT'
-    / 'FUSION'
-    / 'INTERSECTION'
     ;
 
 set_quantifier
     : 'DISTINCT'
     / 'ALL'
-    ;
-
-filter_clause
-    : 'FILTER' left_paren 'WHERE' search_condition right_paren
-    ;
-
-binary_set_function
-    : binary_set_function_type left_paren dependent_variable_expression comma independent_variable_expression right_paren
-    ;
-
-binary_set_function_type
-    : 'COVAR_POP'
-    / 'COVAR_SAMP'
-    / 'CORR'
-    / 'REGR_SLOPE'
-    / 'REGR_INTERCEPT'
-    / 'REGR_COUNT'
-    / 'REGR_R2'
-    / 'REGR_AVGX'
-    / 'REGR_AVGY'
-    / 'REGR_SXX'
-    / 'REGR_SYY'
-    / 'REGR_SXY'
-    ;
-
-dependent_variable_expression
-    : numeric_value_expression
-    ;
-
-independent_variable_expression
-    : numeric_value_expression
-    ;
-
-ordered_set_function
-    : hypothetical_set_function
-    / inverse_distribution_function
-    ;
-
-hypothetical_set_function
-    : rank_function_type left_paren hypothetical_set_function_value_expression_list right_paren within_group_specification
-    ;
-
-within_group_specification
-    : 'WITHIN' 'GROUP' left_paren 'ORDER' 'BY' sort_specification_list right_paren
-    ;
-
-hypothetical_set_function_value_expression_list
-    : value_expression [ ( comma value_expression )+ ]
-    ;
-
-inverse_distribution_function
-    : inverse_distribution_function_type left_paren inverse_distribution_function_argument right_paren within_group_specification
-    ;
-
-inverse_distribution_function_argument
-    : numeric_value_expression
-    ;
-
-inverse_distribution_function_type
-    : 'PERCENTILE_CONT'
-    / 'PERCENTILE_DISC'
     ;
 
 array_aggregate_function
@@ -3219,39 +2573,6 @@ null_ordering
 
 (*  14 Data manipulation *)
 
-(*  14.1 <declare cursor> *)
-
-declare_cursor
-    : 'DECLARE' cursor_name cursor_properties 'FOR' cursor_specification
-    ;
-
-(*  14.2 <cursor properties> *)
-
-cursor_properties
-    : [ cursor_sensitivity ] [ cursor_scrollability ] 'CURSOR' [ cursor_holdability ] [ cursor_returnability ]
-    ;
-
-cursor_sensitivity
-    : 'SENSITIVE'
-    / 'INSENSITIVE'
-    / 'ASENSITIVE'
-    ;
-
-cursor_scrollability
-    : 'SCROLL'
-    / 'NO' 'SCROLL'
-    ;
-
-cursor_holdability
-    : 'WITH' 'HOLD'
-    / 'WITHOUT' 'HOLD'
-    ;
-
-cursor_returnability
-    : 'WITH' 'RETURN'
-    / 'WITHOUT' 'RETURN'
-    ;
-
 (*  14.3 <cursor specification> *)
 
 cursor_specification
@@ -3260,36 +2581,6 @@ cursor_specification
 
 updatability_clause
     : 'FOR' ( 'READ' 'ONLY' / 'UPDATE' [ 'OF' column_name_list ] )
-    ;
-
-(*  14.4 <open statement> *)
-
-open_statement
-    : 'OPEN' cursor_name
-    ;
-
-(*  14.5 <fetch statement> *)
-
-fetch_statement
-    : 'FETCH' [ [ fetch_orientation ] 'FROM' ] cursor_name 'INTO' fetch_target_list
-    ;
-
-fetch_orientation
-    : 'NEXT'
-    / 'PRIOR'
-    / 'FIRST'
-    / 'LAST'
-    / ( 'ABSOLUTE' / 'RELATIVE' ) simple_value_specification
-    ;
-
-fetch_target_list
-    : target_specification [ ( comma target_specification )+ ]
-    ;
-
-(*  14.6 <close statement> *)
-
-close_statement
-    : 'CLOSE' cursor_name
     ;
 
 (*  14.7 <select statement: single row> *)
@@ -3303,10 +2594,6 @@ select_target_list
     ;
 
 (*  14.8 <delete statement: positioned> *)
-
-delete_statement__positioned
-    : 'DELETE' 'FROM' target_table [ [ 'AS' ] correlation_name ] 'WHERE' 'CURRENT' 'OF' cursor_name
-    ;
 
 target_table
     : table_name
@@ -3420,12 +2707,6 @@ merge_insert_value_element
     / contextually_typed_value_specification
     ;
 
-(*  14.13 <update statement: positioned> *)
-
-update_statement__positioned
-    : 'UPDATE' target_table [ [ 'AS' ] correlation_name ] 'SET' set_clause_list 'WHERE' 'CURRENT' 'OF' cursor_name
-    ;
-
 (*  14.14 <update statement: searched> *)
 
 update_statement__searched
@@ -3445,7 +2726,6 @@ set_clause
 
 set_target
     : update_target
-    / mutated_set_clause
     ;
 
 multiple_column_assignment
@@ -3469,15 +2749,6 @@ object_column
     : column_name
     ;
 
-mutated_set_clause
-    : mutated_target period method_name
-    ;
-
-mutated_target
-    : object_column
-    / mutated_set_clause
-    ;
-
 update_source
     : value_expression
     / contextually_typed_value_specification
@@ -3485,98 +2756,9 @@ update_source
 
 (*  16 Control statements *)
 
-(*  16.2 <return statement> *)
+(*  22 Direct invocation of SQL *)
 
-return_statement
-    : 'RETURN' return_value
-    ;
-
-return_value
-    : value_expression
-    / 'NULL'
-    ;
-
-(*  17 Transaction management *)
-
-(*  17.1 <start transaction statement> *)
-
-start_transaction_statement
-    : 'START' 'TRANSACTION' [ transaction_characteristics ]
-    ;
-
-(*  17.2 <set transaction statement> *)
-
-set_transaction_statement
-    : 'SET' [ 'LOCAL' ] 'TRANSACTION' transaction_characteristics
-    ;
-
-(*  17.3 <transaction characteristics> *)
-
-transaction_characteristics
-    : [ transaction_mode [ ( comma transaction_mode )+ ] ]
-    ;
-
-transaction_mode
-    : isolation_level
-    / transaction_access_mode
-    / diagnostics_size
-    ;
-
-transaction_access_mode
-    : 'READ' 'ONLY'
-    / 'READ' 'WRITE'
-    ;
-
-isolation_level
-    : 'ISOLATION' 'LEVEL' level_of_isolation
-    ;
-
-level_of_isolation
-    : 'READ' 'UNCOMMITTED'
-    / 'READ' 'COMMITTED'
-    / 'REPEATABLE' 'READ'
-    / 'SERIALIZABLE'
-    ;
-
-diagnostics_size
-    : 'DIAGNOSTICS' 'SIZE' number_of_conditions
-    ;
-
-number_of_conditions
-    : simple_value_specification
-    ;
-
-(*  17.5 <savepoint statement> *)
-
-savepoint_statement
-    : 'SAVEPOINT' savepoint_specifier
-    ;
-
-savepoint_specifier
-    : savepoint_name
-    ;
-
-(*  17.6 <release savepoint statement> *)
-
-release_savepoint_statement
-    : 'RELEASE' 'SAVEPOINT' savepoint_specifier
-    ;
-
-(*  17.7 <commit statement> *)
-
-commit_statement
-    : 'COMMIT' [ 'WORK' ] [ 'AND' [ 'NO' ] 'CHAIN' ]
-    ;
-
-(*  17.8 <rollback statement> *)
-
-rollback_statement
-    : 'ROLLBACK' [ 'WORK' ] [ 'AND' [ 'NO' ] 'CHAIN' ] [ savepoint_clause ]
-    ;
-
-savepoint_clause
-    : 'TO' 'SAVEPOINT' savepoint_specifier
-    ;
+(*  22.1 <direct SQL statement> *)
 
 direct_sql_statement
     : directly_executable_statement semicolon
@@ -3594,6 +2776,8 @@ direct_sql_data_statement
     / truncate_table_statement
     / merge_statement
     ;
+
+(*  22.2 <direct select statement: multiple rows> *)
 
 direct_select_statement__multiple_rows
     : cursor_specification

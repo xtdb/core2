@@ -9,74 +9,15 @@ simple_latin_letter
     ;
 
 simple_latin_upper_case_letter
-    : 'A'
-    | 'B'
-    | 'C'
-    | 'D'
-    | 'E'
-    | 'F'
-    | 'G'
-    | 'H'
-    | 'I'
-    | 'J'
-    | 'K'
-    | 'L'
-    | 'M'
-    | 'N'
-    | 'O'
-    | 'P'
-    | 'Q'
-    | 'R'
-    | 'S'
-    | 'T'
-    | 'U'
-    | 'V'
-    | 'W'
-    | 'X'
-    | 'Y'
-    | 'Z'
+    : #'[A-Z]'
     ;
 
 simple_latin_lower_case_letter
-    : 'a'
-    | 'b'
-    | 'c'
-    | 'd'
-    | 'e'
-    | 'f'
-    | 'g'
-    | 'h'
-    | 'i'
-    | 'j'
-    | 'k'
-    | 'l'
-    | 'm'
-    | 'n'
-    | 'o'
-    | 'p'
-    | 'q'
-    | 'r'
-    | 's'
-    | 't'
-    | 'u'
-    | 'v'
-    | 'w'
-    | 'x'
-    | 'y'
-    | 'z'
+    : #'[a-z]'
     ;
 
 digit
-    : '0'
-    | '1'
-    | '2'
-    | '3'
-    | '4'
-    | '5'
-    | '6'
-    | '7'
-    | '8'
-    | '9'
+    : #'[0-9]'
     ;
 
 space
@@ -212,26 +153,23 @@ regular_identifier
     ;
 
 identifier_body
-    : identifier_start [ identifier_part+ ]
+    : #'[a-zA-Z][a-zA-Z0-9_]+'
     ;
 
 identifier_part
-    : identifier_start
-    | identifier_extend
+    : #'[a-zA-Z0-9_]'
     ;
 
 identifier_start
-    : simple_latin_letter
+    : #'[a-zA-Z]'
     ;
 
 identifier_extend
-    : simple_latin_letter
-    | digit
-    | underscore
+    : #'[a-zA-Z0-9_]'
     ;
 
 large_object_length_token
-    : digit+ multiplier
+    : #'[0-9]+' multiplier
     ;
 
 multiplier
@@ -247,12 +185,11 @@ delimited_identifier
     ;
 
 delimited_identifier_body
-    : delimited_identifier_part+
+    : #'(""|[^"])+'
     ;
 
 delimited_identifier_part
-    : nondoublequote_character
-    | doublequote_symbol
+    : #'(""|[^"])'
     ;
 
 unicode_delimited_identifier
@@ -364,8 +301,7 @@ character_string_literal
     ;
 
 character_representation
-    : nonquote_character
-    | quote_symbol
+    : #'(\'\'|[^\'])*'
     ;
 
 nonquote_character
@@ -390,19 +326,7 @@ binary_string_literal
     ;
 
 hexit
-    : digit
-    | 'A'
-    | 'B'
-    | 'C'
-    | 'D'
-    | 'E'
-    | 'F'
-    | 'a'
-    | 'b'
-    | 'c'
-    | 'd'
-    | 'e'
-    | 'f'
+    : #'[a-fA-F0-9]'
     ;
 
 signed_numeric_literal
@@ -441,7 +365,7 @@ signed_integer
     ;
 
 unsigned_integer
-    : digit+
+    : #'[0-9]+'
     ;
 
 datetime_literal

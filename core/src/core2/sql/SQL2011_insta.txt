@@ -2342,17 +2342,17 @@
       { <table reference> | <partitioned join table> }
       <join specification>
 
-<partitioned join table> ::=
-  <table factor> PARTITION BY
-      <partitioned join column reference list>
+// <partitioned join table> ::=
+//   <table factor> PARTITION BY
+//       <partitioned join column reference list>
 
-<partitioned join column reference list> ::=
-  <left paren> <partitioned join column reference>
-      [ { <comma> <partitioned join column reference> }... ]
-      <right paren>
+// <partitioned join column reference list> ::=
+//   <left paren> <partitioned join column reference>
+//       [ { <comma> <partitioned join column reference> }... ]
+//       <right paren>
 
-<partitioned join column reference> ::=
-  <column reference>
+// <partitioned join column reference> ::=
+//   <column reference>
 
 <natural join> ::=
   { <table reference> | <partitioned join table> }

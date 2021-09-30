@@ -105,9 +105,7 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*')+")))
    'qualified_join
    "table_reference [ join_type ] 'JOIN' table_reference join_specification"
    'natural_join
-   "table_reference 'NATURAL' [ join_type ] 'JOIN' table_factor"
-   'embedded_variable_name
-   "colon identifier"})
+   "table_reference 'NATURAL' [ join_type ] 'JOIN' table_factor"})
 
 (def extra-rules "(* SQL:2016 6.30 <numeric value function> *)
 

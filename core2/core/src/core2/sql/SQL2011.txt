@@ -1067,17 +1067,17 @@
   | <dynamic parameter specification>
   // | <embedded variable specification>
   // | <current collation specification>
-  | CURRENT_CATALOG
+  // | CURRENT_CATALOG
   // | CURRENT_DEFAULT_TRANSFORM_GROUP
-  | CURRENT_PATH
-  | CURRENT_ROLE
-  | CURRENT_SCHEMA
+  // | CURRENT_PATH
+  // | CURRENT_ROLE
+  // | CURRENT_SCHEMA
   // | CURRENT_TRANSFORM_GROUP_FOR_TYPE <path-resolved user-defined type name>
-  | CURRENT_USER
-  | SESSION_USER
-  | SYSTEM_USER
-  | USER
-  | VALUE
+  // | CURRENT_USER
+  // | SESSION_USER
+  // | SYSTEM_USER
+  // | USER
+  // | VALUE
 
 <simple value specification> ::=
     <literal>

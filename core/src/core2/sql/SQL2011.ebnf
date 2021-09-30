@@ -572,11 +572,6 @@ collection_value_constructor
 
 (*  6.4     <value specification> and <target specification> *)
 
-value_specification
-    : literal
-    / general_value_specification
-    ;
-
 unsigned_value_specification
     : unsigned_literal
     / general_value_specification
@@ -592,28 +587,12 @@ simple_value_specification
     / host_parameter_name
     ;
 
-target_specification
-    : host_parameter_specification
-    / column_reference
-    / target_array_element_specification
-    / dynamic_parameter_specification
-    ;
-
-simple_target_specification
-    : host_parameter_name
-    / column_reference
-    ;
-
 host_parameter_specification
-    : host_parameter_name [ indicator_parameter ]
+    : host_parameter_name
     ;
 
 dynamic_parameter_specification
     : question_mark
-    ;
-
-indicator_parameter
-    : [ 'INDICATOR' ] host_parameter_name
     ;
 
 target_array_element_specification
@@ -2186,16 +2165,6 @@ cursor_specification
 
 updatability_clause
     : 'FOR' ( 'READ' 'ONLY' / 'UPDATE' [ 'OF' column_name_list ] )
-    ;
-
-(*  14.7 <select statement: single row> *)
-
-select_statement__single_row
-    : 'SELECT' [ set_quantifier ] select_list 'INTO' select_target_list table_expression
-    ;
-
-select_target_list
-    : target_specification [ ( comma target_specification )+ ]
     ;
 
 (*  14.8 <delete statement: positioned> *)

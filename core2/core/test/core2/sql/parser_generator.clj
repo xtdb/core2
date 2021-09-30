@@ -58,6 +58,8 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*')+")))
    "#'\\'(\\'\\'|[^\\'])*\\''+"
    'binary_string_literal
    "#'X(\\'[a-fA-F0-9\\s]+\\'\\s*)+'"
+   'host_parameter_specification
+   "host_parameter_name"
    'predefined_type
    "character_string_type
     / binary_string_type

@@ -1053,9 +1053,9 @@
 
 // Specify one or more values, host parameters, SQL parameters, dynamic parameters, or host variables.
 
-<value specification> ::=
-    <literal>
-  | <general value specification>
+// <value specification> ::=
+//     <literal>
+//   | <general value specification>
 
 <unsigned value specification> ::=
     <unsigned literal>
@@ -1085,19 +1085,19 @@
   // | <SQL parameter reference>
   // | <embedded variable name>
 
-<target specification> ::=
-    <host parameter specification>
-  // | <SQL parameter reference>
-  | <column reference>
-  | <target array element specification>
-  | <dynamic parameter specification>
-  // | <embedded variable specification>
+// <target specification> ::=
+//     <host parameter specification>
+//   | <SQL parameter reference>
+//   | <column reference>
+//   | <target array element specification>
+//   | <dynamic parameter specification>
+//   | <embedded variable specification>
 
-<simple target specification> ::=
-    <host parameter name>
-  // | <SQL parameter reference>
-  | <column reference>
-  // | <embedded variable name>
+// <simple target specification> ::=
+//     <host parameter name>
+//   | <SQL parameter reference>
+//   | <column reference>
+//   | <embedded variable name>
 
 <host parameter specification> ::=
   <host parameter name> [ <indicator parameter> ]
@@ -1111,8 +1111,8 @@
 // <indicator variable> ::=
 //   [ INDICATOR ] <embedded variable name>
 
-<indicator parameter> ::=
-  [ INDICATOR ] <host parameter name>
+// <indicator parameter> ::=
+//   [ INDICATOR ] <host parameter name>
 
 <target array element specification> ::=
   <target array reference>
@@ -5289,17 +5289,17 @@
 // <close statement> ::=
 //   CLOSE <cursor name>
 
-// 14.7 <select statement: single row>
+// // 14.7 <select statement: single row>
 
 // Retrieve values from a specified row of a table.
 
-<select statement: single row> ::=
-  SELECT [ <set quantifier> ] <select list>
-      INTO <select target list>
-      <table expression>
+// <select statement: single row> ::=
+//   SELECT [ <set quantifier> ] <select list>
+//       INTO <select target list>
+//       <table expression>
 
-<select target list> ::=
-  <target specification> [ { <comma> <target specification> }... ]
+// <select target list> ::=
+//   <target specification> [ { <comma> <target specification> }... ]
 
 // 14.8 <delete statement: positioned>
 

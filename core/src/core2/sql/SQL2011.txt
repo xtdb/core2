@@ -26,7 +26,7 @@
 //   | p | q | r | s | t | u | v | w | x | y | z
 
 // <digit> ::=
-//     0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
+// //     0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
 
 // <SQL special character> ::=
 //       <space>
@@ -1066,9 +1066,9 @@
   // | <SQL parameter reference>
   | <dynamic parameter specification>
   // | <embedded variable specification>
-  | <current collation specification>
+  // | <current collation specification>
   | CURRENT_CATALOG
-  | CURRENT_DEFAULT_TRANSFORM_GROUP
+  // | CURRENT_DEFAULT_TRANSFORM_GROUP
   | CURRENT_PATH
   | CURRENT_ROLE
   | CURRENT_SCHEMA
@@ -1122,8 +1122,8 @@
     <SQL parameter reference>
   | <column reference>
 
-<current collation specification> ::=
-  COLLATION FOR <left paren> <string value expression> <right paren>
+// <current collation specification> ::=
+//   COLLATION FOR <left paren> <string value expression> <right paren>
 
 // 6.5        <contextually typed value specification>
 
@@ -3278,12 +3278,12 @@
 // <data type list> ::=
 //   <left paren> [ <data type> [ { <comma> <data type> }... ] ] <right paren>
 
-// 10.7 <collate clause>
+// // 10.7 <collate clause>
 
 // Specify a default collation.
 
-<collate clause> ::=
-  COLLATE <collation name>
+// <collate clause> ::=
+//   COLLATE <collation name>
 
 // // 10.8 <constraint name definition> and <constraint characteristics>
 

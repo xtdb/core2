@@ -3,8 +3,6 @@
 
 (*  5.1     <SQL terminal character> *)
 
-(*      0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 *)
-
 space
     : ' '
     ;
@@ -451,7 +449,7 @@ data_type
     ;
 
 predefined_type
-    : character_string_type [ collate_clause ]
+    : character_string_type
     / binary_string_type
     / numeric_type
     / boolean_type
@@ -636,9 +634,7 @@ unsigned_value_specification
 general_value_specification
     : host_parameter_specification
     / dynamic_parameter_specification
-    / current_collation_specification
     / 'CURRENT_CATALOG'
-    / 'CURRENT_DEFAULT_TRANSFORM_GROUP'
     / 'CURRENT_PATH'
     / 'CURRENT_ROLE'
     / 'CURRENT_SCHEMA'
@@ -684,10 +680,6 @@ target_array_element_specification
 
 target_array_reference
     : column_reference
-    ;
-
-current_collation_specification
-    : 'COLLATION' 'FOR' left_paren string_value_expression right_paren
     ;
 
 (*  6.5        <contextually typed value specification> *)
@@ -1062,7 +1054,7 @@ concatenation
     ;
 
 character_factor
-    : character_primary [ collate_clause ]
+    : character_primary
     ;
 
 character_primary
@@ -1678,7 +1670,7 @@ ordinary_grouping_set
     ;
 
 grouping_column_reference
-    : column_reference [ collate_clause ]
+    : column_reference
     ;
 
 grouping_column_reference_list
@@ -2345,12 +2337,6 @@ interval_fractional_seconds_precision
 
 interval_leading_field_precision
     : unsigned_integer
-    ;
-
-(*  10.7 <collate clause> *)
-
-collate_clause
-    : 'COLLATE' collation_name
     ;
 
 (*  10.9 <aggregate function> *)

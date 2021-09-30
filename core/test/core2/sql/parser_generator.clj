@@ -60,7 +60,7 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*')+")))
    'binary_string_literal
    "#'X(\\'[a-fA-F0-9\\s]+\\'\\s*)+'"
    'predefined_type
-   "character_string_type [ collate_clause ]
+   "character_string_type
     / binary_string_type
     / numeric_type
     / boolean_type
@@ -70,6 +70,8 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*')+")))
    "data_type"
    'target_array_reference
    "column_reference"
+   'character_factor
+   "character_primary"
    'table_factor
    "table_primary"
    'numeric_value_function
@@ -91,6 +93,8 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*')+")))
     / square_root
     / floor_function
     / ceiling_function"
+   'grouping_column_reference
+   "column_reference"
    'aggregate_function
    "'COUNT' left_paren asterisk right_paren
     / general_set_function

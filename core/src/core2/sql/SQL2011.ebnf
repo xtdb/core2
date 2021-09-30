@@ -2359,14 +2359,6 @@ update_source
     / contextually_typed_value_specification
     ;
 
-(*  21 Embedded SQL *)
-
-(*  21.1 <embedded SQL host program> *)
-
-embedded_variable_name
-    : colon identifier
-    ;
-
 (*  22 Direct invocation of SQL *)
 
 (*  22.1 <direct SQL statement> *)

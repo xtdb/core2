@@ -6161,10 +6161,10 @@
 //   UPDATE [ <target table> ] SET <set clause list>
 //       WHERE CURRENT OF <preparable dynamic cursor name>
 
-// 21 Embedded SQL
+// // 21 Embedded SQL
 
 
-// 21.1 <embedded SQL host program>
+// // 21.1 <embedded SQL host program>
 
 // // Specify an <embedded SQL host program>.
 
@@ -6255,8 +6255,8 @@
 //   | <Pascal variable definition>
 //   | <PL/I variable definition>
 
-<embedded variable name> ::=
-  <colon> <host identifier>
+// <embedded variable name> ::=
+//   <colon> <host identifier>
 
 // <host identifier> ::=
 //     <Ada host identifier>

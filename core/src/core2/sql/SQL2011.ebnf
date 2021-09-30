@@ -181,7 +181,7 @@ multiplier
     ;
 
 delimited_identifier
-    : double_quote delimited_identifier_body double_quote
+    : #'"(""|[^"])+"'
     ;
 
 delimited_identifier_body
@@ -249,23 +249,15 @@ general_literal
     ;
 
 character_string_literal
-    : quote character_representation* quote (separator quote character_representation* quote)*
+    : #'\'(\'\'|[^\'])*\''+
     ;
 
 character_representation
     : #'(\'\'|[^\'])*'
     ;
 
-nonquote_character
-    : #'[^\']'
-    ;
-
-quote_symbol
-    : quote quote
-    ;
-
 binary_string_literal
-    : 'X' quote [ space+ ] [ ( hexit [ space+ ] hexit [ space+ ] )+ ] quote [ ( separator quote [ space+ ] [ ( hexit [ space+ ] hexit [ space+ ] )+ ] quote )+ ]
+    : #'X(\'[a-fA-F0-9\s]+\'\s*)+'
     ;
 
 hexit
@@ -528,7 +520,6 @@ predefined_type
     / boolean_type
     / datetime_type
     / interval_type
-
     ;
 
 character_string_type

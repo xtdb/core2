@@ -1,4 +1,4 @@
-(ns core2.sql.insta-generator
+(ns core2.sql.parser-generator
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
             [instaparse.core :as insta])
@@ -46,13 +46,12 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*')+")))
    'nondoublequote_character "#'[^\"]'"
    'doublequote_symbol ""
    'double_period "'..'"
-   'nonquote_character "#'[^\\']'"
    'non_escaped_character "#'.'"
    'escaped_character "#'\\\\.'"})
 
 ;; NOTE: A rule must exist to be overridden and cannot be commented
 ;; out. This is to ensure the override ends up in the right place in
-;; the grammar.
+;; the grammar.y
 (def rule-overrides
   {'separator
    "EPSILON"
@@ -72,6 +71,8 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*')+")))
    "#'[a-zA-Z0-9_]'"
    'identifier_extend
    "#'[a-zA-Z0-9_]'"
+   'delimited_identifier
+   "#'\"(\"\"|[^\"])+\"'"
    'delimited_identifier_body
    "#'(\"\"|[^\"])+'"
    'delimited_identifier_part
@@ -83,17 +84,16 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*')+")))
    'character_representation
    "#'(\\'\\'|[^\\'])*'"
    'character_string_literal
-   "quote character_representation* quote (separator quote character_representation* quote)*"
-   'unicode_character_string_literal
-   "'U' ampersand quote unicode_representation* quote (separator quote unicode_representation* quote)* unicode_escape_specifier"
+   "#'\\'(\\'\\'|[^\\'])*\\''+"
+   'binary_string_literal
+   "#'X(\\'[a-fA-F0-9\\s]+\\'\\s*)+'"
    'predefined_type
    "character_string_type [ collate_clause ]
     / binary_string_type
     / numeric_type
     / boolean_type
     / datetime_type
-    / interval_type
-    "
+    / interval_type"
    'cast_target
    "data_type"
    'target_array_reference
@@ -277,7 +277,7 @@ common_logarithm
        (str/join "\n")))
 
 (def sql2011-grammar-file (File. (.toURI (io/resource "core2/sql/SQL2011.ebnf"))))
-(def sql2011-spec-file (File. (.toURI (io/resource "core2/sql/SQL2011_insta.txt"))))
+(def sql2011-spec-file (File. (.toURI (io/resource "core2/sql/SQL2011.txt"))))
 
 (defn generate-parser [grammar-name sql-spec-file ebnf-grammar-file]
   (->> (parse-sql-spec (slurp sql-spec-file))

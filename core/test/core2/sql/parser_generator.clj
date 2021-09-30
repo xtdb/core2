@@ -38,14 +38,6 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*')+")))
    'concatenation_operator "'||'"
    'left_brace "'{'"
    'right_brace "'}'"
-   'identifier_start "simple_latin_letter"
-   'identifier_extend "simple_latin_letter
-    | digit
-    | underscore"
-   'unicode_escape_character "'\\\\'"
-   'nondoublequote_character "#'[^\"]'"
-   'doublequote_symbol ""
-   'double_period "'..'"
    'non_escaped_character "#'.'"
    'escaped_character "#'\\\\.'"})
 
@@ -53,30 +45,10 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*')+")))
 ;; out. This is to ensure the override ends up in the right place in
 ;; the grammar.y
 (def rule-overrides
-  {'separator
-   "EPSILON"
-   'simple_latin_upper_case_letter
-   "#'[A-Z]'"
-   'simple_latin_lower_case_letter
-   "#'[a-z]'"
-   'digit
-   "#'[0-9]'"
-   'hexit
-   "#'[a-fA-F0-9]'"
-   'identifier_body
+  {'regular_identifier
    "#'[a-zA-Z][a-zA-Z0-9_]+'"
-   'identifier_start
-   "#'[a-zA-Z]'"
-   'identifier_part
-   "#'[a-zA-Z0-9_]'"
-   'identifier_extend
-   "#'[a-zA-Z0-9_]'"
    'delimited_identifier
    "#'\"(\"\"|[^\"])+\"'"
-   'delimited_identifier_body
-   "#'(\"\"|[^\"])+'"
-   'delimited_identifier_part
-   "#'(\"\"|[^\"])'"
    'unsigned_integer
    "#'[0-9]+'"
    'large_object_length_token
@@ -118,8 +90,7 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*')+")))
     / power_function
     / square_root
     / floor_function
-    / ceiling_function
-    / width_bucket_function"
+    / ceiling_function"
    'aggregate_function
    "'COUNT' left_paren asterisk right_paren
     / general_set_function
@@ -127,27 +98,11 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*')+")))
    'qualified_join
    "table_reference [ join_type ] 'JOIN' table_reference join_specification"
    'natural_join
-   "table_reference 'NATURAL' [ join_type ] 'JOIN' table_factor"})
+   "table_reference 'NATURAL' [ join_type ] 'JOIN' table_factor"
+   'embedded_variable_name
+   "colon identifier"})
 
-(def extra-rules "(* SQL:2011 needed definitions in parts not generated. *)
-
-(* 11 Schema definition and manipulation *)
-
-(* 11.3 <table definition> *)
-
-application_time_period_name
-    : identifier
-    ;
-
-(* 21 Embedded SQL *)
-
-(* 21.1 <embedded SQL host program> *)
-
-embedded_variable_name
-    : colon identifier
-    ;
-
-(* SQL:2016 6.30 <numeric value function> *)
+(def extra-rules "(* SQL:2016 6.30 <numeric value function> *)
 
 trigonometric_function
     : trigonometric_function_name left_paren numeric_value_expression right_paren
@@ -155,14 +110,14 @@ trigonometric_function
 
 trigonometric_function_name
     : 'SIN'
-    | 'COS'
-    | 'TAN'
-    | 'SINH'
-    | 'COSH'
-    | 'TANH'
-    | 'ASIN'
-    | 'ACOS'
-    | 'ATAN'
+    / 'COS'
+    / 'TAN'
+    / 'SINH'
+    / 'COSH'
+    / 'TANH'
+    / 'ASIN'
+    / 'ACOS'
+    / 'ATAN'
     ;
 
 general_logarithm_function

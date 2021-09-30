@@ -3,22 +3,7 @@
 
 (*  5.1     <SQL terminal character> *)
 
-simple_latin_letter
-    : simple_latin_upper_case_letter
-    / simple_latin_lower_case_letter
-    ;
-
-simple_latin_upper_case_letter
-    : #'[A-Z]'
-    ;
-
-simple_latin_lower_case_letter
-    : #'[a-z]'
-    ;
-
-digit
-    : #'[0-9]'
-    ;
+(*      0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 *)
 
 space
     : ' '
@@ -149,23 +134,7 @@ right_brace
 (*  5.2     <token> and <separator> *)
 
 regular_identifier
-    : identifier_body
-    ;
-
-identifier_body
     : #'[a-zA-Z][a-zA-Z0-9_]+'
-    ;
-
-identifier_part
-    : #'[a-zA-Z0-9_]'
-    ;
-
-identifier_start
-    : #'[a-zA-Z]'
-    ;
-
-identifier_extend
-    : #'[a-zA-Z0-9_]'
     ;
 
 large_object_length_token
@@ -184,14 +153,6 @@ delimited_identifier
     : #'"(""|[^"])+"'
     ;
 
-delimited_identifier_body
-    : #'(""|[^"])+'
-    ;
-
-delimited_identifier_part
-    : #'(""|[^"])'
-    ;
-
 not_equals_operator
     : '<>'
     ;
@@ -206,26 +167,6 @@ less_than_or_equals_operator
 
 concatenation_operator
     : '||'
-    ;
-
-right_arrow
-    : '->'
-    ;
-
-double_colon
-    : '::'
-    ;
-
-double_period
-    : '..'
-    ;
-
-named_argument_assignment_token
-    : '=>'
-    ;
-
-separator
-    : EPSILON
     ;
 
 (*  5.3     <literal> *)
@@ -258,10 +199,6 @@ character_representation
 
 binary_string_literal
     : #'X(\'[a-fA-F0-9\s]+\'\s*)+'
-    ;
-
-hexit
-    : #'[a-fA-F0-9]'
     ;
 
 signed_numeric_literal
@@ -964,7 +901,6 @@ numeric_value_function
     / square_root
     / floor_function
     / ceiling_function
-    / width_bucket_function
     ;
 
 position_expression
@@ -1107,26 +1043,6 @@ floor_function
 
 ceiling_function
     : ( 'CEIL' / 'CEILING' ) left_paren numeric_value_expression right_paren
-    ;
-
-width_bucket_function
-    : 'WIDTH_BUCKET' left_paren width_bucket_operand comma width_bucket_bound_1 comma width_bucket_bound_2 comma width_bucket_count right_paren
-    ;
-
-width_bucket_operand
-    : numeric_value_expression
-    ;
-
-width_bucket_bound_1
-    : numeric_value_expression
-    ;
-
-width_bucket_bound_2
-    : numeric_value_expression
-    ;
-
-width_bucket_count
-    : numeric_value_expression
     ;
 
 (*  6.29 <string value expression> *)
@@ -2497,6 +2413,14 @@ null_ordering
     / 'NULLS' 'LAST'
     ;
 
+(*  11 Schema definition and manipulation *)
+
+(*  11.3 <table definition> *)
+
+application_time_period_name
+    : identifier
+    ;
+
 (*  14 Data manipulation *)
 
 (*  14.3 <cursor specification> *)
@@ -2680,7 +2604,13 @@ update_source
     / contextually_typed_value_specification
     ;
 
-(*  16 Control statements *)
+(*  21 Embedded SQL *)
+
+(*  21.1 <embedded SQL host program> *)
+
+embedded_variable_name
+    : colon identifier
+    ;
 
 (*  22 Direct invocation of SQL *)
 
@@ -2709,24 +2639,6 @@ direct_select_statement__multiple_rows
     : cursor_specification
     ;
 
-(* SQL:2011 needed definitions in parts not generated. *)
-
-(* 11 Schema definition and manipulation *)
-
-(* 11.3 <table definition> *)
-
-application_time_period_name
-    : identifier
-    ;
-
-(* 21 Embedded SQL *)
-
-(* 21.1 <embedded SQL host program> *)
-
-embedded_variable_name
-    : colon identifier
-    ;
-
 (* SQL:2016 6.30 <numeric value function> *)
 
 trigonometric_function
@@ -2735,14 +2647,14 @@ trigonometric_function
 
 trigonometric_function_name
     : 'SIN'
-    | 'COS'
-    | 'TAN'
-    | 'SINH'
-    | 'COSH'
-    | 'TANH'
-    | 'ASIN'
-    | 'ACOS'
-    | 'ATAN'
+    / 'COS'
+    / 'TAN'
+    / 'SINH'
+    / 'COSH'
+    / 'TANH'
+    / 'ASIN'
+    / 'ACOS'
+    / 'ATAN'
     ;
 
 general_logarithm_function

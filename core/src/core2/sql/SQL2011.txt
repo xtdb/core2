@@ -13,20 +13,20 @@
 //   | <digit>
 //   | <SQL special character>
 
-<simple Latin letter> ::=
-    <simple Latin upper case letter>
-  | <simple Latin lower case letter>
+// <simple Latin letter> ::=
+//     <simple Latin upper case letter>
+//   | <simple Latin lower case letter>
 
-<simple Latin upper case letter> ::=
-    A | B | C | D | E | F | G | H | I | J | K | L | M | N | O
-  | P | Q | R | S | T | U | V | W | X | Y | Z
+// <simple Latin upper case letter> ::=
+//     A | B | C | D | E | F | G | H | I | J | K | L | M | N | O
+//   | P | Q | R | S | T | U | V | W | X | Y | Z
 
-<simple Latin lower case letter> ::=
-    a | b | c | d | e | f | g | h | i | j | k | l | m | n | o
-  | p | q | r | s | t | u | v | w | x | y | z
+// <simple Latin lower case letter> ::=
+//     a | b | c | d | e | f | g | h | i | j | k | l | m | n | o
+//   | p | q | r | s | t | u | v | w | x | y | z
 
-<digit> ::=
-    0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
+// <digit> ::=
+//     0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
 
 // <SQL special character> ::=
 //       <space>
@@ -173,18 +173,18 @@
 <regular identifier> ::=
   <identifier body>
 
-<identifier body> ::=
-  <identifier start> [ <identifier part>... ]
+// <identifier body> ::=
+//   <identifier start> [ <identifier part>... ]
 
-<identifier part> ::=
-    <identifier start>
-  | <identifier extend>
+// <identifier part> ::=
+//     <identifier start>
+//   | <identifier extend>
 
-<identifier start> ::=
-  !! See the Syntax Rules.
+// <identifier start> ::=
+//   !! See the Syntax Rules.
 
-<identifier extend> ::=
-  !! See the Syntax Rules.
+// <identifier extend> ::=
+//   !! See the Syntax Rules.
 
 <large object length token> ::=
   <digit>... <multiplier>
@@ -199,12 +199,12 @@
 <delimited identifier> ::=
   <double quote> <delimited identifier body> <double quote>
 
-<delimited identifier body> ::=
-  <delimited identifier part>...
+// <delimited identifier body> ::=
+//   <delimited identifier part>...
 
-<delimited identifier part> ::=
-    <nondoublequote character>
-  | <doublequote symbol>
+// <delimited identifier part> ::=
+//     <nondoublequote character>
+//   | <doublequote symbol>
 
 // <Unicode delimited identifier> ::=
 //   U <ampersand> <double quote> <Unicode delimiter body> <double quote>
@@ -275,20 +275,20 @@
 <concatenation operator> ::=
   !! ||
 
-<right arrow> ::=
-  ->
+// <right arrow> ::=
+//   ->
 
-<double colon> ::=
-  ::
+// <double colon> ::=
+//   ::
 
-<double period> ::=
-  !! ..
+// <double period> ::=
+//   !! ..
 
-<named argument assignment token> ::=
-  =>
+// <named argument assignment token> ::=
+//   =>
 
-<separator> ::=
-  { <comment> | <white space> }...
+// <separator> ::=
+//   { <comment> | <white space> }...
 
 // <white space> ::=
 //   !! See the Syntax Rules.
@@ -530,8 +530,8 @@
       [ { <separator> <quote> [ <space>... ] [ { <hexit> [ <space>... ]
       <hexit> [ <space>... ] }... ] <quote> }... ]
 
-<hexit> ::=
-    <digit> | A | B | C | D | E | F | a | b | c | d | e | f
+// <hexit> ::=
+//     <digit> | A | B | C | D | E | F | a | b | c | d | e | f
 
 <signed numeric literal> ::=
   [ <sign> ] <unsigned numeric literal>
@@ -1691,21 +1691,21 @@
 <ceiling function> ::=
   { CEIL | CEILING } <left paren> <numeric value expression> <right paren>
 
-<width bucket function> ::=
-  WIDTH_BUCKET <left paren> <width bucket operand> <comma> <width bucket bound 1> <comma>
-      <width bucket bound 2> <comma> <width bucket count> <right paren>
+// <width bucket function> ::=
+//   WIDTH_BUCKET <left paren> <width bucket operand> <comma> <width bucket bound 1> <comma>
+//       <width bucket bound 2> <comma> <width bucket count> <right paren>
 
-<width bucket operand> ::=
-  <numeric value expression>
+// <width bucket operand> ::=
+//   <numeric value expression>
 
-<width bucket bound 1> ::=
-  <numeric value expression>
+// <width bucket bound 1> ::=
+//   <numeric value expression>
 
-<width bucket bound 2> ::=
-  <numeric value expression>
+// <width bucket bound 2> ::=
+//   <numeric value expression>
 
-<width bucket count> ::=
-  <numeric value expression>
+// <width bucket count> ::=
+//   <numeric value expression>
 
 // 6.29 <string value expression>
 
@@ -3422,7 +3422,7 @@
     NULLS FIRST
   | NULLS LAST
 
-// // 11 Schema definition and manipulation
+// 11 Schema definition and manipulation
 
 
 // // 11.1 <schema definition>
@@ -3483,7 +3483,7 @@
 //     CASCADE
 //   | RESTRICT
 
-// // 11.3 <table definition>
+// 11.3 <table definition>
 
 // // Define a persistent base table, a created local temporary table, or a global temporary table.
 
@@ -3604,8 +3604,8 @@
 // <application time period specification> ::=
 //   PERIOD FOR <application time period name>
 
-// <application time period name> ::=
-//   <identifier>
+<application time period name> ::=
+  <identifier>
 
 // <period begin column name> ::=
 //   <column name>
@@ -5513,7 +5513,7 @@
 //   HOLD LOCATOR <locator reference> [ { <comma> <locator reference> }... ]
 
 
-// 16 Control statements
+// // 16 Control statements
 
 // // 16.1 <call statement>
 
@@ -6161,10 +6161,10 @@
 //   UPDATE [ <target table> ] SET <set clause list>
 //       WHERE CURRENT OF <preparable dynamic cursor name>
 
-// // 21 Embedded SQL
+// 21 Embedded SQL
 
 
-// // 21.1 <embedded SQL host program>
+// 21.1 <embedded SQL host program>
 
 // // Specify an <embedded SQL host program>.
 
@@ -6255,8 +6255,8 @@
 //   | <Pascal variable definition>
 //   | <PL/I variable definition>
 
-// <embedded variable name> ::=
-//   <colon> <host identifier>
+<embedded variable name> ::=
+  <colon> <host identifier>
 
 // <host identifier> ::=
 //     <Ada host identifier>

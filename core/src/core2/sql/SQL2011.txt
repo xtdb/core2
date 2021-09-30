@@ -1342,7 +1342,7 @@
   | <in predicate part 2>
   | <character like predicate part 2>
   | <octet like predicate part 2>
-  | <similar predicate part 2>
+  // | <similar predicate part 2>
   | <regex like predicate part 2>
   | <null predicate part 2>
   | <quantified comparison predicate part 2>
@@ -2257,10 +2257,10 @@
         [ <left paren> <derived column list> <right paren> ]
   | <table function derived table> [ AS ] <correlation name>
       [ <left paren> <derived column list> <right paren> ]
-  | <only spec> [ [ AS ] <correlation name>
-      [ <left paren> <derived column list> <right paren> ] ]
-  | <data change delta table> [ [ AS ] <correlation name>
-      [ <left paren> <derived column list> <right paren> ] ]
+  // | <only spec> [ [ AS ] <correlation name>
+  //     [ <left paren> <derived column list> <right paren> ] ]
+  // | <data change delta table> [ [ AS ] <correlation name>
+  //     [ <left paren> <derived column list> <right paren> ] ]
   | <parenthesized joined table>
 
 <query system time period specification> ::=
@@ -2278,8 +2278,8 @@
 <point in time> ::=
   <datetime value expression>
 
-<only spec> ::=
-  ONLY <left paren> <table or query name> <right paren>
+// <only spec> ::=
+//   ONLY <left paren> <table or query name> <right paren>
 
 <lateral derived table> ::=
   LATERAL <table subquery>
@@ -2306,19 +2306,19 @@
 <column name list> ::=
   <column name> [ { <comma> <column name> }... ]
 
-<data change delta table> ::=
-  <result option> TABLE <left paren> <data change statement> <right paren>
+// <data change delta table> ::=
+//   <result option> TABLE <left paren> <data change statement> <right paren>
 
-<data change statement> ::=
-    <delete statement: searched>
-  | <insert statement>
-  | <merge statement>
-  | <update statement: searched>
+// <data change statement> ::=
+//     <delete statement: searched>
+//   | <insert statement>
+//   | <merge statement>
+//   | <update statement: searched>
 
-<result option> ::=
-    FINAL
-  | NEW
-  | OLD
+// <result option> ::=
+//     FINAL
+//   | NEW
+//   | OLD
 
 <parenthesized joined table> ::=
     <left paren> <parenthesized joined table> <right paren>
@@ -2635,7 +2635,7 @@
 
 <fetch first quantity> ::=
     <fetch first row count>
-  | <fetch first percentage>
+  // | <fetch first percentage>
 
 <offset row count> ::=
   <simple value specification>
@@ -2643,8 +2643,8 @@
 <fetch first row count> ::=
   <simple value specification>
 
-<fetch first percentage> ::=
-  <simple value specification> PERCENT
+// <fetch first percentage> ::=
+//   <simple value specification> PERCENT
 
 // // 7.14 <search or cycle clause>
 
@@ -2714,7 +2714,7 @@
   | <between predicate>
   | <in predicate>
   | <like predicate>
-  | <similar predicate>
+  // | <similar predicate>
   | <regex like predicate>
   | <null predicate>
   | <quantified comparison predicate>
@@ -2808,82 +2808,82 @@
 <escape octet> ::=
   <binary value expression>
 
-// 8.6     <similar predicate>
+// // 8.6     <similar predicate>
 
-// Specify a character string similarity by means of a regular expression.
+// // Specify a character string similarity by means of a regular expression.
 
-<similar predicate> ::=
-  <row value predicand> <similar predicate part 2>
+// <similar predicate> ::=
+//   <row value predicand> <similar predicate part 2>
 
-<similar predicate part 2> ::=
-  [ NOT ] SIMILAR TO <similar pattern> [ ESCAPE <escape character> ]
+// <similar predicate part 2> ::=
+//   [ NOT ] SIMILAR TO <similar pattern> [ ESCAPE <escape character> ]
 
-<similar pattern> ::=
-  <character value expression>
+// <similar pattern> ::=
+//   <character value expression>
 
-<regular expression> ::=
-    <regular term>
-  | <regular expression> <vertical bar> <regular term>
+// <regular expression> ::=
+//     <regular term>
+//   | <regular expression> <vertical bar> <regular term>
 
-<regular term> ::=
-    <regular factor>
-  | <regular term> <regular factor>
+// <regular term> ::=
+//     <regular factor>
+//   | <regular term> <regular factor>
 
-<regular factor> ::=
-    <regular primary>
-  | <regular primary>      <asterisk>
-  | <regular primary>      <plus sign>
-  | <regular primary>      <question mark>
-  | <regular primary>      <repeat factor>
+// <regular factor> ::=
+//     <regular primary>
+//   | <regular primary>      <asterisk>
+//   | <regular primary>      <plus sign>
+//   | <regular primary>      <question mark>
+//   | <regular primary>      <repeat factor>
 
-<repeat factor> ::=
-  <left brace> <low value> [ <upper limit> ] <right brace>
+// <repeat factor> ::=
+//   <left brace> <low value> [ <upper limit> ] <right brace>
 
-<upper limit> ::=
-  <comma> [ <high value> ]
+// <upper limit> ::=
+//   <comma> [ <high value> ]
 
-<low value> ::=
-  <unsigned integer>
+// <low value> ::=
+//   <unsigned integer>
 
-<high value> ::=
-  <unsigned integer>
+// <high value> ::=
+//   <unsigned integer>
 
-<regular primary> ::=
-    <character specifier>
-  | <percent>
-  | <regular character set>
-  | <left paren> <regular expression> <right paren>
+// <regular primary> ::=
+//     <character specifier>
+//   | <percent>
+//   | <regular character set>
+//   | <left paren> <regular expression> <right paren>
 
-<character specifier> ::=
-    <non-escaped character>
-  | <escaped character>
+// <character specifier> ::=
+//     <non-escaped character>
+//   | <escaped character>
 
-<non-escaped character> ::=
-  !! See the Syntax Rules.
+// <non-escaped character> ::=
+//   !! See the Syntax Rules.
 
-<escaped character> ::=
-  !! See the Syntax Rules.
+// <escaped character> ::=
+//   !! See the Syntax Rules.
 
-<regular character set> ::=
-    <underscore>
-  | <left bracket> <character enumeration>... <right bracket>
-  | <left bracket> <circumflex> <character enumeration>... <right bracket>
-  | <left bracket> <character enumeration include>...
-      <circumflex> <character enumeration exclude>... <right bracket>
+// <regular character set> ::=
+//     <underscore>
+//   | <left bracket> <character enumeration>... <right bracket>
+//   | <left bracket> <circumflex> <character enumeration>... <right bracket>
+//   | <left bracket> <character enumeration include>...
+//       <circumflex> <character enumeration exclude>... <right bracket>
 
-<character enumeration include> ::=
-  <character enumeration>
+// <character enumeration include> ::=
+//   <character enumeration>
 
-<character enumeration exclude> ::=
-  <character enumeration>
+// <character enumeration exclude> ::=
+//   <character enumeration>
 
-<character enumeration> ::=
-    <character specifier>
-  | <character specifier> <minus sign> <character specifier>
-  | <left bracket> <colon> <regular character set identifier> <colon> <right bracket>
+// <character enumeration> ::=
+//     <character specifier>
+//   | <character specifier> <minus sign> <character specifier>
+//   | <left bracket> <colon> <regular character set identifier> <colon> <right bracket>
 
-<regular character set identifier> ::=
-  <identifier>
+// <regular character set identifier> ::=
+//   <identifier>
 
 // 8.7        <regex like predicate>
 

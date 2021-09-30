@@ -31,7 +31,6 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*')+")))
    'quote "'\\''"
    'period "'.'"
    'solidus "'/'"
-   'reverse_solidus "'\\\\'"
    'left_bracket "'['"
    'right_bracket "']'"
    'vertical_bar "'|'"

@@ -59,14 +59,14 @@
 <space> ::=
   !! See the Syntax Rules.
 
-<double quote> ::=
-  "
+// <double quote> ::=
+//   "
 
 <percent> ::=
   %
 
-<ampersand> ::=
-  &
+// <ampersand> ::=
+//   &
 
 <quote> ::=
   !! '
@@ -95,8 +95,8 @@
 <solidus> ::=
   !! /
 
-<reverse solidus> ::=
-  !! \
+// <reverse solidus> ::=
+//   !! \
 
 <colon> ::=
   :
@@ -695,27 +695,27 @@
 // <domain name> ::=
 //   <schema qualified name>
 
-<schema name> ::=
-  [ <catalog name> <period> ] <unqualified schema name>
+// <schema name> ::=
+//   [ <catalog name> <period> ] <unqualified schema name>
 
-<unqualified schema name> ::=
-  <identifier>
+// <unqualified schema name> ::=
+//   <identifier>
 
-<catalog name> ::=
-  <identifier>
+// <catalog name> ::=
+//   <identifier>
 
-<schema qualified name> ::=
-  [ <schema name> <period> ] <qualified identifier>
+// <schema qualified name> ::=
+//   [ <schema name> <period> ] <qualified identifier>
 
-<local or schema qualified name> ::=
-  [ <local or schema qualifier> <period> ] <qualified identifier>
+// <local or schema qualified name> ::=
+//   [ <local or schema qualifier> <period> ] <qualified identifier>
 
-<local or schema qualifier> ::=
-    <schema name>
-  | <local qualifier>
+// <local or schema qualifier> ::=
+//     <schema name>
+//   | <local qualifier>
 
-<qualified identifier> ::=
-  <identifier>
+// <qualified identifier> ::=
+//   <identifier>
 
 <column name> ::=
   <identifier>
@@ -747,8 +747,8 @@
 // <local qualified name> ::=
 //   [ <local qualifier> <period> ] <qualified identifier>
 
-<local qualifier> ::=
-  MODULE
+// <local qualifier> ::=
+//   MODULE
 
 <host parameter name> ::=
   <colon> <identifier>
@@ -766,8 +766,8 @@
 // <trigger name> ::=
 //   <schema qualified name>
 
-<collation name> ::=
-  <schema qualified name>
+// <collation name> ::=
+//   <schema qualified name>
 
 // <character set name> ::=
 //   [ <schema name> <period> ] <SQL language identifier>
@@ -2646,46 +2646,46 @@
 <fetch first percentage> ::=
   <simple value specification> PERCENT
 
-// 7.14 <search or cycle clause>
+// // 7.14 <search or cycle clause>
 
-// Specify the generation of ordering and cycle detection information in the result of recursive query expressions.
+// // Specify the generation of ordering and cycle detection information in the result of recursive query expressions.
 
-<search or cycle clause> ::=
-    <search clause>
-  | <cycle clause>
-  | <search clause> <cycle clause>
+// <search or cycle clause> ::=
+//     <search clause>
+//   | <cycle clause>
+//   | <search clause> <cycle clause>
 
-<search clause> ::=
-  SEARCH <recursive search order> SET <sequence column>
+// <search clause> ::=
+//   SEARCH <recursive search order> SET <sequence column>
 
-<recursive search order> ::=
-    DEPTH FIRST BY <column name list>
-  | BREADTH FIRST BY <column name list>
+// <recursive search order> ::=
+//     DEPTH FIRST BY <column name list>
+//   | BREADTH FIRST BY <column name list>
 
-<sequence column> ::=
-  <column name>
+// <sequence column> ::=
+//   <column name>
 
-<cycle clause> ::=
-  CYCLE <cycle column list> SET <cycle mark column> TO <cycle mark value>
-      DEFAULT <non-cycle mark value> USING <path column>
+// <cycle clause> ::=
+//   CYCLE <cycle column list> SET <cycle mark column> TO <cycle mark value>
+//       DEFAULT <non-cycle mark value> USING <path column>
 
-<cycle column list> ::=
-  <cycle column> [ { <comma> <cycle column> }... ]
+// <cycle column list> ::=
+//   <cycle column> [ { <comma> <cycle column> }... ]
 
-<cycle column> ::=
-  <column name>
+// <cycle column> ::=
+//   <column name>
 
-<cycle mark column> ::=
-  <column name>
+// <cycle mark column> ::=
+//   <column name>
 
-<path column> ::=
-  <column name>
+// <path column> ::=
+//   <column name>
 
-<cycle mark value> ::=
-  <value expression>
+// <cycle mark value> ::=
+//   <value expression>
 
-<non-cycle mark value> ::=
-  <value expression>
+// <non-cycle mark value> ::=
+//   <value expression>
 
 // 7.15 <subquery>
 

@@ -7,16 +7,8 @@ space
     : ' '
     ;
 
-double_quote
-    : '"'
-    ;
-
 percent
     : '%'
-    ;
-
-ampersand
-    : '&'
     ;
 
 quote
@@ -53,10 +45,6 @@ period
 
 solidus
     : '/'
-    ;
-
-reverse_solidus
-    : '\\'
     ;
 
 colon
@@ -378,35 +366,6 @@ actual_identifier
     ;
 
 table_name
-    : local_or_schema_qualified_name
-    ;
-
-schema_name
-    : [ catalog_name period ] unqualified_schema_name
-    ;
-
-unqualified_schema_name
-    : identifier
-    ;
-
-catalog_name
-    : identifier
-    ;
-
-schema_qualified_name
-    : [ schema_name period ] qualified_identifier
-    ;
-
-local_or_schema_qualified_name
-    : [ local_or_schema_qualifier period ] qualified_identifier
-    ;
-
-local_or_schema_qualifier
-    : schema_name
-    / local_qualifier
-    ;
-
-qualified_identifier
     : identifier
     ;
 
@@ -422,16 +381,8 @@ query_name
     : identifier
     ;
 
-local_qualifier
-    : 'MODULE'
-    ;
-
 host_parameter_name
     : colon identifier
-    ;
-
-collation_name
-    : schema_qualified_name
     ;
 
 field_name
@@ -720,7 +671,6 @@ basic_identifier_chain
 
 column_reference
     : basic_identifier_chain
-    / 'MODULE' period qualified_identifier period column_name
     ;
 
 (*  6.9        <set function specification> *)
@@ -1747,7 +1697,7 @@ with_list
     ;
 
 with_list_element
-    : query_name [ left_paren with_column_list right_paren ] 'AS' table_subquery [ search_or_cycle_clause ]
+    : query_name [ left_paren with_column_list right_paren ] 'AS' table_subquery
     ;
 
 with_column_list
@@ -1815,55 +1765,6 @@ fetch_first_row_count
 
 fetch_first_percentage
     : simple_value_specification 'PERCENT'
-    ;
-
-(*  7.14 <search or cycle clause> *)
-
-search_or_cycle_clause
-    : search_clause
-    / cycle_clause
-    / search_clause cycle_clause
-    ;
-
-search_clause
-    : 'SEARCH' recursive_search_order 'SET' sequence_column
-    ;
-
-recursive_search_order
-    : 'DEPTH' 'FIRST' 'BY' column_name_list
-    / 'BREADTH' 'FIRST' 'BY' column_name_list
-    ;
-
-sequence_column
-    : column_name
-    ;
-
-cycle_clause
-    : 'CYCLE' cycle_column_list 'SET' cycle_mark_column 'TO' cycle_mark_value 'DEFAULT' non_cycle_mark_value 'USING' path_column
-    ;
-
-cycle_column_list
-    : cycle_column [ ( comma cycle_column )+ ]
-    ;
-
-cycle_column
-    : column_name
-    ;
-
-cycle_mark_column
-    : column_name
-    ;
-
-path_column
-    : column_name
-    ;
-
-cycle_mark_value
-    : value_expression
-    ;
-
-non_cycle_mark_value
-    : value_expression
     ;
 
 (*  7.15 <subquery> *)

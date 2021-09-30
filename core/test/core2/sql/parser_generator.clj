@@ -49,6 +49,8 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*')+")))
    "#'[a-zA-Z][a-zA-Z0-9_]+'"
    'delimited_identifier
    "#'\"(\"\"|[^\"])+\"'"
+   'table_name
+   "identifier"
    'unsigned_integer
    "#'[0-9]+'"
    'large_object_length_token
@@ -66,6 +68,8 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*')+")))
     / boolean_type
     / datetime_type
     / interval_type"
+   'column_reference
+   "basic_identifier_chain"
    'cast_target
    "data_type"
    'target_array_reference
@@ -74,6 +78,8 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*')+")))
    "character_primary"
    'table_factor
    "table_primary"
+   'with_list_element
+   "query_name [ left_paren with_column_list right_paren ] 'AS' table_subquery"
    'numeric_value_function
    "position_expression
     / regex_occurrences_function

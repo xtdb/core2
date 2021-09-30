@@ -93,7 +93,7 @@
   !! .
 
 <solidus> ::=
-  /
+  !! /
 
 <reverse solidus> ::=
   !! \
@@ -206,43 +206,43 @@
     <nondoublequote character>
   | <doublequote symbol>
 
-<Unicode delimited identifier> ::=
-  U <ampersand> <double quote> <Unicode delimiter body> <double quote>
-      <Unicode escape specifier>
+// <Unicode delimited identifier> ::=
+//   U <ampersand> <double quote> <Unicode delimiter body> <double quote>
+//       <Unicode escape specifier>
 
-<Unicode escape specifier> ::=
-  [ UESCAPE <quote> <Unicode escape character> <quote> ]
+// <Unicode escape specifier> ::=
+//   [ UESCAPE <quote> <Unicode escape character> <quote> ]
 
-<Unicode delimiter body> ::=
-  <Unicode identifier part>...
+// <Unicode delimiter body> ::=
+//   <Unicode identifier part>...
 
-<Unicode identifier part> ::=
-    <delimited identifier part>
-  | <Unicode escape value>
+// <Unicode identifier part> ::=
+//     <delimited identifier part>
+//   | <Unicode escape value>
 
-<Unicode escape value> ::=
-    <Unicode 4 digit escape value>
-  | <Unicode 6 digit escape value>
-  | <Unicode character escape value>
+// <Unicode escape value> ::=
+//     <Unicode 4 digit escape value>
+//   | <Unicode 6 digit escape value>
+//   | <Unicode character escape value>
 
-<Unicode 4 digit escape value> ::=
-  <Unicode escape character> <hexit> <hexit> <hexit> <hexit>
+// <Unicode 4 digit escape value> ::=
+//   <Unicode escape character> <hexit> <hexit> <hexit> <hexit>
 
-<Unicode 6 digit escape value> ::=
-  <Unicode escape character> <plus sign>
-      <hexit> <hexit> <hexit> <hexit> <hexit> <hexit>
+// <Unicode 6 digit escape value> ::=
+//   <Unicode escape character> <plus sign>
+//       <hexit> <hexit> <hexit> <hexit> <hexit> <hexit>
 
-<Unicode character escape value> ::=
-  <Unicode escape character> <Unicode escape character>
+// <Unicode character escape value> ::=
+//   <Unicode escape character> <Unicode escape character>
 
-<Unicode escape character> ::=
-  !! See the Syntax Rules.
+// <Unicode escape character> ::=
+//   !! See the Syntax Rules.
 
-<nondoublequote character> ::=
-  !! See the Syntax Rules.
+// <nondoublequote character> ::=
+//   !! See the Syntax Rules.
 
-<doublequote symbol> ::=
-  ""!! two consecutive double quote characters
+// <doublequote symbol> ::=
+//   ""!! two consecutive double quote characters
 
 // <delimiter token> ::=
 //     <character string literal>
@@ -273,7 +273,7 @@
   <=
 
 <concatenation operator> ::=
-  ||
+  !! ||
 
 <right arrow> ::=
   ->
@@ -290,39 +290,39 @@
 <separator> ::=
   { <comment> | <white space> }...
 
-<white space> ::=
-  !! See the Syntax Rules.
+// <white space> ::=
+//   !! See the Syntax Rules.
 
-<comment> ::=
-    <simple comment>
-  | <bracketed comment>
+// <comment> ::=
+//     <simple comment>
+//   | <bracketed comment>
 
-<simple comment> ::=
-  <simple comment introducer> [ <comment character>... ] <newline>
+// <simple comment> ::=
+//   <simple comment introducer> [ <comment character>... ] <newline>
 
-<simple comment introducer> ::=
-  <minus sign> <minus sign>
+// <simple comment introducer> ::=
+//   <minus sign> <minus sign>
 
-<bracketed comment> ::=
-  <bracketed comment introducer>
-      <bracketed comment contents>
-      <bracketed comment terminator>
+// <bracketed comment> ::=
+//   <bracketed comment introducer>
+//       <bracketed comment contents>
+//       <bracketed comment terminator>
 
-<bracketed comment introducer> ::=
-  /*
+// <bracketed comment introducer> ::=
+//   /*
 
-<bracketed comment terminator> ::=
-  */
+// <bracketed comment terminator> ::=
+//   */
 
-<bracketed comment contents> ::=
-  [ { <comment character> | <separator> }... ]!! See the Syntax Rules.
+// <bracketed comment contents> ::=
+//   [ { <comment character> | <separator> }... ]!! See the Syntax Rules.
 
-<comment character> ::=
-    <nonquote character>
-  | <quote>
+// <comment character> ::=
+//     <nonquote character>
+//   | <quote>
 
-<newline> ::=
-  !! See the Syntax Rules.
+// <newline> ::=
+//   !! See the Syntax Rules.
 
 // <key word> ::=
 //     <reserved word>
@@ -487,7 +487,7 @@
 <general literal> ::=
     <character string literal>
   // | <national character string literal>
-  | <Unicode character string literal>
+  // | <Unicode character string literal>
   | <binary string literal>
   | <datetime literal>
   | <interval literal>
@@ -505,25 +505,25 @@
     <nonquote character>
   | <quote symbol>
 
-<nonquote character> ::=
-  !! See the Syntax Rules.
+// <nonquote character> ::=
+//   !! See the Syntax Rules.
 
-<quote symbol> ::=
-  <quote> <quote>
+// <quote symbol> ::=
+//   <quote> <quote>
 
 // <national character string literal> ::=
 //   N <quote> [ <character representation>... ]
 //       <quote> [ { <separator> <quote> [ <character representation>... ] <quote> }... ]
 
-<Unicode character string literal> ::=
-  [ <introducer> <character set specification> ]
-      U <ampersand> <quote> [ <Unicode representation>... ] <quote>
-      [ { <separator> <quote> [ <Unicode representation>... ] <quote> }... ]
-      <Unicode escape specifier>
+// <Unicode character string literal> ::=
+//   [ <introducer> <character set specification> ]
+//       U <ampersand> <quote> [ <Unicode representation>... ] <quote>
+//       [ { <separator> <quote> [ <Unicode representation>... ] <quote> }... ]
+//       <Unicode escape specifier>
 
-<Unicode representation> ::=
-    <character representation>
-  | <Unicode escape value>
+// <Unicode representation> ::=
+//     <character representation>
+//   | <Unicode escape value>
 
 <binary string literal> ::=
   X <quote> [ <space>... ] [ { <hexit> [ <space>... ] <hexit> [ <space>... ] }... ] <quote>
@@ -672,7 +672,7 @@
 <actual identifier> ::=
     <regular identifier>
   | <delimited identifier>
-  | <Unicode delimited identifier>
+  // | <Unicode delimited identifier>
 
 // <SQL language identifier> ::=
 //   <SQL language identifier start> [ <SQL language identifier part>... ]
@@ -685,15 +685,15 @@
 //   | <digit>
 //   | <underscore>
 
-<authorization identifier> ::=
-    <role name>
-  | <user identifier>
+// <authorization identifier> ::=
+//     <role name>
+//   | <user identifier>
 
 <table name> ::=
   <local or schema qualified name>
 
-<domain name> ::=
-  <schema qualified name>
+// <domain name> ::=
+//   <schema qualified name>
 
 <schema name> ::=
   [ <catalog name> <period> ] <unqualified schema name>
@@ -726,26 +726,26 @@
 <query name> ::=
   <identifier>
 
-<SQL-client module name> ::=
-  <identifier>
+// <SQL-client module name> ::=
+//   <identifier>
 
-<procedure name> ::=
-  <identifier>
+// <procedure name> ::=
+//   <identifier>
 
-<schema qualified routine name> ::=
-  <schema qualified name>
+// <schema qualified routine name> ::=
+//   <schema qualified name>
 
-<method name> ::=
-  <identifier>
+// <method name> ::=
+//   <identifier>
 
-<specific name> ::=
-  <schema qualified name>
+// <specific name> ::=
+//   <schema qualified name>
 
-<cursor name> ::=
-  <local qualified name>
+// <cursor name> ::=
+//   <local qualified name>
 
-<local qualified name> ::=
-  [ <local qualifier> <period> ] <qualified identifier>
+// <local qualified name> ::=
+//   [ <local qualifier> <period> ] <qualified identifier>
 
 <local qualifier> ::=
   MODULE
@@ -753,97 +753,97 @@
 <host parameter name> ::=
   <colon> <identifier>
 
-<SQL parameter name> ::=
-  <identifier>
+// <SQL parameter name> ::=
+//   <identifier>
 
-<constraint name> ::=
-  <schema qualified name>
+// <constraint name> ::=
+//   <schema qualified name>
 
-<external routine name> ::=
-    <identifier>
-  | <character string literal>
+// <external routine name> ::=
+//     <identifier>
+//   | <character string literal>
 
-<trigger name> ::=
-  <schema qualified name>
+// <trigger name> ::=
+//   <schema qualified name>
 
 <collation name> ::=
   <schema qualified name>
 
-<character set name> ::=
-  [ <schema name> <period> ] <SQL language identifier>
+// <character set name> ::=
+//   [ <schema name> <period> ] <SQL language identifier>
 
-<transliteration name> ::=
-  <schema qualified name>
+// <transliteration name> ::=
+//   <schema qualified name>
 
-<transcoding name> ::=
-  <schema qualified name>
+// <transcoding name> ::=
+//   <schema qualified name>
 
-<schema-resolved user-defined type name> ::=
-  <user-defined type name>
+// <schema-resolved user-defined type name> ::=
+//   <user-defined type name>
 
-<user-defined type name> ::=
-  [ <schema name> <period> ] <qualified identifier>
+// <user-defined type name> ::=
+//   [ <schema name> <period> ] <qualified identifier>
 
-<attribute name> ::=
-  <identifier>
+// <attribute name> ::=
+//   <identifier>
 
 <field name> ::=
   <identifier>
 
-<savepoint name> ::=
-  <identifier>
+// <savepoint name> ::=
+//   <identifier>
 
-<sequence generator name> ::=
-  <schema qualified name>
+// <sequence generator name> ::=
+//   <schema qualified name>
 
-<role name> ::=
-  <identifier>
+// <role name> ::=
+//   <identifier>
 
-<user identifier> ::=
-  <identifier>
+// <user identifier> ::=
+//   <identifier>
 
-<connection name> ::=
-  <simple value specification>
+// <connection name> ::=
+//   <simple value specification>
 
-<SQL-server name> ::=
-  <simple value specification>
+// <SQL-server name> ::=
+//   <simple value specification>
 
-<connection user name> ::=
-  <simple value specification>
+// <connection user name> ::=
+//   <simple value specification>
 
-<SQL statement name> ::=
-    <statement name>
-  | <extended statement name>
+// <SQL statement name> ::=
+//     <statement name>
+//   | <extended statement name>
 
-<statement name> ::=
-  <identifier>
+// <statement name> ::=
+//   <identifier>
 
-<extended statement name> ::=
-  [ <scope option> ] <simple value specification>
+// <extended statement name> ::=
+//   [ <scope option> ] <simple value specification>
 
-<dynamic cursor name> ::=
-    <cursor name>
-  | <extended cursor name>
+// <dynamic cursor name> ::=
+//     <cursor name>
+//   | <extended cursor name>
 
-<extended cursor name> ::=
-  [ <scope option> ] <simple value specification>
+// <extended cursor name> ::=
+//   [ <scope option> ] <simple value specification>
 
-<descriptor name> ::=
-    <non-extended descriptor name>
-  | <extended descriptor name>
+// <descriptor name> ::=
+//     <non-extended descriptor name>
+//   | <extended descriptor name>
 
-<non-extended descriptor name> ::=
-  <identifier>
+// <non-extended descriptor name> ::=
+//   <identifier>
 
-<extended descriptor name> ::=
-  [ <scope option> ] <simple value specification>
+// <extended descriptor name> ::=
+//   [ <scope option> ] <simple value specification>
 
-<scope option> ::=
-    GLOBAL
-  | LOCAL
+// <scope option> ::=
+//     GLOBAL
+//   | LOCAL
 
-<window name> ::=
-  <identifier>
+// <window name> ::=
+//   <identifier>
 
 // 6 Scalar expressions
 
@@ -855,8 +855,8 @@
 <data type> ::=
     <predefined type>
   | <row type>
-  | <path-resolved user-defined type name>
-  | <reference type>
+  // | <path-resolved user-defined type name>
+  // | <reference type>
   | <collection type>
 
 <predefined type> ::=
@@ -979,25 +979,25 @@
 <row type body> ::=
   <left paren> <field definition> [ { <comma> <field definition> }... ] <right paren>
 
-<reference type> ::=
-  REF <left paren> <referenced type> <right paren> [ <scope clause> ]
+// <reference type> ::=
+//   REF <left paren> <referenced type> <right paren> [ <scope clause> ]
 
-<scope clause> ::=
-  SCOPE <table name>
+// <scope clause> ::=
+//   SCOPE <table name>
 
-<referenced type> ::=
-  <path-resolved user-defined type name>
+// <referenced type> ::=
+//   <path-resolved user-defined type name>
 
-<path-resolved user-defined type name> ::=
-  <user-defined type name>
+// <path-resolved user-defined type name> ::=
+//   <user-defined type name>
 
-// <collection type> ::=
-//     <array type>
-//   | <multiset type>
+<collection type> ::=
+    <array type>
+  // | <multiset type>
 
-// <array type> ::=
-//   <data type> ARRAY
-//       [ <left bracket or trigraph> <maximum cardinality> <right bracket or trigraph> ]
+<array type> ::=
+  <data type> ARRAY
+      [ <left bracket or trigraph> <maximum cardinality> <right bracket or trigraph> ]
 
 <maximum cardinality> ::=
   <unsigned integer>
@@ -1023,31 +1023,31 @@
 <parenthesized value expression> ::=
   <left paren> <value expression> <right paren>
 
-// <nonparenthesized value expression primary> ::=
-//        <unsigned value specification>
-//      | <column reference>
-//      | <set function specification>
-//      | <window function>
-//      | <nested window function>
-//      | <scalar subquery>
-//      | <case expression>
-//      | <cast specification>
-//      | <field reference>
-//      | <subtype treatment>
-//      | <method invocation>
-//      | <static method invocation>
-//      | <new specification>
-//      | <attribute or method reference>
-//      | <reference resolution>
-//      | <collection value constructor>
-//      | <array element reference>
-//      | <multiset element reference>
-//      | <next value expression>
-//      | <routine invocation>
+<nonparenthesized value expression primary> ::=
+       <unsigned value specification>
+     | <column reference>
+     | <set function specification>
+     // | <window function>
+     // | <nested window function>
+     | <scalar subquery>
+     | <case expression>
+     | <cast specification>
+     | <field reference>
+     // | <subtype treatment>
+     // | <method invocation>
+     // | <static method invocation>
+     // | <new specification>
+     // | <attribute or method reference>
+     // | <reference resolution>
+     | <collection value constructor>
+     | <array element reference>
+     // | <multiset element reference>
+     // | <next value expression>
+     // | <routine invocation>
 
 <collection value constructor> ::=
     <array value constructor>
-  | <multiset value constructor>
+  // | <multiset value constructor>
 
 // 6.4     <value specification> and <target specification>
 
@@ -1063,16 +1063,16 @@
 
 <general value specification> ::=
     <host parameter specification>
-  | <SQL parameter reference>
+  // | <SQL parameter reference>
   | <dynamic parameter specification>
-  | <embedded variable specification>
+  // | <embedded variable specification>
   | <current collation specification>
   | CURRENT_CATALOG
   | CURRENT_DEFAULT_TRANSFORM_GROUP
   | CURRENT_PATH
   | CURRENT_ROLE
   | CURRENT_SCHEMA
-  | CURRENT_TRANSFORM_GROUP_FOR_TYPE <path-resolved user-defined type name>
+  // | CURRENT_TRANSFORM_GROUP_FOR_TYPE <path-resolved user-defined type name>
   | CURRENT_USER
   | SESSION_USER
   | SYSTEM_USER
@@ -1082,22 +1082,22 @@
 <simple value specification> ::=
     <literal>
   | <host parameter name>
-  | <SQL parameter reference>
-  | <embedded variable name>
+  // | <SQL parameter reference>
+  // | <embedded variable name>
 
 <target specification> ::=
     <host parameter specification>
-  | <SQL parameter reference>
+  // | <SQL parameter reference>
   | <column reference>
   | <target array element specification>
   | <dynamic parameter specification>
-  | <embedded variable specification>
+  // | <embedded variable specification>
 
 <simple target specification> ::=
     <host parameter name>
-  | <SQL parameter reference>
+  // | <SQL parameter reference>
   | <column reference>
-  | <embedded variable name>
+  // | <embedded variable name>
 
 <host parameter specification> ::=
   <host parameter name> [ <indicator parameter> ]
@@ -1105,11 +1105,11 @@
 <dynamic parameter specification> ::=
   <question mark>
 
-<embedded variable specification> ::=
-  <embedded variable name> [ <indicator variable> ]
+// <embedded variable specification> ::=
+//   <embedded variable name> [ <indicator variable> ]
 
-<indicator variable> ::=
-  [ INDICATOR ] <embedded variable name>
+// <indicator variable> ::=
+//   [ INDICATOR ] <embedded variable name>
 
 <indicator parameter> ::=
   [ INDICATOR ] <host parameter name>
@@ -1142,7 +1142,7 @@
 
 <empty specification> ::=
     ARRAY <left bracket or trigraph> <right bracket or trigraph>
-  | MULTISET <left bracket or trigraph> <right bracket or trigraph>
+  // | MULTISET <left bracket or trigraph> <right bracket or trigraph>
 
 <default specification> ::=
   DEFAULT
@@ -1165,12 +1165,12 @@
     <basic identifier chain>
   | MODULE <period> <qualified identifier> <period> <column name>
 
-// 6.8      <SQL parameter reference>
+// // 6.8      <SQL parameter reference>
 
 // Reference an SQL parameter.
 
-<SQL parameter reference> ::=
-  <basic identifier chain>
+// <SQL parameter reference> ::=
+//   <basic identifier chain>
 
 // 6.9        <set function specification>
 
@@ -1178,124 +1178,123 @@
 
 <set function specification> ::=
     <aggregate function>
-  | <grouping operation>
+  // | <grouping operation>
 
-<grouping operation> ::=
-  GROUPING <left paren> <column reference>
-      [ { <comma> <column reference> }... ] <right paren>
+// <grouping operation> ::=
+//   GROUPING <left paren> <column reference>
+//       [ { <comma> <column reference> }... ] <right paren>
 
-// 6.10 <window function>
+// // 6.10 <window function>
 
 // Specify a window function.
 
-<window function> ::=
-  <window function type> OVER <window name or specification>
+// <window function> ::=
+//   <window function type> OVER <window name or specification>
 
-<window function type> ::=
-    <rank function type> <left paren> <right paren>
-  | ROW_NUMBER <left paren> <right paren>
-  | <aggregate function>
-  | <ntile function>
-  | <lead or lag function>
-  | <first or last value function>
-  | <nth value function>
+// <window function type> ::=
+//     <rank function type> <left paren> <right paren>
+//   | ROW_NUMBER <left paren> <right paren>
+//   | <aggregate function>
+//   | <ntile function>
+//   | <lead or lag function>
+//   | <first or last value function>
+//   | <nth value function>
 
-<rank function type> ::=
-    RANK
-  | DENSE_RANK
-  | PERCENT_RANK
-  | CUME_DIST
+// <rank function type> ::=
+//     RANK
+//   | DENSE_RANK
+//   | PERCENT_RANK
+//   | CUME_DIST
 
-<ntile function> ::=
-  NTILE <left paren> <number of tiles> <right paren>
+// <ntile function> ::=
+//   NTILE <left paren> <number of tiles> <right paren>
 
-<number of tiles> ::=
-    <simple value specification>
-  | <dynamic parameter specification>
+// <number of tiles> ::=
+//     <simple value specification>
+//   | <dynamic parameter specification>
 
-<lead or lag function> ::=
-  <lead or lag> <left paren> <lead or lag extent>
-      [ <comma> <offset> [ <comma> <default expression> ] ] <right paren>
-      [ <null treatment> ]
+// <lead or lag function> ::=
+//   <lead or lag> <left paren> <lead or lag extent>
+//       [ <comma> <offset> [ <comma> <default expression> ] ] <right paren>
+//       [ <null treatment> ]
 
-<lead or lag> ::=
-  LEAD | LAG
+// <lead or lag> ::=
+//   LEAD | LAG
 
-<lead or lag extent> ::=
-  <value expression>
+// <lead or lag extent> ::=
+//   <value expression>
 
-<offset> ::=
-  <exact numeric literal>
+// <offset> ::=
+//   <exact numeric literal>
 
-<default expression> ::=
-  <value expression>
+// <default expression> ::=
+//   <value expression>
 
-<null treatment> ::=
-  RESPECT NULLS | IGNORE NULLS
+// <null treatment> ::=
+//   RESPECT NULLS | IGNORE NULLS
 
-<first or last value function> ::=
-  <first or last value> <left paren> <value expression> <right paren> [ <null treatment>
-  ]
+// <first or last value function> ::=
+//   <first or last value> <left paren> <value expression> <right paren> [ <null treatment> ]
 
-<first or last value> ::=
-  FIRST_VALUE | LAST_VALUE
+// <first or last value> ::=
+//   FIRST_VALUE | LAST_VALUE
 
-<nth value function> ::=
-  NTH_VALUE <left paren> <value expression> <comma> <nth row> <right paren>
-      [ <from first or last> ] [ <null treatment> ]
+// <nth value function> ::=
+//   NTH_VALUE <left paren> <value expression> <comma> <nth row> <right paren>
+//       [ <from first or last> ] [ <null treatment> ]
 
-<nth row> ::=
-    <simple value specification>
-  | <dynamic parameter specification>
+// <nth row> ::=
+//     <simple value specification>
+//   | <dynamic parameter specification>
 
-<from first or last> ::=
-    FROM FIRST
-  | FROM LAST
+// <from first or last> ::=
+//     FROM FIRST
+//   | FROM LAST
 
-<window name or specification> ::=
-    <window name>
-  | <in-line window specification>
+// <window name or specification> ::=
+//     <window name>
+//   | <in-line window specification>
 
-<in-line window specification> ::=
-  <window specification>
+// <in-line window specification> ::=
+//   <window specification>
 
-// 6.11 <nested window function>
+// // 6.11 <nested window function>
 
 // Specify a function nested in an aggregated argument of an <aggregate function> simply contained in a <window
 // function>.
 
-<nested window function> ::=
-    <nested row number function>
-  | <value_of expression at row>
+// <nested window function> ::=
+//     <nested row number function>
+//   | <value_of expression at row>
 
-<nested row number function> ::=
-  ROW_NUMBER <left paren> <row marker> <right paren>
+// <nested row number function> ::=
+//   ROW_NUMBER <left paren> <row marker> <right paren>
 
-<value_of expression at row> ::=
-  VALUE_OF <left paren> <value expression> AT <row marker expression>
-      [ <comma> <value_of default value> ] <right paren>
+// <value_of expression at row> ::=
+//   VALUE_OF <left paren> <value expression> AT <row marker expression>
+//       [ <comma> <value_of default value> ] <right paren>
 
-<row marker> ::=
-    BEGIN_PARTITION
-  | BEGIN_FRAME
-  | CURRENT_ROW
-  | FRAME_ROW
-  | END_FRAME
-  | END_PARTITION
+// <row marker> ::=
+//     BEGIN_PARTITION
+//   | BEGIN_FRAME
+//   | CURRENT_ROW
+//   | FRAME_ROW
+//   | END_FRAME
+//   | END_PARTITION
 
-<row marker expression> ::=
-  <row marker> [ <row marker delta> ]
+// <row marker expression> ::=
+//   <row marker> [ <row marker delta> ]
 
-<row marker delta> ::=
-    <plus sign> <row marker offset>
-  | <minus sign> <row marker offset>
+// <row marker delta> ::=
+//     <plus sign> <row marker offset>
+//   | <minus sign> <row marker offset>
 
-<row marker offset> ::=
-    <simple value specification>
-  | <dynamic parameter specification>
+// <row marker offset> ::=
+//     <simple value specification>
+//   | <dynamic parameter specification>
 
-<value_of default value> ::=
-  <value expression>
+// <value_of default value> ::=
+//   <value expression>
 
 // 6.12 <case expression>
 
@@ -1347,14 +1346,14 @@
   | <regex like predicate part 2>
   | <null predicate part 2>
   | <quantified comparison predicate part 2>
-  | <normalized predicate part 2>
+  // | <normalized predicate part 2>
   | <match predicate part 2>
   | <overlaps predicate part 2>
   | <distinct predicate part 2>
-  | <member predicate part 2>
-  | <submultiset predicate part 2>
-  | <set predicate part 2>
-  | <type predicate part 2>
+  // | <member predicate part 2>
+  // | <submultiset predicate part 2>
+  // | <set predicate part 2>
+  // | <type predicate part 2>
 
 <result> ::=
     <result expression>
@@ -1378,78 +1377,78 @@
     <domain name>
   | <data type>
 
-// 6.14 <next value expression>
+// // 6.14 <next value expression>
 
 // Return the next value of a sequence generator.
 
-<next value expression> ::=
-  NEXT VALUE FOR <sequence generator name>
+// <next value expression> ::=
+//   NEXT VALUE FOR <sequence generator name>
 
 // 6.15 <field reference>
 
 // Reference a field of a row value.
 
-// <field reference> ::=
-//   <value expression primary> <period> <field name>
+<field reference> ::=
+  <value expression primary> <period> <field name>
 
 // 6.16 <subtype treatment>
 
 // Modify the declared type of an expression.
 
-<subtype treatment> ::=
-  TREAT <left paren> <subtype operand> AS <target subtype> <right paren>
+// <subtype treatment> ::=
+//   TREAT <left paren> <subtype operand> AS <target subtype> <right paren>
 
-<subtype operand> ::=
-  <value expression>
+// <subtype operand> ::=
+//   <value expression>
 
-<target subtype> ::=
-    <path-resolved user-defined type name>
-  | <reference type>
+// <target subtype> ::=
+//     <path-resolved user-defined type name>
+//   | <reference type>
 
-// 6.17 <method invocation>
+// // 6.17 <method invocation>
 
 // Reference an SQL-invoked method of a user-defined type value.
 
-<method invocation> ::=
-    <direct invocation>
-  | <generalized invocation>
+// <method invocation> ::=
+//     <direct invocation>
+//   | <generalized invocation>
 
-<direct invocation> ::=
-  <value expression primary> <period> <method name> [ <SQL argument list> ]
+// <direct invocation> ::=
+//   <value expression primary> <period> <method name> [ <SQL argument list> ]
 
-<generalized invocation> ::=
-  <left paren> <value expression primary> AS <data type> <right paren>
-      <period> <method name> [ <SQL argument list> ]
+// <generalized invocation> ::=
+//   <left paren> <value expression primary> AS <data type> <right paren>
+//       <period> <method name> [ <SQL argument list> ]
 
-<method selection> ::=
-  <routine invocation>
+// <method selection> ::=
+//   <routine invocation>
 
-<constructor method selection> ::=
-  <routine invocation>
+// <constructor method selection> ::=
+//   <routine invocation>
 
-// 6.18 <static method invocation>
+// // 6.18 <static method invocation>
 
 // Invoke a static method.
 
-<static method invocation> ::=
-  <path-resolved user-defined type name> <double colon> <method name>
-      [ <SQL argument list> ]
+// <static method invocation> ::=
+//   <path-resolved user-defined type name> <double colon> <method name>
+//       [ <SQL argument list> ]
 
-<static method selection> ::=
-  <routine invocation>
+// <static method selection> ::=
+//   <routine invocation>
 
-// 6.19 <new specification>
+// // 6.19 <new specification>
 
 // Invoke a method on a newly-constructed value of a structured type.
 
-<new specification> ::=
-  NEW <path-resolved user-defined type name> <SQL argument list>
+// <new specification> ::=
+//   NEW <path-resolved user-defined type name> <SQL argument list>
 
-<new invocation> ::=
-    <method invocation>
-  | <routine invocation>
+// <new invocation> ::=
+//     <method invocation>
+//   | <routine invocation>
 
-// 6.20 <attribute or method reference>
+// // 6.20 <attribute or method reference>
 
 // Return a value acquired by accessing a column of the row identified by a value of a reference type or by
 // invoking an SQL-invoked method.
@@ -1458,29 +1457,29 @@
 //   <value expression primary> <dereference operator> <qualified identifier>
 //       [ <SQL argument list> ]
 
-<dereference operator> ::=
-  <right arrow>
+// <dereference operator> ::=
+//   <right arrow>
 
-// 6.21 <dereference operation>
+// // 6.21 <dereference operation>
 
 // Access a column of the row identified by a value of a reference type.
 
-<dereference operation> ::=
-  <reference value expression> <dereference operator> <attribute name>
+// <dereference operation> ::=
+//   <reference value expression> <dereference operator> <attribute name>
 
-// 6.22 <method reference>
+// // 6.22 <method reference>
 
 // Return a value acquired from invoking an SQL-invoked routine that is a method.
 
-<method reference> ::=
-  <value expression primary> <dereference operator> <method name> <SQL argument list>
+// <method reference> ::=
+//   <value expression primary> <dereference operator> <method name> <SQL argument list>
 
-// 6.23 <reference resolution>
+// // 6.23 <reference resolution>
 
 // Obtain the value referenced by a reference value.
 
-<reference resolution> ::=
-  DEREF <left paren> <reference value expression> <right paren>
+// <reference resolution> ::=
+//   DEREF <left paren> <reference value expression> <right paren>
 
 // 6.24 <array element reference>
 
@@ -1490,12 +1489,12 @@
   <array value expression>
       <left bracket or trigraph> <numeric value expression> <right bracket or trigraph>
 
-// 6.25 <multiset element reference>
+// // 6.25 <multiset element reference>
 
 // Return the sole element of a multiset of one element.
 
-<multiset element reference> ::=
-  ELEMENT <left paren> <multiset value expression> <right paren>
+// <multiset element reference> ::=
+//   ELEMENT <left paren> <multiset value expression> <right paren>
 
 // 6.26 <value expression>
 
@@ -1511,19 +1510,19 @@
      |   <string value expression>
      |   <datetime value expression>
      |   <interval value expression>
-     |   <user-defined type value expression>
-     |   <reference value expression>
+     // |   <user-defined type value expression>
+     // |   <reference value expression>
      |   <collection value expression>
 
-<user-defined type value expression> ::=
-  <value expression primary>
+// <user-defined type value expression> ::=
+//   <value expression primary>
 
-<reference value expression> ::=
-  <value expression primary>
+// <reference value expression> ::=
+//   <value expression primary>
 
 <collection value expression> ::=
     <array value expression>
-  | <multiset value expression>
+  // | <multiset value expression>
 
 // 6.27 <numeric value expression>
 
@@ -1545,7 +1544,6 @@
 <numeric primary> ::=
     <value expression primary>
   | <numeric value function>
-
 // 6.28 <numeric value function>
 
 // Specify a function yielding a value of type numeric.
@@ -1721,8 +1719,8 @@
     <concatenation>
   | <character factor>
 
-// <concatenation> ::=
-//   <character value expression> <concatenation operator> <character factor>
+<concatenation> ::=
+  <character value expression> <concatenation operator> <character factor>
 
 <character factor> ::=
   <character primary> [ <collate clause> ]
@@ -1742,8 +1740,8 @@
     <value expression primary>
   | <string value function>
 
-// <binary concatenation> ::=
-//   <binary value expression> <concatenation operator> <binary factor>
+<binary concatenation> ::=
+  <binary value expression> <concatenation operator> <binary factor>
 
 // 6.30 <string value function>
 
@@ -1758,13 +1756,13 @@
   | <regular expression substring function>
   | <regex substring function>
   | <fold>
-  | <transcoding>
-  | <character transliteration>
-  | <regex transliteration>
+  // | <transcoding>
+  // | <character transliteration>
+  // | <regex transliteration>
   | <trim function>
   | <character overlay function>
-  | <normalize function>
-  | <specific type method>
+  // | <normalize function>
+  // | <specific type method>
 
 <character substring function> ::=
   SUBSTRING <left paren> <character value expression> FROM <start position>
@@ -1787,23 +1785,23 @@
 <fold> ::=
   { UPPER | LOWER } <left paren> <character value expression> <right paren>
 
-<transcoding> ::=
-  CONVERT <left paren> <character value expression>
-      USING <transcoding name> <right paren>
+// <transcoding> ::=
+//   CONVERT <left paren> <character value expression>
+//       USING <transcoding name> <right paren>
 
-<character transliteration> ::=
-  TRANSLATE <left paren> <character value expression>
-      USING <transliteration name> <right paren>
+// <character transliteration> ::=
+//   TRANSLATE <left paren> <character value expression>
+//       USING <transliteration name> <right paren>
 
-<regex transliteration> ::=
-  TRANSLATE_REGEX <left paren>
-      <XQuery pattern> [ FLAG <XQuery option flag> ]
-      IN <regex subject string>
-      [ WITH <XQuery replacement string> ]
-      [ FROM <start position> ]
-      [ USING <char length units> ]
-      [ OCCURRENCE <regex transliteration occurrence> ]
-      <right paren>
+// <regex transliteration> ::=
+//   TRANSLATE_REGEX <left paren>
+//       <XQuery pattern> [ FLAG <XQuery option flag> ]
+//       IN <regex subject string>
+//       [ WITH <XQuery replacement string> ]
+//       [ FROM <start position> ]
+//       [ USING <char length units> ]
+//       [ OCCURRENCE <regex transliteration occurrence> ]
+//       <right paren>
 
 <XQuery replacement string> ::=
   <character value expression>
@@ -1834,23 +1832,23 @@
       FROM <start position> [ FOR <string length> ]
       [ USING <char length units> ] <right paren>
 
-<normalize function> ::=
-  NORMALIZE <left paren> <character value expression>
-      [ <comma> <normal form> [ <comma> <normalize function result length> ] ] <right paren>
+// <normalize function> ::=
+//   NORMALIZE <left paren> <character value expression>
+//       [ <comma> <normal form> [ <comma> <normalize function result length> ] ] <right paren>
 
-<normal form> ::=
-    NFC
-  | NFD
-  | NFKC
-  | NFKD
+// <normal form> ::=
+//     NFC
+//   | NFD
+//   | NFKC
+//   | NFKD
 
-<normalize function result length> ::=
-    <character length>
-  | <character large object length>
+// <normalize function result length> ::=
+//     <character length>
+//   | <character large object length>
 
-<specific type method> ::=
-  <user-defined type value expression> <period> SPECIFICTYPE
-      [ <left paren> <right paren> ]
+// <specific type method> ::=
+//   <user-defined type value expression> <period> SPECIFICTYPE
+//       [ <left paren> <right paren> ]
 
 <binary value function> ::=
        <binary substring function>
@@ -1960,14 +1958,14 @@
     <value expression primary> [ <interval qualifier> ]
   | <interval value function>
 
-// <interval value expression 1> ::=
-//   <interval value expression>
+<interval value expression 1> ::=
+  <interval value expression>
 
 <interval term 1> ::=
   <interval term>
 
-// <interval term 2> ::=
-//   <interval term>
+<interval term 2> ::=
+  <interval term>
 
 // 6.34 <interval value function>
 
@@ -2021,11 +2019,11 @@
     <array concatenation>
   | <array primary>
 
-// <array concatenation> ::=
-//   <array value expression 1> <concatenation operator> <array primary>
+<array concatenation> ::=
+  <array value expression 1> <concatenation operator> <array primary>
 
-// <array value expression 1> ::=
-//   <array value expression>
+<array value expression 1> ::=
+  <array value expression>
 
 <array primary> ::=
     <array value function>
@@ -2061,53 +2059,53 @@
 <array value constructor by query> ::=
   ARRAY <table subquery>
 
-// 6.39 <multiset value expression>
+// // 6.39 <multiset value expression>
 
 // Specify a multiset value.
 
-<multiset value expression> ::=
-    <multiset term>
-  | <multiset value expression> MULTISET UNION [ ALL | DISTINCT ] <multiset term>
-  | <multiset value expression> MULTISET EXCEPT [ ALL | DISTINCT ] <multiset term>
+// <multiset value expression> ::=
+//     <multiset term>
+//   | <multiset value expression> MULTISET UNION [ ALL | DISTINCT ] <multiset term>
+//   | <multiset value expression> MULTISET EXCEPT [ ALL | DISTINCT ] <multiset term>
 
-<multiset term> ::=
-    <multiset primary>
-  | <multiset term> MULTISET INTERSECT [ ALL | DISTINCT ] <multiset primary>
+// <multiset term> ::=
+//     <multiset primary>
+//   | <multiset term> MULTISET INTERSECT [ ALL | DISTINCT ] <multiset primary>
 
-<multiset primary> ::=
-    <multiset value function>
-  | <value expression primary>
+// <multiset primary> ::=
+//     <multiset value function>
+//   | <value expression primary>
 
-// 6.40 <multiset value function>
+// // 6.40 <multiset value function>
 
 // Specify a function yielding a value of a multiset type.
 
-<multiset value function> ::=
-  <multiset set function>
+// <multiset value function> ::=
+//   <multiset set function>
 
-<multiset set function> ::=
-  SET <left paren> <multiset value expression> <right paren>
+// <multiset set function> ::=
+//   SET <left paren> <multiset value expression> <right paren>
 
 // 6.41 <multiset value constructor>
 
 // Specify construction of a multiset.
 
-<multiset value constructor> ::=
-    <multiset value constructor by enumeration>
-  | <multiset value constructor by query>
-  | <table value constructor by query>
+// <multiset value constructor> ::=
+//     <multiset value constructor by enumeration>
+//   | <multiset value constructor by query>
+//   | <table value constructor by query>
 
-<multiset value constructor by enumeration> ::=
-  MULTISET <left bracket or trigraph> <multiset element list> <right bracket or trigraph>
+// <multiset value constructor by enumeration> ::=
+//   MULTISET <left bracket or trigraph> <multiset element list> <right bracket or trigraph>
 
-<multiset element list> ::=
-  <multiset element> [ { <comma> <multiset element> }... ]
+// <multiset element list> ::=
+//   <multiset element> [ { <comma> <multiset element> }... ]
 
-<multiset element> ::=
-  <value expression>
+// <multiset element> ::=
+//   <value expression>
 
-<multiset value constructor by query> ::=
-  MULTISET <table subquery>
+// <multiset value constructor by query> ::=
+//   MULTISET <table subquery>
 
 <table value constructor by query> ::=
   TABLE <table subquery>
@@ -2207,7 +2205,7 @@
       [ <where clause> ]
       [ <group by clause> ]
       [ <having clause> ]
-      [ <window clause> ]
+      // [ <window clause> ]
 
 // 7.5        <from clause>
 
@@ -2230,22 +2228,22 @@
 <table factor> ::=
   <table primary> [ <sample clause> ]
 
-<sample clause> ::=
-  TABLESAMPLE <sample method> <left paren> <sample percentage> <right paren>
-      [ <repeatable clause> ]
+// <sample clause> ::=
+//   TABLESAMPLE <sample method> <left paren> <sample percentage> <right paren>
+//       [ <repeatable clause> ]
 
-<sample method> ::=
-    BERNOULLI
-  | SYSTEM
+// <sample method> ::=
+//     BERNOULLI
+//   | SYSTEM
 
-<repeatable clause> ::=
-  REPEATABLE <left paren> <repeat argument> <right paren>
+// <repeatable clause> ::=
+//   REPEATABLE <left paren> <repeat argument> <right paren>
 
-<sample percentage> ::=
-  <numeric value expression>
+// <sample percentage> ::=
+//   <numeric value expression>
 
-<repeat argument> ::=
-  <numeric value expression>
+// <repeat argument> ::=
+//   <numeric value expression>
 
 <table primary> ::=
       <table or query name> [ <query system time period specification> ]
@@ -2322,44 +2320,44 @@
   | NEW
   | OLD
 
-// <parenthesized joined table> ::=
-//     <left paren> <parenthesized joined table> <right paren>
-//   | <left paren> <joined table> <right paren>
+<parenthesized joined table> ::=
+    <left paren> <parenthesized joined table> <right paren>
+  | <left paren> <joined table> <right paren>
 
 // 7.7     <joined table>
 
 // Specify a table derived from a Cartesian product, inner join, or outer join.
 
-// <joined table> ::=
-//     <cross join>
-//   | <qualified join>
-//   | <natural join>
+<joined table> ::=
+    <cross join>
+  | <qualified join>
+  | <natural join>
 
-// <cross join> ::=
-//   <table reference> CROSS JOIN <table factor>
+<cross join> ::=
+  <table reference> CROSS JOIN <table factor>
 
-// <qualified join> ::=
-//   { <table reference> | <partitioned join table> }
-//       [ <join type> ] JOIN
-//       { <table reference> | <partitioned join table> }
-//       <join specification>
+<qualified join> ::=
+  { <table reference> | <partitioned join table> }
+      [ <join type> ] JOIN
+      { <table reference> | <partitioned join table> }
+      <join specification>
 
-<partitioned join table> ::=
-  <table factor> PARTITION BY
-      <partitioned join column reference list>
+// <partitioned join table> ::=
+//   <table factor> PARTITION BY
+//       <partitioned join column reference list>
 
-<partitioned join column reference list> ::=
-  <left paren> <partitioned join column reference>
-      [ { <comma> <partitioned join column reference> }... ]
-      <right paren>
+// <partitioned join column reference list> ::=
+//   <left paren> <partitioned join column reference>
+//       [ { <comma> <partitioned join column reference> }... ]
+//       <right paren>
 
-<partitioned join column reference> ::=
-  <column reference>
+// <partitioned join column reference> ::=
+//   <column reference>
 
-// <natural join> ::=
-//   { <table reference> | <partitioned join table> }
-//       NATURAL [ <join type> ] JOIN
-//       { <table factor> | <partitioned join table> }
+<natural join> ::=
+  { <table reference> | <partitioned join table> }
+      NATURAL [ <join type> ] JOIN
+      { <table factor> | <partitioned join table> }
 
 <join specification> ::=
     <join condition>
@@ -2403,9 +2401,9 @@
 
 <grouping element> ::=
     <ordinary grouping set>
-  | <rollup list>
-  | <cube list>
-  | <grouping sets specification>
+  // | <rollup list>
+  // | <cube list>
+  // | <grouping sets specification>
   | <empty grouping set>
 
 <ordinary grouping set> ::=
@@ -2418,27 +2416,27 @@
 <grouping column reference list> ::=
   <grouping column reference> [ { <comma> <grouping column reference> }... ]
 
-<rollup list> ::=
-  ROLLUP <left paren> <ordinary grouping set list> <right paren>
+// <rollup list> ::=
+//   ROLLUP <left paren> <ordinary grouping set list> <right paren>
 
-<ordinary grouping set list> ::=
-  <ordinary grouping set> [ { <comma> <ordinary grouping set> }... ]
+// <ordinary grouping set list> ::=
+//   <ordinary grouping set> [ { <comma> <ordinary grouping set> }... ]
 
-<cube list> ::=
-  CUBE <left paren> <ordinary grouping set list> <right paren>
+// <cube list> ::=
+//   CUBE <left paren> <ordinary grouping set list> <right paren>
 
-<grouping sets specification> ::=
-  GROUPING SETS <left paren> <grouping set list> <right paren>
+// <grouping sets specification> ::=
+//   GROUPING SETS <left paren> <grouping set list> <right paren>
 
-<grouping set list> ::=
-  <grouping set> [ { <comma> <grouping set> }... ]
+// <grouping set list> ::=
+//   <grouping set> [ { <comma> <grouping set> }... ]
 
-<grouping set> ::=
-    <ordinary grouping set>
-  | <rollup list>
-  | <cube list>
-  | <grouping sets specification>
-  | <empty grouping set>
+// <grouping set> ::=
+//     <ordinary grouping set>
+//   | <rollup list>
+//   | <cube list>
+//   | <grouping sets specification>
+//   | <empty grouping set>
 
 <empty grouping set> ::=
   <left paren> <right paren>
@@ -2450,90 +2448,90 @@
 <having clause> ::=
   HAVING <search condition>
 
-// 7.11 <window clause>
+// // 7.11 <window clause>
 
 // Specify one or more window definitions.
 
-<window clause> ::=
-  WINDOW <window definition list>
+// <window clause> ::=
+//   WINDOW <window definition list>
 
-<window definition list> ::=
-  <window definition> [ { <comma> <window definition> }... ]
+// <window definition list> ::=
+//   <window definition> [ { <comma> <window definition> }... ]
 
-<window definition> ::=
-  <new window name> AS <window specification>
+// <window definition> ::=
+//   <new window name> AS <window specification>
 
-<new window name> ::=
-  <window name>
+// <new window name> ::=
+//   <window name>
 
-<window specification> ::=
-  <left paren> <window specification details> <right paren>
+// <window specification> ::=
+//   <left paren> <window specification details> <right paren>
 
-<window specification details> ::=
-  [ <existing window name> ]
-      [ <window partition clause> ]
-      [ <window order clause> ]
-      [ <window frame clause> ]
+// <window specification details> ::=
+//   [ <existing window name> ]
+//       [ <window partition clause> ]
+//       [ <window order clause> ]
+//       [ <window frame clause> ]
 
-<existing window name> ::=
-  <window name>
+// <existing window name> ::=
+//   <window name>
 
-<window partition clause> ::=
-  PARTITION BY <window partition column reference list>
+// <window partition clause> ::=
+//   PARTITION BY <window partition column reference list>
 
-<window partition column reference list> ::=
-  <window partition column reference>
-      [ { <comma> <window partition column reference> }... ]
+// <window partition column reference list> ::=
+//   <window partition column reference>
+//       [ { <comma> <window partition column reference> }... ]
 
-<window partition column reference> ::=
-  <column reference> [ <collate clause> ]
+// <window partition column reference> ::=
+//   <column reference> [ <collate clause> ]
 
-<window order clause> ::=
-  ORDER BY <sort specification list>
+// <window order clause> ::=
+//   ORDER BY <sort specification list>
 
-<window frame clause> ::=
-  <window frame units> <window frame extent>
-      [ <window frame exclusion> ]
+// <window frame clause> ::=
+//   <window frame units> <window frame extent>
+//       [ <window frame exclusion> ]
 
-<window frame units> ::=
-    ROWS
-  | RANGE
-  | GROUPS
+// <window frame units> ::=
+//     ROWS
+//   | RANGE
+//   | GROUPS
 
-<window frame extent> ::=
-    <window frame start>
-  | <window frame between>
+// <window frame extent> ::=
+//     <window frame start>
+//   | <window frame between>
 
-<window frame start> ::=
-    UNBOUNDED PRECEDING
-  | <window frame preceding>
-  | CURRENT ROW
+// <window frame start> ::=
+//     UNBOUNDED PRECEDING
+//   | <window frame preceding>
+//   | CURRENT ROW
 
-<window frame preceding> ::=
-  <unsigned value specification> PRECEDING
+// <window frame preceding> ::=
+//   <unsigned value specification> PRECEDING
 
-<window frame between> ::=
-  BETWEEN <window frame bound 1> AND <window frame bound 2>
+// <window frame between> ::=
+//   BETWEEN <window frame bound 1> AND <window frame bound 2>
 
-<window frame bound 1> ::=
-  <window frame bound>
+// <window frame bound 1> ::=
+//   <window frame bound>
 
-<window frame bound 2> ::=
-  <window frame bound>
+// <window frame bound 2> ::=
+//   <window frame bound>
 
-<window frame bound> ::=
-    <window frame start>
-  | UNBOUNDED FOLLOWING
-  | <window frame following>
+// <window frame bound> ::=
+//     <window frame start>
+//   | UNBOUNDED FOLLOWING
+//   | <window frame following>
 
-<window frame following> ::=
-  <unsigned value specification> FOLLOWING
+// <window frame following> ::=
+//   <unsigned value specification> FOLLOWING
 
-<window frame exclusion> ::=
-    EXCLUDE CURRENT ROW
-  | EXCLUDE GROUP
-  | EXCLUDE TIES
-  | EXCLUDE NO OTHERS
+// <window frame exclusion> ::=
+//     EXCLUDE CURRENT ROW
+//   | EXCLUDE GROUP
+//   | EXCLUDE TIES
+//   | EXCLUDE NO OTHERS
 
 // 7.12 <query specification>
 
@@ -2722,14 +2720,14 @@
   | <quantified comparison predicate>
   | <exists predicate>
   | <unique predicate>
-  | <normalized predicate>
+  // | <normalized predicate>
   | <match predicate>
   | <overlaps predicate>
   | <distinct predicate>
-  | <member predicate>
-  | <submultiset predicate>
-  | <set predicate>
-  | <type predicate>
+  // | <member predicate>
+  // | <submultiset predicate>
+  // | <set predicate>
+  // | <type predicate>
   | <period predicate>
 
 // 8.2        <comparison predicate>
@@ -2942,15 +2940,15 @@
 <unique predicate> ::=
   UNIQUE <table subquery>
 
-// 8.12 <normalized predicate>
+// // 8.12 <normalized predicate>
 
 // Determine whether a character string value is normalized.
 
-<normalized predicate> ::=
-  <row value predicand> <normalized predicate part 2>
+// <normalized predicate> ::=
+//   <row value predicand> <normalized predicate part 2>
 
-<normalized predicate part 2> ::=
-  IS [ NOT ] [ <normal form> ] NORMALIZED
+// <normalized predicate part 2> ::=
+//   IS [ NOT ] [ <normal form> ] NORMALIZED
 
 // 8.13 <match predicate>
 
@@ -2997,59 +2995,59 @@
 <row value predicand 4> ::=
   <row value predicand>
 
-// 8.16 <member predicate>
+// // 8.16 <member predicate>
 
 // Specify a test of whether a value is a member of a multiset.
 
-<member predicate> ::=
-  <row value predicand> <member predicate part 2>
+// <member predicate> ::=
+//   <row value predicand> <member predicate part 2>
 
-<member predicate part 2> ::=
-  [ NOT ] MEMBER [ OF ] <multiset value expression>
+// <member predicate part 2> ::=
+//   [ NOT ] MEMBER [ OF ] <multiset value expression>
 
-// 8.17 <submultiset predicate>
+// // 8.17 <submultiset predicate>
 
 // Specify a test of whether a multiset is a submultiset of another multiset.
 
-<submultiset predicate> ::=
-  <row value predicand> <submultiset predicate part 2>
+// <submultiset predicate> ::=
+//   <row value predicand> <submultiset predicate part 2>
 
-<submultiset predicate part 2> ::=
-  [ NOT ] SUBMULTISET [ OF ] <multiset value expression>
+// <submultiset predicate part 2> ::=
+//   [ NOT ] SUBMULTISET [ OF ] <multiset value expression>
 
-// 8.18 <set predicate>
+// // 8.18 <set predicate>
 
 // Specify a test of whether a multiset is a set (that is, does not contain any duplicates).
 
-<set predicate> ::=
-  <row value predicand> <set predicate part 2>
+// <set predicate> ::=
+//   <row value predicand> <set predicate part 2>
 
-<set predicate part 2> ::=
-  IS [ NOT ] A SET
+// <set predicate part 2> ::=
+//   IS [ NOT ] A SET
 
-// 8.19 <type predicate>
+// // 8.19 <type predicate>
 
 // Specify a type test.
 
-<type predicate> ::=
-  <row value predicand> <type predicate part 2>
+// <type predicate> ::=
+//   <row value predicand> <type predicate part 2>
 
-<type predicate part 2> ::=
-  IS [ NOT ] OF <left paren> <type list> <right paren>
+// <type predicate part 2> ::=
+//   IS [ NOT ] OF <left paren> <type list> <right paren>
 
-<type list> ::=
-  <user-defined type specification>
-      [ { <comma> <user-defined type specification> }... ]
+// <type list> ::=
+//   <user-defined type specification>
+//       [ { <comma> <user-defined type specification> }... ]
 
-<user-defined type specification> ::=
-    <inclusive user-defined type specification>
-  | <exclusive user-defined type specification>
+// <user-defined type specification> ::=
+//     <inclusive user-defined type specification>
+//   | <exclusive user-defined type specification>
 
-<inclusive user-defined type specification> ::=
-  <path-resolved user-defined type name>
+// <inclusive user-defined type specification> ::=
+//   <path-resolved user-defined type name>
 
-<exclusive user-defined type specification> ::=
-  ONLY <path-resolved user-defined type name>
+// <exclusive user-defined type specification> ::=
+//   ONLY <path-resolved user-defined type name>
 
 // 8.20 <period predicate>
 
@@ -3178,107 +3176,107 @@
 <interval leading field precision> ::=
   <unsigned integer>
 
-// 10.2 <language clause>
+// // 10.2 <language clause>
 
 
 // Specify a programming language.
 
-<language clause> ::=
-  LANGUAGE <language name>
+// <language clause> ::=
+//   LANGUAGE <language name>
 
-<language name> ::=
-    ADA
-  | C
-  | COBOL
-  | FORTRAN
-  | M | MUMPS
-  | PASCAL
-  | PLI
-  | SQL
+// <language name> ::=
+//     ADA
+//   | C
+//   | COBOL
+//   | FORTRAN
+//   | M | MUMPS
+//   | PASCAL
+//   | PLI
+//   | SQL
 
-// 10.3 <path specification>
+// // 10.3 <path specification>
 
 // Specify an order for searching for an SQL-invoked routine.
 
-<path specification> ::=
-  PATH <schema name list>
+// <path specification> ::=
+//   PATH <schema name list>
 
-<schema name list> ::=
-  <schema name> [ { <comma> <schema name> }... ]
+// <schema name list> ::=
+//   <schema name> [ { <comma> <schema name> }... ]
 
-// 10.4 <routine invocation>
+// // 10.4 <routine invocation>
 
 // Invoke an SQL-invoked routine.
 
-<routine invocation> ::=
-  <routine name> <SQL argument list>
+// <routine invocation> ::=
+//   <routine name> <SQL argument list>
 
-<routine name> ::=
-  [ <schema name> <period> ] <qualified identifier>
+// <routine name> ::=
+//   [ <schema name> <period> ] <qualified identifier>
 
-<SQL argument list> ::=
-  <left paren> [ <SQL argument> [ { <comma> <SQL argument> }... ] ] <right paren>
+// <SQL argument list> ::=
+//   <left paren> [ <SQL argument> [ { <comma> <SQL argument> }... ] ] <right paren>
 
-<SQL argument> ::=
-    <value expression>
-  | <generalized expression>
-  | <target specification>
-  | <contextually typed value specification>
-  | <named argument specification>
+// <SQL argument> ::=
+//     <value expression>
+//   | <generalized expression>
+//   | <target specification>
+//   | <contextually typed value specification>
+//   | <named argument specification>
 
-<generalized expression> ::=
-  <value expression> AS <path-resolved user-defined type name>
+// <generalized expression> ::=
+//   <value expression> AS <path-resolved user-defined type name>
 
-<named argument specification> ::=
-  <SQL parameter name> <named argument assignment token>
-      <named argument SQL argument>
+// <named argument specification> ::=
+//   <SQL parameter name> <named argument assignment token>
+//       <named argument SQL argument>
 
-<named argument SQL argument> ::=
-    <value expression>
-  | <target specification>
-  | <contextually typed value specification>
+// <named argument SQL argument> ::=
+//     <value expression>
+//   | <target specification>
+//   | <contextually typed value specification>
 
-// 10.5 <character set specification>
+// // 10.5 <character set specification>
 
 // Identify a character set.
 
-<character set specification> ::=
-    <standard character set name>
-  | <implementation-defined character set name>
-  | <user-defined character set name>
+// <character set specification> ::=
+//     <standard character set name>
+//   | <implementation-defined character set name>
+//   | <user-defined character set name>
 
-<standard character set name> ::=
-  <character set name>
+// <standard character set name> ::=
+//   <character set name>
 
-<implementation-defined character set name> ::=
-  <character set name>
+// <implementation-defined character set name> ::=
+//   <character set name>
 
-<user-defined character set name> ::=
-  <character set name>
+// <user-defined character set name> ::=
+//   <character set name>
 
-// 10.6 <specific routine designator>
+// // 10.6 <specific routine designator>
 
 // Specify an SQL-invoked routine.
 
-<specific routine designator> ::=
-    SPECIFIC <routine type> <specific name>
-  | <routine type> <member name> [ FOR <schema-resolved user-defined type name> ]
+// <specific routine designator> ::=
+//     SPECIFIC <routine type> <specific name>
+//   | <routine type> <member name> [ FOR <schema-resolved user-defined type name> ]
 
-<routine type> ::=
-    ROUTINE
-  | FUNCTION
-  | PROCEDURE
-  | [ INSTANCE | STATIC | CONSTRUCTOR ] METHOD
+// <routine type> ::=
+//     ROUTINE
+//   | FUNCTION
+//   | PROCEDURE
+//   | [ INSTANCE | STATIC | CONSTRUCTOR ] METHOD
 
-<member name> ::=
-  <member name alternatives> [ <data type list> ]
+// <member name> ::=
+//   <member name alternatives> [ <data type list> ]
 
-<member name alternatives> ::=
-    <schema qualified routine name>
-  | <method name>
+// <member name alternatives> ::=
+//     <schema qualified routine name>
+//   | <method name>
 
-<data type list> ::=
-  <left paren> [ <data type> [ { <comma> <data type> }... ] ] <right paren>
+// <data type list> ::=
+//   <left paren> [ <data type> [ { <comma> <data type> }... ] ] <right paren>
 
 // 10.7 <collate clause>
 
@@ -3287,24 +3285,24 @@
 <collate clause> ::=
   COLLATE <collation name>
 
-// 10.8 <constraint name definition> and <constraint characteristics>
+// // 10.8 <constraint name definition> and <constraint characteristics>
 
 // Specify the name of a constraint and its characteristics.
 
-<constraint name definition> ::=
-  CONSTRAINT <constraint name>
+// <constraint name definition> ::=
+//   CONSTRAINT <constraint name>
 
-<constraint characteristics> ::=
-    <constraint check time> [ [ NOT ] DEFERRABLE ] [ <constraint enforcement> ]
-  | [ NOT ] DEFERRABLE [ <constraint check time> ] [ <constraint enforcement> ]
-  | <constraint enforcement>
+// <constraint characteristics> ::=
+//     <constraint check time> [ [ NOT ] DEFERRABLE ] [ <constraint enforcement> ]
+//   | [ NOT ] DEFERRABLE [ <constraint check time> ] [ <constraint enforcement> ]
+//   | <constraint enforcement>
 
-<constraint check time> ::=
-    INITIALLY DEFERRED
-  | INITIALLY IMMEDIATE
+// <constraint check time> ::=
+//     INITIALLY DEFERRED
+//   | INITIALLY IMMEDIATE
 
-<constraint enforcement> ::=
-  [ NOT ] ENFORCED
+// <constraint enforcement> ::=
+//   [ NOT ] ENFORCED
 
 // 10.9 <aggregate function>
 
@@ -3313,8 +3311,8 @@
 <aggregate function> ::=
     COUNT <left paren> <asterisk> <right paren> [ <filter clause> ]
   | <general set function> [ <filter clause> ]
-  | <binary set function> [ <filter clause> ]
-  | <ordered set function> [ <filter clause> ]
+  // | <binary set function> [ <filter clause> ]
+  // | <ordered set function> [ <filter clause> ]
   | <array aggregate function> [ <filter clause> ]
 
 <general set function> ::=
@@ -3333,71 +3331,71 @@
   | ANY
   | SOME
   | COUNT
-  | STDDEV_POP
-  | STDDEV_SAMP
-  | VAR_SAMP
-  | VAR_POP
-  | COLLECT
-  | FUSION
-  | INTERSECTION
+  // | STDDEV_POP
+  // | STDDEV_SAMP
+  // | VAR_SAMP
+  // | VAR_POP
+  // | COLLECT
+  // | FUSION
+  // | INTERSECTION
 
 <set quantifier> ::=
     DISTINCT
   | ALL
 
-<filter clause> ::=
-  FILTER <left paren> WHERE <search condition> <right paren>
+// <filter clause> ::=
+//   FILTER <left paren> WHERE <search condition> <right paren>
 
-<binary set function> ::=
-  <binary set function type> <left paren> <dependent variable expression> <comma>
-      <independent variable expression> <right paren>
+// <binary set function> ::=
+//   <binary set function type> <left paren> <dependent variable expression> <comma>
+//       <independent variable expression> <right paren>
 
-<binary set function type> ::=
-    COVAR_POP
-  | COVAR_SAMP
-  | CORR
-  | REGR_SLOPE
-  | REGR_INTERCEPT
-  | REGR_COUNT
-  | REGR_R2
-  | REGR_AVGX
-  | REGR_AVGY
-  | REGR_SXX
-  | REGR_SYY
-  | REGR_SXY
+// <binary set function type> ::=
+//     COVAR_POP
+//   | COVAR_SAMP
+//   | CORR
+//   | REGR_SLOPE
+//   | REGR_INTERCEPT
+//   | REGR_COUNT
+//   | REGR_R2
+//   | REGR_AVGX
+//   | REGR_AVGY
+//   | REGR_SXX
+//   | REGR_SYY
+//   | REGR_SXY
 
-<dependent variable expression> ::=
-  <numeric value expression>
+// <dependent variable expression> ::=
+//   <numeric value expression>
 
-<independent variable expression> ::=
-  <numeric value expression>
+// <independent variable expression> ::=
+//   <numeric value expression>
 
-<ordered set function> ::=
-    <hypothetical set function>
-  | <inverse distribution function>
+// <ordered set function> ::=
+//     <hypothetical set function>
+//   | <inverse distribution function>
 
-<hypothetical set function> ::=
-  <rank function type> <left paren>
-      <hypothetical set function value expression list> <right paren>
-      <within group specification>
+// <hypothetical set function> ::=
+//   <rank function type> <left paren>
+//       <hypothetical set function value expression list> <right paren>
+//       <within group specification>
 
-<within group specification> ::=
-  WITHIN GROUP <left paren> ORDER BY <sort specification list> <right paren>
+// <within group specification> ::=
+//   WITHIN GROUP <left paren> ORDER BY <sort specification list> <right paren>
 
-<hypothetical set function value expression list> ::=
-  <value expression> [ { <comma> <value expression> }... ]
+// <hypothetical set function value expression list> ::=
+//   <value expression> [ { <comma> <value expression> }... ]
 
-<inverse distribution function> ::=
-  <inverse distribution function type> <left paren>
-      <inverse distribution function argument> <right paren>
-      <within group specification>
+// <inverse distribution function> ::=
+//   <inverse distribution function type> <left paren>
+//       <inverse distribution function argument> <right paren>
+//       <within group specification>
 
-<inverse distribution function argument> ::=
-  <numeric value expression>
+// <inverse distribution function argument> ::=
+//   <numeric value expression>
 
-<inverse distribution function type> ::=
-    PERCENTILE_CONT
-  | PERCENTILE_DISC
+// <inverse distribution function type> ::=
+//     PERCENTILE_CONT
+//   | PERCENTILE_DISC
 
 <array aggregate function> ::=
   ARRAY_AGG
@@ -5215,39 +5213,39 @@
 // 14 Data manipulation
 
 
-// 14.1 <declare cursor>
+// // 14.1 <declare cursor>
 
 // Declare a standing cursor.
 
-<declare cursor> ::=
-  DECLARE <cursor name> <cursor properties>
-      FOR <cursor specification>
+// <declare cursor> ::=
+//   DECLARE <cursor name> <cursor properties>
+//       FOR <cursor specification>
 
-// 14.2 <cursor properties>
+// // 14.2 <cursor properties>
 
 // Specify the declared properties of a cursor.
 
-<cursor properties> ::=
-  [ <cursor sensitivity> ] [ <cursor scrollability> ] CURSOR
-      [ <cursor holdability> ]
-      [ <cursor returnability> ]
+// <cursor properties> ::=
+//   [ <cursor sensitivity> ] [ <cursor scrollability> ] CURSOR
+//       [ <cursor holdability> ]
+//       [ <cursor returnability> ]
 
-<cursor sensitivity> ::=
-    SENSITIVE
-  | INSENSITIVE
-  | ASENSITIVE
+// <cursor sensitivity> ::=
+//     SENSITIVE
+//   | INSENSITIVE
+//   | ASENSITIVE
 
-<cursor scrollability> ::=
-    SCROLL
-  | NO SCROLL
+// <cursor scrollability> ::=
+//     SCROLL
+//   | NO SCROLL
 
-<cursor holdability> ::=
-    WITH HOLD
-  | WITHOUT HOLD
+// <cursor holdability> ::=
+//     WITH HOLD
+//   | WITHOUT HOLD
 
-<cursor returnability> ::=
-    WITH RETURN
-  | WITHOUT RETURN
+// <cursor returnability> ::=
+//     WITH RETURN
+//   | WITHOUT RETURN
 
 // 14.3 <cursor specification>
 
@@ -5259,37 +5257,37 @@
 <updatability clause> ::=
   FOR { READ ONLY | UPDATE [ OF <column name list> ] }
 
-// 14.4 <open statement>
+// // 14.4 <open statement>
 
 // Open a standing cursor.
 
-<open statement> ::=
-  OPEN <cursor name>
+// <open statement> ::=
+//   OPEN <cursor name>
 
-// 14.5 <fetch statement>
+// // 14.5 <fetch statement>
 
 // Position a standing cursor on a specified row of the standing cursor's result set and retrieve values from that
 // row.
 
-<fetch statement> ::=
-     FETCH [ [ <fetch orientation> ] FROM ] <cursor name> INTO <fetch target list>
+// <fetch statement> ::=
+//      FETCH [ [ <fetch orientation> ] FROM ] <cursor name> INTO <fetch target list>
 
-<fetch orientation> ::=
-    NEXT
-  | PRIOR
-  | FIRST
-  | LAST
-  | { ABSOLUTE | RELATIVE } <simple value specification>
+// <fetch orientation> ::=
+//     NEXT
+//   | PRIOR
+//   | FIRST
+//   | LAST
+//   | { ABSOLUTE | RELATIVE } <simple value specification>
 
-<fetch target list> ::=
-     <target specification> [ { <comma> <target specification> }... ]
+// <fetch target list> ::=
+//      <target specification> [ { <comma> <target specification> }... ]
 
-// 14.6 <close statement>
+// // 14.6 <close statement>
 
 // Close a standing cursor.
 
-<close statement> ::=
-  CLOSE <cursor name>
+// <close statement> ::=
+//   CLOSE <cursor name>
 
 // 14.7 <select statement: single row>
 
@@ -5307,9 +5305,9 @@
 
 // Delete a row of a table.
 
-<delete statement: positioned> ::=
-     DELETE FROM <target table> [ [ AS ] <correlation name> ]
-         WHERE CURRENT OF <cursor name>
+// <delete statement: positioned> ::=
+//      DELETE FROM <target table> [ [ AS ] <correlation name> ]
+//          WHERE CURRENT OF <cursor name>
 
 <target table> ::=
     <table name>
@@ -5423,14 +5421,14 @@
     <value expression>
   | <contextually typed value specification>
 
-// 14.13 <update statement: positioned>
+// // 14.13 <update statement: positioned>
 
 // Update a row of a table.
 
-<update statement: positioned> ::=
-     UPDATE <target table> [ [ AS ] <correlation name> ]
-         SET <set clause list>
-         WHERE CURRENT OF <cursor name>
+// <update statement: positioned> ::=
+//      UPDATE <target table> [ [ AS ] <correlation name> ]
+//          SET <set clause list>
+//          WHERE CURRENT OF <cursor name>
 
 // 14.14 <update statement: searched>
 
@@ -5457,7 +5455,7 @@
 
 <set target> ::=
     <update target>
-  | <mutated set clause>
+  // | <mutated set clause>
 
 <multiple column assignment> ::=
   <set target list> <equals operator> <assigned row>
@@ -5476,8 +5474,8 @@
 <object column> ::=
   <column name>
 
-<mutated set clause> ::=
-  <mutated target> <period> <method name>
+// <mutated set clause> ::=
+//   <mutated target> <period> <method name>
 
 // <mutated target> ::=
 //     <object column>
@@ -5517,122 +5515,122 @@
 
 // 16 Control statements
 
-// 16.1 <call statement>
+// // 16.1 <call statement>
 
 
 // Invoke an SQL-invoked routine.
 
-<call statement> ::=
-  CALL <routine invocation>
+// <call statement> ::=
+//   CALL <routine invocation>
 
-// 16.2 <return statement>
+// // 16.2 <return statement>
 
 // Return a value from an SQL routine that is an SQL-invoked function.
 
-<return statement> ::=
-  RETURN <return value>
+// <return statement> ::=
+//   RETURN <return value>
 
-<return value> ::=
-    <value expression>
-  | NULL
+// <return value> ::=
+//     <value expression>
+//   | NULL
 
-// 17 Transaction management
+// // 17 Transaction management
 
 
-// 17.1 <start transaction statement>
+// // 17.1 <start transaction statement>
 
 // Start an SQL-transaction and set its characteristics.
 
-<start transaction statement> ::=
-  START TRANSACTION [ <transaction characteristics> ]
+// <start transaction statement> ::=
+//   START TRANSACTION [ <transaction characteristics> ]
 
-// 17.2 <set transaction statement>
+// // 17.2 <set transaction statement>
 
 // Set the characteristics of the next SQL-transaction for the SQL-agent.
 //     NOTE 522 - This statement has no effect on any SQL-transactions subsequent to the next SQL-transaction.
 
-<set transaction statement> ::=
-  SET [ LOCAL ] TRANSACTION <transaction characteristics>
+// <set transaction statement> ::=
+//   SET [ LOCAL ] TRANSACTION <transaction characteristics>
 
-// 17.3 <transaction characteristics>
+// // 17.3 <transaction characteristics>
 
 // Specify transaction characteristics.
 
-<transaction characteristics> ::=
-      [ <transaction mode> [ { <comma> <transaction mode> }... ] ]
+// <transaction characteristics> ::=
+//       [ <transaction mode> [ { <comma> <transaction mode> }... ] ]
 
-<transaction mode> ::=
-    <isolation level>
-  | <transaction access mode>
-  | <diagnostics size>
+// <transaction mode> ::=
+//     <isolation level>
+//   | <transaction access mode>
+//   | <diagnostics size>
 
-<transaction access mode> ::=
-    READ ONLY
-  | READ WRITE
+// <transaction access mode> ::=
+//     READ ONLY
+//   | READ WRITE
 
-<isolation level> ::=
-  ISOLATION LEVEL <level of isolation>
+// <isolation level> ::=
+//   ISOLATION LEVEL <level of isolation>
 
-<level of isolation> ::=
-    READ UNCOMMITTED
-  | READ COMMITTED
-  | REPEATABLE READ
-  | SERIALIZABLE
+// <level of isolation> ::=
+//     READ UNCOMMITTED
+//   | READ COMMITTED
+//   | REPEATABLE READ
+//   | SERIALIZABLE
 
-<diagnostics size> ::=
-  DIAGNOSTICS SIZE <number of conditions>
+// <diagnostics size> ::=
+//   DIAGNOSTICS SIZE <number of conditions>
 
-<number of conditions> ::=
-  <simple value specification>
+// <number of conditions> ::=
+//   <simple value specification>
 
-// 17.4 <set constraints mode statement>
+// // 17.4 <set constraints mode statement>
 
 // If an SQL-transaction is currently active, then set the constraint mode for that SQL-transaction in the current
 // SQL-session. If no SQL-transaction is currently active, then set the constraint mode for the next SQL-transaction
 // in the current SQL-session for the SQL-agent.
 //     NOTE 524 - This statement has no effect on any SQL-transactions subsequent to this SQL-transaction.
 
-<set constraints mode statement> ::=
-  SET CONSTRAINTS <constraint name list> { DEFERRED | IMMEDIATE }
+// <set constraints mode statement> ::=
+//   SET CONSTRAINTS <constraint name list> { DEFERRED | IMMEDIATE }
 
-<constraint name list> ::=
-    ALL
-  | <constraint name> [ { <comma> <constraint name> }... ]
+// <constraint name list> ::=
+//     ALL
+//   | <constraint name> [ { <comma> <constraint name> }... ]
 
-// 17.5 <savepoint statement>
+// // 17.5 <savepoint statement>
 
 // Establish a savepoint.
 
-<savepoint statement> ::=
-  SAVEPOINT <savepoint specifier>
+// <savepoint statement> ::=
+//   SAVEPOINT <savepoint specifier>
 
-<savepoint specifier> ::=
-  <savepoint name>
+// <savepoint specifier> ::=
+//   <savepoint name>
 
-// 17.6 <release savepoint statement>
+// // 17.6 <release savepoint statement>
 
 // Destroy a savepoint.
 
-<release savepoint statement> ::=
-  RELEASE SAVEPOINT <savepoint specifier>
+// <release savepoint statement> ::=
+//   RELEASE SAVEPOINT <savepoint specifier>
 
-// 17.7 <commit statement>
+// // 17.7 <commit statement>
 
 // Terminate the current SQL-transaction with commit.
 
-<commit statement> ::=
-  COMMIT [ WORK ] [ AND [ NO ] CHAIN ]
+// <commit statement> ::=
+//   COMMIT [ WORK ] [ AND [ NO ] CHAIN ]
 
-// 17.8 <rollback statement>
+// // 17.8 <rollback statement>
 
 // Terminate the current SQL-transaction with rollback, or rollback all actions affecting SQL-data and/or schemas
 // since the establishment of a savepoint.
 
-<rollback statement> ::=
-  ROLLBACK [ WORK ] [ AND [ NO ] CHAIN ] [ <savepoint clause> ]
+// <rollback statement> ::=
+//   ROLLBACK [ WORK ] [ AND [ NO ] CHAIN ] [ <savepoint clause> ]
 
-<savepoint clause> ::=
-  TO SAVEPOINT <savepoint specifier>
+// <savepoint clause> ::=
+//   TO SAVEPOINT <savepoint specifier>
 
 
 // // 18 Connection management
@@ -6948,10 +6946,10 @@
 //   | FLOAT { BIN | BINARY }
 
 
-// // 22 Direct invocation of SQL
+// 22 Direct invocation of SQL
 
 
-// // 22.1 <direct SQL statement>
+// 22.1 <direct SQL statement>
 
 // // Specify direct execution of SQL.
 
@@ -6978,7 +6976,7 @@
 // <direct implementation-defined statement> ::=
 //   !! See the Syntax Rules.
 
-// // 22.2 <direct select statement: multiple rows>
+// 22.2 <direct select statement: multiple rows>
 
 // // Specify a statement to retrieve multiple rows from a specified table.
 

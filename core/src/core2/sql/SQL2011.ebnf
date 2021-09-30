@@ -585,15 +585,6 @@ unsigned_value_specification
 general_value_specification
     : host_parameter_specification
     / dynamic_parameter_specification
-    / 'CURRENT_CATALOG'
-    / 'CURRENT_PATH'
-    / 'CURRENT_ROLE'
-    / 'CURRENT_SCHEMA'
-    / 'CURRENT_USER'
-    / 'SESSION_USER'
-    / 'SYSTEM_USER'
-    / 'USER'
-    / 'VALUE'
     ;
 
 simple_value_specification

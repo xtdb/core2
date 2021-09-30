@@ -732,7 +732,6 @@ when_operand
     / in_predicate_part_2
     / character_like_predicate_part_2
     / octet_like_predicate_part_2
-    / similar_predicate_part_2
     / regex_like_predicate_part_2
     / null_predicate_part_2
     / quantified_comparison_predicate_part_2
@@ -1467,8 +1466,6 @@ table_primary
     / lateral_derived_table [ 'AS' ] correlation_name [ left_paren derived_column_list right_paren ]
     / collection_derived_table [ 'AS' ] correlation_name [ left_paren derived_column_list right_paren ]
     / table_function_derived_table [ 'AS' ] correlation_name [ left_paren derived_column_list right_paren ]
-    / only_spec [ [ 'AS' ] correlation_name [ left_paren derived_column_list right_paren ] ]
-    / data_change_delta_table [ [ 'AS' ] correlation_name [ left_paren derived_column_list right_paren ] ]
     / parenthesized_joined_table
     ;
 
@@ -1488,10 +1485,6 @@ point_in_time_2
 
 point_in_time
     : datetime_value_expression
-    ;
-
-only_spec
-    : 'ONLY' left_paren table_or_query_name right_paren
     ;
 
 lateral_derived_table
@@ -1521,23 +1514,6 @@ derived_column_list
 
 column_name_list
     : column_name [ ( comma column_name )+ ]
-    ;
-
-data_change_delta_table
-    : result_option 'TABLE' left_paren data_change_statement right_paren
-    ;
-
-data_change_statement
-    : delete_statement__searched
-    / insert_statement
-    / merge_statement
-    / update_statement__searched
-    ;
-
-result_option
-    : 'FINAL'
-    / 'NEW'
-    / 'OLD'
     ;
 
 parenthesized_joined_table
@@ -1752,7 +1728,6 @@ fetch_first_clause
 
 fetch_first_quantity
     : fetch_first_row_count
-    / fetch_first_percentage
     ;
 
 offset_row_count
@@ -1761,10 +1736,6 @@ offset_row_count
 
 fetch_first_row_count
     : simple_value_specification
-    ;
-
-fetch_first_percentage
-    : simple_value_specification 'PERCENT'
     ;
 
 (*  7.15 <subquery> *)
@@ -1794,7 +1765,6 @@ predicate
     / between_predicate
     / in_predicate
     / like_predicate
-    / similar_predicate
     / regex_like_predicate
     / null_predicate
     / quantified_comparison_predicate
@@ -1891,99 +1861,6 @@ octet_pattern
 
 escape_octet
     : binary_value_expression
-    ;
-
-(*  8.6     <similar predicate> *)
-
-similar_predicate
-    : row_value_predicand similar_predicate_part_2
-    ;
-
-similar_predicate_part_2
-    : [ 'NOT' ] 'SIMILAR' 'TO' similar_pattern [ 'ESCAPE' escape_character ]
-    ;
-
-similar_pattern
-    : character_value_expression
-    ;
-
-regular_expression
-    : regular_term
-    / regular_expression vertical_bar regular_term
-    ;
-
-regular_term
-    : regular_factor
-    / regular_term regular_factor
-    ;
-
-regular_factor
-    : regular_primary
-    / regular_primary asterisk
-    / regular_primary plus_sign
-    / regular_primary question_mark
-    / regular_primary repeat_factor
-    ;
-
-repeat_factor
-    : left_brace low_value [ upper_limit ] right_brace
-    ;
-
-upper_limit
-    : comma [ high_value ]
-    ;
-
-low_value
-    : unsigned_integer
-    ;
-
-high_value
-    : unsigned_integer
-    ;
-
-regular_primary
-    : character_specifier
-    / percent
-    / regular_character_set
-    / left_paren regular_expression right_paren
-    ;
-
-character_specifier
-    : non_escaped_character
-    / escaped_character
-    ;
-
-non_escaped_character
-    : #'.'
-    ;
-
-escaped_character
-    : #'\\.'
-    ;
-
-regular_character_set
-    : underscore
-    / left_bracket character_enumeration+ right_bracket
-    / left_bracket circumflex character_enumeration+ right_bracket
-    / left_bracket character_enumeration_include+ circumflex character_enumeration_exclude+ right_bracket
-    ;
-
-character_enumeration_include
-    : character_enumeration
-    ;
-
-character_enumeration_exclude
-    : character_enumeration
-    ;
-
-character_enumeration
-    : character_specifier
-    / character_specifier minus_sign character_specifier
-    / left_bracket colon regular_character_set_identifier colon right_bracket
-    ;
-
-regular_character_set_identifier
-    : identifier
     ;
 
 (*  8.7        <regex like predicate> *)

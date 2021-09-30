@@ -37,9 +37,7 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*')+")))
    'vertical_bar "'|'"
    'concatenation_operator "'||'"
    'left_brace "'{'"
-   'right_brace "'}'"
-   'non_escaped_character "#'.'"
-   'escaped_character "#'\\\\.'"})
+   'right_brace "'}'"})
 
 ;; NOTE: A rule must exist to be overridden and cannot be commented
 ;; out. This is to ensure the override ends up in the right place in

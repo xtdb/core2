@@ -69,7 +69,7 @@
 //   &
 
 <quote> ::=
-  !! '
+//  '
 
 <left paren> ::=
   (
@@ -90,13 +90,13 @@
   -
 
 <period> ::=
-  !! .
+//  .
 
 <solidus> ::=
-  !! /
+//  /
 
 // <reverse solidus> ::=
-//   !! \
+//  \
 
 <colon> ::=
   :
@@ -125,13 +125,13 @@
   | <right bracket trigraph>
 
 <left bracket> ::=
-  !! [
+//  [
 
 <left bracket trigraph> ::=
   ??(
 
 <right bracket> ::=
-  !! ]
+//  ]
 
 <right bracket trigraph> ::=
   ??)
@@ -143,13 +143,13 @@
   _
 
 <vertical bar> ::=
-  !! |
+//  |
 
 <left brace> ::=
-  !! {
+//  {
 
 <right brace> ::=
-  !! }
+//  }
 
 // 5.2     <token> and <separator>
 
@@ -1119,7 +1119,7 @@
       <left bracket or trigraph> <simple value specification> <right bracket or trigraph>
 
 <target array reference> ::=
-    <SQL parameter reference>
+    // <SQL parameter reference>
   | <column reference>
 
 // <current collation specification> ::=
@@ -1163,7 +1163,7 @@
 
 <column reference> ::=
     <basic identifier chain>
-  | MODULE <period> <qualified identifier> <period> <column name>
+  // | MODULE <period> <qualified identifier> <period> <column name>
 
 // // 6.8      <SQL parameter reference>
 
@@ -1374,7 +1374,7 @@
   | <implicitly typed value specification>
 
 <cast target> ::=
-    <domain name>
+    // <domain name>
   | <data type>
 
 // // 6.14 <next value expression>

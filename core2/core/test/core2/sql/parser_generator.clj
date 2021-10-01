@@ -8,25 +8,27 @@
 
 (def sql-spec-grammar-g4 "
 spec: (HEADER_COMMENT / definition)* ;
-definition: NAME '::=' syntax ;
-syntax_element: (optional / mandatory / NAME / SEE_THE_SYNTAX_RULES / !'::=' TOKEN) REPEATABLE? ;
+definition: NAME '::=' <'|'>? syntax? ;
+syntax_element: (optional / mandatory / NAME / TOKEN) REPEATABLE? ;
 syntax: syntax_element+ choice* ;
 optional: '[' syntax+ ']' ;
 mandatory: '{' syntax+ '}' ;
 choice: '|' syntax_element+ ;
 REPEATABLE: '...' ;
-SEE_THE_SYNTAX_RULES: #'!!.*?\\n' ;
 NAME: #'<[-_:/a-zA-Z 0-9]+?>' ;
-TOKEN: #'[^ |\\n\\r\\t.!/]+' ;
+TOKEN: !'::=' #'[^ |\\n\\r\\t.!/]+' ;
 HEADER_COMMENT: #'// *\\d.*?\\n' ;
         ")
 
 (def parse-sql-spec
   (insta/parser sql-spec-grammar-g4
                 :auto-whitespace (insta/parser "
-whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*')+")))
+whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*' | #'!!.*?\\n')+")))
 
-(def syntax-rules-overrides
+;; NOTE: A rule must exist to be overridden and cannot be commented
+;; out. This is to ensure the override ends up in the right place in
+;; the grammar.y
+(def rule-overrides
   {'space "' '"
    'quote "'\\''"
    'period "'.'"
@@ -36,13 +38,8 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*')+")))
    'vertical_bar "'|'"
    'concatenation_operator "'||'"
    'left_brace "'{'"
-   'right_brace "'}'"})
-
-;; NOTE: A rule must exist to be overridden and cannot be commented
-;; out. This is to ensure the override ends up in the right place in
-;; the grammar.y
-(def rule-overrides
-  {'regular_identifier
+   'right_brace "'}'"
+   'regular_identifier
    "#'[a-zA-Z][a-zA-Z0-9_]+'"
    'delimited_identifier
    "#'\"(\"\"|[^\"])+\"'"
@@ -67,12 +64,6 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*')+")))
     / boolean_type
     / datetime_type
     / interval_type"
-   'column_reference
-   "basic_identifier_chain"
-   'cast_target
-   "data_type"
-   'target_array_reference
-   "column_reference"
    'character_factor
    "character_primary"
    'table_factor
@@ -164,11 +155,6 @@ common_logarithm
 (defmethod print-sql-ast :HEADER_COMMENT [[_ x]]
   (println)
   (println "(*" (str/replace (str/trim x) #"^//" "") "*)"))
-
-(defmethod print-sql-ast :COMMENT [[_ x]])
-
-(defmethod print-sql-ast :SEE_THE_SYNTAX_RULES [[_ x]]
-  (print (get syntax-rules-overrides *sql-ast-current-name*)))
 
 (defmethod print-sql-ast :TOKEN [[_ x]]
   (print (str "'" x "'")))

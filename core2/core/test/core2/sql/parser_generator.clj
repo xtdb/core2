@@ -40,7 +40,7 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*' | #'!!.*?\\n')+")))
    'left_brace "'{'"
    'right_brace "'}'"
    'regular_identifier
-   "#'[a-zA-Z][a-zA-Z0-9_]+'"
+   "#'[a-zA-Z][a-zA-Z0-9_]*'"
    'delimited_identifier
    "#'\"(\"\"|[^\"])+\"'"
    'table_name
@@ -68,6 +68,14 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*' | #'!!.*?\\n')+")))
    "character_primary"
    'table_factor
    "table_primary"
+   'table_primary
+   "table_or_query_name [ query_system_time_period_specification ] [ [ 'AS' ] correlation_name [ left_paren derived_column_list right_paren ] ]
+    / derived_table [ 'AS' ] correlation_name [ left_paren derived_column_list right_paren ]
+    / lateral_derived_table [ 'AS' ] correlation_name [ left_paren derived_column_list right_paren ]
+    / collection_derived_table [ 'AS' ] correlation_name [ left_paren derived_column_list right_paren ]
+    / table_function_derived_table [ 'AS' ] correlation_name [ left_paren derived_column_list right_paren ]
+    / graph_table [ 'AS' ] correlation_name [ left_paren derived_column_list right_paren ]
+    / parenthesized_joined_table"
    'with_list_element
    "query_name [ left_paren with_column_list right_paren ] 'AS' table_subquery"
    'numeric_value_function
@@ -132,7 +140,153 @@ general_logarithm_argument
 
 common_logarithm
     : 'LOG10' left_paren numeric_value_expression right_paren
-    ;")
+    ;
+
+(* SQL:2022 Property Graph Queries *)
+
+graph_table
+    : 'GRAPH_TABLE' left_paren [ graph_name comma ] match_expression graph_columns right_paren
+    ;
+
+graph_name
+    : identifier
+    ;
+
+graph_columns
+    : 'COLUMNS' left_paren graph_column_name_list right_paren
+    ;
+
+graph_column_name_list
+    : graph_column [ ( comma graph_column )+ ]
+
+graph_column
+    : column_reference [ as_clause ]
+    ;
+
+match_expression
+    : [ 'OPTIONAL' | 'MANDATORY' ] 'MATCH' path_pattern_list [ where_clause ]
+    ;
+
+path_pattern_list
+    : path_pattern ( comma path_pattern )*
+    ;
+
+path_pattern
+    : [ path_variable '=' ] [ path_pattern_prefix ] path_pattern_expression
+    ;
+
+path_pattern_prefix
+    : 'WALK'
+    | 'TRAIL'
+    | 'ACYCLIC'
+    | 'SIMPLE'
+    ;
+
+path_pattern_expression
+    : path_term
+    ;
+
+path_term
+    : path
+
+path
+    : node_pattern ( edge_pattern node_pattern )*
+    ;
+
+node_pattern
+    : left_paren element_pattern_filler right_paren
+    ;
+
+edge_pattern
+    : ( full_edge_pointing_left | full_edge_undirected | full_edge_pointing_right ) [ edge_length ]
+    ;
+
+full_edge_pointing_left
+    : '<-[' element_pattern_filler ']-'
+    ;
+
+full_edge_undirected
+    : '~[' element_pattern_filler ']~'
+    ;
+
+full_edge_pointing_right
+    : '-[' element_pattern_filler ']->'
+    ;
+
+element_pattern_filler
+    : [ element_variable ] [ is_label_expression ] element_predicate
+    ;
+
+element_predicate
+    : where_clause
+    | [ left_brace property_list right_brace ]
+    ;
+
+property_list
+    : property_key colon value_expression ( comma property_key colon value_expression )*
+    ;
+
+edge_length
+    : left_brace edge_quantifier right_brace
+    ;
+
+edge_quantifier
+    : unsigned_integer comma unsigned_integer
+    | unsigned_integer
+    ;
+
+is_label_expression
+    : [ 'IS' | colon ] label_expression
+    ;
+
+label_expression
+    : label_term ( vertical_bar label_term )*
+    ;
+
+label_term
+    : label_factor ( '&' label_factor )*
+    ;
+
+label_factor
+    : label_primary
+    | label_negation
+    ;
+
+label_negation
+    : '!' label_primary
+    ;
+
+label_primary
+    : label
+    | label_wildcard
+    | parenthesized_label_expression
+    ;
+
+label
+    : identifier
+    ;
+
+label_wildcard
+    : percent
+    ;
+
+parenthesized_label_expression
+    : left_paren label_expression right_paren
+    | left_bracket label_expression right_bracket
+    ;
+
+path_variable
+    : identifier
+    ;
+
+element_variable
+    : identifier
+    ;
+
+property_key
+    : identifier
+    ;
+")
 
 (def ^:private ^:dynamic *sql-ast-print-nesting* 0)
 (def ^:private ^:dynamic *sql-ast-current-name*)
@@ -215,7 +369,7 @@ common_logarithm
         (print sql-print-indent)
         (println ";")))))
 
-(defn sql-spec-ast->ebnf-grammar-string [_ sql-ast]
+(defn sql-spec-ast->ebnf-grammar-string [extra-rules sql-ast]
   (->> (with-out-str
          (print-sql-ast sql-ast)
          (println)
@@ -227,10 +381,10 @@ common_logarithm
 (def sql2011-grammar-file (File. (.toURI (io/resource "core2/sql/SQL2011.ebnf"))))
 (def sql2011-spec-file (File. (.toURI (io/resource "core2/sql/SQL2011.txt"))))
 
-(defn generate-parser [grammar-name sql-spec-file ebnf-grammar-file]
+(defn generate-parser [sql-spec-file ebnf-grammar-file]
   (->> (parse-sql-spec (slurp sql-spec-file))
-       (sql-spec-ast->ebnf-grammar-string grammar-name)
+       (sql-spec-ast->ebnf-grammar-string extra-rules)
        (spit ebnf-grammar-file)))
 
 (defn -main [& args]
-  (generate-parser "SQL2011" sql2011-spec-file sql2011-grammar-file))
+  (generate-parser sql2011-spec-file sql2011-grammar-file))

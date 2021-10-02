@@ -11,6 +11,10 @@ percent
     : '%'
     ;
 
+ampersand
+    : '&'
+    ;
+
 quote
     : '\''
     ;
@@ -2485,7 +2489,7 @@ label_expression
     ;
 
 label_term
-    : label_factor ( '&' label_factor )*
+    : label_factor ( ampersand label_factor )*
     ;
 
 label_factor

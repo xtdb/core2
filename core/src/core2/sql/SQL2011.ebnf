@@ -2393,21 +2393,18 @@ common_logarithm
 (* SQL:2022 Property Graph Queries *)
 
 graph_table
-    : 'GRAPH_TABLE' left_paren [ graph_name comma ] match_expression graph_columns right_paren
+    : 'GRAPH_TABLE' left_paren [ graph_name comma ] match_expression graph_table_columns_clause right_paren
     ;
 
 graph_name
     : identifier
     ;
 
-graph_columns
-    : 'COLUMNS' left_paren graph_column_name_list right_paren
+graph_table_columns_clause
+    : 'COLUMNS' left_paren graph_table_column_definition [ ( comma graph_table_column_definition )+ ] right_paren
     ;
 
-graph_column_name_list
-    : graph_column [ ( comma graph_column )+ ]
-
-graph_column
+graph_table_column_definition
     : column_reference [ as_clause ]
     ;
 

@@ -65,8 +65,8 @@
 <percent> ::=
   %
 
-// <ampersand> ::=
-//   &
+<ampersand> ::=
+  &
 
 <quote> ::=
 //  '

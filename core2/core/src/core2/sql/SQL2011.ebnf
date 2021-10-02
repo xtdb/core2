@@ -2401,11 +2401,7 @@ graph_name
     ;
 
 graph_table_columns_clause
-    : 'COLUMNS' left_paren graph_table_column_definition [ ( comma graph_table_column_definition )+ ] right_paren
-    ;
-
-graph_table_column_definition
-    : column_reference [ as_clause ]
+    : 'COLUMNS' left_paren derived_column [ ( comma derived_column )+ ] right_paren
     ;
 
 match_expression

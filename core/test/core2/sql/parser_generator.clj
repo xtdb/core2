@@ -214,7 +214,7 @@ full_edge_pointing_right
     ;
 
 element_pattern_filler
-    : [ element_variable ] [ is_label_expression ] element_predicate
+    : [ element_variable ] [ is_label_expression ] [ element_predicate ]
     ;
 
 element_predicate

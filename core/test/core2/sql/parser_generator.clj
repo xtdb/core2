@@ -108,7 +108,8 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*' | #'!!.*?\\n')+")))
    'natural_join
    "table_reference 'NATURAL' [ join_type ] 'JOIN' table_factor"})
 
-(def extra-rules "(* SQL:2016 6.30 <numeric value function> *)
+(def sql2016-numeric-value-function
+  "(* SQL:2016 6.30 <numeric value function> *)
 
 trigonometric_function
     : trigonometric_function_name left_paren numeric_value_expression right_paren
@@ -141,8 +142,10 @@ general_logarithm_argument
 common_logarithm
     : 'LOG10' left_paren numeric_value_expression right_paren
     ;
+")
 
-(* SQL:2022 Property Graph Queries *)
+(def sql2022-property-graph-queries
+  "(* SQL:2022 Property Graph Queries *)
 
 graph_table
     : 'GRAPH_TABLE' left_paren [ graph_name comma ] match_expression graph_table_columns_clause right_paren
@@ -280,6 +283,10 @@ property_key
     : identifier
     ;
 ")
+
+(def extra-rules (->> [sql2016-numeric-value-function
+                       sql2022-property-graph-queries]
+                     (str/join "\n")))
 
 (def ^:private ^:dynamic *sql-ast-print-nesting* 0)
 (def ^:private ^:dynamic *sql-ast-current-name*)

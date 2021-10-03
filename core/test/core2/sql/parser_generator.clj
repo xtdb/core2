@@ -6,7 +6,7 @@
 
 (set! *unchecked-math* :warn-on-boxed)
 
-(def sql-spec-grammar-g4 "
+(def sql-spec-grammar-ebnf "
 spec: (HEADER_COMMENT / definition)* ;
 definition: NAME '::=' <'|'>? syntax? ;
 syntax_element: (optional / mandatory / NAME / TOKEN) REPEATABLE? ;
@@ -21,7 +21,7 @@ HEADER_COMMENT: #'// *\\d.*?\\n' ;
         ")
 
 (def parse-sql-spec
-  (insta/parser sql-spec-grammar-g4
+  (insta/parser sql-spec-grammar-ebnf
                 :auto-whitespace (insta/parser "
 whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*' | #'!!.*?\\n')+")))
 

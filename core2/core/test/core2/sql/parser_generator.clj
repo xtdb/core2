@@ -43,6 +43,7 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*' | #'!!.*?\\n')+")))
    "#'[a-zA-Z][a-zA-Z0-9_]*'"
    'delimited_identifier
    "#'\"(\"\"|[^\"])+\"'"
+   ;; replaces <local or schema qualified name>
    'table_name
    "identifier"
    'unsigned_integer
@@ -51,12 +52,15 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*' | #'!!.*?\\n')+")))
    "#'[0-9]+' multiplier"
    'character_representation
    "#'(\\'\\'|[^\\'])*'"
+   ;; removes <introducer> <character set specification>
    'character_string_literal
    "#'\\'(\\'\\'|[^\\'])*\\''+"
    'binary_string_literal
    "#'X(\\'[a-fA-F0-9\\s]+\\'\\s*)+'"
+   ;; removes <indicator parameter>
    'host_parameter_specification
    "host_parameter_name"
+   ;; removes <path-resolved user-defined type name> and <reference type>
    'predefined_type
    "character_string_type
     / binary_string_type
@@ -64,10 +68,13 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*' | #'!!.*?\\n')+")))
     / boolean_type
     / datetime_type
     / interval_type"
+   ;; removes <collate clause>
    'character_factor
    "character_primary"
+   ;; removes <sample clause>
    'table_factor
    "table_primary"
+   ;; adds <graph table> from SQL:2022 Property Graph Queries
    'table_primary
    "table_or_query_name [ query_system_time_period_specification ] [ [ 'AS' ] correlation_name [ left_paren derived_column_list right_paren ] ]
     / derived_table [ 'AS' ] correlation_name [ left_paren derived_column_list right_paren ]
@@ -76,8 +83,10 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*' | #'!!.*?\\n')+")))
     / table_function_derived_table [ 'AS' ] correlation_name [ left_paren derived_column_list right_paren ]
     / graph_table [ 'AS' ] correlation_name [ left_paren derived_column_list right_paren ]
     / parenthesized_joined_table"
+   ;; removes <search or cycle clause>
    'with_list_element
    "query_name [ left_paren with_column_list right_paren ] 'AS' table_subquery"
+   ;; adds <trigonometric function>, <general logarithm function> and <common logarithm> from SQL:2016
    'numeric_value_function
    "position_expression
     / regex_occurrences_function
@@ -97,14 +106,18 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*' | #'!!.*?\\n')+")))
     / square_root
     / floor_function
     / ceiling_function"
+   ;; removes <collate clause>
    'grouping_column_reference
    "column_reference"
    'aggregate_function
+   ;; removes <filter clause>, <binary set function> and <ordered set function>
    "'COUNT' left_paren asterisk right_paren
     / general_set_function
     / array_aggregate_function"
+   ;; removes <partitioned join table>
    'qualified_join
    "table_reference [ join_type ] 'JOIN' table_reference join_specification"
+   ;; removes <partitioned join table>
    'natural_join
    "table_reference 'NATURAL' [ join_type ] 'JOIN' table_factor"})
 

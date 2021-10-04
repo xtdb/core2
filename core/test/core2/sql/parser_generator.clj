@@ -302,7 +302,6 @@ property_key
                      (str/join "\n")))
 
 (def ^:private ^:dynamic *sql-ast-print-nesting* 0)
-(def ^:private ^:dynamic *sql-ast-current-name*)
 (def ^:private sql-print-indent "    ")
 
 (defmulti print-sql-ast first)
@@ -376,11 +375,10 @@ property_key
       (do (println override)
           (print sql-print-indent)
           (println ";"))
-      (binding [*sql-ast-current-name* n]
-        (print-sql-ast-list xs)
-        (println)
-        (print sql-print-indent)
-        (println ";")))))
+      (do (print-sql-ast-list xs)
+          (println)
+          (print sql-print-indent)
+          (println ";")))))
 
 (defn sql-spec-ast->ebnf-grammar-string [extra-rules sql-ast]
   (->> (with-out-str

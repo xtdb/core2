@@ -8,13 +8,13 @@
 
 (def sql-spec-grammar-ebnf "
 spec: (HEADER_COMMENT / definition)* ;
-definition: NAME '::=' <'|'>? syntax? ;
+definition: NAME <'::='> <'|'>? syntax? ;
 syntax_element: (optional / mandatory / NAME / TOKEN) REPEATABLE? ;
 syntax: syntax_element+ choice* ;
-optional: '[' syntax+ ']' ;
-mandatory: '{' syntax+ '}' ;
-choice: '|' syntax_element+ ;
-REPEATABLE: '...' ;
+optional: <'['> syntax+ <']'> ;
+mandatory: <'{'> syntax+ <'}'> ;
+choice: <'|'> syntax_element+ ;
+REPEATABLE: <'...'> ;
 NAME: #'<[-_:/a-zA-Z 0-9]+?>' ;
 TOKEN: !'::=' #'[^ |\\n\\r\\t.!/]+' ;
 HEADER_COMMENT: #'// *\\d.*?\\n' ;
@@ -331,10 +331,10 @@ property_key
         x (str/replace x #"[-: ]" "_")]
     (print x)))
 
-(defmethod print-sql-ast :REPEATABLE [[_ x]]
+(defmethod print-sql-ast :REPEATABLE [_]
   (print "+"))
 
-(defmethod print-sql-ast :choice [[_ _ & xs]]
+(defmethod print-sql-ast :choice [[_ & xs]]
   (if (pos? (long *sql-ast-print-nesting*))
     (do (print "/ ")
         (print-sql-ast-list xs))
@@ -342,19 +342,17 @@ property_key
         (print (str sql-print-indent "/ "))
         (print-sql-ast-list xs))))
 
-(defmethod print-sql-ast :optional [[_ _ & xs]]
+(defmethod print-sql-ast :optional [[_ & xs]]
   (binding [*sql-ast-print-nesting* (inc (long *sql-ast-print-nesting*))]
-    (let [xs (butlast xs)]
-      (print "[ ")
-      (print-sql-ast-list xs)
-      (print " ]"))))
+    (print "[ ")
+    (print-sql-ast-list xs)
+    (print " ]")))
 
-(defmethod print-sql-ast :mandatory [[_ _ & xs]]
+(defmethod print-sql-ast :mandatory [[_ & xs]]
   (binding [*sql-ast-print-nesting* (inc (long *sql-ast-print-nesting*))]
-    (let [xs (butlast xs)]
-      (print "( ")
-      (print-sql-ast-list xs)
-      (print " )"))))
+    (print "( ")
+    (print-sql-ast-list xs)
+    (print " )")))
 
 (defmethod print-sql-ast :syntax_element [[_ x repeatable?]]
   (print-sql-ast x)
@@ -364,7 +362,7 @@ property_key
 (defmethod print-sql-ast :syntax [[_ & xs]]
   (print-sql-ast-list xs))
 
-(defmethod print-sql-ast :definition [[_ n _ & xs]]
+(defmethod print-sql-ast :definition [[_ n & xs]]
   (let [n (symbol (with-out-str
                     (print-sql-ast n)))]
     (println)

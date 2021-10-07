@@ -1758,7 +1758,7 @@
   | <fold>
   // | <transcoding>
   // | <character transliteration>
-  // | <regex transliteration>
+  | <regex transliteration>
   | <trim function>
   | <character overlay function>
   // | <normalize function>

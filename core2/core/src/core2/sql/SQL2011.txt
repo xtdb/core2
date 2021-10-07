@@ -3331,10 +3331,10 @@
   | ANY
   | SOME
   | COUNT
-  // | STDDEV_POP
-  // | STDDEV_SAMP
-  // | VAR_SAMP
-  // | VAR_POP
+  | STDDEV_POP
+  | STDDEV_SAMP
+  | VAR_SAMP
+  | VAR_POP
   // | COLLECT
   // | FUSION
   // | INTERSECTION

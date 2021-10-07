@@ -101,14 +101,6 @@ right_bracket_trigraph
     : '??)'
     ;
 
-circumflex
-    : '^'
-    ;
-
-underscore
-    : '_'
-    ;
-
 vertical_bar
     : '|'
     ;
@@ -599,14 +591,6 @@ dynamic_parameter_specification
     : question_mark
     ;
 
-target_array_element_specification
-    : target_array_reference left_bracket_or_trigraph simple_value_specification right_bracket_or_trigraph
-    ;
-
-target_array_reference
-    : column_reference
-    ;
-
 (*  6.5        <contextually typed value specification> *)
 
 contextually_typed_value_specification
@@ -1035,6 +1019,10 @@ fold
     : ( 'UPPER' / 'LOWER' ) left_paren character_value_expression right_paren
     ;
 
+regex_transliteration
+    : 'TRANSLATE_REGEX' left_paren xquery_pattern [ 'FLAG' xquery_option_flag ] 'IN' regex_subject_string [ 'WITH' xquery_replacement_string ] [ 'FROM' start_position ] [ 'USING' char_length_units ] [ 'OCCURRENCE' regex_transliteration_occurrence ] right_paren
+    ;
+
 xquery_replacement_string
     : character_value_expression
     ;
@@ -1310,10 +1298,6 @@ array_value_constructor_by_query
     ;
 
 (*  6.41 <multiset value constructor> *)
-
-table_value_constructor_by_query
-    : 'TABLE' table_subquery
-    ;
 
 (*  7 Query expressions *)
 

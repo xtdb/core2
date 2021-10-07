@@ -136,11 +136,11 @@
 <right bracket trigraph> ::=
   ??)
 
-<circumflex> ::=
-  ^
+// <circumflex> ::=
+//   ^
 
-<underscore> ::=
-  _
+// <underscore> ::=
+//   _
 
 <vertical bar> ::=
 //  |
@@ -1114,13 +1114,13 @@
 // <indicator parameter> ::=
 //   [ INDICATOR ] <host parameter name>
 
-<target array element specification> ::=
-  <target array reference>
-      <left bracket or trigraph> <simple value specification> <right bracket or trigraph>
+// <target array element specification> ::=
+//   <target array reference>
+//       <left bracket or trigraph> <simple value specification> <right bracket or trigraph>
 
-<target array reference> ::=
-    // <SQL parameter reference>
-  | <column reference>
+// <target array reference> ::=
+//     // <SQL parameter reference>
+//   | <column reference>
 
 // <current collation specification> ::=
 //   COLLATION FOR <left paren> <string value expression> <right paren>
@@ -1793,15 +1793,15 @@
 //   TRANSLATE <left paren> <character value expression>
 //       USING <transliteration name> <right paren>
 
-// <regex transliteration> ::=
-//   TRANSLATE_REGEX <left paren>
-//       <XQuery pattern> [ FLAG <XQuery option flag> ]
-//       IN <regex subject string>
-//       [ WITH <XQuery replacement string> ]
-//       [ FROM <start position> ]
-//       [ USING <char length units> ]
-//       [ OCCURRENCE <regex transliteration occurrence> ]
-//       <right paren>
+<regex transliteration> ::=
+  TRANSLATE_REGEX <left paren>
+      <XQuery pattern> [ FLAG <XQuery option flag> ]
+      IN <regex subject string>
+      [ WITH <XQuery replacement string> ]
+      [ FROM <start position> ]
+      [ USING <char length units> ]
+      [ OCCURRENCE <regex transliteration occurrence> ]
+      <right paren>
 
 <XQuery replacement string> ::=
   <character value expression>
@@ -2107,8 +2107,8 @@
 // <multiset value constructor by query> ::=
 //   MULTISET <table subquery>
 
-<table value constructor by query> ::=
-  TABLE <table subquery>
+// <table value constructor by query> ::=
+//   TABLE <table subquery>
 
 // 7 Query expressions
 

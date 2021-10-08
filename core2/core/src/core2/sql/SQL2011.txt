@@ -5247,15 +5247,15 @@
 //     WITH RETURN
 //   | WITHOUT RETURN
 
-// 14.3 <cursor specification>
+// // 14.3 <cursor specification>
 
 // Define a result set.
 
-<cursor specification> ::=
-  <query expression> [ <updatability clause> ]
+// <cursor specification> ::=
+//   <query expression> [ <updatability clause> ]
 
-<updatability clause> ::=
-  FOR { READ ONLY | UPDATE [ OF <column name list> ] }
+// <updatability clause> ::=
+//   FOR { READ ONLY | UPDATE [ OF <column name list> ] }
 
 // // 14.4 <open statement>
 

@@ -2151,16 +2151,6 @@ application_time_period_name
 
 (*  14 Data manipulation *)
 
-(*  14.3 <cursor specification> *)
-
-cursor_specification
-    : query_expression [ updatability_clause ]
-    ;
-
-updatability_clause
-    : 'FOR' ( 'READ' 'ONLY' / 'UPDATE' [ 'OF' column_name_list ] )
-    ;
-
 (*  14.8 <delete statement: positioned> *)
 
 target_table
@@ -2346,7 +2336,7 @@ direct_sql_data_statement
 (*  22.2 <direct select statement: multiple rows> *)
 
 direct_select_statement__multiple_rows
-    : cursor_specification
+    : query_expression
     ;
 
 (* SQL:2016 6.30 <numeric value function> *)

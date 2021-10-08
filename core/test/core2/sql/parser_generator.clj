@@ -119,7 +119,10 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*' | #'!!.*?\\n')+")))
    "table_reference [ join_type ] 'JOIN' table_reference join_specification"
    ;; removes <partitioned join table>
    'natural_join
-   "table_reference 'NATURAL' [ join_type ] 'JOIN' table_factor"})
+   "table_reference 'NATURAL' [ join_type ] 'JOIN' table_factor"
+   ;; inlines <cursor specification> and removes <updatability clause>
+   'direct_select_statement__multiple_rows
+   "query_expression"})
 
 (def sql2016-numeric-value-function
   "(* SQL:2016 6.30 <numeric value function> *)

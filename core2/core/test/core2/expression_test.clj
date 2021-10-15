@@ -8,7 +8,7 @@
             [core2.snapshot :as snap]
             [core2.test-util :as tu]
             [core2.types :as ty])
-  (:import [org.apache.arrow.vector SmallIntVector BigIntVector IntVector]
+  (:import [org.apache.arrow.vector BigIntVector Float4Vector Float8Vector IntVector SmallIntVector]
            org.apache.arrow.vector.types.pojo.Schema))
 
 (t/use-fixtures :each tu/with-allocator)
@@ -182,11 +182,29 @@
   (t/is (= {:res 6, :vec-type SmallIntVector}
            (run-single-row-projection '+ (short 2) (short 4))))
 
+  (t/is (= {:res 6.5, :vec-type Float4Vector}
+           (run-single-row-projection '+ (byte 2) (float 4.5))))
+
+  (t/is (= {:res 6.5, :vec-type Float4Vector}
+           (run-single-row-projection '+ (float 2) (float 4.5))))
+
+  (t/is (= {:res 6.5, :vec-type Float8Vector}
+           (run-single-row-projection '+ (float 2) (double 4.5))))
+
+  (t/is (= {:res 6.5, :vec-type Float8Vector}
+           (run-single-row-projection '+ (int 2) (double 4.5))))
+
   (t/is (= {:res -2, :vec-type IntVector}
            (run-single-row-projection '- (short 2) (int 4))))
 
   (t/is (= {:res 8, :vec-type SmallIntVector}
-           (run-single-row-projection '* (byte 2) (short 4)))))
+           (run-single-row-projection '* (byte 2) (short 4))))
+
+  (t/is (= {:res 2, :vec-type SmallIntVector}
+           (run-single-row-projection '/ (short 4) (byte 2))))
+
+  (t/is (= {:res 2.0, :vec-type Float4Vector}
+           (run-single-row-projection '/ (float 4) (int 2)))))
 
 (t/deftest test-throws-on-overflow
   (t/is (thrown? ArithmeticException

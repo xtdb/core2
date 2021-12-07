@@ -29,16 +29,16 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*' | #'!!.*?\\n')+")))
 ;; out. This is to ensure the override ends up in the right place in
 ;; the grammar.
 (def rule-overrides
-  {'space "' '"
-   'quote "'\\''"
-   'period "'.'"
+  {'<space> "' '"
+   '<quote> "'\\''"
+   '<period> "'.'"
    'solidus "'/'"
-   'left_bracket "'['"
-   'right_bracket "']'"
+   '<left_bracket> "'['"
+   '<right_bracket> "']'"
    'vertical_bar "'|'"
    'concatenation_operator "'||'"
-   'left_brace "'{'"
-   'right_brace "'}'"
+   '<left_brace> "'{'"
+   '<right_brace> "'}'"
    'regular_identifier
    "#'[a-zA-Z][a-zA-Z0-9_]*'"
    'delimited_identifier
@@ -124,6 +124,22 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*' | #'!!.*?\\n')+")))
    'direct_select_statement__multiple_rows
    "query_expression"})
 
+(def ^:private delimiter-set
+  '#{space
+     colon
+     semicolon
+     quote
+     period
+     comma
+     left_paren
+     right_paren
+     left_bracket
+     right_bracket
+     left_bracket_trigraph
+     right_bracket_trygraph
+     left_brace
+     right_brace})
+
 (def sql2016-numeric-value-function
   "(* SQL:2016 6.30 <numeric value function> *)
 
@@ -144,7 +160,7 @@ trigonometric_function_name
     ;
 
 general_logarithm_function
-    : 'LOG' left_paren general_logarithm_base comma general_logarithm_argument right_paren
+    : 'LOG' left_paren general_logarithm_base <comma> general_logarithm_argument right_paren
     ;
 
 general_logarithm_base
@@ -164,7 +180,7 @@ common_logarithm
   "(* SQL:2022 Property Graph Queries *)
 
 graph_table
-    : 'GRAPH_TABLE' left_paren [ graph_name comma ] match_expression graph_table_columns_clause right_paren
+    : 'GRAPH_TABLE' left_paren [ graph_name <comma> ] match_expression graph_table_columns_clause right_paren
     ;
 
 graph_name
@@ -172,7 +188,7 @@ graph_name
     ;
 
 graph_table_columns_clause
-    : 'COLUMNS' left_paren derived_column [ ( comma derived_column )+ ] right_paren
+    : 'COLUMNS' left_paren derived_column [ ( <comma> derived_column )+ ] right_paren
     ;
 
 match_expression
@@ -180,7 +196,7 @@ match_expression
     ;
 
 path_pattern_list
-    : path_pattern ( comma path_pattern )*
+    : path_pattern ( <comma> path_pattern )*
     ;
 
 path_pattern
@@ -235,7 +251,7 @@ element_predicate
     ;
 
 property_list
-    : property_key colon value_expression ( comma property_key colon value_expression )*
+    : property_key <colon> value_expression ( <comma> property_key <colon> value_expression )*
     ;
 
 edge_length
@@ -243,12 +259,12 @@ edge_length
     ;
 
 edge_quantifier
-    : unsigned_integer comma unsigned_integer
+    : unsigned_integer <comma> unsigned_integer
     | unsigned_integer
     ;
 
 is_label_expression
-    : [ 'IS' | colon ] label_expression
+    : [ 'IS' | <colon> ] label_expression
     ;
 
 label_expression
@@ -332,7 +348,9 @@ property_key
   (let [x (str/lower-case x)
         x (subs x 1 (dec (count x)))
         x (str/replace x #"[-: ]" "_")]
-    (print x)))
+    (if (contains? delimiter-set (symbol x))
+      (print (str "<" x ">"))
+      (print x))))
 
 (defmethod print-sql-ast :REPEATABLE [_]
   (print "+"))

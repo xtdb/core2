@@ -82,7 +82,7 @@ left_bracket_or_trigraph
 
 right_bracket_or_trigraph
     : <right_bracket>
-    / right_bracket_trigraph
+    / <right_bracket_trigraph>
     ;
 
 <left_bracket>
@@ -97,7 +97,7 @@ right_bracket_or_trigraph
     : ']'
     ;
 
-right_bracket_trigraph
+<right_bracket_trigraph>
     : '??)'
     ;
 

@@ -136,7 +136,7 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*' | #'!!.*?\\n')+")))
      left_bracket
      right_bracket
      left_bracket_trigraph
-     right_bracket_trygraph
+     right_bracket_trigraph
      left_brace
      right_brace})
 

@@ -74,18 +74,9 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*' | #'!!.*?\\n')+")))
    ;; removes <sample clause>
    'table_factor
    "table_primary"
-   ;; adds <graph table> from SQL:2022 Property Graph Queries
-   'table_primary
-   "table_or_query_name [ query_system_time_period_specification ] [ [ 'AS' ] correlation_name [ left_paren derived_column_list right_paren ] ]
-    / derived_table [ 'AS' ] correlation_name [ left_paren derived_column_list right_paren ]
-    / lateral_derived_table [ 'AS' ] correlation_name [ left_paren derived_column_list right_paren ]
-    / collection_derived_table [ 'AS' ] correlation_name [ left_paren derived_column_list right_paren ]
-    / table_function_derived_table [ 'AS' ] correlation_name [ left_paren derived_column_list right_paren ]
-    / graph_table [ 'AS' ] correlation_name [ left_paren derived_column_list right_paren ]
-    / parenthesized_joined_table"
    ;; removes <search or cycle clause>
    'with_list_element
-   "query_name [ left_paren with_column_list right_paren ] 'AS' table_subquery"
+   "query_name [ <left_paren> with_column_list <right_paren> ] 'AS' table_subquery"
    ;; adds <trigonometric function>, <general logarithm function> and <common logarithm> from SQL:2016
    'numeric_value_function
    "position_expression
@@ -111,7 +102,7 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*' | #'!!.*?\\n')+")))
    "column_reference"
    'aggregate_function
    ;; removes <filter clause>, <binary set function> and <ordered set function>
-   "'COUNT' left_paren asterisk right_paren
+   "'COUNT' <left_paren> asterisk <right_paren>
     / general_set_function
     / array_aggregate_function"
    ;; removes <partitioned join table>
@@ -176,149 +167,7 @@ common_logarithm
     ;
 ")
 
-(def sql2022-property-graph-queries
-  "(* SQL:2022 Property Graph Queries *)
-
-graph_table
-    : 'GRAPH_TABLE' left_paren [ graph_name <comma> ] match_expression graph_table_columns_clause right_paren
-    ;
-
-graph_name
-    : identifier
-    ;
-
-graph_table_columns_clause
-    : 'COLUMNS' left_paren derived_column [ ( <comma> derived_column )+ ] right_paren
-    ;
-
-match_expression
-    : [ 'OPTIONAL' | 'MANDATORY' ] 'MATCH' path_pattern_list [ where_clause ]
-    ;
-
-path_pattern_list
-    : path_pattern ( <comma> path_pattern )*
-    ;
-
-path_pattern
-    : [ path_variable '=' ] [ path_pattern_prefix ] path_pattern_expression
-    ;
-
-path_pattern_prefix
-    : 'WALK'
-    | 'TRAIL'
-    | 'ACYCLIC'
-    | 'SIMPLE'
-    ;
-
-path_pattern_expression
-    : path_term
-    ;
-
-path_term
-    : path
-
-path
-    : node_pattern ( edge_pattern node_pattern )*
-    ;
-
-node_pattern
-    : left_paren element_pattern_filler right_paren
-    ;
-
-edge_pattern
-    : ( full_edge_pointing_left | full_edge_undirected | full_edge_pointing_right ) [ edge_length ]
-    ;
-
-full_edge_pointing_left
-    : '<-[' element_pattern_filler ']-'
-    ;
-
-full_edge_undirected
-    : '~[' element_pattern_filler ']~'
-    ;
-
-full_edge_pointing_right
-    : '-[' element_pattern_filler ']->'
-    ;
-
-element_pattern_filler
-    : [ element_variable ] [ is_label_expression ] [ element_predicate ]
-    ;
-
-element_predicate
-    : where_clause
-    | [ left_brace property_list right_brace ]
-    ;
-
-property_list
-    : property_key <colon> value_expression ( <comma> property_key <colon> value_expression )*
-    ;
-
-edge_length
-    : left_brace edge_quantifier right_brace
-    ;
-
-edge_quantifier
-    : unsigned_integer <comma> unsigned_integer
-    | unsigned_integer
-    ;
-
-is_label_expression
-    : [ 'IS' | <colon> ] label_expression
-    ;
-
-label_expression
-    : label_term ( vertical_bar label_term )*
-    ;
-
-label_term
-    : label_factor ( ampersand label_factor )*
-    ;
-
-label_factor
-    : label_primary
-    | label_negation
-    ;
-
-label_negation
-    : '!' label_primary
-    ;
-
-label_primary
-    : label
-    | label_wildcard
-    | parenthesized_label_expression
-    ;
-
-label
-    : identifier
-    ;
-
-label_wildcard
-    : percent
-    ;
-
-parenthesized_label_expression
-    : left_paren label_expression right_paren
-    | left_bracket label_expression right_bracket
-    ;
-
-path_variable
-    : identifier
-    ;
-
-element_variable
-    : identifier
-    ;
-
-property_key
-    : identifier
-    ;
-")
-
-(def extra-rules (->> [sql2016-numeric-value-function
-                       sql2022-property-graph-queries]
-                     (str/join "\n")))
+(def extra-rules (str/join "\n" [sql2016-numeric-value-function]))
 
 (def ^:private ^:dynamic *sql-ast-print-nesting* 0)
 (def ^:private sql-print-indent "    ")

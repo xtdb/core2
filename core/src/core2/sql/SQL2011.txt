@@ -1544,6 +1544,7 @@
 <numeric primary> ::=
     <value expression primary>
   | <numeric value function>
+
 // 6.28 <numeric value function>
 
 // Specify a function yielding a value of type numeric.

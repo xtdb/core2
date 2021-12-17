@@ -75,12 +75,12 @@ question_mark
     : '?'
     ;
 
-left_bracket_or_trigraph
+<left_bracket_or_trigraph>
     : <left_bracket>
     / <left_bracket_trigraph>
     ;
 
-right_bracket_or_trigraph
+<right_bracket_or_trigraph>
     : <right_bracket>
     / <right_bracket_trigraph>
     ;
@@ -153,17 +153,17 @@ concatenation_operator
 
 (*  5.3     <literal> *)
 
-literal
+<literal>
     : signed_numeric_literal
     / general_literal
     ;
 
-unsigned_literal
+<unsigned_literal>
     : unsigned_numeric_literal
     / general_literal
     ;
 
-general_literal
+<general_literal>
     : character_string_literal
     / binary_string_literal
     / datetime_literal
@@ -187,7 +187,7 @@ signed_numeric_literal
     : [ sign ] unsigned_numeric_literal
     ;
 
-unsigned_numeric_literal
+<unsigned_numeric_literal>
     : exact_numeric_literal
     / approximate_numeric_literal
     ;
@@ -197,7 +197,7 @@ exact_numeric_literal
     / <period> unsigned_integer
     ;
 
-sign
+<sign>
     : plus_sign
     / minus_sign
     ;
@@ -222,7 +222,7 @@ unsigned_integer
     : #'[0-9]+'
     ;
 
-datetime_literal
+<datetime_literal>
     : date_literal
     / time_literal
     / timestamp_literal
@@ -293,7 +293,7 @@ year_month_literal
     / months_value
     ;
 
-day_time_literal
+<day_time_literal>
     : day_time_interval
     / time_interval
     ;
@@ -356,7 +356,7 @@ identifier
     : actual_identifier
     ;
 
-actual_identifier
+<actual_identifier>
     : regular_identifier
     / delimited_identifier
     ;
@@ -389,13 +389,13 @@ field_name
 
 (*  6.1     <data type> *)
 
-data_type
+<data_type>
     : predefined_type
     / row_type
     / collection_type
     ;
 
-predefined_type
+<predefined_type>
     : character_string_type
     / binary_string_type
     / numeric_type
@@ -431,7 +431,7 @@ binary_large_object_string_type
     / 'BLOB' [ <left_paren> large_object_length <right_paren> ]
     ;
 
-numeric_type
+<numeric_type>
     : exact_numeric_type
     / approximate_numeric_type
     ;
@@ -541,7 +541,7 @@ field_definition
 
 (*  6.3         <value expression primary> *)
 
-value_expression_primary
+<value_expression_primary>
     : parenthesized_value_expression
     / nonparenthesized_value_expression_primary
     ;
@@ -550,7 +550,7 @@ parenthesized_value_expression
     : <left_paren> value_expression <right_paren>
     ;
 
-nonparenthesized_value_expression_primary
+<nonparenthesized_value_expression_primary>
     : unsigned_value_specification
     / column_reference
     / set_function_specification
@@ -568,17 +568,17 @@ collection_value_constructor
 
 (*  6.4     <value specification> and <target specification> *)
 
-unsigned_value_specification
+<unsigned_value_specification>
     : unsigned_literal
     / general_value_specification
     ;
 
-general_value_specification
+<general_value_specification>
     : host_parameter_specification
     / dynamic_parameter_specification
     ;
 
-simple_value_specification
+<simple_value_specification>
     : literal
     / host_parameter_name
     ;
@@ -593,12 +593,12 @@ dynamic_parameter_specification
 
 (*  6.5        <contextually typed value specification> *)
 
-contextually_typed_value_specification
+<contextually_typed_value_specification>
     : implicitly_typed_value_specification
     / default_specification
     ;
 
-implicitly_typed_value_specification
+<implicitly_typed_value_specification>
     : null_specification
     / empty_specification
     ;
@@ -639,7 +639,7 @@ set_function_specification
 
 (*  6.12 <case expression> *)
 
-case_expression
+<case_expression>
     : case_abbreviation
     / case_specification
     ;
@@ -649,7 +649,7 @@ case_abbreviation
     / 'COALESCE' <left_paren> value_expression ( <comma> value_expression )+ <right_paren>
     ;
 
-case_specification
+<case_specification>
     : simple_case
     / searched_case
     ;
@@ -674,7 +674,7 @@ else_clause
     : 'ELSE' result
     ;
 
-case_operand
+<case_operand>
     : row_value_predicand
     / overlaps_predicate_part_1
     ;
@@ -683,7 +683,7 @@ when_operand_list
     : when_operand [ ( <comma> when_operand )+ ]
     ;
 
-when_operand
+<when_operand>
     : row_value_predicand
     / comparison_predicate_part_2
     / between_predicate_part_2
@@ -713,7 +713,7 @@ cast_specification
     : 'CAST' <left_paren> cast_operand 'AS' cast_target <right_paren>
     ;
 
-cast_operand
+<cast_operand>
     : value_expression
     / implicitly_typed_value_specification
     ;
@@ -738,13 +738,13 @@ array_element_reference
 
 (*  6.26 <value expression> *)
 
-value_expression
+<value_expression>
     : common_value_expression
     / boolean_value_expression
     / row_value_expression
     ;
 
-common_value_expression
+<common_value_expression>
     : numeric_value_expression
     / string_value_expression
     / datetime_value_expression
@@ -774,14 +774,14 @@ factor
     : [ sign ] numeric_primary
     ;
 
-numeric_primary
+<numeric_primary>
     : value_expression_primary
     / numeric_value_function
     ;
 
 (*  6.28 <numeric value function> *)
 
-numeric_value_function
+<numeric_value_function>
     : position_expression
     / regex_occurrences_function
     / regex_position_expression
@@ -802,7 +802,7 @@ numeric_value_function
     / ceiling_function
     ;
 
-position_expression
+<position_expression>
     : character_position_expression
     / binary_position_expression
     ;
@@ -856,7 +856,7 @@ binary_position_expression
     : 'POSITION' <left_paren> binary_value_expression 'IN' binary_value_expression <right_paren>
     ;
 
-length_expression
+<length_expression>
     : char_length_expression
     / octet_length_expression
     ;
@@ -873,7 +873,7 @@ extract_expression
     : 'EXTRACT' <left_paren> extract_field 'FROM' extract_source <right_paren>
     ;
 
-extract_field
+<extract_field>
     : primary_datetime_field
     / time_zone_field
     ;
@@ -883,7 +883,7 @@ time_zone_field
     / 'TIMEZONE_MINUTE'
     ;
 
-extract_source
+<extract_source>
     : datetime_value_expression
     / interval_value_expression
     ;
@@ -946,12 +946,12 @@ ceiling_function
 
 (*  6.29 <string value expression> *)
 
-string_value_expression
+<string_value_expression>
     : character_value_expression
     / binary_value_expression
     ;
 
-character_value_expression
+<character_value_expression>
     : concatenation
     / character_factor
     ;
@@ -964,12 +964,12 @@ character_factor
     : character_primary
     ;
 
-character_primary
+<character_primary>
     : value_expression_primary
     / string_value_function
     ;
 
-binary_value_expression
+<binary_value_expression>
     : binary_concatenation
     / binary_factor
     ;
@@ -978,7 +978,7 @@ binary_factor
     : binary_primary
     ;
 
-binary_primary
+<binary_primary>
     : value_expression_primary
     / string_value_function
     ;
@@ -989,12 +989,12 @@ binary_concatenation
 
 (*  6.30 <string value function> *)
 
-string_value_function
+<string_value_function>
     : character_value_function
     / binary_value_function
     ;
 
-character_value_function
+<character_value_function>
     : character_substring_function
     / regular_expression_substring_function
     / regex_substring_function
@@ -1059,7 +1059,7 @@ character_overlay_function
     : 'OVERLAY' <left_paren> character_value_expression 'PLACING' character_value_expression 'FROM' start_position [ 'FOR' string_length ] [ 'USING' char_length_units ] <right_paren>
     ;
 
-binary_value_function
+<binary_value_function>
     : binary_substring_function
     / binary_trim_function
     / binary_overlay_function
@@ -1114,7 +1114,7 @@ datetime_factor
     : datetime_primary [ time_zone ]
     ;
 
-datetime_primary
+<datetime_primary>
     : value_expression_primary
     / datetime_value_function
     ;
@@ -1130,7 +1130,7 @@ time_zone_specifier
 
 (*  6.32 <datetime value function> *)
 
-datetime_value_function
+<datetime_value_function>
     : current_date_value_function
     / current_time_value_function
     / current_timestamp_value_function
@@ -1231,12 +1231,12 @@ truth_value
     / 'UNKNOWN'
     ;
 
-boolean_primary
+<boolean_primary>
     : predicate
     / boolean_predicand
     ;
 
-boolean_predicand
+<boolean_predicand>
     : parenthesized_boolean_value_expression
     / nonparenthesized_value_expression_primary
     ;
@@ -1247,7 +1247,7 @@ parenthesized_boolean_value_expression
 
 (*  6.36 <array value expression> *)
 
-array_value_expression
+<array_value_expression>
     : array_concatenation
     / array_primary
     ;
@@ -1260,7 +1260,7 @@ array_value_expression_1
     : array_value_expression
     ;
 
-array_primary
+<array_primary>
     : array_value_function
     / value_expression_primary
     ;
@@ -1277,7 +1277,7 @@ trim_array_function
 
 (*  6.38 <array value constructor> *)
 
-array_value_constructor
+<array_value_constructor>
     : array_value_constructor_by_enumeration
     / array_value_constructor_by_query
     ;
@@ -1304,7 +1304,7 @@ array_value_constructor_by_query
 
 (*  7.1     <row value constructor> *)
 
-row_value_constructor
+<row_value_constructor>
     : common_value_expression
     / boolean_value_expression
     / explicit_row_value_constructor
@@ -1337,12 +1337,12 @@ contextually_typed_row_value_constructor_element_list
     : contextually_typed_row_value_constructor_element [ ( <comma> contextually_typed_row_value_constructor_element )+ ]
     ;
 
-contextually_typed_row_value_constructor_element
+<contextually_typed_row_value_constructor_element>
     : value_expression
     / contextually_typed_value_specification
     ;
 
-row_value_constructor_predicand
+<row_value_constructor_predicand>
     : common_value_expression
     / boolean_predicand
     / explicit_row_value_constructor
@@ -1350,22 +1350,22 @@ row_value_constructor_predicand
 
 (*  7.2      <row value expression> *)
 
-row_value_expression
+<row_value_expression>
     : row_value_special_case
     / explicit_row_value_constructor
     ;
 
-table_row_value_expression
+<table_row_value_expression>
     : row_value_special_case
     / row_value_constructor
     ;
 
-contextually_typed_row_value_expression
+<contextually_typed_row_value_expression>
     : row_value_special_case
     / contextually_typed_row_value_constructor
     ;
 
-row_value_predicand
+<row_value_predicand>
     : row_value_special_case
     / row_value_constructor_predicand
     ;
@@ -1410,7 +1410,7 @@ table_reference_list
 
 (*  7.6     <table reference> *)
 
-table_reference
+<table_reference>
     : table_factor
     / joined_table
     ;
@@ -1462,7 +1462,7 @@ derived_table
     : table_subquery
     ;
 
-table_or_query_name
+<table_or_query_name>
     : table_name
     / query_name
     ;
@@ -1482,7 +1482,7 @@ parenthesized_joined_table
 
 (*  7.7     <joined table> *)
 
-joined_table
+<joined_table>
     : cross_join
     / qualified_join
     / natural_join
@@ -1500,7 +1500,7 @@ natural_join
     : table_reference 'NATURAL' [ join_type ] 'JOIN' table_factor
     ;
 
-join_specification
+<join_specification>
     : join_condition
     / named_columns_join
     ;
@@ -1544,7 +1544,7 @@ grouping_element_list
     : grouping_element [ ( <comma> grouping_element )+ ]
     ;
 
-grouping_element
+<grouping_element>
     : ordinary_grouping_set
     / empty_grouping_set
     ;
@@ -1583,7 +1583,7 @@ select_list
     / select_sublist [ ( <comma> select_sublist )+ ]
     ;
 
-select_sublist
+<select_sublist>
     : derived_column
     / qualified_asterisk
     ;
@@ -1655,7 +1655,7 @@ query_primary
     / <left_paren> query_expression_body [ order_by_clause ] [ result_offset_clause ] [ fetch_first_clause ] <right_paren>
     ;
 
-simple_table
+<simple_table>
     : query_specification
     / table_value_constructor
     / explicit_table
@@ -1719,7 +1719,7 @@ subquery
 
 (*  8.1      <predicate> *)
 
-predicate
+<predicate>
     : comparison_predicate
     / between_predicate
     / in_predicate
@@ -1745,7 +1745,7 @@ comparison_predicate_part_2
     : comp_op row_value_predicand
     ;
 
-comp_op
+<comp_op>
     : equals_operator
     / not_equals_operator
     / less_than_operator
@@ -1785,7 +1785,7 @@ in_value_list
 
 (*  8.5        <like predicate> *)
 
-like_predicate
+<like_predicate>
     : character_like_predicate
     / octet_like_predicate
     ;
@@ -1852,7 +1852,7 @@ quantified_comparison_predicate_part_2
     : comp_op quantifier table_subquery
     ;
 
-quantifier
+<quantifier>
     : all
     / some
     ;
@@ -1930,7 +1930,7 @@ row_value_predicand_4
 
 (*  8.20 <period predicate> *)
 
-period_predicate
+<period_predicate>
     : period_overlaps_predicate
     / period_equals_predicate
     / period_contains_predicate
@@ -1989,7 +1989,7 @@ period_contains_predicate_part_2
     : 'CONTAINS' period_or_point_in_time_predicand
     ;
 
-period_or_point_in_time_predicand
+<period_or_point_in_time_predicand>
     : period_predicand
     / datetime_value_expression
     ;
@@ -2184,7 +2184,7 @@ insertion_target
     : table_name
     ;
 
-insert_columns_and_source
+<insert_columns_and_source>
     : from_subquery
     / from_constructor
     / from_default
@@ -2225,7 +2225,7 @@ merge_operation_specification
     : merge_when_clause+
     ;
 
-merge_when_clause
+<merge_when_clause>
     : merge_when_matched_clause
     / merge_when_not_matched_clause
     ;
@@ -2234,7 +2234,7 @@ merge_when_matched_clause
     : 'WHEN' 'MATCHED' [ 'AND' search_condition ] 'THEN' merge_update_or_delete_specification
     ;
 
-merge_update_or_delete_specification
+<merge_update_or_delete_specification>
     : merge_update_specification
     / merge_delete_specification
     ;
@@ -2259,7 +2259,7 @@ merge_insert_value_list
     : <left_paren> merge_insert_value_element [ ( <comma> merge_insert_value_element )+ ] <right_paren>
     ;
 
-merge_insert_value_element
+<merge_insert_value_element>
     : value_expression
     / contextually_typed_value_specification
     ;
@@ -2306,7 +2306,7 @@ object_column
     : column_name
     ;
 
-update_source
+<update_source>
     : value_expression
     / contextually_typed_value_specification
     ;
@@ -2323,7 +2323,7 @@ directly_executable_statement
     : direct_sql_data_statement
     ;
 
-direct_sql_data_statement
+<direct_sql_data_statement>
     : delete_statement__searched
     / direct_select_statement__multiple_rows
     / insert_statement

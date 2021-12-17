@@ -175,7 +175,7 @@ common_logarithm
 
 (def ^:private ^:dynamic *sql-ast-print-nesting* 0)
 (def ^:private sql-print-indent "    ")
-(def ^:private ^:dynamic *sql-reduntant-non-terminals* #{})
+(def ^:private ^:dynamic *sql-redundant-non-terminals* #{})
 
 (defn- redundant-non-terminal [[_ n [_ & xs]]]
   (let [single-name? (fn [x]
@@ -256,13 +256,13 @@ common_logarithm
   (print-sql-ast-list xs))
 
 (defmethod print-sql-ast :definition [[_ n & xs]]
-  (let [reduntant-non-terminal? (contains? *sql-reduntant-non-terminals* (second n))
+  (let [redundant-non-terminal? (contains? *sql-redundant-non-terminals* (second n))
         n (symbol (with-out-str
                     (print-sql-ast n)))]
     (println)
     (if (or (contains? redundant-non-terminal-overrides n)
             (and (not (contains? rule-overrides n))
-                 reduntant-non-terminal?))
+                 redundant-non-terminal?))
       (println (str "<" n ">"))
       (println n))
     (print sql-print-indent)
@@ -277,7 +277,7 @@ common_logarithm
           (println ";")))))
 
 (defn sql-spec-ast->ebnf-grammar-string [extra-rules sql-ast]
-  (binding [*sql-reduntant-non-terminals* (set (keep redundant-non-terminal (rest sql-ast)))]
+  (binding [*sql-redundant-non-terminals* (set (keep redundant-non-terminal (rest sql-ast)))]
     (->> (with-out-str
            (print-sql-ast sql-ast)
            (println)

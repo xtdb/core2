@@ -29,57 +29,57 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*' | #'!!.*?\\n')+")))
 ;; out. This is to ensure the override ends up in the right place in
 ;; the grammar.
 (def rule-overrides
-  {'<space> "' '"
-   '<quote> "'\\''"
-   '<period> "'.'"
-   'solidus "'/'"
-   '<left_bracket> "'['"
-   '<right_bracket> "']'"
-   'vertical_bar "'|'"
-   'concatenation_operator "'||'"
-   '<left_brace> "'{'"
-   '<right_brace> "'}'"
-   'regular_identifier
-   "#'[a-zA-Z][a-zA-Z0-9_]*'"
-   'delimited_identifier
-   "#'\"(\"\"|[^\"])+\"'"
-   ;; replaces <local or schema qualified name>
-   'table_name
-   "identifier"
-   'unsigned_integer
-   "#'[0-9]+'"
-   'large_object_length_token
-   "#'[0-9]+' multiplier"
-   'character_representation
-   "#'(\\'\\'|[^\\'])*'"
-   ;; removes <introducer> <character set specification>
-   'character_string_literal
-   "#'\\'(\\'\\'|[^\\'])*\\''+"
-   'binary_string_literal
-   "#'X(\\'[a-fA-F0-9\\s]+\\'\\s*)+'"
-   ;; removes <indicator parameter>
-   'host_parameter_specification
-   "host_parameter_name"
-   ;; removes <path-resolved user-defined type name> and <reference type>
-   'predefined_type
-   "character_string_type
+  '{<space> "' '"
+    <quote> "'\\''"
+    <period> "'.'"
+    solidus "'/'"
+    <left_bracket> "'['"
+    <right_bracket> "']'"
+    vertical_bar "'|'"
+    concatenation_operator "'||'"
+    <left_brace> "'{'"
+    <right_brace> "'}'"
+    regular_identifier
+    "#'[a-zA-Z][a-zA-Z0-9_]*'"
+    delimited_identifier
+    "#'\"(\"\"|[^\"])+\"'"
+    ;; replaces <local or schema qualified name>
+    table_name
+    "identifier"
+    unsigned_integer
+    "#'[0-9]+'"
+    large_object_length_token
+    "#'[0-9]+' multiplier"
+    character_representation
+    "#'(\\'\\'|[^\\'])*'"
+    ;; removes <introducer> <character set specification>
+    character_string_literal
+    "#'\\'(\\'\\'|[^\\'])*\\''+"
+    binary_string_literal
+    "#'X(\\'[a-fA-F0-9\\s]+\\'\\s*)+'"
+    ;; removes <indicator parameter>
+    host_parameter_specification
+    "host_parameter_name"
+    ;; removes <path-resolved user-defined type name> and <reference type>
+    predefined_type
+    "character_string_type
     / binary_string_type
     / numeric_type
     / boolean_type
     / datetime_type
     / interval_type"
-   ;; removes <collate clause>
-   'character_factor
-   "character_primary"
-   ;; removes <sample clause>
-   'table_factor
-   "table_primary"
-   ;; removes <search or cycle clause>
-   'with_list_element
-   "query_name [ <left_paren> with_column_list <right_paren> ] 'AS' table_subquery"
-   ;; adds <trigonometric function>, <general logarithm function> and <common logarithm> from SQL:2016
-   'numeric_value_function
-   "position_expression
+    ;; removes <collate clause>
+    character_factor
+    "character_primary"
+    ;; removes <sample clause>
+    table_factor
+    "table_primary"
+    ;; removes <search or cycle clause>
+    with_list_element
+    "query_name [ <left_paren> with_column_list <right_paren> ] 'AS' table_subquery"
+    ;; adds <trigonometric function>, <general logarithm function> and <common logarithm> from SQL:2016
+    numeric_value_function
+    "position_expression
     / regex_occurrences_function
     / regex_position_expression
     / extract_expression
@@ -97,23 +97,23 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*' | #'!!.*?\\n')+")))
     / square_root
     / floor_function
     / ceiling_function"
-   ;; removes <collate clause>
-   'grouping_column_reference
-   "column_reference"
-   'aggregate_function
-   ;; removes <filter clause>, <binary set function> and <ordered set function>
-   "'COUNT' <left_paren> asterisk <right_paren>
+    ;; removes <collate clause>
+    grouping_column_reference
+    "column_reference"
+    aggregate_function
+    ;; removes <filter clause>, <binary set function> and <ordered set function>
+    "'COUNT' <left_paren> asterisk <right_paren>
     / general_set_function
     / array_aggregate_function"
-   ;; removes <partitioned join table>
-   'qualified_join
-   "table_reference [ join_type ] 'JOIN' table_reference join_specification"
-   ;; removes <partitioned join table>
-   'natural_join
-   "table_reference 'NATURAL' [ join_type ] 'JOIN' table_factor"
-   ;; inlines <cursor specification> and removes <updatability clause>
-   'direct_select_statement__multiple_rows
-   "query_expression"})
+    ;; removes <partitioned join table>
+    qualified_join
+    "table_reference [ join_type ] 'JOIN' table_reference join_specification"
+    ;; removes <partitioned join table>
+    natural_join
+    "table_reference 'NATURAL' [ join_type ] 'JOIN' table_factor"
+    ;; inlines <cursor specification> and removes <updatability clause>
+    direct_select_statement__multiple_rows
+    "query_expression"})
 
 (def ^:private delimiter-set
   '#{space

@@ -39,8 +39,9 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*' | #'!!.*?\\n')+")))
     concatenation_operator "'||'"
     <left_brace> "'{'"
     <right_brace> "'}'"
+    ;; adds check for reserved words, these should really be allowed after 'AS'
     regular_identifier
-    "#'[a-zA-Z][a-zA-Z0-9_]*'"
+    "!( 'WITH' / 'SELECT' / 'FROM' / 'WHERE' / 'GROUP' / 'HAVING' / 'ORDER' / 'LIMIT' / 'OFFSET' / 'FETCH' / 'OPTION' / 'UNION' / 'EXCEPT' / 'INTERSECT' ) #'[a-zA-Z][a-zA-Z0-9_]*'"
     delimited_identifier
     "#'\"(\"\"|[^\"])+\"'"
     ;; replaces <local or schema qualified name>
@@ -74,6 +75,17 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*' | #'!!.*?\\n')+")))
     ;; removes <sample clause>
     table_factor
     "table_primary"
+    ;; adds check for reserved words in <correlation or recognition> from SQL:2016
+    table_primary
+    "table_or_query_name [ query_system_time_period_specification ] [ correlation_or_recognition ]
+    / derived_table correlation_or_recognition
+    / lateral_derived_table correlation_or_recognition
+    / collection_derived_table correlation_or_recognition
+    / table_function_derived_table correlation_or_recognition
+    / parenthesized_joined_table"
+    ;; adds check for reserved words
+    as_clause
+    "( 'AS' column_name ) | !( 'YEAR' / 'MONTH' / 'DAY' / 'HOUR' / 'MINUTE' / 'SECOND' ) column_name"
     ;; removes <search or cycle clause>
     with_list_element
     "query_name [ <left_paren> with_column_list <right_paren> ] 'AS' table_subquery"
@@ -134,9 +146,14 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*' | #'!!.*?\\n')+")))
 (def ^:private redundant-non-terminal-overrides
   '#{numeric_value_function
      predefined_type})
-
+""
 (def sql2016-numeric-value-function
-  "(* SQL:2016 6.30 <numeric value function> *)
+  "(* SQL:2016 7.6 <table reference> *)
+
+<correlation_or_recognition>
+    : ( ( 'AS' correlation_name ) | !( 'ON' / 'JOIN' / 'INNER' / 'CROSS' / 'FULL' / 'LEFT' / 'RIGHT' / 'NATURAL' / 'USING' / 'OUTER' ) correlation_name ) [ <left_paren> derived_column_list <right_paren> ]
+
+(* SQL:2016 6.30 <numeric value function> *)
 
 trigonometric_function
     : trigonometric_function_name left_paren numeric_value_expression right_paren

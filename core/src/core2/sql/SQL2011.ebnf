@@ -116,7 +116,7 @@ vertical_bar
 (*  5.2     <token> and <separator> *)
 
 regular_identifier
-    : !( 'WITH' / 'SELECT' / 'FROM' / 'WHERE' / 'GROUP' / 'HAVING' / 'ORDER' / 'LIMIT' / 'OFFSET' / 'FETCH' / 'OPTION' / 'UNION' / 'EXCEPT' / 'INTERSECT' ) #'[a-zA-Z][a-zA-Z0-9_]*'
+    : !( 'WITH' / 'SELECT' / 'FROM' / 'WHERE' / 'GROUP' / 'HAVING' / 'ORDER' / 'OFFSET' / 'FETCH' / 'UNION' / 'EXCEPT' / 'INTERSECT' ) #'[a-zA-Z][a-zA-Z0-9_]*'
     ;
 
 large_object_length_token
@@ -378,7 +378,7 @@ query_name
     ;
 
 host_parameter_name
-    : <colon> identifier
+    : <colon> #'[a-zA-Z][a-zA-Z0-9_]*'
     ;
 
 field_name

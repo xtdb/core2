@@ -41,7 +41,7 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*' | #'!!.*?\\n')+")))
     <right_brace> "'}'"
     ;; adds check for reserved words, these should really be allowed after 'AS'
     regular_identifier
-    "!( 'WITH' / 'SELECT' / 'FROM' / 'WHERE' / 'GROUP' / 'HAVING' / 'ORDER' / 'LIMIT' / 'OFFSET' / 'FETCH' / 'OPTION' / 'UNION' / 'EXCEPT' / 'INTERSECT' ) #'[a-zA-Z][a-zA-Z0-9_]*'"
+    "!( 'WITH' / 'SELECT' / 'FROM' / 'WHERE' / 'GROUP' / 'HAVING' / 'ORDER' / 'OFFSET' / 'FETCH' / 'UNION' / 'EXCEPT' / 'INTERSECT' ) #'[a-zA-Z][a-zA-Z0-9_]*'"
     delimited_identifier
     "#'\"(\"\"|[^\"])+\"'"
     ;; replaces <local or schema qualified name>
@@ -58,6 +58,8 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*' | #'!!.*?\\n')+")))
     "#'\\'(\\'\\'|[^\\'])*\\''+"
     binary_string_literal
     "#'X(\\'[a-fA-F0-9\\s]+\\'\\s*)+'"
+    host_parameter_name
+    "<colon> #'[a-zA-Z][a-zA-Z0-9_]*'"
     ;; removes <indicator parameter>
     host_parameter_specification
     "host_parameter_name"

@@ -146,9 +146,19 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*' | #'!!.*?\\n')+")))
      right_brace})
 
 (def ^:private redundant-non-terminal-overrides
-  '#{numeric_value_function
-     predefined_type})
-""
+  '#{table_name
+     host_parameter_specification
+     numeric_value_function
+     predefined_type
+     character_factor
+     table_factor
+     grouping_column_reference
+     direct_select_statement__multiple_rows})
+
+(def ^:private keep-non-terminal-overrides
+  '#{column_reference
+     directly_executable_statement})
+
 (def sql2016-numeric-value-function
   "(* SQL:2016 7.6 <table reference> *)
 
@@ -158,7 +168,7 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*' | #'!!.*?\\n')+")))
 (* SQL:2016 6.30 <numeric value function> *)
 
 trigonometric_function
-    : trigonometric_function_name left_paren numeric_value_expression right_paren
+    : trigonometric_function_name <left_paren> numeric_value_expression <right_paren>
     ;
 
 trigonometric_function_name
@@ -174,19 +184,19 @@ trigonometric_function_name
     ;
 
 general_logarithm_function
-    : 'LOG' left_paren general_logarithm_base <comma> general_logarithm_argument right_paren
+    : 'LOG' <left_paren> general_logarithm_base <comma> general_logarithm_argument <right_paren>
     ;
 
-general_logarithm_base
+<general_logarithm_base>
     : numeric_value_expression
     ;
 
-general_logarithm_argument
+<general_logarithm_argument>
     : numeric_value_expression
     ;
 
 common_logarithm
-    : 'LOG10' left_paren numeric_value_expression right_paren
+    : 'LOG10' <left_paren> numeric_value_expression <right_paren>
     ;
 ")
 
@@ -211,7 +221,7 @@ common_logarithm
                      x)
                    (flatten)
                    (filter string?))]
-    (when (and (= (count xs) (count names)) (> (count names) 1))
+    (when (and (= (count xs) (count names)))
       (second n))))
 
 (defmulti print-sql-ast first)
@@ -279,9 +289,10 @@ common_logarithm
         n (symbol (with-out-str
                     (print-sql-ast n)))]
     (println)
-    (if (or (contains? redundant-non-terminal-overrides n)
-            (and (not (contains? rule-overrides n))
-                 redundant-non-terminal?))
+    (if (and (not (contains? keep-non-terminal-overrides n))
+             (or (contains? redundant-non-terminal-overrides n)
+                 (and (not (contains? rule-overrides n))
+                      redundant-non-terminal?)))
       (println (str "<" n ">"))
       (println n))
     (print sql-print-indent)

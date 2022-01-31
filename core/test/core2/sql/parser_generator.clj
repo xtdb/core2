@@ -157,6 +157,9 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*' | #'!!.*?\\n')+")))
 
 (def ^:private keep-non-terminal-overrides
   '#{column_reference
+     scalar_subquery
+     row_subquery
+     table_subquery
      directly_executable_statement})
 
 (def sql2016-numeric-value-function

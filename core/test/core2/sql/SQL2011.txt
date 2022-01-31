@@ -1347,7 +1347,7 @@
   | <null predicate part 2>
   | <quantified comparison predicate part 2>
   // | <normalized predicate part 2>
-  | <match predicate part 2>
+  // | <match predicate part 2>
   | <overlaps predicate part 2>
   | <distinct predicate part 2>
   // | <member predicate part 2>
@@ -2256,8 +2256,8 @@
       [ <left paren> <derived column list> <right paren> ]
   | <collection derived table> [ AS ] <correlation name>
         [ <left paren> <derived column list> <right paren> ]
-  | <table function derived table> [ AS ] <correlation name>
-      [ <left paren> <derived column list> <right paren> ]
+  // | <table function derived table> [ AS ] <correlation name>
+  //     [ <left paren> <derived column list> <right paren> ]
   // | <only spec> [ [ AS ] <correlation name>
   //     [ <left paren> <derived column list> <right paren> ] ]
   // | <data change delta table> [ [ AS ] <correlation name>
@@ -2290,8 +2290,8 @@
       [ { <comma> <collection value expression> }... ] <right paren>
       [ WITH ORDINALITY ]
 
-<table function derived table> ::=
-  TABLE <left paren> <collection value expression> <right paren>
+// <table function derived table> ::=
+//   TABLE <left paren> <collection value expression> <right paren>
 
 <derived table> ::=
   <table subquery>
@@ -2330,12 +2330,12 @@
 // Specify a table derived from a Cartesian product, inner join, or outer join.
 
 <joined table> ::=
-    <cross join>
+    // <cross join>
   | <qualified join>
-  | <natural join>
+  // | <natural join>
 
-<cross join> ::=
-  <table reference> CROSS JOIN <table factor>
+// <cross join> ::=
+//   <table reference> CROSS JOIN <table factor>
 
 <qualified join> ::=
   { <table reference> | <partitioned join table> }
@@ -2355,10 +2355,10 @@
 // <partitioned join column reference> ::=
 //   <column reference>
 
-<natural join> ::=
-  { <table reference> | <partitioned join table> }
-      NATURAL [ <join type> ] JOIN
-      { <table factor> | <partitioned join table> }
+// <natural join> ::=
+//   { <table reference> | <partitioned join table> }
+//       NATURAL [ <join type> ] JOIN
+//       { <table factor> | <partitioned join table> }
 
 <join specification> ::=
     <join condition>
@@ -2377,7 +2377,7 @@
 <outer join type> ::=
     LEFT
   | RIGHT
-  | FULL
+  // | FULL
 
 <join column list> ::=
   <column name list>
@@ -2409,13 +2409,13 @@
 
 <ordinary grouping set> ::=
     <grouping column reference>
-  | <left paren> <grouping column reference list> <right paren>
+  // | <left paren> <grouping column reference list> <right paren>
 
 <grouping column reference> ::=
   <column reference> [ <collate clause> ]
 
-<grouping column reference list> ::=
-  <grouping column reference> [ { <comma> <grouping column reference> }... ]
+// <grouping column reference list> ::=
+//   <grouping column reference> [ { <comma> <grouping column reference> }... ]
 
 // <rollup list> ::=
 //   ROLLUP <left paren> <ordinary grouping set list> <right paren>
@@ -2614,10 +2614,10 @@
 <simple table> ::=
     <query specification>
   | <table value constructor>
-  | <explicit table>
+  // | <explicit table>
 
-<explicit table> ::=
-  TABLE <table or query name>
+// <explicit table> ::=
+//   TABLE <table or query name>
 
 <corresponding spec> ::=
   CORRESPONDING [ BY <left paren> <corresponding column list> <right paren> ]
@@ -2722,7 +2722,7 @@
   | <exists predicate>
   | <unique predicate>
   // | <normalized predicate>
-  | <match predicate>
+  // | <match predicate>
   | <overlaps predicate>
   | <distinct predicate>
   // | <member predicate>
@@ -2955,11 +2955,11 @@
 
 // Specify a test for matching rows.
 
-<match predicate> ::=
-  <row value predicand> <match predicate part 2>
+// <match predicate> ::=
+//   <row value predicand> <match predicate part 2>
 
-<match predicate part 2> ::=
-  MATCH [ UNIQUE ] [ SIMPLE | PARTIAL | FULL ] <table subquery>
+// <match predicate part 2> ::=
+//   MATCH [ UNIQUE ] [ SIMPLE | PARTIAL | FULL ] <table subquery>
 
 // 8.14 <overlaps predicate>
 
@@ -5329,12 +5329,12 @@
 
 // Delete all rows of a base table without causing any triggered action.
 
-<truncate table statement> ::=
-  TRUNCATE TABLE <target table> [ <identity column restart option> ]
+// <truncate table statement> ::=
+//   TRUNCATE TABLE <target table> [ <identity column restart option> ]
 
-<identity column restart option> ::=
-    CONTINUE IDENTITY
-  | RESTART IDENTITY
+// <identity column restart option> ::=
+//     CONTINUE IDENTITY
+//   | RESTART IDENTITY
 
 // 14.11 <insert statement>
 
@@ -5375,52 +5375,52 @@
 
 // Conditionally update and/or delete rows of a table and/or insert new rows into a table.
 
-<merge statement> ::=
-  MERGE INTO <target table> [ [ AS ] <merge correlation name> ]
-      USING <table reference>
-      ON <search condition> <merge operation specification>
+// <merge statement> ::=
+//   MERGE INTO <target table> [ [ AS ] <merge correlation name> ]
+//       USING <table reference>
+//       ON <search condition> <merge operation specification>
 
-<merge correlation name> ::=
-  <correlation name>
+// <merge correlation name> ::=
+//   <correlation name>
 
-<merge operation specification> ::=
-  <merge when clause>...
+// <merge operation specification> ::=
+//   <merge when clause>...
 
-<merge when clause> ::=
-    <merge when matched clause>
-  | <merge when not matched clause>
+// <merge when clause> ::=
+//     <merge when matched clause>
+//   | <merge when not matched clause>
 
-<merge when matched clause> ::=
-  WHEN MATCHED [ AND <search condition> ]
-      THEN <merge update or delete specification>
+// <merge when matched clause> ::=
+//   WHEN MATCHED [ AND <search condition> ]
+//       THEN <merge update or delete specification>
 
-<merge update or delete specification> ::=
-    <merge update specification>
-  | <merge delete specification>
+// <merge update or delete specification> ::=
+//     <merge update specification>
+//   | <merge delete specification>
 
-<merge when not matched clause> ::=
-  WHEN NOT MATCHED [ AND <search condition> ]
-      THEN <merge insert specification>
+// <merge when not matched clause> ::=
+//   WHEN NOT MATCHED [ AND <search condition> ]
+//       THEN <merge insert specification>
 
-<merge update specification> ::=
-  UPDATE SET <set clause list>
+// <merge update specification> ::=
+//   UPDATE SET <set clause list>
 
-<merge delete specification> ::=
-  DELETE
+// <merge delete specification> ::=
+//   DELETE
 
-<merge insert specification> ::=
-  INSERT [ <left paren> <insert column list> <right paren> ]
-      [ <override clause> ]
-      VALUES <merge insert value list>
+// <merge insert specification> ::=
+//   INSERT [ <left paren> <insert column list> <right paren> ]
+//       [ <override clause> ]
+//       VALUES <merge insert value list>
 
-<merge insert value list> ::=
-  <left paren>
-      <merge insert value element> [ { <comma> <merge insert value element> }... ]
-      <right paren>
+// <merge insert value list> ::=
+//   <left paren>
+//       <merge insert value element> [ { <comma> <merge insert value element> }... ]
+//       <right paren>
 
-<merge insert value element> ::=
-    <value expression>
-  | <contextually typed value specification>
+// <merge insert value element> ::=
+//     <value expression>
+//   | <contextually typed value specification>
 
 // // 14.13 <update statement: positioned>
 
@@ -6970,8 +6970,8 @@
   | <direct select statement: multiple rows>
   | <insert statement>
   | <update statement: searched>
-  | <truncate table statement>
-  | <merge statement>
+  // | <truncate table statement>
+  // | <merge statement>
   // | <temporary table declaration>
 
 // <direct implementation-defined statement> ::=

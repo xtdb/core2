@@ -83,7 +83,6 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*' | #'!!.*?\\n')+")))
     / derived_table correlation_or_recognition
     / lateral_derived_table correlation_or_recognition
     / collection_derived_table correlation_or_recognition
-    / table_function_derived_table correlation_or_recognition
     / parenthesized_joined_table"
     ;; adds check for reserved words
     as_clause
@@ -122,9 +121,10 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*' | #'!!.*?\\n')+")))
     ;; removes <partitioned join table>
     qualified_join
     "table_reference [ join_type ] 'JOIN' table_reference join_specification"
-    ;; removes <partitioned join table>
-    natural_join
-    "table_reference 'NATURAL' [ join_type ] 'JOIN' table_factor"
+    ;; removes <order by clause>, <result offset clause, and <fetch first clause>
+    query_primary
+    "simple_table
+    / <left_paren> query_expression_body <right_paren>"
     ;; inlines <cursor specification> and removes <updatability clause>
     direct_select_statement__multiple_rows
     "query_expression"})
@@ -163,7 +163,7 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*' | #'!!.*?\\n')+")))
   "(* SQL:2016 7.6 <table reference> *)
 
 <correlation_or_recognition>
-    : ( ( 'AS' correlation_name ) | !( 'ON' / 'JOIN' / 'INNER' / 'CROSS' / 'FULL' / 'LEFT' / 'RIGHT' / 'NATURAL' / 'USING' / 'OUTER' ) correlation_name ) [ <left_paren> derived_column_list <right_paren> ]
+    : ( ( 'AS' correlation_name ) | !( 'ON' / 'JOIN' / 'INNER' / 'CROSS' / 'LEFT' / 'RIGHT' / 'USING' / 'OUTER' ) correlation_name ) [ <left_paren> derived_column_list <right_paren> ]
 
 (* SQL:2016 6.30 <numeric value function> *)
 

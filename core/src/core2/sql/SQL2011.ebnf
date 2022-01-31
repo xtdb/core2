@@ -693,7 +693,6 @@ when_operand_list
     / regex_like_predicate_part_2
     / null_predicate_part_2
     / quantified_comparison_predicate_part_2
-    / match_predicate_part_2
     / overlaps_predicate_part_2
     / distinct_predicate_part_2
     ;
@@ -1424,7 +1423,6 @@ table_primary
     / derived_table correlation_or_recognition
     / lateral_derived_table correlation_or_recognition
     / collection_derived_table correlation_or_recognition
-    / table_function_derived_table correlation_or_recognition
     / parenthesized_joined_table
     ;
 
@@ -1454,10 +1452,6 @@ collection_derived_table
     : 'UNNEST' <left_paren> collection_value_expression [ ( <comma> collection_value_expression )+ ] <right_paren> [ 'WITH' 'ORDINALITY' ]
     ;
 
-table_function_derived_table
-    : 'TABLE' <left_paren> collection_value_expression <right_paren>
-    ;
-
 <derived_table>
     : table_subquery
     ;
@@ -1483,21 +1477,11 @@ parenthesized_joined_table
 (*  7.7     <joined table> *)
 
 <joined_table>
-    : cross_join
-    / qualified_join
-    / natural_join
-    ;
-
-cross_join
-    : table_reference 'CROSS' 'JOIN' table_factor
+    : qualified_join
     ;
 
 qualified_join
     : table_reference [ join_type ] 'JOIN' table_reference join_specification
-    ;
-
-natural_join
-    : table_reference 'NATURAL' [ join_type ] 'JOIN' table_factor
     ;
 
 <join_specification>
@@ -1521,7 +1505,6 @@ join_type
 outer_join_type
     : 'LEFT'
     / 'RIGHT'
-    / 'FULL'
     ;
 
 <join_column_list>
@@ -1549,17 +1532,12 @@ grouping_element_list
     / empty_grouping_set
     ;
 
-ordinary_grouping_set
+<ordinary_grouping_set>
     : grouping_column_reference
-    / <left_paren> grouping_column_reference_list <right_paren>
     ;
 
 <grouping_column_reference>
     : column_reference
-    ;
-
-grouping_column_reference_list
-    : grouping_column_reference [ ( <comma> grouping_column_reference )+ ]
     ;
 
 empty_grouping_set
@@ -1652,17 +1630,12 @@ query_term
 
 query_primary
     : simple_table
-    / <left_paren> query_expression_body [ order_by_clause ] [ result_offset_clause ] [ fetch_first_clause ] <right_paren>
+    / <left_paren> query_expression_body <right_paren>
     ;
 
 <simple_table>
     : query_specification
     / table_value_constructor
-    / explicit_table
-    ;
-
-explicit_table
-    : 'TABLE' table_or_query_name
     ;
 
 corresponding_spec
@@ -1729,7 +1702,6 @@ subquery
     / quantified_comparison_predicate
     / exists_predicate
     / unique_predicate
-    / match_predicate
     / overlaps_predicate
     / distinct_predicate
     / period_predicate
@@ -1879,14 +1851,6 @@ unique_predicate
     ;
 
 (*  8.13 <match predicate> *)
-
-match_predicate
-    : row_value_predicand match_predicate_part_2
-    ;
-
-match_predicate_part_2
-    : 'MATCH' [ 'UNIQUE' ] [ 'SIMPLE' / 'PARTIAL' / 'FULL' ] table_subquery
-    ;
 
 (*  8.14 <overlaps predicate> *)
 
@@ -2165,15 +2129,6 @@ delete_statement__searched
 
 (*  14.10 <truncate table statement> *)
 
-truncate_table_statement
-    : 'TRUNCATE' 'TABLE' target_table [ identity_column_restart_option ]
-    ;
-
-identity_column_restart_option
-    : 'CONTINUE' 'IDENTITY'
-    / 'RESTART' 'IDENTITY'
-    ;
-
 (*  14.11 <insert statement> *)
 
 insert_statement
@@ -2212,57 +2167,6 @@ from_default
     ;
 
 (*  14.12 <merge statement> *)
-
-merge_statement
-    : 'MERGE' 'INTO' target_table [ [ 'AS' ] merge_correlation_name ] 'USING' table_reference 'ON' search_condition merge_operation_specification
-    ;
-
-<merge_correlation_name>
-    : correlation_name
-    ;
-
-merge_operation_specification
-    : merge_when_clause+
-    ;
-
-<merge_when_clause>
-    : merge_when_matched_clause
-    / merge_when_not_matched_clause
-    ;
-
-merge_when_matched_clause
-    : 'WHEN' 'MATCHED' [ 'AND' search_condition ] 'THEN' merge_update_or_delete_specification
-    ;
-
-<merge_update_or_delete_specification>
-    : merge_update_specification
-    / merge_delete_specification
-    ;
-
-merge_when_not_matched_clause
-    : 'WHEN' 'NOT' 'MATCHED' [ 'AND' search_condition ] 'THEN' merge_insert_specification
-    ;
-
-merge_update_specification
-    : 'UPDATE' 'SET' set_clause_list
-    ;
-
-merge_delete_specification
-    : 'DELETE'
-    ;
-
-merge_insert_specification
-    : 'INSERT' [ <left_paren> insert_column_list <right_paren> ] [ override_clause ] 'VALUES' merge_insert_value_list
-    ;
-
-merge_insert_value_list
-    : <left_paren> merge_insert_value_element [ ( <comma> merge_insert_value_element )+ ] <right_paren>
-    ;
-
-<merge_insert_value_element>
-    : value_expression
-    / contextually_typed_value_specification
-    ;
 
 (*  14.14 <update statement: searched> *)
 
@@ -2328,8 +2232,6 @@ directly_executable_statement
     / direct_select_statement__multiple_rows
     / insert_statement
     / update_statement__searched
-    / truncate_table_statement
-    / merge_statement
     ;
 
 (*  22.2 <direct select statement: multiple rows> *)
@@ -2341,7 +2243,7 @@ directly_executable_statement
 (* SQL:2016 7.6 <table reference> *)
 
 <correlation_or_recognition>
-    : ( ( 'AS' correlation_name ) | !( 'ON' / 'JOIN' / 'INNER' / 'CROSS' / 'FULL' / 'LEFT' / 'RIGHT' / 'NATURAL' / 'USING' / 'OUTER' ) correlation_name ) [ <left_paren> derived_column_list <right_paren> ]
+    : ( ( 'AS' correlation_name ) | !( 'ON' / 'JOIN' / 'INNER' / 'CROSS' / 'LEFT' / 'RIGHT' / 'USING' / 'OUTER' ) correlation_name ) [ <left_paren> derived_column_list <right_paren> ]
 
 (* SQL:2016 6.30 <numeric value function> *)
 

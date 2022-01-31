@@ -84,6 +84,9 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*' | #'!!.*?\\n')+")))
     / lateral_derived_table correlation_or_recognition
     / collection_derived_table correlation_or_recognition
     / parenthesized_joined_table"
+    ;; removes support for more than one <collection value expression>.
+    collection_derived_table
+    "'UNNEST' <left_paren> collection_value_expression <right_paren> [ 'WITH' 'ORDINALITY' ]"
     ;; adds check for reserved words
     as_clause
     "( 'AS' column_name ) | !( 'YEAR' / 'MONTH' / 'DAY' / 'HOUR' / 'MINUTE' / 'SECOND' ) column_name"

@@ -1449,7 +1449,7 @@ lateral_derived_table
     ;
 
 collection_derived_table
-    : 'UNNEST' <left_paren> collection_value_expression [ ( <comma> collection_value_expression )+ ] <right_paren> [ 'WITH' 'ORDINALITY' ]
+    : 'UNNEST' <left_paren> collection_value_expression <right_paren> [ 'WITH' 'ORDINALITY' ]
     ;
 
 <derived_table>

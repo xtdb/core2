@@ -154,7 +154,10 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*' | #'!!.*?\\n')+")))
      numeric_value_function
      predefined_type
      character_factor
+     parenthesized_value_expression
+     parenthesized_boolean_value_expression
      table_factor
+     parenthesized_joined_table
      grouping_column_reference
      direct_select_statement__multiple_rows})
 

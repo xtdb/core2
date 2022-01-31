@@ -546,7 +546,7 @@ field_definition
     / nonparenthesized_value_expression_primary
     ;
 
-parenthesized_value_expression
+<parenthesized_value_expression>
     : <left_paren> value_expression <right_paren>
     ;
 
@@ -1240,7 +1240,7 @@ truth_value
     / nonparenthesized_value_expression_primary
     ;
 
-parenthesized_boolean_value_expression
+<parenthesized_boolean_value_expression>
     : <left_paren> boolean_value_expression <right_paren>
     ;
 
@@ -1469,7 +1469,7 @@ column_name_list
     : column_name [ ( <comma> column_name )+ ]
     ;
 
-parenthesized_joined_table
+<parenthesized_joined_table>
     : <left_paren> parenthesized_joined_table <right_paren>
     / <left_paren> joined_table <right_paren>
     ;

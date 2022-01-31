@@ -170,7 +170,7 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*' | #'!!.*?\\n')+")))
   "(* SQL:2016 7.6 <table reference> *)
 
 <correlation_or_recognition>
-    : ( ( 'AS' correlation_name ) | !( 'ON' / 'JOIN' / 'INNER' / 'CROSS' / 'LEFT' / 'RIGHT' / 'USING' / 'OUTER' ) correlation_name ) [ <left_paren> derived_column_list <right_paren> ]
+    : ( ( 'AS' correlation_name ) | !( 'ON' / 'JOIN' / 'INNER' / 'LEFT' / 'RIGHT' / 'USING' / 'OUTER' ) correlation_name ) [ <left_paren> derived_column_list <right_paren> ]
 
 (* SQL:2016 6.30 <numeric value function> *)
 

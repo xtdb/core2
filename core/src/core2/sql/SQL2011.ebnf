@@ -1319,7 +1319,7 @@ row_value_constructor_element_list
     : row_value_constructor_element [ ( <comma> row_value_constructor_element )+ ]
     ;
 
-<row_value_constructor_element>
+row_value_constructor_element
     : value_expression
     ;
 
@@ -1672,15 +1672,15 @@ fetch_first_clause
 
 (*  7.15 <subquery> *)
 
-scalar_subquery
+<scalar_subquery>
     : subquery
     ;
 
-row_subquery
+<row_subquery>
     : subquery
     ;
 
-table_subquery
+<table_subquery>
     : subquery
     ;
 

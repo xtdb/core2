@@ -694,7 +694,6 @@ when_operand_list
     / null_predicate_part_2
     / quantified_comparison_predicate_part_2
     / overlaps_predicate_part_2
-    / distinct_predicate_part_2
     ;
 
 result
@@ -1701,9 +1700,7 @@ subquery
     / null_predicate
     / quantified_comparison_predicate
     / exists_predicate
-    / unique_predicate
     / overlaps_predicate
-    / distinct_predicate
     / period_predicate
     ;
 
@@ -1846,10 +1843,6 @@ exists_predicate
 
 (*  8.11 <unique predicate> *)
 
-unique_predicate
-    : 'UNIQUE' table_subquery
-    ;
-
 (*  8.13 <match predicate> *)
 
 (*  8.14 <overlaps predicate> *)
@@ -1875,22 +1868,6 @@ overlaps_predicate_part_2
     ;
 
 (*  8.15 <distinct predicate> *)
-
-distinct_predicate
-    : row_value_predicand_3 distinct_predicate_part_2
-    ;
-
-distinct_predicate_part_2
-    : 'IS' [ 'NOT' ] 'DISTINCT' 'FROM' row_value_predicand_4
-    ;
-
-<row_value_predicand_3>
-    : row_value_predicand
-    ;
-
-<row_value_predicand_4>
-    : row_value_predicand
-    ;
 
 (*  8.20 <period predicate> *)
 

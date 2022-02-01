@@ -1349,7 +1349,7 @@
   // | <normalized predicate part 2>
   // | <match predicate part 2>
   | <overlaps predicate part 2>
-  | <distinct predicate part 2>
+  // | <distinct predicate part 2>
   // | <member predicate part 2>
   // | <submultiset predicate part 2>
   // | <set predicate part 2>
@@ -2720,11 +2720,11 @@
   | <null predicate>
   | <quantified comparison predicate>
   | <exists predicate>
-  | <unique predicate>
+  // | <unique predicate>
   // | <normalized predicate>
   // | <match predicate>
   | <overlaps predicate>
-  | <distinct predicate>
+  // | <distinct predicate>
   // | <member predicate>
   // | <submultiset predicate>
   // | <set predicate>
@@ -2938,8 +2938,8 @@
 
 // Specify a test for the absence of duplicate rows.
 
-<unique predicate> ::=
-  UNIQUE <table subquery>
+// <unique predicate> ::=
+//   UNIQUE <table subquery>
 
 // // 8.12 <normalized predicate>
 
@@ -2984,17 +2984,17 @@
 
 // Specify a test of whether two row values are distinct
 
-<distinct predicate> ::=
-  <row value predicand 3> <distinct predicate part 2>
+// <distinct predicate> ::=
+//   <row value predicand 3> <distinct predicate part 2>
 
-<distinct predicate part 2> ::=
-  IS [ NOT ] DISTINCT FROM <row value predicand 4>
+// <distinct predicate part 2> ::=
+//   IS [ NOT ] DISTINCT FROM <row value predicand 4>
 
-<row value predicand 3> ::=
-  <row value predicand>
+// <row value predicand 3> ::=
+//   <row value predicand>
 
-<row value predicand 4> ::=
-  <row value predicand>
+// <row value predicand 4> ::=
+//   <row value predicand>
 
 // // 8.16 <member predicate>
 

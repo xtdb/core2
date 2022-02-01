@@ -1567,7 +1567,6 @@ select_list
 
 qualified_asterisk
     : asterisked_identifier_chain <period> asterisk
-    / all_fields_reference
     ;
 
 asterisked_identifier_chain
@@ -1584,14 +1583,6 @@ derived_column
 
 as_clause
     : ( 'AS' column_name ) | !( 'YEAR' / 'MONTH' / 'DAY' / 'HOUR' / 'MINUTE' / 'SECOND' ) column_name
-    ;
-
-all_fields_reference
-    : value_expression_primary <period> asterisk [ 'AS' <left_paren> all_fields_column_name_list <right_paren> ]
-    ;
-
-<all_fields_column_name_list>
-    : column_name_list
     ;
 
 (*  7.13 <query expression> *)

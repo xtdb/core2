@@ -2551,7 +2551,7 @@
 
 <qualified asterisk> ::=
     <asterisked identifier chain> <period> <asterisk>
-  | <all fields reference>
+  // | <all fields reference>
 
 <asterisked identifier chain> ::=
   <asterisked identifier> [ { <period> <asterisked identifier> }... ]
@@ -2565,12 +2565,12 @@
 <as clause> ::=
   [ AS ] <column name>
 
-<all fields reference> ::=
-  <value expression primary> <period> <asterisk>
-      [ AS <left paren> <all fields column name list> <right paren> ]
+// <all fields reference> ::=
+//   <value expression primary> <period> <asterisk>
+//       [ AS <left paren> <all fields column name list> <right paren> ]
 
-<all fields column name list> ::=
-  <column name list>
+// <all fields column name list> ::=
+//   <column name list>
 
 // 7.13 <query expression>
 

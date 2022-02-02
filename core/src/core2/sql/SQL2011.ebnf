@@ -1609,13 +1609,13 @@ with_list_element
 
 query_expression_body
     : query_term
-    / query_expression_body 'UNION' [ 'ALL' / 'DISTINCT' ] [ corresponding_spec ] query_term
-    / query_expression_body 'EXCEPT' [ 'ALL' / 'DISTINCT' ] [ corresponding_spec ] query_term
+    / query_expression_body 'UNION' [ 'ALL' / 'DISTINCT' ] query_term
+    / query_expression_body 'EXCEPT' [ 'ALL' / 'DISTINCT' ] query_term
     ;
 
 query_term
     : query_primary
-    / query_term 'INTERSECT' [ 'ALL' / 'DISTINCT' ] [ corresponding_spec ] query_primary
+    / query_term 'INTERSECT' [ 'ALL' / 'DISTINCT' ] query_primary
     ;
 
 query_primary
@@ -1626,14 +1626,6 @@ query_primary
 <simple_table>
     : query_specification
     / table_value_constructor
-    ;
-
-corresponding_spec
-    : 'CORRESPONDING' [ 'BY' <left_paren> corresponding_column_list <right_paren> ]
-    ;
-
-<corresponding_column_list>
-    : column_name_list
     ;
 
 order_by_clause

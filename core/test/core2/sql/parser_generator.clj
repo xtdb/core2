@@ -124,6 +124,15 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*' | #'!!.*?\\n')+")))
     ;; removes <partitioned join table>
     qualified_join
     "table_reference [ join_type ] 'JOIN' table_reference join_specification"
+    ;; removes <corresponding spec>
+    query_expression_body
+    "query_term
+    / query_expression_body 'UNION' [ 'ALL' / 'DISTINCT' ] query_term
+    / query_expression_body 'EXCEPT' [ 'ALL' / 'DISTINCT' ] query_term"
+    ;; removes <corresponding spec>
+    query_term
+    "query_primary
+    / query_term 'INTERSECT' [ 'ALL' / 'DISTINCT' ] query_primary"
     ;; removes <order by clause>, <result offset clause, and <fetch first clause>
     query_primary
     "simple_table

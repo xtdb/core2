@@ -2619,11 +2619,11 @@
 // <explicit table> ::=
 //   TABLE <table or query name>
 
-<corresponding spec> ::=
-  CORRESPONDING [ BY <left paren> <corresponding column list> <right paren> ]
+// <corresponding spec> ::=
+//   CORRESPONDING [ BY <left paren> <corresponding column list> <right paren> ]
 
-<corresponding column list> ::=
-  <column name list>
+// <corresponding column list> ::=
+//   <column name list>
 
 <order by clause> ::=
   ORDER BY <sort specification list>

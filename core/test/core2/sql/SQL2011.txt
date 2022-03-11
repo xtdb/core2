@@ -2377,7 +2377,7 @@
 <outer join type> ::=
     LEFT
   | RIGHT
-  // | FULL
+  | FULL
 
 <join column list> ::=
   <column name list>

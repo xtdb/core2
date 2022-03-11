@@ -1504,6 +1504,7 @@ join_type
 outer_join_type
     : 'LEFT'
     / 'RIGHT'
+    / 'FULL'
     ;
 
 <join_column_list>

@@ -47,6 +47,8 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*' | #'!!.*?\\n')+")))
     ;; replaces <local or schema qualified name>
     table_name
     "identifier"
+    exact_numeric_literal
+    "#'(\\d*\\.\\d+|\\d+\\.\\d*|\\d+)'"
     unsigned_integer
     "#'[0-9]+'"
     large_object_length_token

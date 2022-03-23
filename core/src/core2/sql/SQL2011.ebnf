@@ -193,8 +193,7 @@ signed_numeric_literal
     ;
 
 exact_numeric_literal
-    : unsigned_integer [ <period> [ unsigned_integer ] ]
-    / <period> unsigned_integer
+    : #'(\d*\.\d+|\d+\.\d*|\d+)'
     ;
 
 <sign>

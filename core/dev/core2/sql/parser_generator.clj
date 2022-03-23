@@ -41,7 +41,7 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*' | #'!!.*?\\n')+")))
     <right_brace> "'}'"
     ;; adds check for reserved words, these should really be allowed after 'AS'
     regular_identifier
-    "!( ( 'WITH' / 'SELECT' / 'FROM' / 'WHERE' / 'GROUP' / 'HAVING' / 'ORDER' / 'OFFSET' / 'FETCH' / 'UNION' / 'EXCEPT' / 'INTERSECT' ) #'(\\s+|$)' ) #'[a-zA-Z][a-zA-Z0-9_]*'"
+    "!'NULL' !( ( 'WITH' / 'SELECT' / 'FROM' / 'WHERE' / 'GROUP' / 'HAVING' / 'ORDER' / 'OFFSET' / 'FETCH' / 'UNION' / 'EXCEPT' / 'INTERSECT' ) #'(\\s+|$)' ) #'[a-zA-Z][a-zA-Z0-9_]*'"
     delimited_identifier
     "#'\"(\"\"|[^\"])+\"'"
     ;; replaces <local or schema qualified name>
@@ -175,6 +175,7 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*' | #'!!.*?\\n')+")))
 (def ^:private keep-non-terminal-overrides
   '#{column_reference
      row_value_constructor_element
+     contextually_typed_row_value_constructor_element
      directly_executable_statement})
 
 (def sql2016-numeric-value-function

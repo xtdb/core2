@@ -116,7 +116,7 @@ vertical_bar
 (*  5.2     <token> and <separator> *)
 
 regular_identifier
-    : !( ( 'WITH' / 'SELECT' / 'FROM' / 'WHERE' / 'GROUP' / 'HAVING' / 'ORDER' / 'OFFSET' / 'FETCH' / 'UNION' / 'EXCEPT' / 'INTERSECT' ) #'(\s+|$)' ) #'[a-zA-Z][a-zA-Z0-9_]*'
+    : !'NULL' !( ( 'WITH' / 'SELECT' / 'FROM' / 'WHERE' / 'GROUP' / 'HAVING' / 'ORDER' / 'OFFSET' / 'FETCH' / 'UNION' / 'EXCEPT' / 'INTERSECT' ) #'(\s+|$)' ) #'[a-zA-Z][a-zA-Z0-9_]*'
     ;
 
 large_object_length_token
@@ -1334,7 +1334,7 @@ contextually_typed_row_value_constructor_element_list
     : contextually_typed_row_value_constructor_element [ ( <comma> contextually_typed_row_value_constructor_element )+ ]
     ;
 
-<contextually_typed_row_value_constructor_element>
+contextually_typed_row_value_constructor_element
     : value_expression
     / contextually_typed_value_specification
     ;

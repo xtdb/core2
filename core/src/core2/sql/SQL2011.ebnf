@@ -116,7 +116,7 @@ vertical_bar
 (*  5.2     <token> and <separator> *)
 
 regular_identifier
-    : !'NULL' !( ( 'WITH' / 'SELECT' / 'FROM' / 'WHERE' / 'GROUP' / 'HAVING' / 'ORDER' / 'OFFSET' / 'FETCH' / 'UNION' / 'EXCEPT' / 'INTERSECT' ) #'(\s+|$)' ) #'[a-zA-Z][a-zA-Z0-9_]*'
+    : !#'(?i)(\b(NULL|WITH|SELECT|FROM|WHERE|GROUP|HAVING|ORDER|OFFSET|FETCH|UNION|EXCEPT|INTERSECT)\b)' #'[a-zA-Z][a-zA-Z0-9_]*'
     ;
 
 large_object_length_token
@@ -1582,7 +1582,7 @@ derived_column
     ;
 
 as_clause
-    : ( 'AS' column_name ) | !( ( 'YEAR' / 'MONTH' / 'DAY' / 'HOUR' / 'MINUTE' / 'SECOND' ) #'(\s+|$)' ) column_name
+    : ( 'AS' column_name ) | !#'(?i)(\b(YEAR|MONTH|DAY|HOUR|MINUTE|SECOND)\b)' column_name
     ;
 
 (*  7.13 <query expression> *)
@@ -2203,7 +2203,7 @@ directly_executable_statement
 (* SQL:2016 7.6 <table reference> *)
 
 <correlation_or_recognition>
-    : ( ( 'AS' correlation_name ) | !( ( 'ON' / 'JOIN' / 'INNER' / 'LEFT' / 'RIGHT' / 'USING' / 'OUTER' ) #'(\s+|$)' ) correlation_name ) [ <left_paren> derived_column_list <right_paren> ]
+    : ( ( 'AS' correlation_name ) | !#'(?i)(\b(ON|JOIN|INNER|LEFT|RIGHT|USING|OUTER)\b)' correlation_name ) [ <left_paren> derived_column_list <right_paren> ]
 
 (* SQL:2016 6.30 <numeric value function> *)
 

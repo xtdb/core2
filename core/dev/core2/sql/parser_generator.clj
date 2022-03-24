@@ -41,7 +41,7 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*' | #'!!.*?\\n')+")))
     <right_brace> "'}'"
     ;; adds check for reserved words, these should really be allowed after 'AS'
     regular_identifier
-    "!'NULL' !( ( 'WITH' / 'SELECT' / 'FROM' / 'WHERE' / 'GROUP' / 'HAVING' / 'ORDER' / 'OFFSET' / 'FETCH' / 'UNION' / 'EXCEPT' / 'INTERSECT' ) #'(\\s+|$)' ) #'[a-zA-Z][a-zA-Z0-9_]*'"
+    "!#'(?i)(\\b(NULL|WITH|SELECT|FROM|WHERE|GROUP|HAVING|ORDER|OFFSET|FETCH|UNION|EXCEPT|INTERSECT)\\b)' #'[a-zA-Z][a-zA-Z0-9_]*'"
     delimited_identifier
     "#'\"(\"\"|[^\"])+\"'"
     ;; replaces <local or schema qualified name>
@@ -91,7 +91,7 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*' | #'!!.*?\\n')+")))
     "'UNNEST' <left_paren> collection_value_expression <right_paren> [ 'WITH' 'ORDINALITY' ]"
     ;; adds check for reserved words
     as_clause
-    "( 'AS' column_name ) | !( ( 'YEAR' / 'MONTH' / 'DAY' / 'HOUR' / 'MINUTE' / 'SECOND' ) #'(\\s+|$)' ) column_name"
+    "( 'AS' column_name ) | !#'(?i)(\\b(YEAR|MONTH|DAY|HOUR|MINUTE|SECOND)\\b)' column_name"
     ;; removes <search or cycle clause>
     with_list_element
     "query_name [ <left_paren> with_column_list <right_paren> ] 'AS' table_subquery"
@@ -182,7 +182,7 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*' | #'!!.*?\\n')+")))
   "(* SQL:2016 7.6 <table reference> *)
 
 <correlation_or_recognition>
-    : ( ( 'AS' correlation_name ) | !( ( 'ON' / 'JOIN' / 'INNER' / 'LEFT' / 'RIGHT' / 'USING' / 'OUTER' ) #'(\\s+|$)' ) correlation_name ) [ <left_paren> derived_column_list <right_paren> ]
+    : ( ( 'AS' correlation_name ) | !#'(?i)(\\b(ON|JOIN|INNER|LEFT|RIGHT|USING|OUTER)\\b)' correlation_name ) [ <left_paren> derived_column_list <right_paren> ]
 
 (* SQL:2016 6.30 <numeric value function> *)
 

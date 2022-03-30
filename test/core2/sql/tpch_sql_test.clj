@@ -753,16 +753,12 @@
             (= x3 x13)
             [:select
              (= x25 x6)
-             [:apply
-              :anti-join
-              {x5 ?x34}
-              #{}
+             [:semi-join
+              {x5 x26}
               [:select
                (= x16 x6)
-               [:apply
-                :semi-join
-                {x5 ?x23}
-                #{}
+               [:anti-join
+                {x5 x17}
                 [:cross-join
                  [:join
                   {x6 x10}
@@ -778,10 +774,10 @@
                  [:rename {n_nationkey x13, n_name x14}
                   [:scan [n_nationkey {n_name (= n_name "SAUDI ARABIA")}]]]]
                 [:rename {l_orderkey x16, l_suppkey x17}
-                 [:scan [l_orderkey {l_suppkey (<> l_suppkey ?x23)}]]]]] ;;TODO This shouldn't be here
+                 [:scan [l_orderkey l_suppkey]]]]]
               [:rename {l_orderkey x25, l_suppkey x26, l_receiptdate x27, l_commitdate x28}
                [:select (> l_receiptdate l_commitdate)
-                [:scan [l_orderkey {l_suppkey (<> l_suppkey ?x34)} l_receiptdate l_commitdate]]]]]]]]]]]]
+                [:scan [l_orderkey l_suppkey l_receiptdate l_commitdate]]]]]]]]]]]]
      (pt/plan-sql (slurp-tpch-query 21)))))
 
 (t/deftest test-q22-global-sales-opportunity

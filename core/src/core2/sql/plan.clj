@@ -1109,6 +1109,13 @@
 
     false))
 
+(defn- not-equal-predicate? [predicate]
+  (r/zmatch predicate
+    [:<> x y]
+    true
+
+    false))
+
 (defn- build-join-map [predicate lhs rhs]
   (when (equals-predicate? predicate)
     (let [[_ x y] predicate
@@ -1487,7 +1494,8 @@
     ;;=>
     (when (and (or (= :cross-join mode)
                    (equals-predicate? predicate)
-                   (all-predicate? predicate))
+                   (all-predicate? predicate)
+                   (not-equal-predicate? predicate))
                (seq (expr-correlated-symbols predicate))) ;; select predicate is correlated
       [:select (w/postwalk-replace (set/map-invert columns) (if (all-predicate? predicate)
                                                               (second predicate)
@@ -1618,14 +1626,20 @@
     [:select predicate
      [:apply :semi-join {} _ independent-relation dependent-relation]]
     ;;=>
-    (when-let [join-map (build-join-map predicate independent-relation dependent-relation)]
-      [:semi-join join-map independent-relation dependent-relation])
+    (if (not-equal-predicate? predicate)
+      (when-let [join-map (build-join-map (conj (rest predicate) '=) independent-relation dependent-relation)]
+        [:anti-join join-map independent-relation dependent-relation])
+      (when-let [join-map (build-join-map predicate independent-relation dependent-relation)]
+        [:semi-join join-map independent-relation dependent-relation]))
 
     [:select predicate
      [:apply :anti-join {} _ independent-relation dependent-relation]]
     ;;=>
-    (when-let [join-map (build-join-map predicate independent-relation dependent-relation)]
-      [:anti-join join-map independent-relation dependent-relation])
+    (if (not-equal-predicate? predicate)
+      (when-let [join-map (build-join-map (conj (rest predicate) '=) independent-relation dependent-relation)]
+        [:semi-join join-map independent-relation dependent-relation])
+      (when-let [join-map (build-join-map predicate independent-relation dependent-relation)]
+        [:anti-join join-map independent-relation dependent-relation]))
 
     [:select predicate
      [:apply :left-outer-join {} _ independent-relation dependent-relation]]

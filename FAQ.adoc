@@ -15,6 +15,13 @@ No. Core2 is not a database (yet).
 It is a series of experiments we are using to design and build the features we hope to include in XTDB 2.x.
 Unless you are curious about those experiments, you should probably just ignore the Core2 repository entirely.
 
+== Is "Core 2" the same as XTDB 2.x?
+
+No. Core2 is a series of experiments.
+Many of these experiments will find their way into XTDB 2.x -- but only once they have proven themselves.
+Core2 exists today for experimentation and development.
+XTDB 2.x is the future vision of the XTDB team.
+
 == When will XTDB 2.x be ready?
 
 We don't know.

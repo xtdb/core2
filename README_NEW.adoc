@@ -27,8 +27,8 @@ Those pillars -- and the XTDB 2.x vision for those pillars -- are documented in 
 
 == FAQ
 
-Please read the FAQ.adoc[Frequently-Asked Questions] to see if we have already answered a question you have.
+Please read the https://github.com/xtdb/core2/blob/readme_new/FAQ.adoc[Frequently Asked Questions] to see if we have already answered a question you have.
 
 == Developers
 
-See HACKING.adoc[HACKING].
+See https://github.com/xtdb/core2/blob/readme_new/HACKING.adoc[HACKING].

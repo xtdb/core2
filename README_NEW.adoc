@@ -19,6 +19,12 @@ Some may be used verbatim, as they appear in this repository.
 Some may be used in parts.
 Some may be limited to providing inspiration.
 
+== XTDB 2.x Vision
+
+XTDB 2.x isn't a repository.
+It is an extension of the pillars which make XTDB appealing to so many people.
+Those pillars -- and the XTDB 2.x vision for those pillars -- are documented in the https://xtdb.com/vision-doc.pdf[Vision Document] (PDF).
+
 == FAQ
 
 Please read the FAQ.adoc[Frequently-Asked Questions] to see if we have already answered a question you have.

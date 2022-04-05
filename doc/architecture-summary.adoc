@@ -36,7 +36,7 @@ Two main extension points:
 * Single log feeding transactions (but not tied to this usage).
 * Shared object store for persistence.
 
-== Problems with Classic
+== Problems with XTDB 1.x
 
 * All storage on every node.
 * Infinite retention on the log.
@@ -48,16 +48,16 @@ Two main extension points:
 * Overly flexible data model.
 
 === End scenarios:
-* Core2 as a viable alternative to Classic
+* Core2 as a viable alternative to XTDB 1.x
   Spectrum:
-  * A: Drop-in replacement for Classic.
-  * B: Essentially Classic but with Arrow.
-  * C: Classic re-thought.
-* Core2 canned, knowledge pulled into Classic.
+  * A: Drop-in replacement for XTDB 1.x.
+  * B: Essentially XTDB 1.x but with Arrow.
+  * C: XTDB 1.x re-thought.
+* Core2 canned, knowledge pulled into XTDB 1.x.
 
 === Things to consider:
 * User migration?
-* Maintaining Classic.
+* Maintaining XTDB 1.x.
 * Pulling existing users over vs attracting new users.
 
 == Risks to Core2:
@@ -72,11 +72,11 @@ Two main extension points:
 * Something becomes infeasible to represent in Arrow.
 * Duplication of ingest work becomes prohibitively expensive.
 * Expensive to run in cloud.
-* Stuck trying to replicateq Classic.
+* Stuck trying to replicateq XTDB 1.x.
 
 === Non-technical risks:
 * Resourcing - scaling team and remaining productive.
 * External buy-in and understanding, getting people back on board.
 * External expectation of drop-in replacement.
-* Classic vs Core2 time/focus.
-* Keeping the Classic flame alive while we're working on Core2.
+* XTDB 1.x vs Core2 time/focus.
+* Keeping the XTDB 1.x flame alive while we're working on Core2.

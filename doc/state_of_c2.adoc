@@ -119,11 +119,11 @@ See also: Testing, Core: Expression compiler.
 Datalog support can be seen as a spectrum:
 
 * SQL semantics with Datalog syntax.
-* Classic semantics.
+* XTDB 1.x semantics.
 
-Maybe obviously, the closer we move to classic semantics, the more
+Maybe obviously, the closer we move to XTDB 1.x semantics, the more
 work there will be, and the closer to stay to SQL semantics, the
-larger the difference to Classic it will have.
+larger the difference to XTDB 1.x it will have.
 
 The handicap here when it comes to build it, ignoring at the product
 and strategy level in this context, can be broken down into a few
@@ -137,7 +137,7 @@ parts:
   this leads to uncertainty.
 * There's a lot of work in the other parts which needs to happen
   regardless and will really stretch the team.
-* The query engine won't work like classic in any case, and without a
+* The query engine won't work like XTDB 1.x in any case, and without a
   lot of work necessarily perform well, so it's never going to be an
   easy win, if not done well, it may hurt us.
 * Will need to maintain and fix bugs. Need to ensure this happens with
@@ -154,14 +154,14 @@ interlocking variables.
 
 See also: SQL, Core: Expression compiler, Core: operators.
 
-=== Semantic differences from Classic
+=== Semantic differences from XTDB 1.x
 
 The core is easiest built with a single semantics. As I propose we use
 SQL's, this implies three-valued logic and a limited set clearly
 defined functions provided by the query engine, and not calling
 arbitrarily Clojure inside the query.
 
-Classic relies heavily on Nippy and the Clojure type-system, so there
+XTDB 1.x relies heavily on Nippy and the Clojure type-system, so there
 will be some differences here as well. The Arrow type system provides
 extension types so it's possible to add a known set, like the basic
 EDN types, but one cannot cleanly deal with arbitrarily Java objects
@@ -169,8 +169,8 @@ in a useful way except having them flow through as bytes.
 
 === Cardinality-many
 
-In classic semantics, this requires us to unwind all lists early on,
-and then the engine will work closer to classic. With SQL semantics,
+In XTDB 1.x semantics, this requires us to unwind all lists early on,
+and then the engine will work closer to XTDB 1.x. With SQL semantics,
 lists would have to be unwound manually inside the query using a
 function.
 

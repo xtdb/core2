@@ -673,7 +673,7 @@ else_clause
     : 'ELSE' result
     ;
 
-<case_operand>
+case_operand
     : row_value_predicand
     / overlaps_predicate_part_1
     ;

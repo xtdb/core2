@@ -174,6 +174,7 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*' | #'!!.*?\\n')+")))
 
 (def ^:private keep-non-terminal-overrides
   '#{column_reference
+     case_operand
      row_value_constructor_element
      contextually_typed_row_value_constructor_element
      directly_executable_statement})

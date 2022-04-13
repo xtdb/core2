@@ -1200,13 +1200,15 @@
   (let [projector (->expression-projection-spec "select" (list 'boolean form) params)]
     (reify IRelationSelector
       (select [_ al in-rel]
-        (with-open [selection (.project projector al in-rel)]
-          (let [^BitVector sel-vec (.getVector selection)
-                res (IntStream/builder)]
-            (dotimes [idx (.getValueCount selection)]
-              (when (= 1 (.get sel-vec (.getIndex selection idx)))
-                (.add res idx)))
-            (.toArray (.build res))))))))
+        (if (= (.rowCount in-rel) 0)
+          (int-array 0)
+          (with-open [selection (.project projector al in-rel)]
+            (let [^BitVector sel-vec (.getVector selection)
+                  res (IntStream/builder)]
+              (dotimes [idx (.getValueCount selection)]
+                (when (= 1 (.get sel-vec (.getIndex selection idx)))
+                  (.add res idx)))
+              (.toArray (.build res)))))))))
 
 (defn eval-scalar-value [al form params]
   (let [expr (form->expr form {:params params})]

@@ -116,7 +116,7 @@ vertical_bar
 (*  5.2     <token> and <separator> *)
 
 regular_identifier
-    : !#'(?i)(\b(NULL|WITH|SELECT|FROM|WHERE|GROUP|HAVING|ORDER|OFFSET|FETCH|UNION|EXCEPT|INTERSECT)\b)' #'[a-zA-Z][a-zA-Z0-9_]*'
+    : !#'(?i)(\b(NULL|WITH|SELECT|FROM|WHERE|GROUP|HAVING|ORDER|OFFSET|FETCH|UNION|EXCEPT|INTERSECT|CURRENT_TIME|CURRENT_TIMESTAMP|CURRENT_DATE|LOCALTIME|LOCALTIMESTAMP)\b)' #'[a-zA-Z][a-zA-Z0-9_]*'
     ;
 
 large_object_length_token
@@ -1129,10 +1129,10 @@ time_zone_specifier
 
 <datetime_value_function>
     : current_date_value_function
-    / current_time_value_function
     / current_timestamp_value_function
-    / current_local_time_value_function
+    / current_time_value_function
     / current_local_timestamp_value_function
+    / current_local_time_value_function
     ;
 
 current_date_value_function

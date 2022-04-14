@@ -25,79 +25,82 @@ HEADER_COMMENT: #'// *\\d.*?\\n' ;
                 :auto-whitespace (insta/parser "
 whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*' | #'!!.*?\\n')+")))
 
+(def ^:private reserved-words
+  ["NULL" "WITH" "SELECT" "FROM" "WHERE"
+   "GROUP" "HAVING" "ORDER" "OFFSET" "FETCH"
+   "UNION" "EXCEPT" "INTERSECT"
+   "CURRENT_TIME" "CURRENT_TIMESTAMP" "CURRENT_DATE" "LOCALTIME" "LOCALTIMESTAMP"])
+
 ;; NOTE: A rule must exist to be overridden and cannot be commented
 ;; out. This is to ensure the override ends up in the right place in
 ;; the grammar.
 (def rule-overrides
-  '{<space> "' '"
-    <quote> "'\\''"
-    <period> "'.'"
-    solidus "'/'"
-    <left_bracket> "'['"
-    <right_bracket> "']'"
-    vertical_bar "'|'"
-    concatenation_operator "'||'"
-    <left_brace> "'{'"
-    <right_brace> "'}'"
-    ;; adds check for reserved words, these should really be allowed after 'AS'
-    regular_identifier
-    "!#'(?i)(\\b(NULL|WITH|SELECT|FROM|WHERE|GROUP|HAVING|ORDER|OFFSET|FETCH|UNION|EXCEPT|INTERSECT)\\b)' #'[a-zA-Z][a-zA-Z0-9_]*'"
-    delimited_identifier
-    "#'\"(\"\"|[^\"])+\"'"
-    ;; replaces <local or schema qualified name>
-    table_name
-    "identifier"
-    exact_numeric_literal
-    "#'(\\d*\\.\\d+|\\d+\\.\\d*|\\d+)'"
-    unsigned_integer
-    "#'[0-9]+'"
-    large_object_length_token
-    "#'[0-9]+' multiplier"
-    character_representation
-    "#'(\\'\\'|[^\\'])*'"
-    ;; removes <introducer> <character set specification>
-    character_string_literal
-    "#'\\'(\\'\\'|[^\\'])*\\''+"
-    binary_string_literal
-    "#'X(\\'[a-fA-F0-9\\s]+\\'\\s*)+'"
-    host_parameter_name
-    "<colon> #'[a-zA-Z][a-zA-Z0-9_]*'"
-    ;; removes <indicator parameter>
-    host_parameter_specification
-    "host_parameter_name"
-    ;; removes <path-resolved user-defined type name> and <reference type>
-    predefined_type
-    "character_string_type
+  (-> '{<space> "' '"
+        <quote> "'\\''"
+        <period> "'.'"
+        solidus "'/'"
+        <left_bracket> "'['"
+        <right_bracket> "']'"
+        vertical_bar "'|'"
+        concatenation_operator "'||'"
+        <left_brace> "'{'"
+        <right_brace> "'}'"
+        delimited_identifier
+        "#'\"(\"\"|[^\"])+\"'"
+        ;; replaces <local or schema qualified name>
+        table_name
+        "identifier"
+        exact_numeric_literal
+        "#'(\\d*\\.\\d+|\\d+\\.\\d*|\\d+)'"
+        unsigned_integer
+        "#'[0-9]+'"
+        large_object_length_token
+        "#'[0-9]+' multiplier"
+        character_representation
+        "#'(\\'\\'|[^\\'])*'"
+        ;; removes <introducer> <character set specification>
+        character_string_literal
+        "#'\\'(\\'\\'|[^\\'])*\\''+"
+        binary_string_literal
+        "#'X(\\'[a-fA-F0-9\\s]+\\'\\s*)+'"
+        host_parameter_name
+        "<colon> #'[a-zA-Z][a-zA-Z0-9_]*'"
+        ;; removes <indicator parameter>
+        host_parameter_specification
+        "host_parameter_name"
+        ;; removes <path-resolved user-defined type name> and <reference type>
+        predefined_type
+        "character_string_type
     / binary_string_type
     / numeric_type
     / boolean_type
     / datetime_type
     / interval_type"
-    ;; removes <collate clause>
-    character_factor
-    "character_primary"
-    ;; removes <sample clause>
-    table_factor
-    "table_primary"
-    ;; adds check for reserved words in <correlation or recognition> from SQL:2016
-    table_primary
-    "table_or_query_name [ query_system_time_period_specification ] [ correlation_or_recognition ]
+        ;; removes <collate clause>
+        character_factor
+        "character_primary"
+        ;; removes <sample clause>
+        table_factor
+        "table_primary"
+        ;; adds check for reserved words in <correlation or recognition> from SQL:2016
+        table_primary
+        "table_or_query_name [ query_system_time_period_specification ] [ correlation_or_recognition ]
     / derived_table correlation_or_recognition
     / lateral_derived_table correlation_or_recognition
     / collection_derived_table correlation_or_recognition
     / parenthesized_joined_table"
-    ;; removes support for more than one <collection value expression>.
-    collection_derived_table
-    "'UNNEST' <left_paren> collection_value_expression <right_paren> [ 'WITH' 'ORDINALITY' ]"
-    ;; adds check for reserved words
-    as_clause
-    "( 'AS' column_name ) | !#'(?i)(\\b(YEAR|MONTH|DAY|HOUR|MINUTE|SECOND)\\b)' column_name"
-    ;; removes <search or cycle clause>
-    with_list_element
-    "query_name [ <left_paren> with_column_list <right_paren> ] 'AS' table_subquery"
-    ;; adds <trigonometric function>, <general logarithm function> and <common logarithm> from SQL:2016
-    numeric_value_function
-    "position_expression
+        ;; removes support for more than one <collection value expression>.
+        collection_derived_table
+        "'UNNEST' <left_paren> collection_value_expression <right_paren> [ 'WITH' 'ORDINALITY' ]"
+        ;; adds check for reserved words
+        as_clause
+        "( 'AS' column_name ) | !#'(?i)(\\b(YEAR|MONTH|DAY|HOUR|MINUTE|SECOND)\\b)' column_name"
+        ;; removes <search or cycle clause>
+        with_list_element
+        "query_name [ <left_paren> with_column_list <right_paren> ] 'AS' table_subquery"
+        ;; adds <trigonometric function>, <general logarithm function> and <common logarithm> from SQL:2016
+        numeric_value_function
+        "position_expression
     / regex_occurrences_function
     / regex_position_expression
     / extract_expression
@@ -115,33 +118,45 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*' | #'!!.*?\\n')+")))
     / square_root
     / floor_function
     / ceiling_function"
-    ;; removes <collate clause>
-    grouping_column_reference
-    "column_reference"
-    aggregate_function
-    ;; removes <filter clause>, <binary set function> and <ordered set function>
-    "'COUNT' <left_paren> asterisk <right_paren>
+        ;; removes <collate clause>
+        grouping_column_reference
+        "column_reference"
+        aggregate_function
+        ;; removes <filter clause>, <binary set function> and <ordered set function>
+        "'COUNT' <left_paren> asterisk <right_paren>
     / general_set_function
     / array_aggregate_function"
-    ;; removes <partitioned join table>
-    qualified_join
-    "table_reference [ join_type ] 'JOIN' table_reference join_specification"
-    ;; removes <corresponding spec>
-    query_expression_body
-    "query_term
+        ;; precedence issue - was confusing `CURRENT_TIMESTAMP` for `CURRENT_TIME STAMP`
+        datetime_value_function
+        "current_date_value_function
+    / current_timestamp_value_function
+    / current_time_value_function
+    / current_local_timestamp_value_function
+    / current_local_time_value_function"
+        ;; removes <partitioned join table>
+        qualified_join
+        "table_reference [ join_type ] 'JOIN' table_reference join_specification"
+        ;; removes <corresponding spec>
+        query_expression_body
+        "query_term
     / query_expression_body 'UNION' [ 'ALL' / 'DISTINCT' ] query_term
     / query_expression_body 'EXCEPT' [ 'ALL' / 'DISTINCT' ] query_term"
-    ;; removes <corresponding spec>
-    query_term
-    "query_primary
+        ;; removes <corresponding spec>
+        query_term
+        "query_primary
     / query_term 'INTERSECT' [ 'ALL' / 'DISTINCT' ] query_primary"
-    ;; removes <order by clause>, <result offset clause, and <fetch first clause>
-    query_primary
-    "simple_table
+        ;; removes <order by clause>, <result offset clause, and <fetch first clause>
+        query_primary
+        "simple_table
     / <left_paren> query_expression_body <right_paren>"
-    ;; inlines <cursor specification> and removes <updatability clause>
-    direct_select_statement__multiple_rows
-    "query_expression"})
+        ;; inlines <cursor specification> and removes <updatability clause>
+        direct_select_statement__multiple_rows
+        "query_expression"}
+
+      ;; adds check for reserved words, these should really be allowed after 'AS'
+      (assoc 'regular_identifier
+             (format "!#'(?i)(\\b(%s)\\b)' #'[a-zA-Z][a-zA-Z0-9_]*'"
+                     (str/join "|" reserved-words)))))
 
 (def ^:private delimiter-set
   '#{space
@@ -170,7 +185,8 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*' | #'!!.*?\\n')+")))
      table_factor
      parenthesized_joined_table
      grouping_column_reference
-     direct_select_statement__multiple_rows})
+     direct_select_statement__multiple_rows
+     datetime_value_function})
 
 (def ^:private keep-non-terminal-overrides
   '#{column_reference
@@ -241,7 +257,7 @@ common_logarithm
                      x)
                    (flatten)
                    (filter string?))]
-    (when (and (= (count xs) (count names)))
+    (when (= (count xs) (count names))
       (second n))))
 
 (defmulti print-sql-ast first)
@@ -344,5 +360,5 @@ common_logarithm
        (sql-spec-ast->ebnf-grammar-string extra-rules)
        (spit ebnf-grammar-file)))
 
-(defn -main [& args]
+(defn -main [& _args]
   (generate-parser sql2011-spec-file sql2011-grammar-file))

@@ -586,7 +586,7 @@ field_definition
     : host_parameter_name
     ;
 
-<dynamic_parameter_specification>
+dynamic_parameter_specification
     : question_mark
     ;
 

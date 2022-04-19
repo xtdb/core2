@@ -193,7 +193,8 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*' | #'!!.*?\\n')+")))
      case_operand
      row_value_constructor_element
      contextually_typed_row_value_constructor_element
-     directly_executable_statement})
+     directly_executable_statement
+     dynamic_parameter_specification})
 
 (def sql2016-numeric-value-function
   "(* SQL:2016 7.6 <table reference> *)

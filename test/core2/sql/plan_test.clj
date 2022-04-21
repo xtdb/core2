@@ -1,5 +1,7 @@
 (ns core2.sql.plan-test
   (:require [clojure.test :as t :refer [deftest]]
+            [clojure.java.io :as io]
+            [core2.edn :as edn] ;; Enables data literals
             [core2.operator :as op]
             [core2.sql :as sql]
             [core2.sql.plan :as plan]))
@@ -10,6 +12,30 @@
     (assert (empty? errs) errs)
     #_(assoc (select-keys plan [:fired-rules :plan]) :tree tree) ;; Debug Tool
     (:plan plan)))
+
+(def regen-expected-files? false)
+
+(defmethod t/assert-expr '=plan-file [msg form]
+  `(let [exp-plan-file-name# ~(format "core2/sql/plan_test_expectations/%s.edn" (nth form 1))
+         actual-plan# ~(nth form 2)]
+     (if-let [exp-plan-file# (io/resource exp-plan-file-name#)]
+       (let [exp-plan# (read-string (slurp exp-plan-file#))
+             result# (= exp-plan# actual-plan#)]
+         (if result#
+           (t/do-report {:type :pass, :message ~msg,
+                         :expected exp-plan#, :actual (list '~'= exp-plan# actual-plan#)})
+           (do
+             (when regen-expected-files?
+               (spit (io/resource exp-plan-file-name#) (with-out-str (clojure.pprint/pprint actual-plan#))))
+             (t/do-report {:type :fail, :message ~msg,
+                           :expected exp-plan#, :actual (list '~'not (list '~'= exp-plan# actual-plan#))})))
+         result#)
+       (if regen-expected-files?
+         (do
+           (spit ~(str (io/resource "core2/sql/plan_test_expectations/") (nth form 1) ".edn") actual-plan#))
+         (t/do-report
+           {:type :error, :message "Missing Expectation File"
+            :expected nil :actual (Exception. "Missing Expectation File")})))))
 
 (t/deftest test-basic-queries
   (t/is (= '[:rename {x1 movieTitle}

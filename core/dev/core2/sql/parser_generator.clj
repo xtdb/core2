@@ -94,7 +94,7 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*' | #'!!.*?\\n')+")))
         "'UNNEST' <left_paren> collection_value_expression <right_paren> [ 'WITH' 'ORDINALITY' ]"
         ;; adds check for reserved words
         as_clause
-        "( 'AS' column_name ) | !#'(?i)(\\b(YEAR|MONTH|DAY|HOUR|MINUTE|SECOND)\\b)' column_name"
+        "( 'AS' column_name ) / !#'(?i)(\\b(YEAR|MONTH|DAY|HOUR|MINUTE|SECOND)\\b)' column_name"
         ;; removes <search or cycle clause>
         with_list_element
         "query_name [ <left_paren> with_column_list <right_paren> ] 'AS' table_subquery"
@@ -200,7 +200,7 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*' | #'!!.*?\\n')+")))
   "(* SQL:2016 7.6 <table reference> *)
 
 <correlation_or_recognition>
-    : ( ( 'AS' correlation_name ) | !#'(?i)(\\b(ON|JOIN|INNER|LEFT|RIGHT|USING|OUTER)\\b)' correlation_name ) [ <left_paren> derived_column_list <right_paren> ]
+    : ( ( 'AS' correlation_name ) / !#'(?i)(\\b(ON|JOIN|INNER|LEFT|RIGHT|USING|OUTER)\\b)' correlation_name ) [ <left_paren> derived_column_list <right_paren> ]
 
 (* SQL:2016 6.30 <numeric value function> *)
 

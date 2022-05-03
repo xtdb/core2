@@ -993,10 +993,7 @@ binary_concatenation
 
 <character_value_function>
     : character_substring_function
-    / regular_expression_substring_function
-    / regex_substring_function
     / fold
-    / regex_transliteration
     / trim_function
     / character_overlay_function
     ;

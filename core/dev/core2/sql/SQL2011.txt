@@ -1551,8 +1551,8 @@
 
 <numeric value function> ::=
     <position expression>
-  | <regex occurrences function>
-  | <regex position expression>
+  // | <regex occurrences function>
+  // | <regex position expression>
   | <extract expression>
   | <length expression>
   | <cardinality expression>
@@ -1754,12 +1754,12 @@
 
 <character value function> ::=
     <character substring function>
-  | <regular expression substring function>
-  | <regex substring function>
+  // | <regular expression substring function>
+  // | <regex substring function>
   | <fold>
   // | <transcoding>
   // | <character transliteration>
-  | <regex transliteration>
+  // | <regex transliteration>
   | <trim function>
   | <character overlay function>
   // | <normalize function>

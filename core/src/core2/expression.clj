@@ -1,14 +1,15 @@
 (ns core2.expression
   (:require [clojure.set :as set]
-            [clojure.string :as str]
+            [core2.error :as err]
             [core2.expression.macro :as macro]
             [core2.expression.walk :as walk]
             [core2.types :as types]
             [core2.util :as util]
             [core2.vector.indirect :as iv]
-            [core2.vector.writer :as vw]
-            [core2.error :as err])
+            [core2.vector.writer :as vw])
   (:import (clojure.lang Keyword MapEntry)
+           (core2 StringUtil)
+           (core2.expression.boxes DoubleBox LongBox ObjectBox)
            (core2.operator IProjectionSpec IRelationSelector)
            (core2.types LegType)
            (core2.vector IIndirectRelation IIndirectVector IRowCopier IVectorWriter)
@@ -17,16 +18,15 @@
            (java.nio.charset StandardCharsets)
            (java.time Clock Duration Instant LocalDate ZonedDateTime ZoneId ZoneOffset Period)
            (java.time.temporal ChronoField ChronoUnit)
-           (java.util Date HashMap LinkedList Arrays)
-           (java.util.function IntUnaryOperator)
+           (java.util Date HashMap LinkedList Map Arrays)
+           (java.util.function Function IntUnaryOperator)
+           (java.util.regex Pattern)
            (java.util.stream IntStream)
            (org.apache.arrow.vector BigIntVector BitVector DurationVector FieldVector IntVector ValueVector PeriodDuration)
            (org.apache.arrow.vector.complex DenseUnionVector FixedSizeListVector StructVector)
            (org.apache.arrow.vector.types DateUnit TimeUnit Types Types$MinorType IntervalUnit)
            (org.apache.arrow.vector.types.pojo ArrowType ArrowType$Binary ArrowType$Bool ArrowType$Date ArrowType$Duration ArrowType$ExtensionType ArrowType$FixedSizeBinary ArrowType$FixedSizeList ArrowType$FloatingPoint ArrowType$Int ArrowType$Null ArrowType$Timestamp ArrowType$Utf8 Field FieldType ArrowType$Time ArrowType$Interval)
-           (java.util.regex Pattern)
-           (org.apache.commons.codec.binary Hex)
-           (core2 StringUtil)))
+           (org.apache.commons.codec.binary Hex)))
 
 (set! *unchecked-math* :warn-on-boxed)
 
@@ -1721,3 +1721,102 @@
       (let [projection-spec (->expression-projection-spec "_scalar" form col-names params)]
         (with-open [out-vec (.project projection-spec al (iv/->indirect-rel [] 1))]
           (types/get-object (.getVector out-vec) (.getIndex out-vec 0)))))))
+
+(defprotocol IBoxClass
+  (->box-class [_]))
+
+(extend-protocol IBoxClass
+  ArrowType$Null (->box-class [_] ObjectBox)
+
+  ;; TODO different box for different int-types
+  ArrowType$Int (->box-class [_int-type] LongBox)
+
+  ;; TODO different box for different float-types
+  ArrowType$FloatingPoint (->box-class [_float-type] DoubleBox))
+
+(defn- box-for [^Map boxes, ^ArrowType arrow-type]
+  (.computeIfAbsent boxes arrow-type
+                    (reify Function
+                      (apply [_ arrow-type]
+                        {:box-sym (gensym (types/type->field-name arrow-type))
+                         :box-class (->box-class arrow-type)}))))
+
+#_{:clj-kondo/ignore [:unused-binding]}
+(defmulti new-codegen-expr
+  (fn [expr {:keys [var->types return-boxes]}]
+    (:op expr)))
+
+(defmethod new-codegen-expr :variable [{:keys [variable idx], :or {idx idx-sym}}
+                                       {:keys [return-boxes var->types]}]
+  (let [field-types (or (get var->types variable)
+                        (throw (AssertionError. (str "unknown variable: " variable))))
+        var-idx-sym (gensym 'var-idx)
+        var-vec-sym (gensym 'var-vec)]
+    (letfn [(set-box-code* [^ArrowType arrow-type]
+              (let [{:keys [box-sym box-class]} (box-for return-boxes arrow-type)]
+                `(let [~(-> box-sym (with-tag box-class)) ~box-sym]
+                   (set! (.value ~box-sym) ~(get-value-form arrow-type var-vec-sym var-idx-sym))
+                   ~box-sym)))
+
+            (set-box-code [^FieldType field-type]
+              (let [arrow-type (.getType field-type)]
+                (if (.isNullable field-type)
+                  `(if (.isNull ~var-vec-sym ~var-idx-sym)
+                     ~(set-box-code* types/null-type)
+                     ~(set-box-code* arrow-type))
+                  (get-value-form arrow-type var-vec-sym var-idx-sym))))]
+
+      (if-not (vector? field-types)
+        (let [^FieldType field-type field-types
+              arrow-type (.getType field-type)
+              vec-type (types/arrow-type->vector-type arrow-type)
+              nullable? (.isNullable field-type)]
+
+          {:return (if (or (= types/null-type arrow-type) (not nullable?))
+                     [:mono arrow-type]
+                     [:poly {types/null-type (box-for return-boxes types/null-type)
+                             arrow-type (box-for return-boxes arrow-type)}])
+           :code `(let [~var-idx-sym (.getIndex ~variable ~idx)
+                        ~(-> var-vec-sym (with-tag vec-type)) (.getVector ~variable)]
+                    ~(set-box-code field-type))})
+
+        {:return [:poly
+                  (->> field-types
+                       (into {} (mapcat (fn [^FieldType field-type]
+                                          (let [arrow-type (.getType field-type)]
+                                            (cond-> [[arrow-type (box-for return-boxes arrow-type)]]
+                                              (.isNullable field-type)
+                                              (conj [types/null-type (box-for return-boxes types/null-type)])))))))]
+
+         :code
+         `(let [~var-idx-sym (.getIndex ~variable ~idx)
+                ~(-> var-vec-sym (with-tag DenseUnionVector)) (.getVector ~variable)]
+            (case (.getTypeId ~var-vec-sym ~var-idx-sym)
+              ~@(->> field-types
+                     (sequence (comp (map-indexed
+                                      (fn [type-id ^FieldType field-type]
+                                        [type-id
+                                         (let [arrow-type (.getType field-type)]
+                                           `(let [~var-idx-sym (.getOffset ~var-vec-sym ~var-idx-sym)
+                                                  ~(-> var-vec-sym (with-tag (types/arrow-type->vector-type arrow-type))) (.getVectorByType ~var-vec-sym ~type-id)]
+                                              ~(set-box-code field-type)))]))
+                                     cat)))))}))))
+
+(comment
+  (let [return-boxes (HashMap.)
+        {:keys [return code]} (new-codegen-expr {:op :variable, :variable 'foo}
+                                                {:var->types {'foo (FieldType. true types/bigint-type nil)}
+                                                 :return-boxes return-boxes})
+        expr-fn (eval
+                 `(fn [~(-> 'foo (with-tag IIndirectVector))]
+                    (let [~idx-sym 0
+                          ~@(->> (for [{:keys [box-sym box-class]} (vals return-boxes)]
+                                   [box-sym `(new ~box-class)])
+                                 (apply concat))]
+                      ~code)))]
+    [return
+     (with-open [al (org.apache.arrow.memory.RootAllocator.)
+                 foo (BigIntVector. "foo" al)]
+       (.setValueCount foo 1)
+       (.setSafe foo 0 41)
+       (expr-fn (iv/->direct-vec foo)))]))

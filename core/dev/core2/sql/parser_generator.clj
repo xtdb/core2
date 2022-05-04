@@ -101,8 +101,6 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*' | #'!!.*?\\n')+")))
         ;; adds <trigonometric function>, <general logarithm function> and <common logarithm> from SQL:2016
         numeric_value_function
         "position_expression
-    / regex_occurrences_function
-    / regex_position_expression
     / extract_expression
     / length_expression
     / cardinality_expression

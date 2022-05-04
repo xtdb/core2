@@ -780,8 +780,6 @@ factor
 
 <numeric_value_function>
     : position_expression
-    / regex_occurrences_function
-    / regex_position_expression
     / extract_expression
     / length_expression
     / cardinality_expression
@@ -804,37 +802,12 @@ factor
     / binary_position_expression
     ;
 
-regex_occurrences_function
-    : 'OCCURRENCES_REGEX' <left_paren> xquery_pattern [ 'FLAG' xquery_option_flag ] 'IN' regex_subject_string [ 'FROM' start_position ] [ 'USING' char_length_units ] <right_paren>
-    ;
-
 <xquery_pattern>
     : character_value_expression
     ;
 
 <xquery_option_flag>
     : character_value_expression
-    ;
-
-<regex_subject_string>
-    : character_value_expression
-    ;
-
-regex_position_expression
-    : 'POSITION_REGEX' <left_paren> [ regex_position_start_or_after ] xquery_pattern [ 'FLAG' xquery_option_flag ] 'IN' regex_subject_string [ 'FROM' start_position ] [ 'USING' char_length_units ] [ 'OCCURRENCE' regex_occurrence ] [ 'GROUP' regex_capture_group ] <right_paren>
-    ;
-
-regex_position_start_or_after
-    : 'START'
-    / 'AFTER'
-    ;
-
-<regex_occurrence>
-    : numeric_value_expression
-    ;
-
-<regex_capture_group>
-    : numeric_value_expression
     ;
 
 character_position_expression
@@ -1002,29 +975,8 @@ character_substring_function
     : 'SUBSTRING' <left_paren> character_value_expression 'FROM' start_position [ 'FOR' string_length ] [ 'USING' char_length_units ] <right_paren>
     ;
 
-regular_expression_substring_function
-    : 'SUBSTRING' <left_paren> character_value_expression 'SIMILAR' character_value_expression 'ESCAPE' escape_character <right_paren>
-    ;
-
-regex_substring_function
-    : 'SUBSTRING_REGEX' <left_paren> xquery_pattern [ 'FLAG' xquery_option_flag ] 'IN' regex_subject_string [ 'FROM' start_position ] [ 'USING' char_length_units ] [ 'OCCURRENCE' regex_occurrence ] [ 'GROUP' regex_capture_group ] <right_paren>
-    ;
-
 fold
     : ( 'UPPER' / 'LOWER' ) <left_paren> character_value_expression <right_paren>
-    ;
-
-regex_transliteration
-    : 'TRANSLATE_REGEX' <left_paren> xquery_pattern [ 'FLAG' xquery_option_flag ] 'IN' regex_subject_string [ 'WITH' xquery_replacement_string ] [ 'FROM' start_position ] [ 'USING' char_length_units ] [ 'OCCURRENCE' regex_transliteration_occurrence ] <right_paren>
-    ;
-
-<xquery_replacement_string>
-    : character_value_expression
-    ;
-
-regex_transliteration_occurrence
-    : regex_occurrence
-    / 'ALL'
     ;
 
 trim_function

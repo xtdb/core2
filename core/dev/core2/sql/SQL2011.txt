@@ -1571,13 +1571,13 @@
     <character position expression>
   | <binary position expression>
 
-<regex occurrences function> ::=
-  OCCURRENCES_REGEX <left paren>
-      <XQuery pattern> [ FLAG <XQuery option flag> ]
-      IN <regex subject string>
-      [ FROM <start position> ]
-      [ USING <char length units> ]
-      <right paren>
+// <regex occurrences function> ::=
+//   OCCURRENCES_REGEX <left paren>
+//       <XQuery pattern> [ FLAG <XQuery option flag> ]
+//       IN <regex subject string>
+//       [ FROM <start position> ]
+//       [ USING <char length units> ]
+//       <right paren>
 
 <XQuery pattern> ::=
   <character value expression>
@@ -1585,29 +1585,29 @@
 <XQuery option flag> ::=
   <character value expression>
 
-<regex subject string> ::=
-  <character value expression>
+// <regex subject string> ::=
+//   <character value expression>
 
-<regex position expression> ::=
-  POSITION_REGEX <left paren>
-      [ <regex position start or after> ]
-      <XQuery pattern> [ FLAG <XQuery option flag> ]
-      IN <regex subject string>
-      [ FROM <start position> ]
-      [ USING <char length units> ]
-      [ OCCURRENCE <regex occurrence> ]
-      [ GROUP <regex capture group> ]
-      <right paren>
+// <regex position expression> ::=
+//   POSITION_REGEX <left paren>
+//       [ <regex position start or after> ]
+//       <XQuery pattern> [ FLAG <XQuery option flag> ]
+//       IN <regex subject string>
+//       [ FROM <start position> ]
+//       [ USING <char length units> ]
+//       [ OCCURRENCE <regex occurrence> ]
+//       [ GROUP <regex capture group> ]
+//       <right paren>
 
-<regex position start or after> ::=
-    START
-  | AFTER
+// <regex position start or after> ::=
+//     START
+//   | AFTER
 
-<regex occurrence> ::=
-  <numeric value expression>
+// <regex occurrence> ::=
+//   <numeric value expression>
 
-<regex capture group> ::=
-  <numeric value expression>
+// <regex capture group> ::=
+//   <numeric value expression>
 
 <character position expression> ::=
   POSITION <left paren> <character value expression 1> IN <character value expression 2>
@@ -1769,19 +1769,19 @@
   SUBSTRING <left paren> <character value expression> FROM <start position>
       [ FOR <string length> ] [ USING <char length units> ] <right paren>
 
-<regular expression substring function> ::=
-  SUBSTRING <left paren> <character value expression> SIMILAR <character value expression>
-      ESCAPE <escape character> <right paren>
+// <regular expression substring function> ::=
+//   SUBSTRING <left paren> <character value expression> SIMILAR <character value expression>
+//       ESCAPE <escape character> <right paren>
 
-<regex substring function> ::=
-  SUBSTRING_REGEX <left paren>
-      <XQuery pattern> [ FLAG <XQuery option flag> ]
-      IN <regex subject string>
-      [ FROM <start position> ]
-      [ USING <char length units> ]
-      [ OCCURRENCE <regex occurrence> ]
-      [ GROUP <regex capture group> ]
-      <right paren>
+// <regex substring function> ::=
+//   SUBSTRING_REGEX <left paren>
+//       <XQuery pattern> [ FLAG <XQuery option flag> ]
+//       IN <regex subject string>
+//       [ FROM <start position> ]
+//       [ USING <char length units> ]
+//       [ OCCURRENCE <regex occurrence> ]
+//       [ GROUP <regex capture group> ]
+//       <right paren>
 
 <fold> ::=
   { UPPER | LOWER } <left paren> <character value expression> <right paren>
@@ -1794,22 +1794,22 @@
 //   TRANSLATE <left paren> <character value expression>
 //       USING <transliteration name> <right paren>
 
-<regex transliteration> ::=
-  TRANSLATE_REGEX <left paren>
-      <XQuery pattern> [ FLAG <XQuery option flag> ]
-      IN <regex subject string>
-      [ WITH <XQuery replacement string> ]
-      [ FROM <start position> ]
-      [ USING <char length units> ]
-      [ OCCURRENCE <regex transliteration occurrence> ]
-      <right paren>
+// <regex transliteration> ::=
+//   TRANSLATE_REGEX <left paren>
+//       <XQuery pattern> [ FLAG <XQuery option flag> ]
+//       IN <regex subject string>
+//       [ WITH <XQuery replacement string> ]
+//       [ FROM <start position> ]
+//       [ USING <char length units> ]
+//       [ OCCURRENCE <regex transliteration occurrence> ]
+//       <right paren>
 
-<XQuery replacement string> ::=
-  <character value expression>
+// <XQuery replacement string> ::=
+//   <character value expression>
 
-<regex transliteration occurrence> ::=
-    <regex occurrence>
-  | ALL
+// <regex transliteration occurrence> ::=
+//     <regex occurrence>
+//   | ALL
 
 <trim function> ::=
   TRIM <left paren> <trim operands> <right paren>

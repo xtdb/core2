@@ -149,7 +149,15 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*' | #'!!.*?\\n')+")))
     / <left_paren> query_expression_body <right_paren>"
         ;; inlines <cursor specification> and removes <updatability clause>
         direct_select_statement__multiple_rows
-        "query_expression"}
+        "query_expression"
+        ;; adds support for nested factors eg. SELECT - - 54
+        factor
+        "[ sign ] numeric_primary
+    / sign <separator> factor"
+        ;; define 1 or more whitespace chars as separator
+        separator
+    "#'\\s+'"
+        }
 
       ;; adds check for reserved words, these should really be allowed after 'AS'
       (assoc 'regular_identifier

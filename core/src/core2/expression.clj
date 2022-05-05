@@ -183,42 +183,6 @@
     (string? x)
     x))
 
-#_{:clj-kondo/ignore [:unused-binding]}
-(defmulti emit-value
-  (fn [val-class code] val-class)
-  :default ::default)
-
-(defmethod emit-value ::default [_ code] code)
-(defmethod emit-value Date [_ code] `(Math/multiplyExact (.getTime ~code) 1000))
-(defmethod emit-value Instant [_ code] `(util/instant->micros ~code))
-(defmethod emit-value Duration [_ code] `(quot (.toNanos ~code) 1000))
-
-;; consider whether a bound hash map for literal parameters would be better
-;; so this could be a runtime 'wrap the byte array' instead of this round trip through the clj compiler.
-(defmethod emit-value (Class/forName "[B") [_ code] `(ByteBuffer/wrap (Hex/decodeHex (str ~(Hex/encodeHexString ^bytes code)))))
-
-(defmethod emit-value String [_ code]
-  `(-> (.getBytes ~code StandardCharsets/UTF_8) (ByteBuffer/wrap)))
-
-(defmethod emit-value Keyword [_ code] (emit-value String `(str (symbol ~code))))
-
-(defmethod emit-value LocalDate [_ code]
-  ;; if literal, we can just yield a long directly
-  (if (instance? LocalDate code)
-    (.toEpochDay ^LocalDate code)
-    `(.toEpochDay ~code)))
-
-(defmethod emit-value PeriodDuration [_ code]
-  `(PeriodDuration. (Period/parse ~(str (.getPeriod ^PeriodDuration code)))
-                    (Duration/ofNanos ~(.toNanos (.getDuration ^PeriodDuration code)))))
-
-(defmethod codegen-expr :literal [{:keys [literal]} _]
-  (let [return-type (.arrowType (types/value->leg-type literal))
-        literal-type (class literal)]
-    {:return-types [:mono return-type]
-     :code (emit-value literal-type literal)
-     :literal literal}))
-
 (defn lit->param [{:keys [op] :as expr}]
   (if (= op :literal)
     (let [{:keys [literal]} expr]
@@ -227,12 +191,6 @@
        :param-class (class literal)
        :param-type (.arrowType (types/value->leg-type literal))})
     expr))
-
-(defmethod codegen-expr :param [{:keys [param param-type] :as expr} _]
-  (into {:return-types #{param-type}
-         :continue (fn [f]
-                     (f param-type param))}
-        (select-keys expr #{:literal})))
 
 #_{:clj-kondo/ignore [:unused-binding]}
 (defmulti get-value-form
@@ -274,51 +232,6 @@
   ;; a reasonable default, but implement it for more specific types if this doesn't work
   (get-value-form (.storageType arrow-type) `(.getUnderlyingVector ~vec-sym) idx-sym))
 
-(defmethod codegen-expr :variable [{:keys [variable idx], :or {idx idx-sym}} {:keys [var->types]}]
-  (let [field-types (or (get var->types variable)
-                        (throw (AssertionError. (str "unknown variable: " variable))))
-        var-idx-sym (gensym 'var-idx)
-        var-vec-sym (gensym 'var-vec)]
-    (if-not (vector? field-types)
-      (let [^FieldType field-type field-types
-            arrow-type (.getType field-type)
-            vec-type (types/arrow-type->vector-type arrow-type)
-            nullable? (.isNullable field-type)]
-
-        {:return-types (cond-> #{arrow-type}
-                         nullable? (conj types/null-type))
-         :continue (fn [f]
-                     `(let [~var-idx-sym (.getIndex ~variable ~idx)
-                            ~(-> var-vec-sym (with-tag vec-type)) (.getVector ~variable)]
-                        ~(let [get-value (f arrow-type (get-value-form arrow-type var-vec-sym var-idx-sym))]
-                           (if nullable?
-                             `(if (.isNull ~var-vec-sym ~var-idx-sym)
-                                ~(f types/null-type nil)
-                                ~get-value)
-                             get-value))))})
-
-      {:return-types
-       (->> field-types
-            (into #{} (mapcat (fn [^FieldType field-type]
-                                (cond-> #{(.getType field-type)}
-                                  (.isNullable field-type) (conj ArrowType$Null/INSTANCE))))))
-
-       :continue
-       (fn [f]
-         `(let [~var-idx-sym (.getIndex ~variable ~idx)
-                ~(-> var-vec-sym (with-tag DenseUnionVector)) (.getVector ~variable)]
-            (case (.getTypeId ~var-vec-sym ~var-idx-sym)
-              ~@(->> field-types
-                     (map-indexed
-                      (fn [type-id ^FieldType field-type]
-                        (let [arrow-type (.getType field-type)]
-                          [type-id
-                           (f arrow-type (get-value-form arrow-type
-                                                         (-> `(.getVectorByType ~var-vec-sym ~type-id)
-                                                             (with-tag (types/arrow-type->vector-type arrow-type)))
-                                                         `(.getOffset ~var-vec-sym ~var-idx-sym)))])))
-                     (apply concat)))))})))
-
 (defn- wrap-mono-return [{:keys [return-types continue]}]
   {:return-types return-types
    :continue (if (= 1 (count return-types))
@@ -328,22 +241,6 @@
                     (continue (fn [_ code] code))))
 
                continue)})
-
-(defmethod codegen-expr :if [{:keys [pred then else]} opts]
-  (let [{p-rets :return-types, p-cont :continue} (codegen-expr pred opts)
-        {t-rets :return-types, t-cont :continue} (codegen-expr then opts)
-        {e-rets :return-types, e-cont :continue} (codegen-expr else opts)
-        return-types (set/union t-rets e-rets)]
-    (when-not (= #{ArrowType$Bool/INSTANCE} p-rets)
-      (throw (IllegalArgumentException. (str "pred expression doesn't return boolean "
-                                             (pr-str p-rets)))))
-
-    (-> {:return-types return-types
-         :continue (fn [f]
-                     `(if ~(p-cont (fn [_ code] code))
-                        ~(t-cont f)
-                        ~(e-cont f)))}
-        (wrap-mono-return))))
 
 (defmethod codegen-expr :local [{:keys [local]} {:keys [local-types]}]
   (let [return-type (get local-types local)]
@@ -395,46 +292,6 @@
   (fn [{:keys [f arg-types]}]
     (vec (cons (keyword (name f)) (map class arg-types))))
   :hierarchy #'types/arrow-type-hierarchy)
-
-(defmethod codegen-expr :call [{:keys [args] :as expr} opts]
-  (let [emitted-args (mapv #(codegen-expr % opts) args)
-        all-arg-types (reduce (fn [acc {:keys [return-types]}]
-                                (for [el acc
-                                      return-type return-types]
-                                  (conj el return-type)))
-                              [[]]
-                              emitted-args)
-
-        emitted-calls (->> (for [arg-types all-arg-types]
-                             (MapEntry/create arg-types
-                                              (codegen-call (assoc expr
-                                                                   :args emitted-args
-                                                                   :arg-types arg-types))))
-                           (into {}))
-
-        return-types (->> emitted-calls
-                          (into #{} (mapcat (comp :return-types val))))]
-
-    (-> {:return-types return-types
-         :continue (fn continue-call-expr [handle-emitted-expr]
-                     (let [build-args-then-call
-                           (reduce (fn step [build-next-arg {continue-this-arg :continue}]
-                                     ;; step: emit this arg, and pass it through to the inner build-fn
-                                     (fn continue-building-args [arg-types emitted-args]
-                                       (continue-this-arg (fn [arg-type emitted-arg]
-                                                            (build-next-arg (conj arg-types arg-type)
-                                                                            (conj emitted-args emitted-arg))))))
-
-                                   ;; innermost fn - we're done, call continue-call for these types
-                                   (fn call-with-built-args [arg-types emitted-args]
-                                     (let [{:keys [continue-call]} (get emitted-calls arg-types)]
-                                       (continue-call handle-emitted-expr emitted-args)))
-
-                                   ;; reverse because we're working inside-out
-                                   (reverse emitted-args))]
-
-                       (build-args-then-call [] [])))}
-        (wrap-mono-return))))
 
 (def call-returns-null
   {:return-type types/null-type
@@ -1249,43 +1106,6 @@
          duration# (.getDuration period-duration#)]
      (.set ~out-vec-sym ~idx-sym (.toTotalMonths period#) (.getDays period#) (.toNanos duration#))))
 
-(def ^:private out-vec-sym (gensym 'out-vec))
-(def ^:private out-writer-sym (gensym 'out-writer-sym))
-
-(defmulti extension-type-literal-form class)
-
-(defmethod extension-type-literal-form KeywordType [_] `KeywordType/INSTANCE)
-(defmethod extension-type-literal-form UuidType [_] `UuidType/INSTANCE)
-
-(defn- arrow-type-literal-form [^ArrowType arrow-type]
-  (letfn [(timestamp-type-literal [time-unit-literal]
-            `(ArrowType$Timestamp. ~time-unit-literal ~(.getTimezone ^ArrowType$Timestamp arrow-type)))]
-    (let [minor-type-name (.name (Types/getMinorTypeForArrowType arrow-type))]
-      (case minor-type-name
-        "DURATION" `(ArrowType$Duration. ~(symbol (name `TimeUnit) (.name (.getUnit ^ArrowType$Duration arrow-type))))
-
-        "TIMESTAMPSECTZ" (timestamp-type-literal `TimeUnit/SECOND)
-        "TIMESTAMPMILLITZ" (timestamp-type-literal `TimeUnit/MILLISECOND)
-        "TIMESTAMPMICROTZ" (timestamp-type-literal `TimeUnit/MICROSECOND)
-        "TIMESTAMPNANOTZ" (timestamp-type-literal `TimeUnit/NANOSECOND)
-
-        "EXTENSIONTYPE" `~(extension-type-literal-form arrow-type)
-
-        "DATEDAY" `(ArrowType$Date. DateUnit/DAY)
-        "DATEMILLI" `(ArrowType$Date. DateUnit/MILLISECOND)
-
-        "TIMENANO" `(ArrowType$Time. TimeUnit/NANOSECOND 64)
-        "TIMEMICRO" `(ArrowType$Time. TimeUnit/MICROSECOND 64)
-        "TIMEMILLI" `(ArrowType$Time. TimeUnit/MILLISECOND 32)
-        "TIMESEC" `(ArrowType$Time. TimeUnit/SECOND 32)
-
-        "INTERVALMONTHDAYNANO" `(ArrowType$Interval. IntervalUnit/MONTH_DAY_NANO)
-        "INTERVALYEAR" `(ArrowType$Interval. IntervalUnit/YEAR_MONTH)
-        "INTERVALDAY" `(ArrowType$Interval. IntervalUnit/DAY_TIME)
-
-        ;; TODO there are other minor types that don't have a single corresponding ArrowType
-        `(.getType ~(symbol (name 'org.apache.arrow.vector.types.Types$MinorType) minor-type-name))))))
-
 (defn batch-bindings [expr]
   (->> (walk/expr-seq expr)
        (mapcat :batch-bindings)
@@ -1320,6 +1140,25 @@
             (dotimes [_ row-count]
               (.startValue out-writer)
               (types/write-value! literal out-writer)
+              (.endValue out-writer))
+            out-vec)
+          (catch Throwable e
+            (.close out-vec)
+            (throw e)))))))
+
+(defmethod emit-expr :param [{:keys [param param-type]} ^String col-name, _opts]
+  (let [field-type (FieldType. (= param-type types/null-type) param-type nil)]
+    (fn [^IIndirectRelation in-rel, ^BufferAllocator al, params]
+      (let [out-vec (-> field-type
+                        (.createNewSingleVector col-name al nil))
+            param-value (get params param)]
+        (try
+          (let [out-writer (vw/vec->writer out-vec)
+                row-count (.rowCount in-rel)]
+            (.setValueCount out-vec row-count)
+            (dotimes [_ row-count]
+              (.startValue out-writer)
+              (types/write-value! param-value out-writer)
               (.endValue out-writer))
             out-vec)
           (catch Throwable e

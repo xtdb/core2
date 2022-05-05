@@ -1,6 +1,5 @@
 (ns core2.expression
-  (:require [clojure.set :as set]
-            [clojure.spec.alpha :as s]
+  (:require [clojure.spec.alpha :as s]
             [core2.error :as err]
             [core2.expression.macro :as macro]
             [core2.expression.walk :as walk]
@@ -10,7 +9,7 @@
             [core2.vector.writer :as vw])
   (:import (clojure.lang Keyword MapEntry)
            (core2 StringUtil)
-           (core2.expression.boxes DoubleBox LongBox ObjectBox)
+           (core2.expression.boxes BoolBox DoubleBox LongBox ObjectBox)
            (core2.operator IProjectionSpec IRelationSelector)
            (core2.types LegType)
            (core2.vector IIndirectRelation IIndirectVector IRowCopier IVectorWriter)
@@ -163,11 +162,19 @@
 (extend-protocol IBoxClass
   ArrowType$Null (->box-class [_] ObjectBox)
 
+  ArrowType$Bool (->box-class [_] BoolBox)
+
   ;; TODO different box for different int-types
   ArrowType$Int (->box-class [_int-type] LongBox)
 
   ;; TODO different box for different float-types
-  ArrowType$FloatingPoint (->box-class [_float-type] DoubleBox))
+  ArrowType$FloatingPoint (->box-class [_float-type] DoubleBox)
+
+  ArrowType$Date (->box-class [_] LongBox)
+  ArrowType$Timestamp (->box-class [_] LongBox)
+
+  ArrowType$Utf8 (->box-class [_] ObjectBox)
+  ArrowType$Binary (->box-class [_] ObjectBox))
 
 (defn- box-for [^Map boxes, ^ArrowType arrow-type]
   (.computeIfAbsent boxes arrow-type
@@ -338,8 +345,9 @@
                   `(if (.isNull ~var-vec-sym ~var-idx-sym)
                      ~(set-box-form return-boxes types/null-type nil)
                      ~(set-box-form return-boxes arrow-type (get-value-form arrow-type var-vec-sym var-idx-sym)))
-                  (get-value-form arrow-type var-vec-sym var-idx-sym))))]
+                  (set-box-form return-boxes arrow-type (get-value-form arrow-type var-vec-sym var-idx-sym)))))]
 
+      ;; TODO these `cond` legs are all quite similar, more DRY available?
       (cond
         (not (vector? field-types))
         (let [^FieldType field-type field-types
@@ -356,7 +364,9 @@
                                        arrow-type (box-for return-boxes arrow-type)}])
                :code `(let [~var-idx-sym (.getIndex ~variable ~idx)
                             ~(-> var-vec-sym (with-tag vec-type)) (.getVector ~variable)]
-                        ~(set-nullable-box-form field-type))})))
+                        ~(if (or (= types/null-type arrow-type) (not nullable?))
+                           (get-value-form arrow-type var-vec-sym var-idx-sym)
+                           (set-nullable-box-form field-type)))})))
 
         (= 1 (count field-types)) ; single leg DUV. maybe we'll optimise these away at some point
         (let [^FieldType field-type (first field-types)
@@ -373,16 +383,19 @@
                           ~(-> var-vec-sym (with-tag DenseUnionVector)) (.getVector ~variable)
                           ~var-idx-sym (.getOffset ~var-vec-sym ~var-idx-sym)
                           ~(-> var-vec-sym (with-tag vec-type)) (.getVectorByType ~var-vec-sym 0)]
-                      ~(set-nullable-box-form field-type)))})
+                      ~(if (or (= types/null-type arrow-type) (not nullable?))
+                         (get-value-form arrow-type var-vec-sym var-idx-sym)
+                         (set-nullable-box-form field-type))))})
 
         :else
-        {:return-types [:poly
-                        (->> field-types
-                             (into {} (mapcat (fn [^FieldType field-type]
-                                                (let [arrow-type (.getType field-type)]
-                                                  (cond-> [[arrow-type (box-for return-boxes arrow-type)]]
-                                                    (.isNullable field-type)
-                                                    (conj [types/null-type (box-for return-boxes types/null-type)])))))))]
+        {:return-types
+         [:poly
+          (->> field-types
+               (into {} (mapcat (fn [^FieldType field-type]
+                                  (let [arrow-type (.getType field-type)]
+                                    (cond-> [[arrow-type (box-for return-boxes arrow-type)]]
+                                      (.isNullable field-type)
+                                      (conj [types/null-type (box-for return-boxes types/null-type)])))))))]
 
          :code
          `(let [~var-idx-sym (.getIndex ~variable ~idx)
@@ -409,26 +422,65 @@
 
                continue)})
 
-(defmethod codegen-expr :if [{:keys [pred then else]} opts]
-  (let [{p-rets :return-types, p-cont :continue} (codegen-expr pred opts)
-        {t-rets :return-types, t-cont :continue} (codegen-expr then opts)
-        {e-rets :return-types, e-cont :continue} (codegen-expr else opts)
-        return-types (set/union t-rets e-rets)]
-    (when-not (= #{ArrowType$Bool/INSTANCE} p-rets)
+(comment
+  (if pred
+    12
+    12.0)
+
+  (if pred
+    [:mono Int]
+    [:mono Int])
+
+  (if pred
+    [:mono Int]
+    [:mono Float])
+
+  (if pred
+    [:mono Int]
+    [:poly Int Float])
+
+  (if pred
+    [:poly Int Float]
+    [:poly Float String]))
+
+(defmethod codegen-expr :if [{:keys [pred then else]} {:keys [return-boxes] :as opts}]
+  (let [{p-rets :return-types, p-code :code, p-boxes :boxes} (codegen-expr pred opts)
+        {[t-rt-type t-rt-arg] :return-types, t-code :code, t-boxes :boxes} (codegen-expr then opts)
+        {[e-rt-type e-rt-arg] :return-types, e-code :code, e-boxes :boxes} (codegen-expr else opts)]
+    (when-not (= [:mono types/bool-type] p-rets)
       (throw (IllegalArgumentException. (str "pred expression doesn't return boolean "
                                              (pr-str p-rets)))))
 
-    (-> {:return-types return-types
-         :continue (fn [f]
-                     `(if ~(p-cont (fn [_ code] code))
-                        ~(t-cont f)
-                        ~(e-cont f)))}
-        (wrap-mono-return))))
+    (-> (case [t-rt-type e-rt-type]
+          [:mono :mono] (if (= t-rt-type e-rt-type)
+                          {:return-types [:mono t-rt-arg]
+                           :code `(if ~p-code ~t-code ~e-code)}
+                          (let [t-box (box-for return-boxes t-rt-arg)
+                                e-box (box-for return-boxes e-rt-arg)]
+                            {:return-types [:poly {t-rt-arg t-box
+                                                   e-rt-arg e-box}]
+                             :code `(if ~p-code
+                                      ~(set-box-form return-boxes t-rt-arg t-code)
+                                      ~(set-box-form return-boxes e-rt-arg e-code))}))
+          [:mono :poly] (let [t-box (box-for return-boxes t-rt-arg)]
+                          {:return-types [:poly (assoc e-rt-arg t-rt-arg t-box)]
+                           :code `(if ~p-code
+                                    ~(set-box-form return-boxes t-rt-arg t-code)
+                                    ~e-code)})
+          [:poly :mono] (let [e-box (box-for return-boxes e-rt-arg)]
+                          {:return-types [:poly (assoc t-rt-arg e-rt-arg e-box)]
+                           :code `(if ~p-code
+                                    ~t-code
+                                    ~(set-box-form return-boxes e-rt-arg e-code))})
+          [:poly :poly] {:return-types [:poly (into t-rt-arg e-rt-arg)]
+                         :code `(if ~p-code ~t-code ~e-code)})
+
+        (assoc :boxes (vec (concat p-boxes t-boxes e-boxes))))))
 
 (defmethod codegen-expr :local [{:keys [local]} {:keys [local-types]}]
   (let [return-type (get local-types local)]
-    {:return-types #{return-type}
-     :continue (fn [f] (f return-type local))}))
+    {:return-types return-type
+     :code local}))
 
 (defmethod codegen-expr :let [{:keys [local expr body]} opts]
   (let [{continue-expr :continue, :as emitted-expr} (codegen-expr expr opts)
@@ -477,35 +529,31 @@
     (vec (cons (keyword (name f)) (map class arg-types))))
   :hierarchy #'types/arrow-type-hierarchy)
 
-(defmethod codegen-expr :call [{:keys [args] :as expr} opts]
+(defmethod codegen-expr :call [{:keys [args] :as expr} {:keys [return-boxes] :as opts}]
   (let [emitted-args (for [arg args]
-                       (let [boxes (HashMap.)]
-                         (-> (codegen-expr arg opts)
+                       (let [boxes (HashMap.)
+                             {:keys [return-types] :as emitted-arg} (codegen-expr arg (assoc opts :return-boxes boxes))
+                             [rt-type _rt-arg] return-types
+                             arg-sym (gensym 'arg)]
+
+                         (-> emitted-arg
+                             (assoc :arg-sym arg-sym
+                                    :arg-code (case rt-type
+                                                :mono arg-sym
+                                                ;; HACK I reckon we need to type hint this based on the box?
+                                                :poly `(.value ~arg-sym))
+                                    :return-boxes boxes)
                              (update :boxes (fnil into []) (vals boxes)))))
 
         all-arg-types (reduce (fn [acc {:keys [return-types]}]
                                 (let [[rt-type rt-arg] return-types]
                                   (case rt-type
-                                    :mono (mapv #(conj % rt-arg) acc)
-                                    :poly (throw (UnsupportedOperationException.)))))
+                                    :mono (map #(conj % rt-arg) acc)
+                                    :poly (for [arg-types acc
+                                                arg-type (keys rt-arg)]
+                                            (conj arg-types arg-type)))))
                               [[]]
-                              emitted-args)
-        #_#_
-        emit-call-f (reduce (fn continue-arg [cont {:keys [return-types code arg-sym]}]
-                              (fn [acc]
-                                (let [[rt-type rt-arg] return-types]
-                                  (case rt-type
-                                    :mono (let [{:keys [return-types code]} (cont (-> acc
-                                                                                      (update :arg-types conj rt-arg)
-                                                                                      (update :emitted-args conj arg-sym)))])
-                                    :poly (throw (UnsupportedOperationException.))))))
-                            (fn [{:keys [arg-types emitted-args]}]
-                              (codegen-call (assoc expr arg-types emitted-args)))
-                            (reverse emitted-args))]
-    #_
-    (doto (emit-call-f {:arg-types []
-                        :emitted-args []})
-      prn)
+                              emitted-args)]
 
     (-> (if (= 1 (count all-arg-types))
           (let [{:keys [return-type code]} (codegen-call (into expr
@@ -513,7 +561,35 @@
                                                                 :emitted-args (mapv :code emitted-args)}))]
             {:return-types [:mono return-type]
              :code code})
-          (throw (UnsupportedOperationException.)))
+
+          (let [emitted-calls (->> (for [arg-types all-arg-types]
+                                     [arg-types
+                                      (codegen-call (into expr
+                                                          {:arg-types arg-types
+                                                           :emitted-args (mapv :arg-code emitted-args)}))])
+                                   (into {}))
+                call-ret-types (->> (vals emitted-calls) (into #{} (map :return-type)))]
+            {:return-types (if (= 1 (count call-ret-types))
+                             [:mono (first call-ret-types)]
+                             [:poly (->> call-ret-types
+                                         (into {} (map (fn [^ArrowType arrow-type]
+                                                         [arrow-type (box-for return-boxes arrow-type)]))))])
+             :code
+             `(let [~@(into [] (mapcat (juxt :arg-sym :code)) emitted-args)]
+                ~(letfn [(emit-f [emitted-args arg-types]
+                           (if-let [[{:keys [arg-sym return-types]} & more-args] emitted-args]
+                             (let [[rt-type rt-arg] return-types]
+                               (case rt-type
+                                 :mono (emit-f more-args (conj arg-types rt-arg))
+                                 :poly `(condp identical? ~arg-sym
+                                          ~@(->> (for [[arrow-type {:keys [box-sym]}] rt-arg]
+                                                   [box-sym (emit-f more-args (conj arg-types arrow-type))])
+                                                 (apply concat)))))
+                             (let [{:keys [return-type code]} (get emitted-calls arg-types)]
+                               (if (= 1 (count call-ret-types))
+                                 code
+                                 (set-box-form return-boxes return-type code)))))]
+                   (emit-f emitted-args [])))}))
 
         (update :boxes (fnil into []) (mapcat :boxes) emitted-args))))
 
@@ -531,47 +607,47 @@
        :code `(~f-sym ~@emitted-args)}))
 
   (doseq [arrow-type #{ArrowType$Binary ArrowType$Utf8}]
-    (defmethod codegen-call [f-kw arrow-type arrow-type] [_]
+    (defmethod codegen-call [f-kw arrow-type arrow-type] [{:keys [emitted-args]}]
       {:return-type types/bool-type
-       :code #(cmp `(util/compare-nio-buffers-unsigned ~@%))}))
+       :code (cmp `(util/compare-nio-buffers-unsigned ~@emitted-args))}))
 
-  (defmethod codegen-call [f-kw ::types/Object ::types/Object] [_]
+  (defmethod codegen-call [f-kw ::types/Object ::types/Object] [{:keys [emitted-args]}]
     {:return-type types/bool-type
-     :code #(cmp `(compare ~@%))}))
+     :code (cmp `(compare ~@emitted-args))}))
 
-(defmethod codegen-call [:= ::types/Number ::types/Number] [_]
+(defmethod codegen-call [:= ::types/Number ::types/Number] [{:keys [emitted-args]}]
   {:return-type types/bool-type
-   :code #(do `(== ~@%))})
+   :code `(== ~@emitted-args)})
 
-(defmethod codegen-call [:= ::types/Object ::types/Object] [_]
+(defmethod codegen-call [:= ::types/Object ::types/Object] [{:keys [emitted-args]}]
   {:return-type types/bool-type
-   :code #(do `(= ~@%))})
+   :code `(= ~@emitted-args)})
 
 ;; null-eq is an internal function used in situations where two nulls should compare equal,
 ;; e.g when grouping rows in group-by.
-(defmethod codegen-call [:null-eq ::types/Object ::types/Object] [_]
+(defmethod codegen-call [:null-eq ::types/Object ::types/Object] [{:keys [emitted-args]}]
   {:return-type types/bool-type
-   :code #(do `(= ~@%))})
+   :code `(= ~@emitted-args)})
 
 (defmethod codegen-call [:null-eq ArrowType$Null ::types/Object] [_]
   {:return-type types/bool-type
-   :code (constantly false)})
+   :code false})
 
 (defmethod codegen-call [:null-eq ::types/Object ArrowType$Null] [_]
   {:return-type types/bool-type
-   :code (constantly false)})
+   :code false})
 
 (defmethod codegen-call [:null-eq ArrowType$Null ArrowType$Null] [_]
   {:return-type types/bool-type
-   :code (constantly true)})
+   :code true})
 
-(defmethod codegen-call [:<> ::types/Number ::types/Number] [_]
+(defmethod codegen-call [:<> ::types/Number ::types/Number] [{:keys [emitted-args]}]
   {:return-type types/bool-type
-   :code #(do `(not (== ~@%)))})
+   :code `(not (== ~@emitted-args))})
 
-(defmethod codegen-call [:<> ::types/Object ::types/Object] [_]
+(defmethod codegen-call [:<> ::types/Object ::types/Object] [{:keys [emitted-args]}]
   {:return-type types/bool-type
-   :code #(do `(not= ~@%))})
+   :code `(not= ~@emitted-args)})
 
 (doseq [f-kw #{:= :< :<= :> :>= :<>}]
   (defmethod codegen-call [f-kw ::types/Object ArrowType$Null] [_] call-returns-null)
@@ -630,32 +706,32 @@
 
 (defmethod codegen-call [:or ArrowType$Null ArrowType$Null] [_] call-returns-null)
 
-(defmethod codegen-call [:not ArrowType$Bool] [_]
+(defmethod codegen-call [:not ArrowType$Bool] [{:keys [emitted-args]}]
   {:return-type types/bool-type
-   :code #(do `(not ~@%))})
+   :code `(not ~@emitted-args)})
 
 (defmethod codegen-call [:not ArrowType$Null] [_] call-returns-null)
 
-(defmethod codegen-call [:true? ArrowType$Bool] [_]
+(defmethod codegen-call [:true? ArrowType$Bool] [{:keys [emitted-args]}]
   {:return-type types/bool-type
-   :code #(do `(true? ~@%))})
+   :code `(true? ~@emitted-args)})
 
-(defmethod codegen-call [:false? ArrowType$Bool] [_]
+(defmethod codegen-call [:false? ArrowType$Bool] [{:keys [emitted-args]}]
   {:return-type types/bool-type
-   :code #(do `(false? ~@%))})
+   :code `(false? ~@emitted-args)})
 
 (defmethod codegen-call [:nil? ArrowType$Null] [_]
   {:return-type types/bool-type
-   :code (constantly true)})
+   :code true})
 
 (doseq [f #{:true? :false? :nil?}]
   (defmethod codegen-call [f ::types/Object] [_]
     {:return-type types/bool-type
-     :code (constantly false)}))
+     :code false}))
 
 (defmethod codegen-call [:boolean ArrowType$Null] [_]
   {:return-type types/bool-type
-   :code (constantly false)})
+   :code false})
 
 (defmethod codegen-call [:boolean ArrowType$Bool] [_]
   {:return-type types/bool-type
@@ -663,7 +739,7 @@
 
 (defmethod codegen-call [:boolean ::types/Object] [_]
   {:return-type types/bool-type
-   :code (constantly true)})
+   :code true})
 
 (defn- with-math-integer-cast
   "java.lang.Math's functions only take int or long, so we introduce an up-cast if need be"
@@ -713,48 +789,42 @@
   {:return-type (types/least-upper-bound arg-types)
    :code `(* ~@emitted-args)})
 
-(defmethod codegen-call [:mod ::types/Number ::types/Number] [{:keys [arg-types]}]
+(defmethod codegen-call [:mod ::types/Number ::types/Number] [{:keys [arg-types emitted-args]}]
   {:return-type (types/least-upper-bound arg-types)
-   :code
-   #(do `(mod ~@%))})
+   :code `(mod ~@emitted-args)})
 
-(defmethod codegen-call [:/ ArrowType$Int ArrowType$Int] [{:keys [arg-types]}]
+(defmethod codegen-call [:/ ArrowType$Int ArrowType$Int] [{:keys [arg-types emitted-args]}]
   {:return-type (types/least-upper-bound arg-types)
-   :code
-   #(do `(quot ~@%))})
+   :code `(quot ~@emitted-args)})
 
-(defmethod codegen-call [:/ ::types/Number ::types/Number] [{:keys [arg-types]}]
+(defmethod codegen-call [:/ ::types/Number ::types/Number] [{:keys [arg-types emitted-args]}]
   {:return-type (types/least-upper-bound arg-types)
-   :code
-   #(do `(/ ~@%))})
+   :code `(/ ~@emitted-args)})
 
-(defmethod codegen-call [:max ::types/Number ::types/Number] [{:keys [arg-types]}]
+(defmethod codegen-call [:max ::types/Number ::types/Number] [{:keys [arg-types emitted-args]}]
   {:return-type (types/least-upper-bound arg-types)
-   :code
-   #(do `(Math/max ~@%))})
+   :code `(Math/max ~@emitted-args)})
 
-(defmethod codegen-call [:min ::types/Number ::types/Number] [{:keys [arg-types]}]
+(defmethod codegen-call [:min ::types/Number ::types/Number] [{:keys [arg-types emitted-args]}]
   {:return-type (types/least-upper-bound arg-types)
-   :code
-   #(do `(Math/min ~@%))})
+   :code `(Math/min ~@emitted-args)})
 
-(defmethod codegen-call [:power ::types/Number ::types/Number] [_]
+(defmethod codegen-call [:power ::types/Number ::types/Number] [{:keys [emitted-args]}]
   {:return-type types/float8-type
-   :code #(do `(Math/pow ~@%))})
+   :code `(Math/pow ~@emitted-args)})
 
-(defmethod codegen-call [:log ::types/Number ::types/Number] [_]
+(defmethod codegen-call [:log ::types/Number ::types/Number] [{[base x] :emitted-args}]
   {:return-type types/float8-type
-   :code (fn [[base x]]
-           `(/ (Math/log ~x) (Math/log ~base)))})
+   :code `(/ (Math/log ~x) (Math/log ~base))})
 
 (doseq [f #{:+ :- :* :/ :mod :min :max :power :log}]
   (defmethod codegen-call [f ::types/Number ArrowType$Null] [_] call-returns-null)
   (defmethod codegen-call [f ArrowType$Null ::types/Number] [_] call-returns-null)
   (defmethod codegen-call [f ArrowType$Null ArrowType$Null] [_] call-returns-null))
 
-(defmethod codegen-call [:double ::types/Number] [_]
+(defmethod codegen-call [:double ::types/Number] [{:keys [emitted-args]}]
   {:return-type types/float8-type
-   :code #(do `(double ~@%))})
+   :code `(double ~@emitted-args)})
 
 (defmethod codegen-call [:double ArrowType$Null] [_] call-returns-null)
 
@@ -1040,22 +1110,22 @@
         :when (some #(= ArrowType$Null %) [a b c])]
   (defmethod codegen-call [:substring a b c ArrowType$Bool] [_] call-returns-null))
 
-(defmethod codegen-call [:character-length ArrowType$Utf8 ArrowType$Utf8] [{:keys [args]}]
+(defmethod codegen-call [:character-length ArrowType$Utf8 ArrowType$Utf8] [{:keys [args], [s-code _unit-code] :emitted-args}]
   (let [[_ unit] (map :literal args)]
     {:return-type types/int-type
      :code (case unit
-             "CHARACTERS" #(do `(StringUtil/utf8Length ~(first %)))
-             "OCTETS" #(do `(.remaining ~(-> (first %) (with-tag ByteBuffer)))))}))
+             "CHARACTERS" `(StringUtil/utf8Length ~s-code)
+             "OCTETS" `(.remaining ~(-> s-code (with-tag ByteBuffer))))}))
 
 (defmethod codegen-call [:character-length ArrowType$Null ArrowType$Utf8] [_] call-returns-null)
 
-(defmethod codegen-call [:octet-length ArrowType$Utf8] [_]
+(defmethod codegen-call [:octet-length ArrowType$Utf8] [{[buf-code] :emitted-args}]
   {:return-type types/int-type
-   :code #(do `(.remaining ~(-> (first %) (with-tag ByteBuffer))))})
+   :code `(.remaining ~(-> buf-code (with-tag ByteBuffer)))})
 
-(defmethod codegen-call [:octet-length ArrowType$Binary] [_]
+(defmethod codegen-call [:octet-length ArrowType$Binary] [{[buf-code] :emitted-args}]
   {:return-type types/int-type
-   :code #(do `(.remaining ~(-> (first %) (with-tag ByteBuffer))))})
+   :code `(.remaining ~(-> buf-code (with-tag ByteBuffer)))})
 
 (defmethod codegen-call [:octet-length ArrowType$Null] [_] call-returns-null)
 
@@ -1374,15 +1444,17 @@
 (defn- return-types->field-type ^org.apache.arrow.vector.types.pojo.FieldType [return-types]
   (let [[rt-type rt-arg] return-types]
     (case rt-type
-      :mono (FieldType/notNullable rt-arg)
-      :poly (throw (UnsupportedOperationException.))))
-  #_(let [without-null (disj return-types types/null-type)]
-    (case (count without-null)
-      0 (FieldType/nullable types/null-type)
-      1 (FieldType. (contains? return-types types/null-type)
-                    (first without-null)
-                    nil)
-      (FieldType/notNullable types/dense-union-type))))
+      :mono (if (= types/null-type rt-arg)
+              (FieldType/nullable types/null-type)
+              (FieldType/notNullable rt-arg))
+      :poly (let [arrow-types (set (keys rt-arg))
+                  without-null (disj arrow-types types/null-type)]
+              (case (count without-null)
+                0 (FieldType/nullable types/null-type)
+                1 (FieldType. (contains? arrow-types types/null-type)
+                              (first without-null)
+                              nil)
+                (FieldType/notNullable types/dense-union-type))))))
 
 (defn- emit-write-value [{:keys [return-types code]}]
   (let [[rt-type rt-arg] return-types]
@@ -1397,10 +1469,12 @@
                            `(.getPosition ~out-writer-sym)
                            code)))}
 
-      :poly (throw (UnsupportedOperationException.))
-      #_
-      (let [->writer-sym (->> return-types
-                              (into {} (map (juxt identity (fn [_] (gensym 'writer))))))]
+      :poly
+      (let [->writer-sym (->> (keys rt-arg)
+                              (into {} (map (juxt identity
+                                                  (fn [arrow-type]
+                                                    (gensym (str (types/type->field-name arrow-type) "-writer")))))))
+            res-sym (gensym 'res)]
         {:writer-bindings
          (->> (cons [out-writer-sym `(.asDenseUnion ~out-writer-sym)]
                     (for [[arrow-type writer-sym] ->writer-sym]
@@ -1409,18 +1483,21 @@
                                                    (LegType. ~(arrow-type-literal-form arrow-type)))]))
               (apply concat))
 
-         :write-value-out!
-         (fn [^ArrowType arrow-type code]
-           (let [writer-sym (->writer-sym arrow-type)
-                 vec-type (types/arrow-type->vector-type arrow-type)]
-             `(do
-                (.startValue ~writer-sym)
-                ~(set-value-form arrow-type
-                                 (-> `(.getVector ~writer-sym)
-                                     (with-tag vec-type))
-                                 `(.getPosition ~writer-sym)
-                                 code)
-                (.endValue ~writer-sym))))}))))
+         :write-value-code
+         `(let [~res-sym ~code]
+            (condp identical? ~res-sym
+              ~@(->> (for [[arrow-type {:keys [box-sym]}] rt-arg]
+                       [box-sym (let [writer-sym (->writer-sym arrow-type)
+                                      vec-type (types/arrow-type->vector-type arrow-type)]
+                                  `(do
+                                     (.startValue ~writer-sym)
+                                     ~(set-value-form arrow-type
+                                                      (-> `(.getVector ~writer-sym)
+                                                          (with-tag vec-type))
+                                                      `(.getPosition ~writer-sym)
+                                                      `(.value ~(-> res-sym (with-tag (->box-class arrow-type)))))
+                                     (.endValue ~writer-sym)))])
+                     (apply concat))))}))))
 
 (defn batch-bindings [expr]
   (->> (walk/expr-seq expr)
@@ -1442,29 +1519,37 @@
                         (macro/macroexpand-all)
                         (walk/postwalk-expr (comp with-batch-bindings lit->param)))
 
-              {:keys [return-types] :as emitted-expr} (codegen-expr expr opts)
+              return-boxes (HashMap.)
+              {:keys [return-types boxes] :as emitted-expr} (codegen-expr expr (assoc opts :return-boxes return-boxes))
               ret-field-type (return-types->field-type return-types)
+
+              box-bindings (->> (for [{:keys [box-sym box-class]} (concat boxes (vals return-boxes))]
+                                  [box-sym `(new ~box-class)])
+                                (apply concat))
 
               {:keys [writer-bindings write-value-code]} (emit-write-value emitted-expr)]
 
           {:expr-fn (eval
-                     `(fn [~(-> out-vec-sym (with-tag ValueVector))
-                           ~(-> rel-sym (with-tag IIndirectRelation))
-                           ~params-sym]
-                        (let [~@(batch-bindings expr)
+                     (doto `(fn [~(-> out-vec-sym (with-tag ValueVector))
+                                 ~(-> rel-sym (with-tag IIndirectRelation))
+                                 ~params-sym]
+                              (let [~@(batch-bindings expr)
 
-                              ~out-writer-sym (vw/vec->writer ~out-vec-sym)
-                              ~@writer-bindings
+                                    ~@box-bindings
 
-                              row-count# (.rowCount ~rel-sym)]
-                          (.setValueCount ~out-vec-sym row-count#)
-                          (dotimes [~idx-sym row-count#]
-                            (.startValue ~out-writer-sym)
-                            ~write-value-code
-                            (.endValue ~out-writer-sym)))))
+                                    ~out-writer-sym (vw/vec->writer ~out-vec-sym)
+                                    ~@writer-bindings
+
+                                    row-count# (.rowCount ~rel-sym)]
+                                (.setValueCount ~out-vec-sym row-count#)
+                                (dotimes [~idx-sym row-count#]
+                                  (.startValue ~out-writer-sym)
+                                  ~write-value-code
+                                  (.endValue ~out-writer-sym))))
+                       clojure.pprint/pprint))
 
            :field-type ret-field-type}))
-      (memoize)
+      #_(memoize)
       wrap-zone-id-cache-buster))
 
 (defn field->value-types [^Field field]

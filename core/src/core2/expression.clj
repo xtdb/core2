@@ -20,6 +20,7 @@
            (java.util Date HashMap LinkedList Arrays)
            (java.util.function IntUnaryOperator Function)
            (java.util.stream IntStream)
+           org.apache.arrow.memory.BufferAllocator
            (org.apache.arrow.vector BigIntVector BitVector DurationVector FieldVector IntVector ValueVector PeriodDuration)
            (org.apache.arrow.vector.complex DenseUnionVector FixedSizeListVector StructVector)
            (org.apache.arrow.vector.types DateUnit TimeUnit Types Types$MinorType IntervalUnit)
@@ -160,9 +161,6 @@
 (def rel-sym (gensym 'rel))
 (def params-sym (gensym 'params))
 
-(defmulti with-batch-bindings :op, :default ::default)
-(defmethod with-batch-bindings ::default [expr] expr)
-
 #_{:clj-kondo/ignore [:unused-binding]}
 (defmulti codegen-expr
   "Returns a map containing
@@ -231,15 +229,6 @@
        :param-type (.arrowType (types/value->leg-type literal))})
     expr))
 
-(defmethod with-batch-bindings :param [{:keys [param param-class] :as expr}]
-  (-> expr
-      (assoc :batch-bindings
-             [[param
-               (emit-value param-class
-                           (:literal expr
-                                     (cond-> `(get ~params-sym '~param)
-                                       param-class (with-tag param-class))))]])))
-
 (defmethod codegen-expr :param [{:keys [param param-type] :as expr} _]
   (into {:return-types #{param-type}
          :continue (fn [f]
@@ -285,12 +274,6 @@
   [^ArrowType$ExtensionType arrow-type vec-sym idx-sym]
   ;; a reasonable default, but implement it for more specific types if this doesn't work
   (get-value-form (.storageType arrow-type) `(.getUnderlyingVector ~vec-sym) idx-sym))
-
-(defmethod with-batch-bindings :variable [{:keys [variable] :as expr}]
-  (-> expr
-      (assoc :batch-bindings
-             [[(-> variable (with-tag IIndirectVector))
-               `(.vectorForName ~rel-sym ~(name variable))]])))
 
 (defmethod codegen-expr :variable [{:keys [variable idx], :or {idx idx-sym}} {:keys [var->types]}]
   (let [field-types (or (get var->types variable)
@@ -1331,93 +1314,11 @@
         ;; TODO there are other minor types that don't have a single corresponding ArrowType
         `(.getType ~(symbol (name 'org.apache.arrow.vector.types.Types$MinorType) minor-type-name))))))
 
-(defn- return-types->field-type ^org.apache.arrow.vector.types.pojo.FieldType [return-types]
-  (let [without-null (disj return-types types/null-type)]
-    (case (count without-null)
-      0 (FieldType/nullable types/null-type)
-      1 (FieldType. (contains? return-types types/null-type)
-                    (first without-null)
-                    nil)
-      (FieldType/notNullable types/dense-union-type))))
-
-(defn- write-value-out-code [^FieldType field-type return-types]
-  (if-not (= types/dense-union-type (.getType field-type))
-    {:write-value-out!
-     (fn [^ArrowType arrow-type code]
-       (when-not (= arrow-type types/null-type)
-         (let [vec-type (types/arrow-type->vector-type arrow-type)]
-           (set-value-form arrow-type
-                           (-> `(.getVector ~out-writer-sym)
-                               (with-tag vec-type))
-                           `(.getPosition ~out-writer-sym)
-                           code))))}
-
-    (let [->writer-sym (->> return-types
-                            (into {} (map (juxt identity (fn [_] (gensym 'writer))))))]
-      {:writer-bindings
-       (->> (cons [out-writer-sym `(.asDenseUnion ~out-writer-sym)]
-                  (for [[arrow-type writer-sym] ->writer-sym]
-                    [writer-sym `(.writerForType ~out-writer-sym
-                                                 ;; HACK: pass leg-types through instead
-                                                 (LegType. ~(arrow-type-literal-form arrow-type)))]))
-            (apply concat))
-
-       :write-value-out!
-       (fn [^ArrowType arrow-type code]
-         (let [writer-sym (->writer-sym arrow-type)
-               vec-type (types/arrow-type->vector-type arrow-type)]
-           `(do
-              (.startValue ~writer-sym)
-              ~(set-value-form arrow-type
-                               (-> `(.getVector ~writer-sym)
-                                   (with-tag vec-type))
-                               `(.getPosition ~writer-sym)
-                               code)
-              (.endValue ~writer-sym))))})))
-
 (defn batch-bindings [expr]
   (->> (walk/expr-seq expr)
        (mapcat :batch-bindings)
        (distinct)
        (apply concat)))
-
-(defn- wrap-zone-id-cache-buster [f]
-  (fn [expr opts]
-    (f expr (assoc opts :zone-id (.getZone *clock*)))))
-
-(def ^:private memo-generate-projection
-  "NOTE: we macroexpand inside the memoize on the assumption that
-   everything outside yields the same result on the pre-expanded expr - this
-   assumption wouldn't hold if macroexpansion created new variable exprs, for example.
-   macroexpansion is non-deterministic (gensym), so busts the memo cache."
-  (-> (fn [expr opts]
-        (let [expr (->> expr
-                        (macro/macroexpand-all)
-                        (walk/postwalk-expr (comp with-batch-bindings lit->param)))
-
-              {:keys [return-types continue]} (codegen-expr expr opts)
-              ret-field-type (return-types->field-type return-types)
-
-              {:keys [writer-bindings write-value-out!]} (write-value-out-code ret-field-type return-types)]
-
-          {:expr-fn (eval
-                     `(fn [~(-> out-vec-sym (with-tag ValueVector))
-                           ~(-> rel-sym (with-tag IIndirectRelation))
-                           ~params-sym]
-                        (let [~@(batch-bindings expr)
-
-                              ~out-writer-sym (vw/vec->writer ~out-vec-sym)
-                              ~@writer-bindings
-                              row-count# (.rowCount ~rel-sym)]
-                          (.setValueCount ~out-vec-sym row-count#)
-                          (dotimes [~idx-sym row-count#]
-                            (.startValue ~out-writer-sym)
-                            ~(continue write-value-out!)
-                            (.endValue ~out-writer-sym)))))
-
-           :field-type ret-field-type}))
-      (memoize)
-      wrap-zone-id-cache-buster))
 
 (defn field->value-types [^Field field]
   ;; potential duplication with LegType
@@ -1433,6 +1334,25 @@
   (fn [{:keys [op]} col-name {:keys [var-fields] :as opts}]
     op)
   :default ::default)
+
+(defmethod emit-expr :literal [{:keys [literal]} ^String col-name, _opts]
+  (let [arrow-type (.arrowType (types/value->leg-type literal))
+        field-type (FieldType. (= arrow-type types/null-type) arrow-type nil)]
+    (fn [^IIndirectRelation in-rel, ^BufferAllocator al, _params]
+      (let [out-vec (-> field-type
+                        (.createNewSingleVector col-name al nil))]
+        (try
+          (let [out-writer (vw/vec->writer out-vec)
+                row-count (.rowCount in-rel)]
+            (.setValueCount out-vec row-count)
+            (dotimes [_ row-count]
+              (.startValue out-writer)
+              (types/write-value! literal out-writer)
+              (.endValue out-writer))
+            out-vec)
+          (catch Throwable e
+            (.close out-vec)
+            (throw e)))))))
 
 (defn field-with-name ^org.apache.arrow.vector.types.pojo.Field [^Field field, ^String col-name]
   (apply types/->field col-name (.getType field) (.isNullable field)
@@ -1620,66 +1540,87 @@
               (.close out-vec)
               (throw e))))))))
 
-(def ^:private primitive-ops
-  #{:variable :param :literal
-    :call :let :local
-    :if :if-some
-    :metadata-field-present :metadata-vp-call})
+#_{:clj-kondo/ignore [:unused-binding]}
+(definterface Kernel
+  (^void applyAll [^core2.vector.IIndirectRelation inRelation,
+                   ^core2.vector.IVectorWriter outVector])
+  (^void apply [^core2.vector.IIndirectRelation inRelation,
+                ^ints idxs,
+                ^core2.vector.IVectorWriter outVector]))
 
-(defn- emit-prim-expr [prim-expr ^String col-name {:keys [var-fields] :as opts}]
-  (let [prim-expr (->> prim-expr
-                       (walk/prewalk-expr (fn [{:keys [op] :as expr}]
-                                            (if (contains? primitive-ops op)
-                                              expr
-                                              {:op :variable
-                                               :variable (gensym 'var)
-                                               :idx idx-sym
-                                               :expr expr}))))
-        var-sub-exprs (->> (walk/expr-seq prim-expr)
-                           (filter #(= :variable (:op %))))
-        emitted-sub-exprs (->> (for [{:keys [variable expr]} var-sub-exprs
-                                     :when expr]
-                                 (MapEntry/create variable
-                                                  (emit-expr expr (name variable) opts)))
-                               (into {}))]
+(def ^java.util.Map call-kernels
+  (HashMap.))
 
-    ;; TODO what are we going to do about needing to close over locals?
-    (fn [^IIndirectRelation in-rel al params]
-      (let [evald-sub-exprs (HashMap.)]
+(defmacro with-kernel-cached [->kernel expr]
+  `(let [expr# ~expr]
+     (.computeIfAbsent call-kernels (map expr# [:f :arg-types])
+                       (reify Function
+                         (apply [_# _k#]
+                           ~->kernel)))))
+
+(defn- eval-kernel [{:keys [arg-types] :as expr}]
+  (-> (let [idx-sym (gensym 'idx)
+            out-vec-sym (gensym 'out-vec)
+            arg-syms (for [arg-type arg-types]
+                       {:arg-type arg-type
+                        :col-sym (gensym 'arg-col)
+                        :vec-sym (gensym 'arg-vec)})
+            {:keys [return-type code]} (codegen-call (assoc expr :emitted-args (for [{:keys [arg-type col-sym vec-sym]} arg-syms]
+                                                                                 (get-value-form arg-type vec-sym `(.getIndex ~col-sym ~idx-sym)))))]
+        {:return-type return-type
+
+         :kernel
+         (-> `(reify Kernel
+                (~'applyAll [_# in-rel# out-writer#]
+                 (let [~(-> out-vec-sym
+                            (with-tag (types/arrow-type->vector-type return-type)))
+                       (.getVector out-writer#)
+
+                       [~@(map (comp #(with-tag % IIndirectVector) :col-sym) arg-syms)] (seq in-rel#)
+
+                       ~@(->> (for [{:keys [arg-type col-sym vec-sym]} arg-syms]
+                                [(-> vec-sym
+                                     (with-tag (types/arrow-type->vector-type arg-type)))
+                                 `(.getVector ~col-sym)])
+                              (apply concat))
+                       row-count# (.rowCount in-rel#)]
+
+                   (.setValueCount ~out-vec-sym row-count#)
+
+                   (dotimes [~idx-sym row-count#]
+                     (.startValue out-writer#)
+                     ~(set-value-form return-type out-vec-sym idx-sym code)
+                     (.endValue out-writer#)))))
+             #_(doto clojure.pprint/pprint)
+             eval)})
+      #_(with-kernel-cached expr)))
+
+(defmethod emit-expr :call [{:keys [args] :as expr} ^String col-name opts]
+  (let [emitted-args (->> args
+                          (into [] (map-indexed (fn [idx arg]
+                                                  (emit-expr arg (str "arg" idx) opts)))))]
+    (fn [^IIndirectRelation in-rel, ^BufferAllocator al, params]
+      (let [evald-args (LinkedList.)]
         (try
-          (doseq [[variable eval-expr] emitted-sub-exprs]
-            (.put evald-sub-exprs variable (eval-expr in-rel al params)))
+          (doseq [eval-arg emitted-args]
+            (.add evald-args (eval-arg in-rel al params)))
 
-          (let [var->types (->> (concat (for [[variable field] var-fields]
-                                          (MapEntry/create variable (field->value-types field)))
-                                        (for [[variable ^ValueVector out-vec] evald-sub-exprs]
-                                          (MapEntry/create variable (field->value-types (.getField out-vec)))))
-                                (into {}))
-
-                {:keys [expr-fn ^FieldType field-type]} (memo-generate-projection prim-expr {:var->types var->types})
-                out-field (Field. col-name field-type [])
-                out-vec (.createVector out-field al)]
-
+          (let [arg-types (mapv (fn [^ValueVector arg-vec]
+                                  (.getType (.getField arg-vec)))
+                                evald-args)
+                {:keys [return-type ^Kernel kernel]} (eval-kernel (assoc expr :arg-types arg-types))
+                ^ValueVector out-vec (-> (FieldType/notNullable return-type)
+                                         (.createNewSingleVector col-name al nil))]
             (try
-              (let [in-rel (-> (concat in-rel (for [[variable sub-expr-vec] evald-sub-exprs]
-                                                (-> (iv/->direct-vec sub-expr-vec)
-                                                    (.withName (name variable)))))
-                               (iv/->indirect-rel (.rowCount in-rel)))]
-
-                (expr-fn out-vec in-rel params))
-
+              (.applyAll kernel
+                         (iv/->indirect-rel (map iv/->direct-vec evald-args) (.rowCount in-rel))
+                         (vw/vec->writer out-vec))
               out-vec
               (catch Throwable e
                 (.close out-vec)
                 (throw e))))
-
           (finally
-            (run! util/try-close (vals evald-sub-exprs))))))))
-
-(doseq [op (-> (set (keys (methods codegen-expr)))
-               (disj :variable))]
-  (defmethod emit-expr op [prim-expr col-name opts]
-    (emit-prim-expr prim-expr col-name opts)))
+            (run! util/try-close evald-args)))))))
 
 (defn ->var-fields [^IIndirectRelation in-rel, expr]
   (->> (for [var-sym (->> (walk/expr-seq expr)
@@ -1691,7 +1632,8 @@
        (into {})))
 
 (defn ->expression-projection-spec ^core2.operator.IProjectionSpec [^String col-name form col-names params]
-  (let [expr (form->expr form {:col-names col-names, :params params})]
+  (let [expr (-> (form->expr form {:col-names col-names, :params params})
+                 (macro/macroexpand-all))]
     (reify IProjectionSpec
       (getColumnName [_] col-name)
 
@@ -1721,73 +1663,3 @@
       (let [projection-spec (->expression-projection-spec "_scalar" form col-names params)]
         (with-open [out-vec (.project projection-spec al (iv/->indirect-rel [] 1))]
           (types/get-object (.getVector out-vec) (.getIndex out-vec 0)))))))
-
-
-(definterface Kernel
-  (^void applyAll [^core2.vector.IIndirectRelation inRelation,
-                   ^core2.vector.IVectorWriter outVector])
-  (^void apply [^core2.vector.IIndirectRelation inRelation,
-                ^ints idxs,
-                ^core2.vector.IVectorWriter outVector]))
-
-(def ^java.util.Map kernels
-  (HashMap.))
-
-(defmethod codegen-call [:+ ArrowType$Int ArrowType$Int] [{:keys [f arg-types emitted-args]}]
-  {:return-type types/bigint-type
-   :code `(+ ~@emitted-args)})
-
-(defmacro with-kernel-cached [->kernel expr]
-  `(let [expr# ~expr]
-     (.computeIfAbsent kernels (map expr# [:f :arg-types])
-                       (reify Function
-                         (apply [_# _k#]
-                           ~->kernel)))))
-
-(do
-  (defn eval-kernel [{:keys [arg-types] :as expr}]
-    (-> (let [idx-sym (gensym 'idx)
-              out-vec-sym (gensym 'out-vec)
-              arg-syms (for [arg-type arg-types]
-                         {:arg-type arg-type
-                          :col-sym (gensym 'arg-col)
-                          :vec-sym (gensym 'arg-vec)})
-              {:keys [return-type code]} (codegen-call (assoc expr :emitted-args (for [{:keys [arg-type col-sym vec-sym]} arg-syms]
-                                                                                   (get-value-form arg-type vec-sym `(.getIndex ~col-sym ~idx-sym)))))]
-          {:return-type return-type
-           :kernel
-           (binding [*print-meta* true]
-             (-> `(reify Kernel
-                    (~'applyAll [_# in-rel# out-writer#]
-                     (let [~(-> out-vec-sym
-                                (with-tag (types/arrow-type->vector-type return-type)))
-                           (.getVector out-writer#)
-
-                           [~@(map (comp #(with-tag % IIndirectVector) :col-sym) arg-syms)] (seq in-rel#)
-
-                           ~@(->> (for [{:keys [arg-type col-sym vec-sym]} arg-syms]
-                                    [(-> vec-sym
-                                         (with-tag (types/arrow-type->vector-type arg-type)))
-                                     `(.getVector ~col-sym)])
-                                  (apply concat))
-                           row-count# (.rowCount in-rel#)]
-
-                       (.setValueCount ~out-vec-sym row-count#)
-
-                       (dotimes [~idx-sym row-count#]
-                         (.startValue out-writer#)
-                         ~(set-value-form return-type out-vec-sym idx-sym code)
-                         (.endValue out-writer#)))))
-                 #_(doto clojure.pprint/pprint)
-                 eval))})
-        #_(with-kernel-cached expr)))
-
-  (let [{:keys [^Kernel kernel]} (eval-kernel {:f :+, :arg-types [types/bigint-type types/bigint-type]})]
-    (with-open [al (org.apache.arrow.memory.RootAllocator.)]
-      (binding [core2.test-util/*allocator* al]
-        (with-open [^IIndirectRelation rel (#'core2.expression-test/open-rel
-                                              [(core2.test-util/->mono-vec "x" types/bigint-type [12 13 14])
-                                               (core2.test-util/->mono-vec "y" types/bigint-type [41 63 12])])
-                    out-vec (BigIntVector. "out" al)]
-          (.applyAll kernel rel (vw/vec->writer out-vec))
-          (pr-str out-vec))))))

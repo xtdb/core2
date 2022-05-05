@@ -1362,23 +1362,35 @@
 (def ^java.util.Map call-kernels
   (HashMap.))
 
+(defn- call-kernel-cache-key [{:keys [f arg-types]}]
+  {:f f
+   :arg-types (for [^FieldType arg-type arg-types]
+                (.getType arg-type))
+   :none-null? (every? #(not (.isNullable ^FieldType %)) arg-types)})
+
 (defmacro with-kernel-cached [->kernel expr]
   `(let [expr# ~expr]
-     (.computeIfAbsent call-kernels (map expr# [:f :arg-types])
+     (.computeIfAbsent call-kernels
+                       (call-kernel-cache-key expr#)
                        (reify Function
                          (apply [_# _k#]
                            ~->kernel)))))
 
 (defn- eval-kernel [{:keys [arg-types] :as expr}]
-  (-> (let [idx-sym (gensym 'idx)
+  (-> (let [none-null? (every? #(not (.isNullable ^FieldType %)) arg-types)
+            idx-sym (gensym 'idx)
             out-vec-sym (gensym 'out-vec)
             arg-syms (for [arg-type arg-types]
                        {:arg-type arg-type
                         :col-sym (gensym 'arg-col)
-                        :vec-sym (gensym 'arg-vec)})
-            {:keys [return-type code]} (codegen-call (assoc expr :emitted-args (for [{:keys [arg-type col-sym vec-sym]} arg-syms]
-                                                                                 (get-value-form arg-type vec-sym `(.getIndex ~col-sym ~idx-sym)))))]
-        {:return-type return-type
+                        :vec-sym (gensym 'arg-vec)
+                        :arg-idx-sym (gensym 'arg-idx)})
+            {:keys [return-type code]} (codegen-call (-> expr
+                                                         (assoc :emitted-args (for [{:keys [^FieldType arg-type vec-sym arg-idx-sym]} arg-syms]
+                                                                                (get-value-form (.getType arg-type) vec-sym arg-idx-sym))
+                                                                :arg-types (for [^FieldType arg-type arg-types]
+                                                                             (.getType arg-type)))))]
+        {:return-type (FieldType. (not none-null?) return-type nil)
 
          :kernel
          (-> `(reify Kernel
@@ -1389,9 +1401,9 @@
 
                        [~@(map (comp #(with-tag % IIndirectVector) :col-sym) arg-syms)] (seq in-rel#)
 
-                       ~@(->> (for [{:keys [arg-type col-sym vec-sym]} arg-syms]
+                       ~@(->> (for [{:keys [^FieldType arg-type col-sym vec-sym]} arg-syms]
                                 [(-> vec-sym
-                                     (with-tag (types/arrow-type->vector-type arg-type)))
+                                     (with-tag (types/arrow-type->vector-type (.getType arg-type))))
                                  `(.getVector ~col-sym)])
                               (apply concat))
                        row-count# (.rowCount in-rel#)]
@@ -1400,7 +1412,15 @@
 
                    (dotimes [~idx-sym row-count#]
                      (.startValue out-writer#)
-                     ~(set-value-form return-type out-vec-sym idx-sym code)
+                     (let [~@(->> (for [{:keys [arg-idx-sym col-sym]} arg-syms]
+                                    [arg-idx-sym `(.getIndex ~col-sym ~idx-sym)])
+                                  (apply concat))]
+                       ~(let [set-value-code (set-value-form return-type out-vec-sym idx-sym code)]
+                          (if none-null?
+                            set-value-code
+                            `(when (and ~@(for [{:keys [arg-idx-sym vec-sym]} arg-syms]
+                                            `(not (.isNull ~vec-sym ~arg-idx-sym))))
+                               ~set-value-code))))
                      (.endValue out-writer#)))))
              #_(doto clojure.pprint/pprint)
              eval)})
@@ -1417,10 +1437,10 @@
             (.add evald-args (eval-arg in-rel al params)))
 
           (let [arg-types (mapv (fn [^ValueVector arg-vec]
-                                  (.getType (.getField arg-vec)))
+                                  (.getFieldType (.getField arg-vec)))
                                 evald-args)
-                {:keys [return-type ^Kernel kernel]} (eval-kernel (assoc expr :arg-types arg-types))
-                ^ValueVector out-vec (-> (FieldType/notNullable return-type)
+                {:keys [^FieldType return-type ^Kernel kernel]} (eval-kernel (assoc expr :arg-types arg-types))
+                ^ValueVector out-vec (-> return-type
                                          (.createNewSingleVector col-name al nil))]
             (try
               (.applyAll kernel

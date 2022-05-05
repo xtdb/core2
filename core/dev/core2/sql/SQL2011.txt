@@ -287,8 +287,8 @@
 // <named argument assignment token> ::=
 //   =>
 
-// <separator> ::=
-//   { <comment> | <white space> }...
+   <separator> ::=
+     { <comment> | <white space> }...
 
 // <white space> ::=
 //   !! See the Syntax Rules.

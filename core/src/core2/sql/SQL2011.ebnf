@@ -151,6 +151,10 @@ concatenation_operator
     : '||'
     ;
 
+separator
+    : #'\s+'
+    ;
+
 (*  5.3     <literal> *)
 
 <literal>
@@ -769,6 +773,7 @@ term
 
 factor
     : [ sign ] numeric_primary
+    / sign <separator> factor
     ;
 
 <numeric_primary>

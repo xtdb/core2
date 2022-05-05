@@ -18,7 +18,7 @@
            (java.time Clock Duration Instant LocalDate ZonedDateTime ZoneId ZoneOffset Period)
            (java.time.temporal ChronoField ChronoUnit)
            (java.util Date HashMap LinkedList Arrays)
-           (java.util.function IntUnaryOperator)
+           (java.util.function IntUnaryOperator Function)
            (java.util.stream IntStream)
            (org.apache.arrow.vector BigIntVector BitVector DurationVector FieldVector IntVector ValueVector PeriodDuration)
            (org.apache.arrow.vector.complex DenseUnionVector FixedSizeListVector StructVector)
@@ -1721,3 +1721,73 @@
       (let [projection-spec (->expression-projection-spec "_scalar" form col-names params)]
         (with-open [out-vec (.project projection-spec al (iv/->indirect-rel [] 1))]
           (types/get-object (.getVector out-vec) (.getIndex out-vec 0)))))))
+
+
+(definterface Kernel
+  (^void applyAll [^core2.vector.IIndirectRelation inRelation,
+                   ^core2.vector.IVectorWriter outVector])
+  (^void apply [^core2.vector.IIndirectRelation inRelation,
+                ^ints idxs,
+                ^core2.vector.IVectorWriter outVector]))
+
+(def ^java.util.Map kernels
+  (HashMap.))
+
+(defmethod codegen-call [:+ ArrowType$Int ArrowType$Int] [{:keys [f arg-types emitted-args]}]
+  {:return-type types/bigint-type
+   :code `(+ ~@emitted-args)})
+
+(defmacro with-kernel-cached [->kernel expr]
+  `(let [expr# ~expr]
+     (.computeIfAbsent kernels (map expr# [:f :arg-types])
+                       (reify Function
+                         (apply [_# _k#]
+                           ~->kernel)))))
+
+(do
+  (defn eval-kernel [{:keys [arg-types] :as expr}]
+    (-> (let [idx-sym (gensym 'idx)
+              out-vec-sym (gensym 'out-vec)
+              arg-syms (for [arg-type arg-types]
+                         {:arg-type arg-type
+                          :col-sym (gensym 'arg-col)
+                          :vec-sym (gensym 'arg-vec)})
+              {:keys [return-type code]} (codegen-call (assoc expr :emitted-args (for [{:keys [arg-type col-sym vec-sym]} arg-syms]
+                                                                                   (get-value-form arg-type vec-sym `(.getIndex ~col-sym ~idx-sym)))))]
+          {:return-type return-type
+           :kernel
+           (binding [*print-meta* true]
+             (-> `(reify Kernel
+                    (~'applyAll [_# in-rel# out-writer#]
+                     (let [~(-> out-vec-sym
+                                (with-tag (types/arrow-type->vector-type return-type)))
+                           (.getVector out-writer#)
+
+                           [~@(map (comp #(with-tag % IIndirectVector) :col-sym) arg-syms)] (seq in-rel#)
+
+                           ~@(->> (for [{:keys [arg-type col-sym vec-sym]} arg-syms]
+                                    [(-> vec-sym
+                                         (with-tag (types/arrow-type->vector-type arg-type)))
+                                     `(.getVector ~col-sym)])
+                                  (apply concat))
+                           row-count# (.rowCount in-rel#)]
+
+                       (.setValueCount ~out-vec-sym row-count#)
+
+                       (dotimes [~idx-sym row-count#]
+                         (.startValue out-writer#)
+                         ~(set-value-form return-type out-vec-sym idx-sym code)
+                         (.endValue out-writer#)))))
+                 #_(doto clojure.pprint/pprint)
+                 eval))})
+        #_(with-kernel-cached expr)))
+
+  (let [{:keys [^Kernel kernel]} (eval-kernel {:f :+, :arg-types [types/bigint-type types/bigint-type]})]
+    (with-open [al (org.apache.arrow.memory.RootAllocator.)]
+      (binding [core2.test-util/*allocator* al]
+        (with-open [^IIndirectRelation rel (#'core2.expression-test/open-rel
+                                              [(core2.test-util/->mono-vec "x" types/bigint-type [12 13 14])
+                                               (core2.test-util/->mono-vec "y" types/bigint-type [41 63 12])])
+                    out-vec (BigIntVector. "out" al)]
+          (.applyAll kernel rel (vw/vec->writer out-vec))
+          (pr-str out-vec))))))

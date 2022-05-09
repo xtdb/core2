@@ -767,7 +767,7 @@ numeric_value_expression
 
 term
     : factor
-    / term asterisk factor
+    / term asterisk factor !#'(?i)(\b(YEAR|MONTH|DAY|HOUR|MINUTE|SECOND)\b)'
     / term solidus factor
     ;
 

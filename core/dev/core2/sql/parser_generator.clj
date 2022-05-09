@@ -98,6 +98,11 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*' | #'!!.*?\\n')+")))
         ;; removes <search or cycle clause>
         with_list_element
         "query_name [ <left_paren> with_column_list <right_paren> ] 'AS' table_subquery"
+        ;; ensures <interval term> takes priority.
+        term
+        "factor
+    / term asterisk factor !#'(?i)(\\b(YEAR|MONTH|DAY|HOUR|MINUTE|SECOND)\\b)'
+    / term solidus factor"
         ;; adds <trigonometric function>, <general logarithm function> and <common logarithm> from SQL:2016
         numeric_value_function
         "position_expression
@@ -156,7 +161,7 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*' | #'!!.*?\\n')+")))
     / sign <separator> factor"
         ;; define 1 or more whitespace chars as separator
         separator
-    "#'\\s+'"
+        "#'\\s+'"
         }
 
       ;; adds check for reserved words, these should really be allowed after 'AS'

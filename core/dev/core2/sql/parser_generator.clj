@@ -36,7 +36,7 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*' | #'!!.*?\\n')+")))
 ;; out. This is to ensure the override ends up in the right place in
 ;; the grammar.
 (def rule-overrides
-  (-> '{<space> "' '"
+  (-> '{<space> "#'(?<= )'"
         <quote> "'\\''"
         <period> "'.'"
         solidus "'/'"

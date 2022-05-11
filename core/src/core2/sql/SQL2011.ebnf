@@ -4,7 +4,7 @@
 (*  5.1     <SQL terminal character> *)
 
 <space>
-    : ' '
+    : #'(?<= )'
     ;
 
 percent

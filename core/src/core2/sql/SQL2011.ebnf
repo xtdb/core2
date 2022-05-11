@@ -152,7 +152,7 @@ concatenation_operator
     ;
 
 separator
-    : #'\s+'
+    : #'(?<=\s)'
     ;
 
 (*  5.3     <literal> *)
@@ -173,6 +173,7 @@ separator
     / datetime_literal
     / interval_literal
     / boolean_literal
+    / null_specification
     ;
 
 character_string_literal

@@ -63,6 +63,14 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*' | #'!!.*?\\n')+")))
         "#'\\'(\\'\\'|[^\\'])*\\''+"
         binary_string_literal
         "#'X(\\'[a-fA-F0-9\\s]+\\'\\s*)+'"
+        ;; adds <null_specification>
+        general_literal
+        "character_string_literal
+    / binary_string_literal
+    / datetime_literal
+    / interval_literal
+    / boolean_literal
+    / null_specification"
         host_parameter_name
         "<colon> #'[a-zA-Z][a-zA-Z0-9_]*'"
         ;; removes <indicator parameter>
@@ -159,9 +167,9 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*' | #'!!.*?\\n')+")))
         factor
         "[ sign ] numeric_primary
     / sign <separator> factor"
-        ;; define 1 or more whitespace chars as separator
+        ;; define 1 or more whitespace chars as separator, look-behind.
         separator
-        "#'\\s+'"
+        "#'(?<=\\s)'"
         }
 
       ;; adds check for reserved words, these should really be allowed after 'AS'
@@ -189,6 +197,7 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*' | #'!!.*?\\n')+")))
   '#{table_name
      host_parameter_specification
      numeric_value_function
+     general_literal
      predefined_type
      character_factor
      parenthesized_value_expression

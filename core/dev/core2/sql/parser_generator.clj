@@ -1,7 +1,8 @@
 (ns core2.sql.parser-generator
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
-            [instaparse.core :as insta])
+            [instaparse.core :as insta]
+            [instaparse.cfg :as insta-cfg])
   (:import java.io.File))
 
 (set! *unchecked-math* :warn-on-boxed)
@@ -374,12 +375,14 @@ common_logarithm
          (str/join "\n"))))
 
 (def sql2011-grammar-file (File. (.toURI (io/resource "core2/sql/SQL2011.ebnf"))))
+(def sql2011-edn-file (File. (.toURI (io/resource "core2/sql/SQL2011.edn"))))
 (def sql2011-spec-file (File. (.toURI (io/resource "core2/sql/SQL2011.txt"))))
 
 (defn generate-parser [sql-spec-file ebnf-grammar-file]
   (->> (parse-sql-spec (slurp sql-spec-file))
        (sql-spec-ast->ebnf-grammar-string extra-rules)
-       (spit ebnf-grammar-file)))
+       (spit ebnf-grammar-file))
+  (spit sql2011-edn-file (pr-str (insta-cfg/ebnf (slurp ebnf-grammar-file)))))
 
 (defn -main [& _args]
   (generate-parser sql2011-spec-file sql2011-grammar-file))

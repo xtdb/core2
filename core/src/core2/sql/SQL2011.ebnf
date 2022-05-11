@@ -289,27 +289,7 @@ unquoted_timestamp_string
     ;
 
 unquoted_interval_string
-    : [ sign ] ( year_month_literal / day_time_literal )
-    ;
-
-year_month_literal
-    : years_value [ minus_sign months_value ]
-    / months_value
-    ;
-
-<day_time_literal>
-    : day_time_interval
-    / time_interval
-    ;
-
-day_time_interval
-    : days_value [ <space> hours_value [ <colon> minutes_value [ <colon> seconds_value ] ] ]
-    ;
-
-time_interval
-    : hours_value [ <colon> minutes_value [ <colon> seconds_value ] ]
-    / minutes_value [ <colon> seconds_value ]
-    / seconds_value
+    : #'[\d\:\-\+\. ]+'
     ;
 
 <years_value>

@@ -613,22 +613,22 @@
 <unquoted interval string> ::=
   [ <sign> ] { <year-month literal> | <day-time literal> }
 
-<year-month literal> ::=
-    <years value> [ <minus sign> <months value> ]
-  | <months value>
+// <year-month literal> ::=
+//     <years value> [ <minus sign> <months value> ]
+//  | <months value>
 
-<day-time literal> ::=
-    <day-time interval>
-  | <time interval>
+// <day-time literal> ::=
+//    <day-time interval>
+//  | <time interval>
 
-<day-time interval> ::=
-  <days value> [ <space> <hours value> [ <colon> <minutes value>
-      [ <colon> <seconds value> ] ] ]
+// <day-time interval> ::=
+//  <days value> [ <space> <hours value> [ <colon> <minutes value>
+//      [ <colon> <seconds value> ] ] ]
 
-<time interval> ::=
-    <hours value> [ <colon> <minutes value> [ <colon> <seconds value> ] ]
-  | <minutes value> [ <colon> <seconds value> ]
-  | <seconds value>
+// <time interval> ::=
+//    <hours value> [ <colon> <minutes value> [ <colon> <seconds value> ] ]
+//  | <minutes value> [ <colon> <seconds value> ]
+//  | <seconds value>
 
 <years value> ::=
   <datetime value>

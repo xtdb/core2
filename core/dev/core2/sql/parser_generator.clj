@@ -171,7 +171,12 @@ whitespace: (#'\\s*//\\s*' !#'\\d' #'.*?\\n\\s*' | #'\\s*' | #'!!.*?\\n')+")))
         ;; define 1 or more whitespace chars as separator, look-behind.
         separator
         "#'(?<=\\s)'"
-        }
+
+        ;; simplify interval parsing
+        ;; use regex at expression / const expansion time that can consider the FROM and TO fields,
+        ;; the AST allows for incorrect states anyway according to spec
+        ;; and requires many unique matching rules that are not themselves very interesting
+        unquoted_interval_string "#'[\\d\\:\\-\\+\\. ]+'"}
 
       ;; adds check for reserved words, these should really be allowed after 'AS'
       (assoc 'regular_identifier

@@ -59,4 +59,17 @@ public class DenseUnionUtil {
 
         return offset;
     }
+
+    public static boolean isNull (DenseUnionVector duv, int idx) {
+        while (true) {
+          var subVec = duv.getVectorByType(duv.getTypeId(idx));
+          var subVecIdx = duv.getOffset(idx);
+          if (subVec instanceof DenseUnionVector) {
+             duv = (DenseUnionVector)subVec;
+             idx = subVecIdx;
+          } else {
+              return subVec.isNull(subVecIdx);
+          }
+        }
+    }
 }

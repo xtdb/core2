@@ -233,7 +233,7 @@
             (getFromColumnName [_] from-name)
 
             (aggregate [_ in-vec group-mapping]
-              (when (pos? (.getValueCount in-vec))
+              (when (not (.isAllNull in-vec))
                 (let [from-val-types (expr/field->value-types (.getField (.getVector in-vec)))
                       out-vec (.maybePromote out-pvec from-val-types)
                       acc-type (.getType (.getField out-vec))

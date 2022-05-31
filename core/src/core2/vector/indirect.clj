@@ -135,6 +135,31 @@
             (copyElement [_ _idx _n]
               (throw (UnsupportedOperationException. "Not implemented")))))))))
 
+(defn- all-null?
+  ([^ValueVector v]
+   (if (instance? DenseUnionVector v)
+     (every?
+       all-null?
+       (.getChildrenFromFields ^DenseUnionVector v))
+      (= (.getValueCount v)
+         (.getNullCount v))))
+  ([^ValueVector v ^ints idxs]
+   (if (instance? DenseUnionVector v)
+     (loop [idx 0]
+       (if (= idx (alength idxs))
+         true
+         (let [value-index (aget idxs idx) ]
+           (if (DenseUnionUtil/isNull v value-index)
+             (recur (inc idx))
+             false))))
+     (loop [idx 0]
+       (if (= idx (alength idxs))
+         true
+         (let [value-index (aget idxs idx)]
+           (if (.isNull v value-index)
+             (recur (inc idx))
+             false)))))))
+
 (defrecord DirectVector [^ValueVector v, ^String name]
   IIndirectVector
   (isPresent [_ _] true)
@@ -142,6 +167,7 @@
   (getIndex [_ idx] idx)
   (getName [_] name)
   (getValueCount [_] (.getValueCount v))
+  (isAllNull [_] (all-null? v))
 
   (withName [_ name] (->DirectVector v name))
   (select [_ idxs] (->IndirectVector v name idxs))
@@ -182,6 +208,7 @@
   (getIndex [_ idx] (aget idxs idx))
   (getName [_] col-name)
   (getValueCount [_] (alength idxs))
+  (isAllNull [_] (all-null? v idxs))
 
   (withName [_ col-name] (IndirectVector. v col-name idxs))
 

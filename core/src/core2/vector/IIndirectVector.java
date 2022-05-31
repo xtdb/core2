@@ -18,6 +18,8 @@ public interface IIndirectVector<V extends ValueVector> extends AutoCloseable {
 
     int getValueCount();
 
+    boolean isAllNull();
+
     IIndirectVector<V> withName(String colName);
 
     @SuppressWarnings("unchecked")

@@ -379,15 +379,23 @@ common_logarithm
          (map str/trimr)
          (str/join "\n"))))
 
-(def sql2011-grammar-file (File. (.toURI (io/resource "core2/sql/SQL2011.ebnf"))))
-(def sql2011-edn-file (File. (.toURI (io/resource "core2/sql/SQL2011.edn"))))
-(def sql2011-spec-file (File. (.toURI (io/resource "core2/sql/SQL2011.txt"))))
+(def sql2011-grammar-file (io/file (io/resource "core2/sql/SQL2011.ebnf")))
+(def sql2011-spec-file (io/file (io/resource "core2/sql/SQL2011.txt")))
+(def sql2011-edn-file (some-> (io/resource "core2/sql/SQL2011.edn")
+                              (io/file)))
 
-(defn generate-parser [sql-spec-file ebnf-grammar-file]
+(defn generate-parser [sql-spec-file ebnf-grammar-file edn-file]
   (->> (parse-sql-spec (slurp sql-spec-file))
        (sql-spec-ast->ebnf-grammar-string extra-rules)
        (spit ebnf-grammar-file))
-  (spit sql2011-edn-file (pr-str (insta-cfg/ebnf (slurp ebnf-grammar-file)))))
+  (spit edn-file (pr-str (insta-cfg/ebnf (slurp ebnf-grammar-file)))))
 
-(defn -main [& _args]
-  (generate-parser sql2011-spec-file sql2011-grammar-file))
+(defn -main [& [sql-edn-file]]
+  (if-let [sql-edn-file (if sql-edn-file
+                          (io/file sql-edn-file)
+                          sql2011-edn-file)]
+    (do (io/make-parents sql-edn-file)
+        (generate-parser sql2011-spec-file sql2011-grammar-file sql-edn-file))
+    (binding [*out* *err*]
+      (println "Cannot file target EDN file either on class-path or as command-line argument.")
+      (System/exit 1))))

@@ -1,6 +1,7 @@
 (ns core2.sql.parser-generator
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
+            [clojure.pprint]
             [instaparse.core :as insta]
             [instaparse.cfg :as insta-cfg])
   (:import java.io.File))
@@ -388,7 +389,8 @@ common_logarithm
   (->> (parse-sql-spec (slurp sql-spec-file))
        (sql-spec-ast->ebnf-grammar-string extra-rules)
        (spit ebnf-grammar-file))
-  (spit edn-file (pr-str (insta-cfg/ebnf (slurp ebnf-grammar-file)))))
+  (spit edn-file (with-out-str
+                   (clojure.pprint/pprint (insta-cfg/ebnf (slurp ebnf-grammar-file))))))
 
 (defn -main [& [sql-edn-file]]
   (if-let [sql-edn-file (if sql-edn-file

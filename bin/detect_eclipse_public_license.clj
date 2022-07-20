@@ -1,5 +1,7 @@
 #!/usr/bin/env bb
 
+;; Run core2/bin/detect-and-create-third-party-notices.sh before running this script
+
 (ns detect-eclipse-public-license
   (:require [clojure.java.io :as io]
             [clojure.string :as str]

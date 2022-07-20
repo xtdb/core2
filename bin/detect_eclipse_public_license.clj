@@ -65,6 +65,8 @@
 (defn print-license-list [l]
   (doseq [e l] (println (str "* " e))))
 
+(def ERROR 1)
+
 (defn main [& args]
   (let [x (get-xml)
         artifacts (get-artifacts x)
@@ -76,7 +78,8 @@
       (print-license-list epl-libs))
     (when (seq missing-exceptions)
       (println "\nLICENSE is missing the follow exceptions: ")
-      (print-license-list missing-exceptions))))
+      (print-license-list missing-exceptions)
+      (System/exit ERROR))))
 
 (defn -main [& args]
   (main args))

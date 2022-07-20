@@ -8,8 +8,11 @@
             [clojure.java.shell]
             [babashka.fs :as fs]))
 
+(defn root-file-path [file]
+  (fs/normalize (fs/path (fs/parent *file*) ".." file)))
+
 (defn get-xml []
-  (let [path (fs/normalize (fs/path (fs/parent *file*) ".." "THIRD_PARTY_NOTICES.xml"))
+  (let [path (root-file-path "THIRD_PARTY_NOTICES.xml")
         file (io/file (str path))
         stream (io/input-stream file)]
     (xml/parse stream)))
@@ -41,12 +44,39 @@
        (map (fn [a] (-> a :attrs :id)))
        (map libbify)))
 
+(defn ->grep [s]
+  (re-pattern (str "(?s).*"
+                   (-> s
+                       (clojure.string.replace "/" "\\/")
+                       (clojure.string.replace "." "\\."))
+                   ".*")))
+
+(defn get-missing-exceptions [libs]
+  (let [license (slurp (str (root-file-path "LICENSE")))]
+    #_(println "full license:\n" license "\n########")
+    (println (first libs) "matches" (->grep (first libs)))
+    (println (re-matches (->grep (first libs)) license))
+
+    (println (second libs) "matches" (->grep (second libs)))
+    (println (re-matches (->grep (second libs)) license))
+
+    (remove #(re-matches (->grep %) license) libs)))
+
+(defn print-license-list [l]
+  (doseq [e l] (println (str "* " e))))
+
 (defn main [& args]
   (let [x (get-xml)
         artifacts (get-artifacts x)
         epl-artifacts (filter epl? artifacts)
-        epl-libs (get-epl-libs epl-artifacts)]
-    (println epl-libs)))
+        epl-libs (get-epl-libs epl-artifacts)
+        missing-exceptions (get-missing-exceptions epl-libs)]
+    (when (seq epl-libs)
+      (println "\nLibraries under Eclipse Public License, which require AGPLv3 exceptions:")
+      (print-license-list epl-libs))
+    (when (seq missing-exceptions)
+      (println "\nLICENSE is missing the follow exceptions: ")
+      (print-license-list missing-exceptions))))
 
 (defn -main [& args]
   (main args))

@@ -9,7 +9,7 @@
             [babashka.fs :as fs]))
 
 (defn root-file-path [file]
-  (fs/normalize (fs/path (fs/parent *file*) ".." file)))
+  (fs/normalize (fs/path (fs/parent *file*) ".." (fs/path file))))
 
 (defn get-xml []
   (let [path (root-file-path "THIRD_PARTY_NOTICES.xml")
@@ -47,23 +47,40 @@
 (defn ->grep [s]
   (re-pattern (str "(?s).*"
                    (-> s
-                       (clojure.string.replace "/" "\\/")
-                       (clojure.string.replace "." "\\."))
+                       (clojure.string/replace "/" "\\/")
+                       (clojure.string/replace "." "\\."))
                    ".*")))
 
 (defn get-missing-exceptions [libs]
   (let [license (slurp (str (root-file-path "LICENSE")))]
-    #_(println "full license:\n" license "\n########")
-    (println (first libs) "matches" (->grep (first libs)))
-    (println (re-matches (->grep (first libs)) license))
-
-    (println (second libs) "matches" (->grep (second libs)))
-    (println (re-matches (->grep (second libs)) license))
-
     (remove #(re-matches (->grep %) license) libs)))
 
 (defn print-license-list [l]
   (doseq [e l] (println (str "* " e))))
+
+(def ADDITIONAL-PERMISSIONS-FILE "target/agplv3-additional-permissions.txt")
+
+(def section7block
+  "
+If you modify this Program, or any covered work, by linking or combining it with
+LIBRARY_NAME (or a modified version of that library),
+containing parts covered by the terms of the Eclipse Public License 1.0
+or Eclipse Public License 2.0, the licensors of this Program grant you
+additional permission to convey the resulting work.
+")
+
+(defn additional-permissions [libs]
+  (str "
+Additional permissions under GNU AGPL version 3 section 7
+"
+       (clojure.string/join ""
+        (for [lib libs]
+          (clojure.string/replace section7block "LIBRARY_NAME" lib)))))
+
+(defn write-additional-permissions-file [libs]
+  (let [section7 (additional-permissions libs)]
+    (spit (str (root-file-path ADDITIONAL-PERMISSIONS-FILE))
+          section7)))
 
 (def ERROR 1)
 
@@ -75,11 +92,16 @@
         missing-exceptions (get-missing-exceptions epl-libs)]
     (when (seq epl-libs)
       (println "\nLibraries under Eclipse Public License, which require AGPLv3 exceptions:")
-      (print-license-list epl-libs))
+      (print-license-list epl-libs)
+      (write-additional-permissions-file epl-libs)
+      (println "\nRequired exceptions have been printed to "
+               (str (root-file-path ADDITIONAL-PERMISSIONS-FILE))
+               "\nYou can copy/paste these into LICENSE if changes are required."))
     (when (seq missing-exceptions)
       (println "\nLICENSE is missing the follow exceptions: ")
       (print-license-list missing-exceptions)
-      (System/exit ERROR))))
+      (System/exit ERROR))
+    (println "\n...all required exceptions were found in LICENSE. No changes required.")))
 
 (defn -main [& args]
   (main args))

@@ -60,6 +60,9 @@ jobs:
     executor: clojure
 
     steps:
+      - attach_workspace:
+          at: ~/
+
       - run: apt-get update && apt-get install -y curl
 
       - run: curl -sLO https://raw.githubusercontent.com/babashka/babashka/master/install && chmod +x install && ./install

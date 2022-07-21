@@ -138,9 +138,8 @@ workflows:
       - setup:
           context: slack-bot
       - third-party-notices:
-          context: slack-bot
-#          requires:
-#            - setup
+          requires:
+            - setup
       - test:
           context: slack-bot
           requires:

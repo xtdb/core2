@@ -60,6 +60,8 @@ jobs:
     executor: clojure
 
     steps:
+      - run: apt-get update && apt-get install -y curl
+
       - run: curl -sLO https://raw.githubusercontent.com/babashka/babashka/master/install && chmod +x install && ./install
 
       - run: ./bin/detect-and-create-third-party-notices.sh
@@ -137,8 +139,8 @@ workflows:
           context: slack-bot
       - third-party-notices:
           context: slack-bot
-          requires:
-            - setup
+#          requires:
+#            - setup
       - test:
           context: slack-bot
           requires:

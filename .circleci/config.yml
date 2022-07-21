@@ -56,6 +56,16 @@ jobs:
           event: fail
           template: basic_fail_1
 
+  third-party-notices:
+    executor: clojure
+
+    steps:
+      - run: curl -sLO https://raw.githubusercontent.com/babashka/babashka/master/install && chmod +x install && ./install
+
+      - run: ./bin/detect-and-create-third-party-notices.sh
+
+      - run: bb ./bin/detect_eclipse_public_license.clj
+
   test:
     executor: clojure
 
@@ -124,6 +134,8 @@ workflows:
   build:
     jobs:
       - setup:
+          context: slack-bot
+      - third-party-notices:
           context: slack-bot
       - test:
           context: slack-bot

@@ -31,6 +31,15 @@
           "name" : "struct"
         },
         "children" : [{
+          "name" : "_iid",
+          "nullable" : false,
+          "type" : {
+            "name" : "int",
+            "bitWidth" : 64,
+            "isSigned" : true
+          },
+          "children" : [ ]
+        },{
           "name" : "_row-id",
           "nullable" : false,
           "type" : {
@@ -55,7 +64,7 @@
             },
             "children" : [{
               "name" : "_valid-time-start",
-              "nullable" : true,
+              "nullable" : false,
               "type" : {
                 "name" : "timestamp",
                 "unit" : "MICROSECOND",
@@ -64,7 +73,7 @@
               "children" : [ ]
             },{
               "name" : "_valid-time-end",
-              "nullable" : true,
+              "nullable" : false,
               "type" : {
                 "name" : "timestamp",
                 "unit" : "MICROSECOND",
@@ -79,24 +88,8 @@
               "name" : "struct"
             },
             "children" : [{
-              "name" : "_id",
-              "nullable" : false,
-              "type" : {
-                "name" : "union",
-                "mode" : "Dense",
-                "typeIds" : [0]
-              },
-              "children" : [{
-                "name" : "utf8",
-                "nullable" : false,
-                "type" : {
-                  "name" : "utf8"
-                },
-                "children" : [ ]
-              }]
-            },{
               "name" : "_valid-time-start",
-              "nullable" : true,
+              "nullable" : false,
               "type" : {
                 "name" : "timestamp",
                 "unit" : "MICROSECOND",
@@ -105,7 +98,7 @@
               "children" : [ ]
             },{
               "name" : "_valid-time-end",
-              "nullable" : true,
+              "nullable" : false,
               "type" : {
                 "name" : "timestamp",
                 "unit" : "MICROSECOND",
@@ -136,7 +129,7 @@
       "name" : "_tx-time",
       "count" : 2,
       "VALIDITY" : [1,1],
-      "DATA" : [1577836800000000,1577923200000000]
+      "DATA" : [1577923200000000,1578096000000000]
     },{
       "name" : "ops",
       "count" : 2,
@@ -147,6 +140,11 @@
         "count" : 4,
         "VALIDITY" : [1,1,1,1],
         "children" : [{
+          "name" : "_iid",
+          "count" : 4,
+          "VALIDITY" : [1,1,1,1],
+          "DATA" : ["0","72057594037927936","0","72057594037927936"]
+        },{
           "name" : "_row-id",
           "count" : 4,
           "VALIDITY" : [1,1,1,1],
@@ -163,31 +161,19 @@
             "children" : [{
               "name" : "_valid-time-start",
               "count" : 3,
-              "VALIDITY" : [0,0,1],
-              "DATA" : [0,0,1585699200000000]
+              "VALIDITY" : [1,1,1],
+              "DATA" : [1577836800000000,1577836800000000,1585699200000000]
             },{
               "name" : "_valid-time-end",
               "count" : 3,
-              "VALIDITY" : [0,0,1],
-              "DATA" : [0,0,1588291200000000]
+              "VALIDITY" : [1,1,1],
+              "DATA" : [253402300799999999,253402300799999999,1588291200000000]
             }]
           },{
             "name" : "delete",
             "count" : 1,
             "VALIDITY" : [1],
             "children" : [{
-              "name" : "_id",
-              "count" : 1,
-              "TYPE_ID" : [0],
-              "OFFSET" : [0],
-              "children" : [{
-                "name" : "utf8",
-                "count" : 1,
-                "VALIDITY" : [1],
-                "OFFSET" : [0,3],
-                "DATA" : ["foo"]
-              }]
-            },{
               "name" : "_valid-time-start",
               "count" : 1,
               "VALIDITY" : [1],
@@ -195,8 +181,8 @@
             },{
               "name" : "_valid-time-end",
               "count" : 1,
-              "VALIDITY" : [0],
-              "DATA" : [0]
+              "VALIDITY" : [1],
+              "DATA" : [253402300799999999]
             }]
           },{
             "name" : "evict",

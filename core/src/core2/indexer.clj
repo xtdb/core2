@@ -1,77 +1,123 @@
 (ns core2.indexer
   (:require [clojure.tools.logging :as log]
             [core2.api :as c2]
-            [core2.await :as await]
             [core2.blocks :as blocks]
             [core2.bloom :as bloom]
             [core2.buffer-pool :as bp]
             [core2.metadata :as meta]
             core2.object-store
             [core2.temporal :as temporal]
-            [core2.tx :as tx]
             [core2.types :as t]
             [core2.util :as util]
+            [core2.vector.indirect :as iv]
             [core2.vector.writer :as vw]
-            [juxt.clojars-mirrors.integrant.core :as ig]
-            [core2.vector.indirect :as iv])
-  (:import clojure.lang.MapEntry
-           core2.api.TransactionInstant
-           core2.buffer_pool.BufferPool
+            [core2.watermark :as wm]
+            [juxt.clojars-mirrors.integrant.core :as ig])
+  (:import core2.api.TransactionInstant
+           core2.buffer_pool.IBufferPool
            core2.ICursor
            core2.metadata.IMetadataManager
            core2.object_store.ObjectStore
            core2.temporal.ITemporalManager
-           core2.tx.Watermark
+           (core2.watermark IWatermarkManager)
            core2.vector.IVectorWriter
            java.io.Closeable
+           java.nio.ByteBuffer
            java.lang.AutoCloseable
-           [java.util Collections Map Map$Entry Set TreeMap]
-           [java.util.concurrent CompletableFuture ConcurrentHashMap ConcurrentSkipListMap PriorityBlockingQueue]
-           java.util.concurrent.atomic.AtomicInteger
-           java.util.concurrent.locks.StampedLock
+           [java.util Collections Map Map$Entry TreeMap]
+           [java.util.concurrent CompletableFuture ConcurrentHashMap ConcurrentSkipListMap]
            [java.util.function Consumer Function]
            [org.apache.arrow.memory ArrowBuf BufferAllocator]
            [org.apache.arrow.vector BigIntVector TimeStampMicroTZVector TimeStampVector VectorLoader VectorSchemaRoot VectorUnloader]
            [org.apache.arrow.vector.complex DenseUnionVector ListVector StructVector]
-           org.apache.arrow.vector.ipc.ArrowStreamReader
            [org.apache.arrow.vector.types.pojo ArrowType$Union Field Schema]
            org.apache.arrow.vector.types.UnionMode))
 
 (set! *unchecked-math* :warn-on-boxed)
 
-(definterface IChunkManager
-  (^org.apache.arrow.vector.VectorSchemaRoot getLiveRoot [^String fieldName])
-  (^core2.tx.Watermark getWatermark []))
+(defmethod ig/prep-key :core2/row-counts [_ opts]
+  (merge {:max-rows-per-block 1000
+          :max-rows-per-chunk 100000}
+         opts))
+
+(defmethod ig/init-key :core2/row-counts [_ {:keys [max-rows-per-chunk] :as opts}]
+  (let [bloom-false-positive-probability (bloom/bloom-false-positive-probability? max-rows-per-chunk)]
+    (when (> bloom-false-positive-probability 0.05)
+      (log/warn "Bloom should be sized for large chunks:" max-rows-per-chunk
+                "false positive probability:" bloom-false-positive-probability
+                "bits:" bloom/bloom-bits
+                "can be set via system property core2.bloom.bits")))
+
+  opts)
+
+#_{:clj-kondo/ignore [:unused-binding]}
+(definterface IInternalIdManager
+  (^long getOrCreateInternalId [^Object id ^long row-id])
+  (^boolean isKnownId [^Object id]))
+
+(defn- normalize-id [id]
+  (cond-> id
+    (bytes? id) (ByteBuffer/wrap)))
+
+(defmethod ig/prep-key ::internal-id-manager [_ opts]
+  (merge {:metadata-mgr (ig/ref ::meta/metadata-manager)
+          :buffer-pool (ig/ref :core2.buffer-pool/buffer-pool)}
+         opts))
+
+(deftype InternalIdManager [^Map id->internal-id]
+  IInternalIdManager
+  (getOrCreateInternalId [_ id row-id]
+    (.computeIfAbsent id->internal-id
+                      (normalize-id id)
+                      (reify Function
+                        (apply [_ _]
+                          ;; big endian for index distribution
+                          (Long/reverseBytes row-id)))))
+
+  (isKnownId [_ id]
+    (.containsKey id->internal-id (normalize-id id)))
+
+  Closeable
+  (close [_]
+    (.clear id->internal-id)))
+
+(defmethod ig/init-key ::internal-id-manager [_ {:keys [^IBufferPool buffer-pool, ^IMetadataManager metadata-mgr]}]
+  (let [iid-mgr (InternalIdManager. (ConcurrentHashMap.))
+        known-chunks (.knownChunks metadata-mgr)
+        futs (for [chunk-idx known-chunks]
+               (-> (.getBuffer buffer-pool (meta/->chunk-obj-key chunk-idx "_id"))
+                   (util/then-apply util/try-close)))]
+    @(CompletableFuture/allOf (into-array CompletableFuture futs))
+
+    (doseq [chunk-idx known-chunks]
+      (with-open [^ArrowBuf id-buffer @(.getBuffer buffer-pool (meta/->chunk-obj-key chunk-idx "_id"))
+                  id-chunks (util/->chunks id-buffer)]
+        (.forEachRemaining id-chunks
+                           (reify Consumer
+                             (accept [_ id-root]
+                               (let [^VectorSchemaRoot id-root id-root
+                                     ^BigIntVector row-id-vec (.getVector id-root 0)
+                                     id-vec (.getVector id-root 1)]
+                                 (dotimes [n (.getRowCount id-root)]
+                                   (.getOrCreateInternalId iid-mgr (t/get-object id-vec n) (.get row-id-vec n)))))))))
+    iid-mgr))
 
 #_{:clj-kondo/ignore [:unused-binding]}
 (definterface TransactionIndexer
-  (^core2.api.TransactionInstant indexTx [^core2.api.TransactionInstant tx ^java.nio.ByteBuffer txBytes])
-  (^core2.api.TransactionInstant latestCompletedTx [])
-  (^java.util.concurrent.CompletableFuture #_<TransactionInstant> awaitTxAsync [^core2.api.TransactionInstant tx]))
+  (^org.apache.arrow.vector.VectorSchemaRoot getLiveRoot [^String fieldName])
+  (^core2.watermark.Watermark getWatermark [])
+  (^core2.api.TransactionInstant indexTx [^core2.api.TransactionInstant tx
+                                          ^org.apache.arrow.vector.VectorSchemaRoot txRoot])
+  (^core2.api.TransactionInstant latestCompletedTx []))
 
 #_{:clj-kondo/ignore [:unused-binding]}
 (definterface IndexerPrivate
-  (^void indexTx [^core2.api.TransactionInstant tx-key, ^org.apache.arrow.vector.VectorSchemaRoot txRoot, ^long nextRowId])
   (^java.nio.ByteBuffer writeColumn [^org.apache.arrow.vector.VectorSchemaRoot live-root])
   (^void closeCols [])
   (^void finishChunk []))
 
 (defn- ->live-root [field-name allocator]
   (VectorSchemaRoot/create (Schema. [t/row-id-field (t/->field field-name t/dense-union-type false)]) allocator))
-
-(defn ->live-slices [^Watermark watermark, col-names]
-  (into {}
-        (keep (fn [col-name]
-                (when-let [root (-> (.column->root watermark)
-                                    (get col-name))]
-                  (let [row-counts (blocks/row-id-aligned-blocks root
-                                                                 (.chunk-idx watermark)
-                                                                 (.max-rows-per-block watermark))]
-                    (MapEntry/create col-name (blocks/->slices root row-counts))))))
-        col-names))
-
-(defn- ->empty-watermark ^core2.tx.Watermark [^long chunk-idx ^TransactionInstant tx-key temporal-watermark ^long max-rows-per-block]
-  (tx/->Watermark chunk-idx 0 (Collections/emptySortedMap) tx-key temporal-watermark (AtomicInteger. 1) max-rows-per-block (ConcurrentHashMap.)))
 
 (defn- snapshot-roots [^Map live-roots]
   (Collections/unmodifiableSortedMap
@@ -84,34 +130,27 @@
     (TreeMap.)
     live-roots)))
 
-(defn- remove-closed-watermarks [^Set open-watermarks]
-  (let [i (.iterator open-watermarks)]
-    (while (.hasNext i)
-      (let [^Watermark open-watermark (.next i)]
-        (when (empty? (.thread->count open-watermark))
-          (.remove i))))))
-
 (def ^:private log-schema
   (Schema. [(t/col-type->field "_tx-id" :i64)
             (t/col-type->field "_tx-time" [:timestamp-tz :micro "UTC"])
             (t/->field "ops" t/list-type true
                        (t/->field "ops" t/struct-type false
+                                  (t/col-type->field "_iid" :i64)
                                   (t/col-type->field "_row-id" :i64)
                                   (t/->field "op" (ArrowType$Union. UnionMode/Dense (int-array [0 1 2])) false
                                              (t/col-type->field "put"
-                                                                '[:struct {_valid-time-start [:union #{:null [:timestamp-tz :micro "UTC"]}]
-                                                                           _valid-time-end [:union #{:null [:timestamp-tz :micro "UTC"]}]}])
-                                             (t/->field "delete" t/struct-type false
-                                                        (t/->field "_id" t/dense-union-type false)
-                                                        (t/col-type->field "_valid-time-start" [:union #{:null [:timestamp-tz :micro "UTC"]}])
-                                                        (t/col-type->field "_valid-time-end" [:union #{:null [:timestamp-tz :micro "UTC"]}]))
-                                             (t/->field "evict" t/struct-type false))))]))
+                                                                '[:struct {_valid-time-start [:timestamp-tz :micro "UTC"]
+                                                                           _valid-time-end [:timestamp-tz :micro "UTC"]}])
+                                             (t/col-type->field "delete"
+                                                                '[:struct {_valid-time-start [:timestamp-tz :micro "UTC"]
+                                                                           _valid-time-end [:timestamp-tz :micro "UTC"]}])
+                                             (t/col-type->field "evict" '[:struct {}]))))]))
 
 #_{:clj-kondo/ignore [:unused-binding]}
 (definterface ILogOpIndexer
-  (^void logPut [^long rowId, ^long txOpIdx])
-  (^void logDelete [^long rowId, ^long txOpIdx])
-  (^void logEvict [^long rowId, ^long txOpIdx])
+  (^void logPut [^long iid, ^long rowId, ^long txOpIdx])
+  (^void logDelete [^long iid, ^long rowId, ^long txOpIdx])
+  (^void logEvict [^long iid, ^long rowId, ^long txOpIdx])
   (^void endTx []))
 
 (definterface ILogIndexer
@@ -131,6 +170,8 @@
         ops-data-writer (.asStruct (.getDataWriter ops-writer))
         row-id-writer (.writerForName ops-data-writer "_row-id")
         ^BigIntVector row-id-vec (.getVector row-id-writer)
+        iid-writer (.writerForName ops-data-writer "_iid")
+        ^BigIntVector iid-vec (.getVector iid-writer)
         op-writer (.asDenseUnion (.writerForName ops-data-writer "op"))
 
         put-writer (.asStruct (.writerForTypeId op-writer 0))
@@ -140,7 +181,6 @@
         ^TimeStampMicroTZVector put-vt-end-vec (.getVector put-vt-end-writer)
 
         delete-writer (.asStruct (.writerForTypeId op-writer 1))
-        delete-id-writer (.writerForName delete-writer "_id")
         delete-vt-start-writer (.writerForName delete-writer "_valid-time-start")
         ^TimeStampMicroTZVector delete-vt-start-vec (.getVector delete-vt-start-writer)
         delete-vt-end-writer (.writerForName delete-writer "_valid-time-end")
@@ -162,15 +202,14 @@
                 tx-put-vt-end-vec (.getChild tx-put-vec "_valid-time-end")
 
                 tx-delete-vec (.getStruct tx-ops-vec 1)
-                tx-delete-id-vec (.getChild tx-delete-vec "_id")
                 tx-delete-vt-start-vec (.getChild tx-delete-vec "_valid-time-start")
-                tx-delete-vt-end-vec (.getChild tx-delete-vec "_valid-time-end")
-                delete-id-row-copier (.rowCopier delete-id-writer tx-delete-id-vec)]
+                tx-delete-vt-end-vec (.getChild tx-delete-vec "_valid-time-end")]
 
             (reify ILogOpIndexer
-              (logPut [_ row-id tx-op-idx]
+              (logPut [_ iid row-id tx-op-idx]
                 (let [op-idx (.startValue ops-data-writer)]
-                  (.setSafe row-id-vec op-idx row-id))
+                  (.setSafe row-id-vec op-idx row-id)
+                  (.setSafe iid-vec op-idx iid))
 
                 (let [src-offset (.getOffset tx-ops-vec tx-op-idx)
                       dest-offset (.startValue put-writer)]
@@ -180,22 +219,23 @@
 
                 (.endValue ops-data-writer))
 
-              (logDelete [_ row-id tx-op-idx]
+              (logDelete [_ iid row-id tx-op-idx]
                 (let [op-idx (.startValue ops-data-writer)]
-                  (.setSafe row-id-vec op-idx row-id))
+                  (.setSafe row-id-vec op-idx row-id)
+                  (.setSafe iid-vec op-idx iid))
 
                 (let [src-offset (.getOffset tx-ops-vec tx-op-idx)
                       dest-offset (.startValue delete-writer)]
                   (.copyFromSafe delete-vt-start-vec src-offset dest-offset tx-delete-vt-start-vec)
                   (.copyFromSafe delete-vt-end-vec src-offset dest-offset tx-delete-vt-end-vec)
-                  (.copyRow delete-id-row-copier src-offset)
                   (.endValue delete-writer))
 
                 (.endValue ops-data-writer))
 
-              (logEvict [_ row-id _tx-op-idx]
+              (logEvict [_ iid row-id _tx-op-idx]
                 (let [op-idx (.startValue ops-data-writer)]
-                  (.setSafe row-id-vec op-idx row-id))
+                  (.setSafe row-id-vec op-idx row-id)
+                  (.setSafe iid-vec op-idx iid))
 
                 (doto evict-writer (.startValue) (.endValue)))
 
@@ -226,7 +266,7 @@
       (close [_]
         (.close log-root)))))
 
-(defn- with-latest-log-chunk [{:keys [^ObjectStore object-store ^BufferPool buffer-pool]} f]
+(defn- with-latest-log-chunk [{:keys [^ObjectStore object-store ^IBufferPool buffer-pool]} f]
   (when-let [latest-log-k (last (.listObjects object-store "log-"))]
     @(-> (.getBuffer buffer-pool latest-log-k)
          (util/then-apply
@@ -254,7 +294,7 @@
 (definterface DocRowCopier
   (^void copyDocRow [^long rowId, ^int srcIdx]))
 
-(defn- copy-docs [^IChunkManager chunk-manager, ^DenseUnionVector tx-ops-vec, ^long base-row-id]
+(defn- copy-docs [^TransactionIndexer chunk-manager, ^DenseUnionVector tx-ops-vec, ^long base-row-id]
   (let [doc-rdr (-> (.getStruct tx-ops-vec 0)
                     (.getChild "document")
                     (iv/->direct-vec)
@@ -292,113 +332,28 @@
                   ^ObjectStore object-store
                   ^IMetadataManager metadata-mgr
                   ^ITemporalManager temporal-mgr
+                  ^IInternalIdManager iid-mgr
+                  ^IWatermarkManager watermark-mgr
                   ^long max-rows-per-chunk
                   ^long max-rows-per-block
                   ^Map live-roots
                   ^ILogIndexer log-indexer
-                  ^Set open-watermarks
-                  ^StampedLock open-watermarks-lock
-                  ^:volatile-mutable ^Watermark watermark
-                  ^PriorityBlockingQueue awaiters
-                  ^:volatile-mutable ^Throwable ingester-error]
+                  ^:volatile-mutable ^long chunk-idx
+                  ^:volatile-mutable ^TransactionInstant latest-completed-tx
+                  ^:volatile-mutable ^long chunk-row-count]
 
-  IChunkManager
+  TransactionIndexer
   (getLiveRoot [_ field-name]
     (.computeIfAbsent live-roots field-name
                       (util/->jfn
                         (fn [field-name]
                           (->live-root field-name allocator)))))
 
-  (getWatermark [_]
-    (let [stamp (.writeLock open-watermarks-lock)]
-      (try
-        (remove-closed-watermarks open-watermarks)
-        (finally
-          (.unlock open-watermarks-lock stamp)))
-      (loop []
-        (when-let [current-watermark watermark]
-          (if (pos? (util/inc-ref-count (.ref-count current-watermark)))
-            (let [stamp (.writeLock open-watermarks-lock)]
-              (try
-                (let [^Map thread->count (.thread->count current-watermark)
-                      ^AtomicInteger thread-ref-count (.computeIfAbsent thread->count
-                                                                        (Thread/currentThread)
-                                                                        (reify Function
-                                                                          (apply [_ _k]
-                                                                            (AtomicInteger. 0))))]
-                  (.incrementAndGet thread-ref-count)
-                  (.add open-watermarks current-watermark)
-                  current-watermark)
-                (finally
-                  (.unlock open-watermarks-lock stamp))))
-            (recur))))))
-
-  TransactionIndexer
-  (indexTx [this tx-key tx-bytes]
-    (try
-      (with-open [tx-ops-ch (util/->seekable-byte-channel tx-bytes)
-                  sr (ArrowStreamReader. tx-ops-ch allocator)
-                  tx-root (.getVectorSchemaRoot sr)]
-        (.loadNextBatch sr)
-
-        (let [^TimeStampMicroTZVector tx-time-vec (.getVector tx-root "tx-time")
-              ^TransactionInstant tx-key (cond-> tx-key
-                                           (not (.isNull tx-time-vec 0))
-                                           (assoc :tx-time (-> (.get tx-time-vec 0) (util/micros->instant))))
-              latest-completed-tx (.latestCompletedTx this)]
-
-          (if (and (not (nil? latest-completed-tx))
-                   (neg? (compare (.tx-time tx-key)
-                                  (.tx-time latest-completed-tx))))
-            ;; TODO: we don't yet have the concept of an aborted tx
-            ;; so anyone awaiting this tx will have a bad time.
-            (log/warnf "specified tx-time '%s' older than current tx '%s'"
-                       (pr-str tx-key)
-                       (pr-str latest-completed-tx))
-
-            (let [tx-ops-vec (-> ^ListVector (.getVector tx-root "tx-ops")
-                                 (.getDataVector))
-                  chunk-idx (.chunk-idx watermark)
-                  row-count (.row-count watermark)
-                  next-row-id (+ chunk-idx row-count)]
-              (.indexTx this tx-key tx-root next-row-id)
-
-              (let [number-of-new-rows (.getValueCount tx-ops-vec)
-                    new-chunk-row-count (+ row-count number-of-new-rows)]
-                (with-open [_old-watermark watermark]
-                  (set! (.watermark this)
-                        (tx/->Watermark chunk-idx
-                                        new-chunk-row-count
-                                        (snapshot-roots live-roots)
-                                        tx-key
-                                        (.getTemporalWatermark temporal-mgr)
-                                        (AtomicInteger. 1)
-                                        max-rows-per-block
-                                        (ConcurrentHashMap.))))
-                (when (>= new-chunk-row-count max-rows-per-chunk)
-                  (.finishChunk this))
-
-                (await/notify-tx tx-key awaiters)
-
-                tx-key)))))
-      (catch Throwable e
-        (set! (.ingester-error this) e)
-        (await/notify-ex e awaiters)
-        (throw e))))
-
-  (latestCompletedTx [_]
-    (some-> watermark .tx-key))
-
-  (awaitTxAsync [this tx]
-    (await/await-tx-async tx
-                          #(or (some-> ingester-error throw)
-                               (.latestCompletedTx this))
-                          awaiters))
-
-  IndexerPrivate
-  (indexTx [this tx-key tx-root next-row-id]
+  (indexTx [this tx-key tx-root]
     (let [^DenseUnionVector tx-ops-vec (-> ^ListVector (.getVector tx-root "tx-ops")
                                            (.getDataVector))
+          next-row-id (+ chunk-idx chunk-row-count)
+
           op-type-ids (object-array (mapv (fn [^Field field]
                                             (keyword (.getName field)))
                                           (.getChildren (.getField tx-ops-vec))))
@@ -419,33 +374,58 @@
                        leg-type-id (.getTypeId doc-duv per-op-offset)
                        leg-offset (.getOffset doc-duv per-op-offset)
                        id-vec (-> ^StructVector (.getVectorByType doc-duv leg-type-id)
-                                  (.getChild "_id"))]
-                   (.logPut log-op-idxer row-id tx-op-idx)
-                   (.indexPut temporal-idxer (t/get-object id-vec leg-offset) row-id
-                              valid-time-start-vec valid-time-end-vec per-op-offset))
+                                  (.getChild "_id"))
+                       eid (t/get-object id-vec leg-offset)
+                       new-entity? (not (.isKnownId iid-mgr eid))
+                       iid (.getOrCreateInternalId iid-mgr eid row-id)]
+                   (.logPut log-op-idxer iid row-id tx-op-idx)
+                   (.indexPut temporal-idxer iid row-id
+                              (.get valid-time-start-vec per-op-offset)
+                              (.get valid-time-end-vec per-op-offset)
+                              new-entity?))
 
-            :delete (let [^DenseUnionVector id-vec (.getChild op-vec "_id" DenseUnionVector)]
-                      (.logDelete log-op-idxer row-id tx-op-idx)
-                      (.indexDelete temporal-idxer (t/get-object id-vec per-op-offset) row-id
-                                    valid-time-start-vec valid-time-end-vec per-op-offset))
+            :delete (let [^DenseUnionVector id-vec (.getChild op-vec "_id" DenseUnionVector)
+                          eid (t/get-object id-vec per-op-offset)
+                          new-entity? (not (.isKnownId iid-mgr eid))
+                          iid (.getOrCreateInternalId iid-mgr eid row-id)]
+                      (.logDelete log-op-idxer iid row-id tx-op-idx)
+                      (.indexDelete temporal-idxer iid row-id
+                                    (.get valid-time-start-vec per-op-offset)
+                                    (.get valid-time-end-vec per-op-offset)
+                                    new-entity?))
 
-            :evict (let [^DenseUnionVector id-vec (.getChild op-vec "_id" DenseUnionVector)]
-                     (.logEvict log-op-idxer row-id tx-op-idx)
-                     (.indexEvict temporal-idxer (t/get-object id-vec per-op-offset) row-id)))))
+            :evict (let [^DenseUnionVector id-vec (.getChild op-vec "_id" DenseUnionVector)
+                         iid (.getOrCreateInternalId iid-mgr (t/get-object id-vec per-op-offset) row-id)]
+                     (.logEvict log-op-idxer iid row-id tx-op-idx)
+                     (.indexEvict temporal-idxer iid row-id)))))
 
       (copy-docs this tx-ops-vec next-row-id)
 
       (.endTx log-op-idxer)
+
       (let [evicted-row-ids (.endTx temporal-idxer)]
         #_{:clj-kondo/ignore [:missing-body-in-when]}
         (when-not (.isEmpty evicted-row-ids)
           ;; TODO create work item
-          ))))
+          ))
 
+      (let [new-chunk-row-count (+ chunk-row-count (.getValueCount tx-ops-vec))]
+        (set! (.-chunk-row-count this) new-chunk-row-count)
+        (set! (.-latest-completed-tx this) tx-key)
+        (.setWatermark watermark-mgr chunk-idx tx-key (snapshot-roots live-roots) (.getTemporalWatermark temporal-mgr))
+
+        (when (>= new-chunk-row-count max-rows-per-chunk)
+          (.finishChunk this))
+
+        tx-key)))
+
+  (latestCompletedTx [_] latest-completed-tx)
+
+  IndexerPrivate
   (writeColumn [_this live-root]
     (with-open [write-root (VectorSchemaRoot/create (.getSchema live-root) allocator)]
       (let [loader (VectorLoader. write-root)
-            row-counts (blocks/row-id-aligned-blocks live-root (.chunk-idx watermark) max-rows-per-block)]
+            row-counts (blocks/row-id-aligned-blocks live-root chunk-idx max-rows-per-block)]
         (with-open [^ICursor slices (blocks/->slices live-root row-counts)]
           (util/build-arrow-ipc-byte-buffer write-root :file
             (fn [write-batch!]
@@ -465,26 +445,21 @@
 
   (finishChunk [this]
     (when-not (.isEmpty live-roots)
-      (log/debugf "finishing chunk '%x', tx '%s'" (.chunk-idx watermark) (pr-str (.latestCompletedTx this)))
+      (log/debugf "finishing chunk '%x', tx '%s'" chunk-idx (pr-str latest-completed-tx))
 
       (try
-        (let [chunk-idx (.chunk-idx watermark)]
-          @(CompletableFuture/allOf (->> (cons
-                                          (.putObject object-store (format "log-%016x.arrow" chunk-idx) (.writeLog log-indexer))
-                                          (for [[^String col-name, ^VectorSchemaRoot live-root] live-roots]
-                                            (.putObject object-store (meta/->chunk-obj-key chunk-idx col-name) (.writeColumn this live-root))))
-                                         (into-array CompletableFuture)))
-          (.registerNewChunk temporal-mgr chunk-idx)
-          (.registerNewChunk metadata-mgr live-roots chunk-idx max-rows-per-block)
+        @(CompletableFuture/allOf (->> (cons
+                                        (.putObject object-store (format "log-%016x.arrow" chunk-idx) (.writeLog log-indexer))
+                                        (for [[^String col-name, ^VectorSchemaRoot live-root] live-roots]
+                                          (.putObject object-store (meta/->chunk-obj-key chunk-idx col-name) (.writeColumn this live-root))))
+                                       (into-array CompletableFuture)))
+        (.registerNewChunk temporal-mgr chunk-idx)
+        (.registerNewChunk metadata-mgr live-roots chunk-idx)
 
-          (with-open [old-watermark watermark]
-            (set! (.watermark this) (->empty-watermark (+ chunk-idx (.row-count old-watermark)) (.tx-key old-watermark)
-                                                       (.getTemporalWatermark temporal-mgr) max-rows-per-block)))
-          (let [stamp (.writeLock open-watermarks-lock)]
-            (try
-              (remove-closed-watermarks open-watermarks)
-              (finally
-                (.unlock open-watermarks-lock stamp)))))
+        (set! (.-chunk-idx this) (+ chunk-idx chunk-row-count))
+        (set! (.-chunk-row-count this) 0)
+
+        (.setWatermark watermark-mgr chunk-idx latest-completed-tx nil (.getTemporalWatermark temporal-mgr))
         (log/debug "finished chunk.")
         (finally
           (.closeCols this)))))
@@ -492,66 +467,35 @@
   Closeable
   (close [this]
     (.closeCols this)
-    (.close watermark)
-    (.close log-indexer)
-    (let [stamp (.writeLock open-watermarks-lock)]
-      (try
-        (let [i (.iterator open-watermarks)]
-          (while (.hasNext i)
-            (let [^Watermark open-watermark (.next i)
-                  ^AtomicInteger watermark-ref-cnt (.ref-count open-watermark)]
-              (doseq [[^Thread thread ^AtomicInteger thread-ref-count] (.thread->count open-watermark)
-                      :let [rc (.get thread-ref-count)]
-                      :when (pos? rc)]
-                (log/warn "interrupting:" thread "on close, has outstanding watermarks:" rc)
-                (.interrupt thread))
-              (loop [rc (.get watermark-ref-cnt)]
-                (when (pos? rc)
-                  (util/try-close open-watermark)
-                  (recur (.get watermark-ref-cnt)))))))
-        (finally
-          (.unlock open-watermarks-lock stamp))))
-    (.clear open-watermarks)
-    (set! (.watermark this) nil)))
+    (.close log-indexer)))
 
 (defmethod ig/prep-key ::indexer [_ opts]
-  (merge {:max-rows-per-block 1000
-          :max-rows-per-chunk 100000
-          :allocator (ig/ref :core2/allocator)
+  (merge {:allocator (ig/ref :core2/allocator)
           :object-store (ig/ref :core2/object-store)
           :metadata-mgr (ig/ref ::meta/metadata-manager)
           :temporal-mgr (ig/ref ::temporal/temporal-manager)
-          :buffer-pool (ig/ref ::bp/buffer-pool)}
+          :watermark-mgr (ig/ref :core2.watermark/watermark-manager)
+          :internal-id-mgr (ig/ref ::internal-id-manager)
+          :buffer-pool (ig/ref ::bp/buffer-pool)
+          :row-counts (ig/ref :core2/row-counts)}
          opts))
 
 (defmethod ig/init-key ::indexer
-  [_ {:keys [allocator object-store metadata-mgr ^ITemporalManager temporal-mgr
-             max-rows-per-chunk max-rows-per-block]
+  [_ {:keys [allocator object-store metadata-mgr ^ITemporalManager temporal-mgr, ^IWatermarkManager watermark-mgr, internal-id-mgr]
+      {:keys [max-rows-per-chunk max-rows-per-block]} :row-counts
       :as deps}]
 
   (let [{:keys [latest-row-id latest-tx]} (latest-tx deps)
         chunk-idx (if latest-row-id
                     (inc (long latest-row-id))
-                    0)
-        bloom-false-positive-probability (bloom/bloom-false-positive-probability? max-rows-per-chunk)]
-    (when (> bloom-false-positive-probability 0.05)
-      (log/warn "Bloom should be sized for large chunks:" max-rows-per-chunk
-                "false positive probability:" bloom-false-positive-probability
-                "bits:" bloom/bloom-bits
-                "can be set via system property core2.bloom.bits"))
-    (Indexer. allocator
-              object-store
-              metadata-mgr
-              temporal-mgr
-              max-rows-per-chunk
-              max-rows-per-block
+                    0)]
+    (.setWatermark watermark-mgr chunk-idx latest-tx nil (.getTemporalWatermark temporal-mgr))
+
+    (Indexer. allocator object-store metadata-mgr temporal-mgr internal-id-mgr watermark-mgr
+              max-rows-per-chunk max-rows-per-block
               (ConcurrentSkipListMap.)
               (->log-indexer allocator max-rows-per-block)
-              (util/->identity-set)
-              (StampedLock.)
-              (->empty-watermark chunk-idx latest-tx (.getTemporalWatermark temporal-mgr) max-rows-per-block)
-              (PriorityBlockingQueue.)
-              nil)))
+              chunk-idx latest-tx 0)))
 
 (defmethod ig/halt-key! ::indexer [_ ^AutoCloseable indexer]
   (.close indexer))

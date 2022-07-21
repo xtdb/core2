@@ -31,6 +31,15 @@
           "name" : "struct"
         },
         "children" : [{
+          "name" : "_iid",
+          "nullable" : false,
+          "type" : {
+            "name" : "int",
+            "bitWidth" : 64,
+            "isSigned" : true
+          },
+          "children" : [ ]
+        },{
           "name" : "_row-id",
           "nullable" : false,
           "type" : {
@@ -55,7 +64,7 @@
             },
             "children" : [{
               "name" : "_valid-time-start",
-              "nullable" : true,
+              "nullable" : false,
               "type" : {
                 "name" : "timestamp",
                 "unit" : "MICROSECOND",
@@ -64,7 +73,7 @@
               "children" : [ ]
             },{
               "name" : "_valid-time-end",
-              "nullable" : true,
+              "nullable" : false,
               "type" : {
                 "name" : "timestamp",
                 "unit" : "MICROSECOND",
@@ -79,17 +88,8 @@
               "name" : "struct"
             },
             "children" : [{
-              "name" : "_id",
-              "nullable" : false,
-              "type" : {
-                "name" : "union",
-                "mode" : "Dense",
-                "typeIds" : [ ]
-              },
-              "children" : [ ]
-            },{
               "name" : "_valid-time-start",
-              "nullable" : true,
+              "nullable" : false,
               "type" : {
                 "name" : "timestamp",
                 "unit" : "MICROSECOND",
@@ -98,7 +98,7 @@
               "children" : [ ]
             },{
               "name" : "_valid-time-end",
-              "nullable" : true,
+              "nullable" : false,
               "type" : {
                 "name" : "timestamp",
                 "unit" : "MICROSECOND",
@@ -129,7 +129,7 @@
       "name" : "_tx-time",
       "count" : 1,
       "VALIDITY" : [1],
-      "DATA" : [1577836800000000]
+      "DATA" : [1577923200000000]
     },{
       "name" : "ops",
       "count" : 1,
@@ -140,6 +140,11 @@
         "count" : 4,
         "VALIDITY" : [1,1,1,1],
         "children" : [{
+          "name" : "_iid",
+          "count" : 4,
+          "VALIDITY" : [1,1,1,1],
+          "DATA" : ["0","72057594037927936","144115188075855872","216172782113783808"]
+        },{
           "name" : "_row-id",
           "count" : 4,
           "VALIDITY" : [1,1,1,1],
@@ -156,24 +161,19 @@
             "children" : [{
               "name" : "_valid-time-start",
               "count" : 4,
-              "VALIDITY" : [0,0,0,0],
-              "DATA" : [0,0,0,0]
+              "VALIDITY" : [1,1,1,1],
+              "DATA" : [1577836800000000,1577836800000000,1577836800000000,1577836800000000]
             },{
               "name" : "_valid-time-end",
               "count" : 4,
-              "VALIDITY" : [0,0,0,0],
-              "DATA" : [0,0,0,0]
+              "VALIDITY" : [1,1,1,1],
+              "DATA" : [253402300799999999,253402300799999999,253402300799999999,253402300799999999]
             }]
           },{
             "name" : "delete",
             "count" : 0,
             "VALIDITY" : [ ],
             "children" : [{
-              "name" : "_id",
-              "count" : 0,
-              "TYPE_ID" : [ ],
-              "OFFSET" : [ ]
-            },{
               "name" : "_valid-time-start",
               "count" : 0,
               "VALIDITY" : [ ],
@@ -203,7 +203,7 @@
       "name" : "_tx-time",
       "count" : 1,
       "VALIDITY" : [1],
-      "DATA" : [1577923200000000]
+      "DATA" : [1578096000000000]
     },{
       "name" : "ops",
       "count" : 1,
@@ -214,6 +214,11 @@
         "count" : 2,
         "VALIDITY" : [1,1],
         "children" : [{
+          "name" : "_iid",
+          "count" : 2,
+          "VALIDITY" : [1,1],
+          "DATA" : ["288230376151711744","360287970189639680"]
+        },{
           "name" : "_row-id",
           "count" : 2,
           "VALIDITY" : [1,1],
@@ -230,24 +235,19 @@
             "children" : [{
               "name" : "_valid-time-start",
               "count" : 2,
-              "VALIDITY" : [0,0],
-              "DATA" : [0,0]
+              "VALIDITY" : [1,1],
+              "DATA" : [1578009600000000,1578009600000000]
             },{
               "name" : "_valid-time-end",
               "count" : 2,
-              "VALIDITY" : [0,0],
-              "DATA" : [0,0]
+              "VALIDITY" : [1,1],
+              "DATA" : [253402300799999999,253402300799999999]
             }]
           },{
             "name" : "delete",
             "count" : 0,
             "VALIDITY" : [ ],
             "children" : [{
-              "name" : "_id",
-              "count" : 0,
-              "TYPE_ID" : [ ],
-              "OFFSET" : [ ]
-            },{
               "name" : "_valid-time-start",
               "count" : 0,
               "VALIDITY" : [ ],

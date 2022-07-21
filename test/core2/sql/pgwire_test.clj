@@ -6,13 +6,18 @@
             [clojure.data.json :as json]
             [juxt.clojars-mirrors.nextjdbc.v1v2v674.next.jdbc :as jdbc]
             [clojure.string :as str]
-            [clojure.tools.logging :as log])
+            [clojure.tools.logging :as log]
+            [clojure.java.shell :as sh]
+            [core2.util :as util]
+            [core2.api :as c2])
   (:import (java.sql Connection)
            (org.postgresql.util PGobject PSQLException)
            (com.fasterxml.jackson.databind.node JsonNodeType)
            (com.fasterxml.jackson.databind ObjectMapper JsonNode)
            (java.lang Thread$State)
-           (java.net SocketException)))
+           (java.net SocketException)
+           (java.util.concurrent CountDownLatch TimeUnit CompletableFuture)
+           (core2 IResultSet)))
 
 (set! *warn-on-reflection* false)
 (set! *unchecked-math* false)
@@ -117,30 +122,57 @@
     "prefer" :ok
     "require" :unsupported))
 
-(defn- jdbc-conn ^Connection []
-  (jdbc/get-connection (jdbc-url)))
+(defn- jdbc-conn ^Connection [& params]
+  (jdbc/get-connection (apply jdbc-url params)))
 
 (deftest query-test
-  (with-open [conn (jdbc-conn)]
-    (with-open [stmt (.createStatement conn)
-                rs (.executeQuery stmt "SELECT a.a FROM (VALUES ('hello, world')) a (a)")]
-      (is (= true (.next rs)))
-      (is (= false (.next rs))))))
+  (with-open [conn (jdbc-conn)
+              stmt (.createStatement conn)
+              rs (.executeQuery stmt "SELECT a.a FROM (VALUES ('hello, world')) a (a)")]
+    (is (= true (.next rs)))
+    (is (= false (.next rs)))))
+
+(deftest simple-query-test
+  (with-open [conn (jdbc-conn "preferQueryMode" "simple")
+              stmt (.createStatement conn)
+              rs (.executeQuery stmt "SELECT a.a FROM (VALUES ('hello, world')) a (a)")]
+    (is (= true (.next rs)))
+    (is (= false (.next rs)))))
 
 (deftest prepared-query-test
-  (with-open [conn (jdbc-conn)]
-    (with-open [stmt (.prepareStatement conn "SELECT a.a FROM (VALUES ('hello, world')) a (a)")
-                rs (.executeQuery stmt)]
+  (with-open [conn (jdbc-conn "prepareThreshold" "1")
+              stmt (.prepareStatement conn "SELECT a.a FROM (VALUES ('hello, world')) a (a)")
+              stmt2 (.prepareStatement conn "SELECT a.a FROM (VALUES ('hello, world2')) a (a)")]
+
+    (with-open [rs (.executeQuery stmt)]
       (is (= true (.next rs)))
-      (is (= false (.next rs))))))
+      (is (= false (.next rs))))
+
+    (with-open [rs (.executeQuery stmt)]
+      (is (= true (.next rs)))
+      (is (= false (.next rs))))
+
+    ;; exec queries a few times to trigger .execute prepared statements in jdbc
+
+    (dotimes [_ 5]
+      (with-open [rs (.executeQuery stmt2)]
+        (is (= true (.next rs)))
+        (is (= "\"hello, world2\"" (str (.getObject rs 1))))
+        (is (= false (.next rs)))))
+
+    (dotimes [_ 5]
+      (with-open [rs (.executeQuery stmt)]
+        (is (= true (.next rs)))
+        (is (= "\"hello, world\"" (str (.getObject rs 1))))
+        (is (= false (.next rs)))))))
 
 (deftest parameterized-query-test
-  (with-open [conn (jdbc-conn)]
-    (with-open [stmt (doto (.prepareStatement conn "SELECT a.a FROM (VALUES (?)) a (a)")
-                       (.setObject 1 "hello, world"))
-                rs (.executeQuery stmt)]
-      (is (= true (.next rs)))
-      (is (= false (.next rs))))))
+  (with-open [conn (jdbc-conn)
+              stmt (doto (.prepareStatement conn "SELECT a.a FROM (VALUES (?)) a (a)")
+                     (.setObject 1 "hello, world"))
+              rs (.executeQuery stmt)]
+    (is (= true (.next rs)))
+    (is (= false (.next rs)))))
 
 (def json-representation-examples
   "A map of entries describing sql value domains
@@ -483,9 +515,326 @@
     (check-conn-resources-freed server-conn)))
 
 (deftest server-close-closes-idle-conns-test
-  (require-server)
+  (require-server {:drain-wait 0})
   (with-open [_client-conn (jdbc-conn)
               server-conn (get-last-conn)]
     (.close *server*)
     (is (wait-for-close server-conn 500))
     (check-conn-resources-freed server-conn)))
+
+(deftest canned-response-test
+  (require-server)
+  ;; quick test for now to confirm canned response mechanism at least doesn't crash!
+  ;; this may later be replaced by client driver tests (e.g test sqlalchemy connect & query)
+  (with-redefs [pgwire/canned-responses [{:q "hello!"
+                                          :cols [{:column-name "greet", :column-oid @#'pgwire/oid-json}]
+                                          :rows [["\"hey!\""]]}]]
+    (with-open [conn (jdbc-conn)]
+      (is (= [{:greet "hey!"}] (q conn ["hello!"]))))))
+
+(deftest concurrent-conns-test
+  (require-server {:num-threads 2})
+  (let [results (atom [])
+        spawn (fn spawn []
+                (future
+                  (with-open [conn (jdbc-conn)]
+                    (swap! results conj (ping conn)))))
+        futs (vec (repeatedly 10 spawn))]
+
+    (is (every? #(not= :timeout (deref % 500 :timeout)) futs))
+    (is (= 10 (count @results)))
+
+    (.close *server*)
+    (check-server-resources-freed)))
+
+(deftest concurrent-conns-close-midway-test
+  (require-server {:num-threads 2
+                   :accept-so-timeout 10})
+  (let [spawn (fn spawn [i]
+                (future
+                  (try
+                    (with-open [conn (jdbc-conn "loginTimeout" "1"
+                                                "socketTimeout" "1")]
+                      (loop [query-til (+ (System/currentTimeMillis)
+                                          (* i 1000))]
+                        (ping conn)
+                        (when (< (System/currentTimeMillis) query-til)
+                          (recur query-til))))
+                    ;; we expect an ex here, whether or not draining
+                    (catch PSQLException e
+                      ))))
+
+        futs (mapv spawn (range 10))]
+
+    (is (some #(not= :timeout (deref % 1000 :timeout)) futs))
+
+    (.close *server*)
+
+    (is (every? #(not= :timeout (deref % 1000 :timeout)) futs))
+
+    (check-server-resources-freed)))
+
+;; the goal of this test is to cause a bunch of ping queries to block on parse
+;; until the server is draining
+;; and observe that connection continue until the multi-message extended interaction is done
+;; (when we introduce read transactions I will probably extend this to short-lived transactions)
+(deftest close-drains-active-extended-queries-before-stopping-test
+  (require-server {:num-threads 10
+                   :accept-so-timeout 10})
+  (let [cmd-parse @#'pgwire/cmd-parse
+        server-status (:server-status *server*)
+        latch (CountDownLatch. 10)]
+    ;; redefine parse to block when we ping
+    (with-redefs [pgwire/cmd-parse
+                  (fn [conn {:keys [query] :as cmd}]
+                    (if-not (str/starts-with? query "select a.ping")
+                      (cmd-parse conn cmd)
+                      (do
+                        (.countDown latch)
+                        ;; delay until we see a draining state
+                        (loop [wait-until (+ (System/currentTimeMillis) 5000)]
+                          (when (and (< (System/currentTimeMillis) wait-until)
+                                     (not= :draining @server-status))
+                            (recur wait-until)))
+                        (cmd-parse conn cmd))))]
+      (let [spawn (fn spawn [] (future (with-open [conn (jdbc-conn)] (ping conn))))
+            futs (vec (repeatedly 10 spawn))]
+
+        (is (.await latch 1 TimeUnit/SECONDS))
+
+        (.close *server*)
+
+        (is (every? #(= "pong" (deref % 1000 :timeout)) futs))
+
+        (check-server-resources-freed)))))
+
+(deftest jdbc-query-cancellation-test
+  (require-server {:num-threads 2})
+  (let [stmt-promise (promise)
+
+        start-conn1
+        (fn []
+          (with-open [conn (jdbc-conn)]
+            (with-open [stmt (.prepareStatement conn "select a.a from a")]
+              (try
+                (with-redefs [c2/open-sql-async (fn [& _] (deliver stmt-promise stmt) (CompletableFuture.))]
+                  (with-open [rs (.executeQuery stmt)]
+                    :not-cancelled))
+                (catch PSQLException e
+                  (.getMessage e))))))
+
+        fut (future (start-conn1))]
+
+    (is (not= :timeout (deref stmt-promise 1000 :timeout)))
+    (when (realized? stmt-promise) (.cancel @stmt-promise))
+    (is (= "ERROR: query cancelled during execution" (deref fut 1000 :timeout)))))
+
+(deftest jdbc-prepared-query-close-test
+  (with-open [conn (jdbc-conn "prepareThreshold" "1"
+                              "preparedStatementCacheQueries" 0
+                              "preparedStatementCacheMiB" 0)]
+    (dotimes [i 3]
+      ;; do not use parameters as to trigger close it needs to be a different query every time
+      (with-open [stmt (.prepareStatement conn (format "SELECT a.a FROM (VALUES (%s)) a (a)" i))]
+        (.close (.executeQuery stmt))))
+
+    (testing "only empty portal should remain"
+      (is (= [""] (keys (:portals @(:conn-state (get-last-conn)))))))
+
+    (testing "even at cache policy 0, pg jdbc caches - but we should only see the last stmt + empty"
+      ;; S_3 because i == 3
+      (is (= #{"", "S_3"} (set (keys (:prepared-statements @(:conn-state (get-last-conn))))))))))
+
+(defn psql-available?
+  "Returns true if psql is available in $PATH"
+  []
+  (try (= 0 (:exit (sh/sh "command" "-v" "psql"))) (catch Throwable _ false)))
+
+;; define psql tests if psql is available on path
+;; (will probably move to a selector)
+(when (psql-available?)
+
+  (deftest psql-connect-test
+    (require-server)
+    (let [{:keys [exit, out]} (sh/sh "psql" "-h" "localhost" "-p" (str *port*) "-c" "select ping")]
+      (is (= 0 exit))
+      (is (str/includes? out " pong\n(1 row)"))))
+
+  (deftest psql-interactive-test
+    (require-server)
+    (let [pb (ProcessBuilder. ["psql" "-h" "localhost" "-p" (str *port*)])
+          p (.start pb)
+          in (delay (.getInputStream p))
+          err (delay (.getErrorStream p))
+          out (delay (.getOutputStream p))
+
+          send
+          (fn [s]
+            (.write @out (.getBytes s "utf-8"))
+            (.flush @out))
+
+          read
+          (fn read
+            ([] (read @in))
+            ([stream]
+             (loop [wait-until (+ (System/currentTimeMillis) 1000)]
+               (cond
+                 (pos? (.available stream))
+                 (let [barr (byte-array (.available stream))]
+                   (.read stream barr)
+                   (String. barr))
+
+                 (< wait-until (System/currentTimeMillis)) :timeout
+                 :else (recur wait-until)))))]
+
+      (try
+
+        (testing "ping"
+          (send "select ping;\n")
+          (let [s (read)]
+            (is (str/includes? s "pong"))
+            (is (str/includes? s "(1 row)"))))
+
+        (testing "numeric printing"
+          (send "select a.a from (values (42)) a (a);\n")
+          (is (str/includes? (read) "42")))
+
+        (testing "expecting column name"
+          (send "select a.flibble from (values (42)) a (flibble);\n")
+          (is (str/includes? (read) "flibble")))
+
+        (testing "mixed type col"
+          (send "select a.a from (values (42), ('hello!'), (array [1,2,3])) a (a);\n")
+          (let [s (read)]
+            (is (str/includes? s "42"))
+            (is (str/includes? s "\"hello!\""))
+            (is (str/includes? s "[1,2,3]"))
+            (is (str/includes? s "(3 rows)"))))
+
+        (testing "parse error"
+          (send "not really sql;\n")
+          (is (str/includes? (read @err) "ERROR"))
+
+          (testing "parse error allows session to continue"
+            (send "select ping;\n")
+            (is (str/includes? (read) "pong"))))
+
+        (testing "query crash during plan"
+          (with-redefs [clojure.tools.logging/logf (constantly nil)
+                        c2/open-sql-async (fn [& _] (CompletableFuture/failedFuture (Throwable. "oops")))]
+            (send "select a.a from (values (42)) a (a);\n")
+            (is (str/includes? (read @err) "unexpected server error during query execution")))
+
+          (testing "internal query error allows session to continue"
+            (send "select ping;\n")
+            (is (str/includes? (read) "pong"))))
+
+        (testing "query crash during result set iteration"
+          (with-redefs [clojure.tools.logging/logf (constantly nil)
+                        c2/open-sql-async (fn [& _] (CompletableFuture/completedFuture
+                                                      (reify IResultSet
+                                                        (hasNext [_] true)
+                                                        (next [_] (throw (Throwable. "oops")))
+                                                        (close [_]))))]
+            (send "select a.a from (values (42)) a (a);\n")
+            (is (str/includes? (read @err) "unexpected server error during query execution")))
+
+          (testing "internal query error allows session to continue"
+            (send "select ping;\n")
+            (is (str/includes? (read) "pong"))))
+
+        ;; I would like to test cancellation in psql, but I cannot without a pseudo terminal (pty), not going do that now
+
+        (finally
+
+          (when (.isAlive p)
+            (.destroy p))
+
+          (is (.waitFor p 1000 TimeUnit/MILLISECONDS))
+          (is (#{143, 0} (.exitValue p)))
+
+          (when (realized? in) (util/try-close @in))
+          (when (realized? out) (util/try-close @out))
+          (when (realized? err) (util/try-close @err)))))))
+
+(def pg-param-representation-examples
+  "A library of examples to test pg parameter oid handling.
+
+  e.g set this object as a param, round trip it - does it match the json result?
+
+  :param (the java object, e.g (int 42))
+  :json the expected (parsed via data.json) json representation
+  :json-cast (a function to apply to the json, useful for downcast for floats)"
+  [{:param nil
+    :json nil}
+
+   {:param true
+    :json true}
+
+   {:param false
+    :json false}
+
+   {:param (byte 42)
+    :json 42}
+
+   {:param (byte -42)
+    :json -42}
+
+   {:param (short 257)
+    :json 257}
+
+   {:param (short -257)
+    :json -257}
+
+   {:param (int 92767)
+    :json 92767}
+
+   {:param (int -92767)
+    :json -92767}
+
+   {:param (long 4147483647)
+    :json 4147483647}
+
+   {:param (long -4147483647)
+    :json -4147483647}
+
+   {:param (float Math/PI)
+    :json (float Math/PI)
+    :json-cast float}
+
+   {:param (+ 1.0 (double Float/MAX_VALUE))
+    :json (+ 1.0 (double Float/MAX_VALUE))}
+
+   {:param ""
+    :json ""}
+
+   {:param "hello, world!"
+    :json "hello, world!"}
+
+   {:param "😎"
+    :json "😎"}])
+
+(deftest pg-param-representation-test
+  (with-open [conn (jdbc-conn)
+              stmt (.prepareStatement conn "select a.a from (values (?)) a (a)")]
+    (doseq [{:keys [param, json, json-cast]
+             :or {json-cast identity}}
+            pg-param-representation-examples]
+      (testing (format "param %s (%s)" param (class param))
+
+        (.clearParameters stmt)
+
+        (condp instance? param
+          Byte (.setByte stmt 1 param)
+          Short (.setShort stmt 1 param)
+          Integer (.setInt stmt 1 param)
+          Long (.setLong stmt 1 param)
+          Float (.setFloat stmt 1 param)
+          Double (.setDouble stmt 1 param)
+          String (.setString stmt 1 param)
+          (.setObject stmt 1 param))
+
+        (with-open [rs (.executeQuery stmt)]
+          (is (.next rs))
+          ;; may want more fine-grained json assertions than this, it depends on data.json behaviour
+          (is (= json (json-cast (json/read-str (str (.getObject rs 1)))))))))))

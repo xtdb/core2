@@ -64,8 +64,8 @@ jobs:
           at: ~/
 
       - run: apt-get update && apt-get install -y curl
-
       - run: apt-get update && apt-get install -y maven
+      - run: apt-get update && apt-get install -y libxml2-utils
 
       - run: curl -sLO https://raw.githubusercontent.com/babashka/babashka/master/install && chmod +x install && ./install
 

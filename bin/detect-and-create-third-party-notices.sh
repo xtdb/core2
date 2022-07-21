@@ -8,7 +8,7 @@ CORE2_PATH=$(realpath $(dirname $0)/..)
 (
   cd $CORE2_PATH
 
-  clj -X:deps mvn-pom
+  clojure -X:deps mvn-pom
 
   # `sbom-tool` will probably have a longer lifespan than neo4j's licensing plugin,
   # but it's also a bit hairier to work with. parking for now. -sd

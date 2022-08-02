@@ -1257,13 +1257,13 @@
     [pit1 pit2]
     (and (instance? java.time.LocalDate pit1)
          (instance? java.time.OffsetDateTime pit2))
-    [(.atTime pit1 (create-offset-time "0" "0" "0" "0" "0" "0"))
+    [(.atTime ^java.time.LocalDate  pit1 ^java.time.OffsetTime (create-offset-time "0" "0" "0" "0" "0" "0"))
      pit2]
 
     (and (instance? java.time.OffsetDateTime pit1)
          (instance? java.time.LocalDate pit2))
     [pit1
-     (.atTime pit2 (create-offset-time "0" "0" "0" "0" "0" "0"))]
+     (.atTime ^java.time.LocalDate pit2 ^java.time.OffsetTime (create-offset-time "0" "0" "0" "0" "0" "0"))]
 
     (and (instance? java.time.OffsetDateTime pit1)
          (instance? java.time.OffsetDateTime pit2))
@@ -1271,16 +1271,16 @@
 
 (defn pit-less-than [pit1 pit2]
   (let [[pit-1 pit-2] (coerce-points-in-time pit1 pit2)]
-    (neg? (.compareTo pit-1 pit-2))))
+    (neg? (.compareTo ^java.time.OffsetDateTime pit-1 ^java.time.OffsetDateTime pit-2))))
 
 (defn pit-less-than-or-equal [pit1 pit2]
   (let [[pit-1 pit-2] (coerce-points-in-time pit1 pit2)
-        res (.compareTo pit-1 pit-2)]
+        res (.compareTo ^java.time.OffsetDateTime pit-1 ^java.time.OffsetDateTime pit-2)]
     (or (neg? res) (= res 0))))
 
 (defn pit-greater-than [pit1 pit2]
   (let [[pit-1 pit-2] (coerce-points-in-time pit1 pit2)]
-    (pos? (.compareTo pit-1 pit-2))))
+    (pos? (.compareTo ^java.time.OffsetDateTime pit-1 ^java.time.OffsetDateTime pit-2))))
 
 (defn find-system-time-predicates [tp]
   (r/collect-stop

@@ -5,6 +5,6 @@
 psql -h localhost
 ----
 
-You should see a prompt ending in `=>`.
+You should see a prompt ending in `=&gt;`.
 If you see `=#`, you are running a (regular) PostgreSQL server.
 Stop PostgreSQL, then reconnect to XTDB.

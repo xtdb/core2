@@ -8,28 +8,28 @@ site:
     mainSiteTitle: XTDB Core2 - Home
     #matomoUrl: "//bunseki.juxt.pro/"
     #matomoSiteId: "4"
-    typesenseHost: xtagzc25w84ufq37p-1.a1.typesense.net
-    typesenseApiKey: 0zVHpGQFDUhgP9hazp1laLklfy00AlGD
-    typesenseCollectionName: xtdb-website-ts-index
+    #typesenseHost: xtagzc25w84ufq37p-1.a1.typesense.net
+    #typesenseApiKey: 0zVHpGQFDUhgP9hazp1laLklfy00AlGD
+    #typesenseCollectionName: xtdb-website-ts-index
     hiddenComponent: main
 
 content:
   sources:
     - url: ../../
       start_path: doc/adoc/main # index - Only necessary to read self-hosted docs.
-      branches: docs-draft
+      branches: master
     - url: ../../
       start_path: doc/adoc/language-reference
       branches:
-        - docs-draft
+        - master
     - url: ../../
       start_path: doc/adoc/clients
       branches:
-        - docs-draft
+        - master
     - url: ../../
       start_path: doc/adoc/administration
       branches:
-        - docs-draft
+        - master
 
 urls:
   html_extension_style: indexify

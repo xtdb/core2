@@ -1,4 +1,4 @@
-= XTDB Docs
+= XTDB Core2 Docs
 
 == Docs
 

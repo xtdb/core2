@@ -713,10 +713,14 @@
     "OBJECT()" {}
     "OBJECT('foo': 2)" {:foo 2}
     "OBJECT('foo': 2, 'bar': true)" {:foo 2 :bar true}
+    "OBJECT('foo': 2, 'bar': ARRAY [true, 1])" {:foo 2 :bar [true 1]}
+    "OBJECT('foo': 2, 'bar': OBJECT('baz': ARRAY [true, 1]))" {:foo 2 :bar {:baz [true 1]}}
 
     "{}" {}
     "{'foo': 2}" {:foo 2}
-    "{'foo': 2, 'bar': true}" {:foo 2 :bar true}))
+    "{'foo': 2, 'bar': true}" {:foo 2 :bar true}
+    "{'foo': 2, 'bar': [true, 1]}" {:foo 2 :bar [true 1]}
+    "{'foo': 2, 'bar': {'baz': [true, 1]}}" {:foo 2 :bar {:baz [true 1]}}))
 
 (deftest test-object-field-access
   (t/are [sql expected]

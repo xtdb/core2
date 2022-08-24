@@ -175,6 +175,14 @@
          [(expr z)]))
      z)
 
+    :object_constructor
+    (into {} (r/collect-stop
+              (fn [z]
+                (r/zmatch z
+                  [:object_name_and_value ^:z on ^:z ve]
+                  [[(expr on) (expr ve)]]))
+              z))
+
     :case_abbreviation
     (->> (r/collect-stop
           (fn [z]
@@ -257,6 +265,10 @@
 
 (defn expr [z]
   (r/zmatch z
+    ;; TODO: only the first two, the table and the column, are really
+    ;; the column reference, the rest should be treated as nested
+    ;; field references compiled using '..'. Needs fix in analyze as
+    ;; well to ignore trailing parts of the reference.
     [:column_reference _]
     ;;=>
     (column-reference-symbol (sem/column-reference z))
@@ -754,6 +766,35 @@
     [:quantified_comparison_predicate _ [:quantified_comparison_predicate_part_2 _ [:all _] [:subquery ^:z qe]]]
     ;;=>
     (exists-symbol qe)
+
+    ;; TODO: this will eventually be resolved at runtime.
+    [:object_name ^:z n]
+    ;; =>
+    (keyword (expr n))
+
+    ;; Does not work for column references, see above.
+    [:field_reference ^:z vep [:regular_identifier fn]]
+    (list '. (expr vep) (symbol fn))
+
+    [:array_value_constructor_by_enumeration]
+    ;; =>
+    []
+
+    [:array_value_constructor_by_enumeration "ARRAY"]
+    ;; =>
+    []
+
+    [:empty_specification]
+    ;; =>
+    []
+
+    [:empty_specification "ARRAY"]
+    ;; =>
+    []
+
+    [:array_value_constructor_by_enumeration ^:z list]
+    ;; =>
+    (vec (expr list))
 
     [:array_value_constructor_by_enumeration _ ^:z list]
     ;; =>

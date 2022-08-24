@@ -109,6 +109,12 @@
  {:tag :nt,
   :keyword :character_value_expression,
   :red {:reduction-type :raw}},
+ :object_name_and_value
+ {:tag :cat,
+  :parsers
+  ({:tag :nt, :keyword :object_name}
+   {:tag :nt, :keyword :colon, :hide true}
+   {:tag :nt, :keyword :value_expression})},
  :boolean_factor
  {:tag :cat,
   :parsers
@@ -977,6 +983,7 @@
        ({:tag :string, :string "ALL"}
         {:tag :string, :string "DISTINCT"})}}
      {:tag :nt, :keyword :query_primary})})},
+ :object_name {:tag :nt, :keyword :character_string_literal},
  :array_aggregate_function
  {:tag :cat,
   :parsers
@@ -1349,6 +1356,40 @@
   ({:tag :string, :string "IS"}
    {:tag :opt, :parser {:tag :string, :string "NOT"}}
    {:tag :string, :string "NULL"})},
+ :object_constructor
+ {:tag :alt,
+  :parsers
+  ({:tag :cat,
+    :parsers
+    ({:tag :string, :string "OBJECT"}
+     {:tag :nt, :keyword :left_paren, :hide true}
+     {:tag :opt,
+      :parser
+      {:tag :cat,
+       :parsers
+       ({:tag :nt, :keyword :object_name_and_value}
+        {:tag :star,
+         :parser
+         {:tag :cat,
+          :parsers
+          ({:tag :nt, :keyword :comma, :hide true}
+           {:tag :nt, :keyword :object_name_and_value})}})}}
+     {:tag :nt, :keyword :right_paren, :hide true})}
+   {:tag :cat,
+    :parsers
+    ({:tag :nt, :keyword :left_brace, :hide true}
+     {:tag :opt,
+      :parser
+      {:tag :cat,
+       :parsers
+       ({:tag :nt, :keyword :object_name_and_value}
+        {:tag :star,
+         :parser
+         {:tag :cat,
+          :parsers
+          ({:tag :nt, :keyword :comma, :hide true}
+           {:tag :nt, :keyword :object_name_and_value})}})}}
+     {:tag :nt, :keyword :right_brace, :hide true})})},
  :left_bracket_or_trigraph
  {:tag :alt,
   :parsers
@@ -1554,7 +1595,7 @@
  :empty_specification
  {:tag :cat,
   :parsers
-  ({:tag :string, :string "ARRAY"}
+  ({:tag :opt, :parser {:tag :string, :string "ARRAY"}}
    {:tag :nt, :keyword :left_bracket_or_trigraph}
    {:tag :nt, :keyword :right_bracket_or_trigraph})},
  :in_value_list
@@ -2812,9 +2853,9 @@
  :array_value_constructor_by_enumeration
  {:tag :cat,
   :parsers
-  ({:tag :string, :string "ARRAY"}
+  ({:tag :opt, :parser {:tag :string, :string "ARRAY"}}
    {:tag :nt, :keyword :left_bracket_or_trigraph}
-   {:tag :nt, :keyword :array_element_list}
+   {:tag :opt, :parser {:tag :nt, :keyword :array_element_list}}
    {:tag :nt, :keyword :right_bracket_or_trigraph})},
  :large_object_length
  {:tag :alt,
@@ -3001,8 +3042,10 @@
    {:tag :nt, :keyword :string_value_expression}
    {:tag :nt, :keyword :right_paren, :hide true})},
  :collection_value_constructor
- {:tag :nt,
-  :keyword :array_value_constructor,
+ {:tag :alt,
+  :parsers
+  ({:tag :nt, :keyword :array_value_constructor}
+   {:tag :nt, :keyword :object_constructor}),
   :red {:reduction-type :raw}},
  :natural_logarithm
  {:tag :cat,

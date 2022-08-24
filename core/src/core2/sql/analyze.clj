@@ -934,6 +934,7 @@
              (conj (format "%s side contains ambiguous join columns: %s %s"
                            label (->src-str ag) (->line-info-str ag)))))
          (reduce into))))
+
 (defn- check-period-predicand [ag]
   (let [period-predicand (r/znode ag)]
     (when (= (first (second period-predicand)) :column_reference)
@@ -991,7 +992,9 @@
        (check-where-clause ag)
 
        :fetch_first_clause
-       (check-unsigned-integer "Fetch first row count" (r/$ ag 3))
+       (if (= "LIMIT" (r/lexeme ag 1))
+         (check-unsigned-integer "Fetch first row count" (r/$ ag 2))
+         (check-unsigned-integer "Fetch first row count" (r/$ ag 3)))
 
        :result_offset_clause
        (check-unsigned-integer "Offset row count" (r/$ ag 2))

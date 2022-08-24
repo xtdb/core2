@@ -63,23 +63,29 @@
   :keyword :exact_numeric_literal,
   :red {:reduction-type :raw}},
  :fetch_first_clause
- {:tag :cat,
+ {:tag :alt,
   :parsers
-  ({:tag :string, :string "FETCH"}
-   {:tag :alt,
+  ({:tag :cat,
     :parsers
-    ({:tag :string, :string "FIRST"} {:tag :string, :string "NEXT"})}
-   {:tag :opt, :parser {:tag :nt, :keyword :fetch_first_quantity}}
-   {:tag :alt,
-    :parsers
-    ({:tag :string, :string "ROW"} {:tag :string, :string "ROWS"})}
-   {:tag :alt,
-    :parsers
-    ({:tag :string, :string "ONLY"}
-     {:tag :cat,
+    ({:tag :string, :string "FETCH"}
+     {:tag :alt,
       :parsers
-      ({:tag :string, :string "WITH"}
-       {:tag :string, :string "TIES"})})})},
+      ({:tag :string, :string "FIRST"} {:tag :string, :string "NEXT"})}
+     {:tag :opt, :parser {:tag :nt, :keyword :fetch_first_quantity}}
+     {:tag :alt,
+      :parsers
+      ({:tag :string, :string "ROW"} {:tag :string, :string "ROWS"})}
+     {:tag :alt,
+      :parsers
+      ({:tag :string, :string "ONLY"}
+       {:tag :cat,
+        :parsers
+        ({:tag :string, :string "WITH"}
+         {:tag :string, :string "TIES"})})})}
+   {:tag :cat,
+    :parsers
+    ({:tag :string, :string "LIMIT"}
+     {:tag :nt, :keyword :fetch_first_quantity})})},
  :binary_large_object_string_type
  {:tag :alt,
   :parsers
@@ -181,9 +187,12 @@
   :parsers
   ({:tag :string, :string "OFFSET"}
    {:tag :nt, :keyword :offset_row_count}
-   {:tag :alt,
-    :parsers
-    ({:tag :string, :string "ROW"} {:tag :string, :string "ROWS"})})},
+   {:tag :opt,
+    :parser
+    {:tag :alt,
+     :parsers
+     ({:tag :string, :string "ROW"}
+      {:tag :string, :string "ROWS"})}})},
  :predefined_type
  {:tag :alt,
   :parsers
@@ -908,7 +917,7 @@
     :parser
     {:tag :regexp,
      :regexp
-     #"(?i)(\b(NULL|WITH|SELECT|FROM|WHERE|GROUP|HAVING|ORDER|OFFSET|FETCH|UNION|EXCEPT|INTERSECT|CURRENT_TIME|CURRENT_TIMESTAMP|CURRENT_DATE|LOCALTIME|LOCALTIMESTAMP)\b)"}}
+     #"(?i)(\b(NULL|WITH|SELECT|FROM|WHERE|GROUP|HAVING|ORDER|OFFSET|FETCH|LIMIT|UNION|EXCEPT|INTERSECT|CURRENT_TIME|CURRENT_TIMESTAMP|CURRENT_DATE|LOCALTIME|LOCALTIMESTAMP|END_OF_TIME)\b)"}}
    {:tag :regexp, :regexp #"[a-zA-Z][a-zA-Z0-9_]*"})},
  :contextually_typed_row_value_expression
  {:tag :alt,
@@ -2743,7 +2752,8 @@
    {:tag :nt, :keyword :current_timestamp_value_function}
    {:tag :nt, :keyword :current_time_value_function}
    {:tag :nt, :keyword :current_local_timestamp_value_function}
-   {:tag :nt, :keyword :current_local_time_value_function}),
+   {:tag :nt, :keyword :current_local_time_value_function}
+   {:tag :nt, :keyword :end_of_time_value_function}),
   :red {:reduction-type :raw}},
  :aggregate_function
  {:tag :alt,
@@ -2870,6 +2880,16 @@
    {:tag :opt, :parser {:tag :nt, :keyword :order_by_clause}}
    {:tag :opt, :parser {:tag :nt, :keyword :result_offset_clause}}
    {:tag :opt, :parser {:tag :nt, :keyword :fetch_first_clause}})},
+ :end_of_time_value_function
+ {:tag :cat,
+  :parsers
+  ({:tag :string, :string "END_OF_TIME"}
+   {:tag :opt,
+    :parser
+    {:tag :cat,
+     :parsers
+     ({:tag :nt, :keyword :left_paren, :hide true}
+      {:tag :nt, :keyword :right_paren, :hide true})}})},
  :character_position_expression
  {:tag :cat,
   :parsers

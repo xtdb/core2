@@ -9,7 +9,8 @@
             core2.operator ;; Adds impls logical plan spec
             [core2.rewrite :as r]
             [core2.sql.analyze :as sem]
-            [core2.sql.parser :as p])
+            [core2.sql.parser :as p]
+            [core2.util :as u])
   (:import (clojure.lang Var)
            (java.time LocalDate LocalDateTime LocalTime OffsetTime ZoneOffset ZonedDateTime)
            java.util.HashMap))
@@ -563,6 +564,7 @@
     [:current_local_time_value_function _ ^:z tp] (list 'local-time (expr tp))
     [:current_local_timestamp_value_function _] '(local-timestamp)
     [:current_local_timestamp_value_function _ ^:z tp] (list 'local-timestamp (expr tp))
+    [:end_of_time_value_function _] u/end-of-time
 
     [:character_like_predicate ^:z rvp [:character_like_predicate_part_2 "LIKE" ^:z cp]]
     ;;=>
@@ -1723,23 +1725,35 @@
     [:query_expression [:with_clause "WITH" _] ^:z qeb [:order_by_clause _ _ ^:z ssl]]
     (wrap-with-order-by ssl (plan qeb))
 
-    [:query_expression ^:z qeb [:result_offset_clause _ rorc _]]
-    [:top {:skip (expr rorc)} (plan qeb)]
-
-    [:query_expression ^:z qeb [:order_by_clause _ _ ^:z ssl] [:result_offset_clause _ rorc _]]
-    [:top {:skip (expr rorc)} (wrap-with-order-by ssl (plan qeb))]
+    [:query_expression ^:z qeb [:fetch_first_clause "LIMIT" ^:z ffrc]]
+    [:top {:limit (expr ffrc)} (plan qeb)]
 
     [:query_expression ^:z qeb [:fetch_first_clause _ _ ffrc _ _]]
     [:top {:limit (expr ffrc)} (plan qeb)]
 
-    [:query_expression ^:z qeb [:order_by_clause _ _ ^:z ssl] [:fetch_first_clause _ _ ffrc _ _]]
+    [:query_expression ^:z qeb [:order_by_clause _ _ ^:z ssl] [:fetch_first_clause "LIMIT" ^:z ffrc]]
     [:top {:limit (expr ffrc)} (wrap-with-order-by ssl (plan qeb))]
 
-    [:query_expression ^:z qeb [:result_offset_clause _ rorc _] [:fetch_first_clause _ _ ffrc _ _]]
-    [:top {:skip (expr rorc) :limit (expr ffrc)} (plan qeb)]
+    [:query_expression ^:z qeb [:order_by_clause _ _ ^:z ssl] [:fetch_first_clause _ _ ^:z ffrc _ _]]
+    [:top {:limit (expr ffrc)} (wrap-with-order-by ssl (plan qeb))]
 
-    [:query_expression ^:z qeb [:order_by_clause _ _ ^:z ssl] [:result_offset_clause _ rorc _] [:fetch_first_clause _ _ ffrc _ _]]
-    [:top {:skip (expr rorc) :limit (expr ffrc)} (wrap-with-order-by ssl (plan qeb))]
+    [:query_expression ^:z qeb [:order_by_clause _ _ ^:z ssl] ^:z roc]
+    [:top {:skip (expr (r/$ roc 2))} (wrap-with-order-by ssl (plan qeb))]
+
+    [:query_expression ^:z qeb [:order_by_clause _ _ ^:z ssl] ^:z roc [:fetch_first_clause "LIMIT" ^:z ffrc]]
+    [:top {:skip (expr (r/$ roc 2)) :limit (expr ffrc)} (wrap-with-order-by ssl (plan qeb))]
+
+    [:query_expression ^:z qeb [:order_by_clause _ _ ^:z ssl] ^:z roc [:fetch_first_clause _ _ ^:z ffrc _ _]]
+    [:top {:skip (expr (r/$ roc 2)) :limit (expr ffrc)} (wrap-with-order-by ssl (plan qeb))]
+
+    [:query_expression ^:z qeb ^:z roc]
+    [:top {:skip (expr (r/$ roc 2))} (plan qeb)]
+
+    [:query_expression ^:z qeb ^:z roc [:fetch_first_clause "LIMIT" ^:z ffrc]]
+    [:top {:skip (expr (r/$ roc 2)) :limit (expr ffrc)} (plan qeb)]
+
+    [:query_expression ^:z qeb ^:z roc [:fetch_first_clause _ _ ffrc _ _]]
+    [:top {:skip (expr (r/$ roc 2)) :limit (expr ffrc)} (plan qeb)]
 
     [:query_specification _ ^:z sl ^:z te]
     ;;=>

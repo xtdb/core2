@@ -135,7 +135,7 @@
 
   (t/is (=plan-file
           "basic-query-22"
-          (plan-sql "SELECT si.movieTitle FROM StarsIn AS si OFFSET 5 ROWS FETCH FIRST 10 ROWS ONLY")))
+          (plan-sql "SELECT si.movieTitle FROM StarsIn AS si OFFSET 5 LIMIT 10")))
 
   (t/is (=plan-file
           "basic-query-23"
@@ -387,7 +387,8 @@
                     CURRENT_DATE,
                     CURRENT_TIMESTAMP, CURRENT_TIMESTAMP(4),
                     LOCALTIME, LOCALTIME(6),
-                    LOCALTIMESTAMP, LOCALTIMESTAMP(9)
+                    LOCALTIMESTAMP, LOCALTIMESTAMP(9),
+                    END_OF_TIME, END_OF_TIME()
                     FROM u"))))
 
 (t/deftest test-dynamic-parameters-103

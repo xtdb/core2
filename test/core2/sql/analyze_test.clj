@@ -361,10 +361,20 @@ SELECT t1.d-t1.e AS a, SUM(t1.a) AS b
   (valid? "SELECT 1 FROM t1 FETCH FIRST 1 ROWS ONLY")
   (valid? "SELECT 1 FROM t1 FETCH FIRST :foo ROWS ONLY")
 
+  (invalid? #"Fetch first row count must be an integer"
+            "SELECT 1 FROM t1 LIMIT 'foo'")
+  (valid? "SELECT 1 FROM t1 LIMIT 1")
+  (valid? "SELECT 1 FROM t1 LIMIT :foo")
+
   (invalid? #"Offset row count must be an integer"
             "SELECT 1 FROM t1 OFFSET 'foo' ROWS")
   (valid? "SELECT 1 FROM t1 OFFSET 1 ROWS")
-  (valid? "SELECT 1 FROM t1 OFFSET :foo ROWS"))
+  (valid? "SELECT 1 FROM t1 OFFSET :foo ROWS")
+
+  (invalid? #"Offset row count must be an integer"
+            "SELECT 1 FROM t1 OFFSET 'foo'")
+  (valid? "SELECT 1 FROM t1 OFFSET 1")
+  (valid? "SELECT 1 FROM t1 OFFSET :foo"))
 
 (t/deftest test-check-period-predicand
   (invalid?

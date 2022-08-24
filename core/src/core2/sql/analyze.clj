@@ -111,6 +111,11 @@
       column
 
       [:derived_column
+       [:field_reference _ [:regular_identifier column]]]
+      ;;=>
+      column
+
+      [:derived_column
        [:host_parameter_name column]]
       ;;=>
       column)

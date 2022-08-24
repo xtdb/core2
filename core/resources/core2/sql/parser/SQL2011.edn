@@ -597,12 +597,10 @@
   ({:tag :nt, :keyword :identifier}
    {:tag :opt,
     :parser
-    {:tag :plus,
-     :parser
-     {:tag :cat,
-      :parsers
-      ({:tag :nt, :keyword :period, :hide true}
-       {:tag :nt, :keyword :identifier})}}})},
+    {:tag :cat,
+     :parsers
+     ({:tag :nt, :keyword :period, :hide true}
+      {:tag :nt, :keyword :identifier})}})},
  :less_than_operator {:tag :string, :string "<"},
  :start_field
  {:tag :cat,
@@ -1313,17 +1311,7 @@
       {:tag :nt, :keyword :string_length})}}
    {:tag :nt, :keyword :right_paren, :hide true})},
  :asterisked_identifier_chain
- {:tag :cat,
-  :parsers
-  ({:tag :nt, :keyword :asterisked_identifier}
-   {:tag :opt,
-    :parser
-    {:tag :plus,
-     :parser
-     {:tag :cat,
-      :parsers
-      ({:tag :nt, :keyword :period, :hide true}
-       {:tag :nt, :keyword :asterisked_identifier})}}})},
+ {:tag :nt, :keyword :asterisked_identifier},
  :array_concatenation
  {:tag :cat,
   :parsers

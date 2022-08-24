@@ -265,10 +265,6 @@
 
 (defn expr [z]
   (r/zmatch z
-    ;; TODO: only the first two, the table and the column, are really
-    ;; the column reference, the rest should be treated as nested
-    ;; field references compiled using '..'. Needs fix in analyze as
-    ;; well to ignore trailing parts of the reference.
     [:column_reference _]
     ;;=>
     (column-reference-symbol (sem/column-reference z))

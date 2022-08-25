@@ -621,6 +621,33 @@ SELECT t1.d-t1.e AS a, SUM(t1.a) AS b
            (->> (valid? "SELECT a.a FROM (SELECT foo.a a FROM foo) a")
                 (map :projected-columns))))
 
+  (t/is (= [[{:index 0, :identifier "c"}]
+            [{:index 0, :identifier "c"}]]
+           (->> (valid? "SELECT t1.b.c FROM t1")
+                (map :projected-columns))))
+
+  (t/is (= [[{:index 0, :identifier "bar"}]
+            [{:index 0, :identifier "bar", :qualified-column ["x" "bar"]}]]
+           (->> (valid? "SELECT x.bar FROM x")
+                (map :projected-columns))))
+
+  (t/is (= [[{:index 0, :identifier "bar"}]
+            [{:index 0, :identifier "bar"}]
+            [{:index 0, :identifier "bar"}]
+            [{:index 0, :identifier "bar", :qualified-column ["x" "bar"]}]]
+           (->> (valid? "SELECT (SELECT x.bar FROM y) FROM x")
+                (map :projected-columns))))
+
+  (t/is (= [[{:index 0}]
+            [{:index 0}]
+            [{:index 0}]
+            [{:index 0}]]
+           (->> (valid? "SELECT (SELECT 1 FROM y) FROM x")
+                (map :projected-columns))))
+
+  (invalid? #"Subquery does not select single column"
+            "SELECT (SELECT x.bar, y.foo FROM y) FROM x")
+
   (invalid? #"Derived columns has to have same degree as table"
             "SELECT * FROM x, UNNEST(x.a) WITH ORDINALITY AS foo (a)")
   (invalid? #"Derived columns has to have same degree as table"

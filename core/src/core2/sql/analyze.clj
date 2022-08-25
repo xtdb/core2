@@ -116,6 +116,11 @@
       column
 
       [:derived_column
+       [:subquery ^:z sq]]
+      ;;=>
+      (:identifier (ffirst (projected-columns sq)))
+
+      [:derived_column
        [:host_parameter_name column]]
       ;;=>
       column)

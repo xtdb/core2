@@ -638,12 +638,20 @@ SELECT t1.d-t1.e AS a, SUM(t1.a) AS b
            (->> (valid? "SELECT (SELECT x.bar FROM y) FROM x")
                 (map :projected-columns))))
 
-  (t/is (= [[{:index 0}]
-            [{:index 0}]
-            [{:index 0}]
-            [{:index 0}]]
-           (->> (valid? "SELECT (SELECT 1 FROM y) FROM x")
-                (map :projected-columns))))
+  (t/is (=  [[{:index 0, :identifier "y"}]
+             [{:index 0, :identifier "y", :qualified-column ["x" "y"]}]]
+            (->> (valid? "SELECT x.y FROM ARROW_TABLE('test.arrow') AS x")
+                 (map :projected-columns))))
+
+  (t/is (=  [[{:index 0, :identifier "y"}
+              {:index 1, :identifier "z"}]
+             [{:index 0, :identifier "y", :qualified-column ["x" "y"]}
+              {:index 1, :identifier "z", :qualified-column ["x" "z"]}]]
+            (->> (valid? "SELECT * FROM ARROW_TABLE('test.arrow') AS x (y, z)")
+                 (map :projected-columns))))
+
+  (->> (valid? "SELECT x.y FROM x")
+       (map :projected-columns))
 
   (invalid? #"Subquery does not select single column"
             "SELECT (SELECT x.bar, y.foo FROM y) FROM x")

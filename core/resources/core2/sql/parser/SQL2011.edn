@@ -52,6 +52,17 @@
    {:tag :nt, :keyword :left_paren, :hide true}
    {:tag :nt, :keyword :numeric_value_expression}
    {:tag :nt, :keyword :right_paren, :hide true})},
+ :arrow_table
+ {:tag :cat,
+  :parsers
+  ({:tag :string, :string "ARROW_TABLE"}
+   {:tag :opt,
+    :parser
+    {:tag :cat,
+     :parsers
+     ({:tag :nt, :keyword :left_paren, :hide true}
+      {:tag :nt, :keyword :character_string_literal}
+      {:tag :nt, :keyword :right_paren, :hide true})}})},
  :greater_than_operator {:tag :string, :string ">"},
  :character_like_predicate
  {:tag :cat,
@@ -166,6 +177,10 @@
    {:tag :cat,
     :parsers
     ({:tag :nt, :keyword :collection_derived_table}
+     {:tag :nt, :keyword :correlation_or_recognition})}
+   {:tag :cat,
+    :parsers
+    ({:tag :nt, :keyword :arrow_table}
      {:tag :nt, :keyword :correlation_or_recognition})}
    {:tag :nt, :keyword :parenthesized_joined_table})},
  :parenthesized_joined_table

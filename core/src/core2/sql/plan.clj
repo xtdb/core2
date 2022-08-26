@@ -1488,6 +1488,14 @@
       relation
       (build-apply :cross-join column->param nil relation))))
 
+(defn- build-arrow-table [tp]
+  (let [{:keys [id correlation-name] :as table} (sem/table tp)
+        projection (first (sem/projected-columns tp))
+        url (r/$ (r/$ tp 1) -1)]
+    [:rename (table-reference-symbol correlation-name id)
+     [:project (mapv unqualified-projection-symbol projection)
+      [:arrow (expr url)]]]))
+
 ;; TODO: both UNNEST and LATERAL are only dealt with on top-level in
 ;; FROM. UNNEST also needs to take potential subqueries in cve into
 ;; account.
@@ -1650,6 +1658,9 @@
 
     [:max-1-row relation]
     (relation-columns relation)
+
+    [:arrow path]
+    []
 
     (throw (err/illegal-arg ::cannot-calculate-relation-cols
                             {::err/message (str "cannot calculate columns for: " (pr-str relation-in))
@@ -1835,11 +1846,19 @@
     (->> (wrap-with-group-by z (plan fc))
          (wrap-with-select hsc))
 
+    [:table_primary [:collection_derived_table _ _] _]
+    ;;=>
+    (build-collection-derived-table z)
+
     [:table_primary [:collection_derived_table _ _] _ _]
     ;;=>
     (build-collection-derived-table z)
 
     [:table_primary [:collection_derived_table _ _] _ _ _]
+    (build-collection-derived-table z)
+
+    [:table_primary [:collection_derived_table _ _ _ _] _]
+    ;;=>
     (build-collection-derived-table z)
 
     [:table_primary [:collection_derived_table _ _ _ _] _ _]
@@ -1849,8 +1868,25 @@
     [:table_primary [:collection_derived_table _ _ _ _] _ _ _]
     (build-collection-derived-table z)
 
+    [:table_primary [:lateral_derived_table _ [:subquery ^:z qe]] _]
+    (build-lateral-derived-table z qe)
+
     [:table_primary [:lateral_derived_table _ [:subquery ^:z qe]] _ _]
     (build-lateral-derived-table z qe)
+
+    [:table_primary [:lateral_derived_table _ [:subquery ^:z qe]] _ _ _]
+    (build-lateral-derived-table z qe)
+
+    [:table_primary [:arrow_table _ _] _]
+    ;;=>
+    (build-arrow-table z)
+
+    [:table_primary [:arrow_table _ _] _ _]
+    ;;=>
+    (build-arrow-table z)
+
+    [:table_primary [:arrow_table _ _] _ _ _]
+    (build-arrow-table z)
 
     [:table_primary _]
     ;;=>
@@ -2050,6 +2086,11 @@
                                  (symbol (str prefix-or-columns relation-prefix-delimiter %))))
             (set/rename-keys smap prefix-or-columns))))
 
+      [:project columns [:arrow path]]
+      (let [smap (zipmap (map ->projected-column columns)
+                         (repeatedly next-name))]
+        (with-smap [:rename smap [:arrow path]] smap))
+
       [:project projection relation]
       (remove-projection-names :project projection relation)
 
@@ -2136,6 +2177,9 @@
 
       [:max-1-row relation]
       (with-smap [:max-1-row relation] (->smap relation))
+
+      [:arrow path]
+      (with-smap [:arrow path] {})
 
       (when (and (vector? (r/node relation-in))
                  (keyword? (r/ctor relation-in)))

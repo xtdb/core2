@@ -431,6 +431,15 @@
           "test-order-by-null-handling-159-2"
           (plan-sql "SELECT foo.a FROM foo ORDER BY foo.a NULLS LAST"))))
 
+(t/deftest test-arrow-table
+  (t/is (=plan-file
+          "test-arrow-table-1"
+          (plan-sql "SELECT foo.a FROM ARROW_TABLE('test.arrow') AS foo")))
+
+  (t/is (=plan-file
+          "test-arrow-table-2"
+          (plan-sql "SELECT * FROM ARROW_TABLE('test.arrow') AS foo (a, b)"))))
+
 (defn- plan-expr [sql]
   (let [plan (plan-sql (format "SELECT %s t FROM foo WHERE foo.a = 42" sql))
         expr (some (fn [form]

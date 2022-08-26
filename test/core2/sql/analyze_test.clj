@@ -659,6 +659,9 @@ SELECT t1.d-t1.e AS a, SUM(t1.a) AS b
   (invalid? #"INSERT does not contain mandatory id column"
             "INSERT INTO users (name, application_time_start) VALUES (?, ?)")
 
+  (invalid? #"Non-deterministic ARROW_TABLE is not allowed in DML statements"
+            "INSERT INTO users (id, name) SELECT x.id, x.name FROM ARROW_TABLE('test.arrow') AS x")
+
   (invalid? #"Subquery does not select single column"
             "SELECT (SELECT x.bar, y.foo FROM y) FROM x")
 

@@ -650,8 +650,14 @@ SELECT t1.d-t1.e AS a, SUM(t1.a) AS b
             (->> (valid? "SELECT * FROM ARROW_TABLE('test.arrow') AS x (y, z)")
                  (map :projected-columns))))
 
-  (->> (valid? "SELECT x.y FROM x")
-       (map :projected-columns))
+
+  (valid? "INSERT INTO users (id, name) VALUES (?, ?)")
+
+  (invalid? #"INSERT requires query to have same degree as column list"
+            "INSERT INTO users (id, name) VALUES (?, ?, ?)")
+
+  (invalid? #"INSERT does not contain mandatory id column"
+            "INSERT INTO users (name, application_time_start) VALUES (?, ?)")
 
   (invalid? #"Subquery does not select single column"
             "SELECT (SELECT x.bar, y.foo FROM y) FROM x")

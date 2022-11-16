@@ -45,7 +45,11 @@ The timeliness of technical details, mentioned above, act as pillars to this cen
 Although pillars may shift based on product/market fit, it's unlikely any one would be removed or replaced.
 If we imagine each pillar as an actual physical column, it will have "faces" which an observer can see by walking around the pillar and looking at it from different angles.
 
-Prior to the pillars, there are _anchors_.
+The pillars ("features") and ideas which underpin them can be seen here:
+
+image::img/vision-features-and-ideas.svg[Vision: Features and Ideas SVG]
+
+Prior to the pillars, however, there are _anchors_.
 
 
 == The Anchors
@@ -106,6 +110,15 @@ Core2's usage of Arrow shouldn't ever break promises that a regular Arrow user m
 * this is a "high bar" set early in Core2's development
 * working backward from bitemporality (toward a simple immutable experience) means never losing sight of the goal
 * bitemporality should be (optionally) invisible to users -- most users do not want it
+
+=== Separation of Storage and Compute
+
+* utility will largely be determined by "light" indexing
+
+=== Erasure (née "Eviction")
+
+* absolute _lowest_ performance priority
+** erasure should be respected as it is transacted, to future reads, but can take a long time (on the order of minutes, hours) to actually delete data, since it is only intended for compliance purposes
 
 
 == User Experience

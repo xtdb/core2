@@ -27,8 +27,8 @@ The timing of Core2 is due to the confluence of a number of factors.
 * A read-write timeline is called "bitemporal" ... although most developers and businesses do not initially care about writing data into the past and the future, the power and convenience of doing so is underestimated since software systems today must create custom features to allow such behaviour. This is another form of "automated simplicity" -- think Garbage Collectors.
 * Bitemporal data requires dynamic structures / shapes / schema.
 ** These structures must not penetrate the boundary of a _type_. A strict set of types avoids accidental complexity.
-* The past 20 years have brought dynamic programming and functional programming into the mainstream. Both are necessary for an immutable database.
-** _Dynamic schema_ is a technical constraint. It is necessary to support a read-write (bitemporal) timeline.
+* The past 20 years have brought dynamic typing and functional programming into the mainstream. Both are necessary for an immutable database.
+** _Dynamic schema_ is a technical constraint. It is necessary to support a read-write (bitemporal) timeline. It's also a cultural constraint. The real world is messy and the database should support the data first and the shape/schema second.
 ** _Functional programming_ is a social constraint. It is necessary that society (software developers, data scientists, etc.) appreciate the value of immutability and repeatability. If they don't, immutable records will be seen as a luxury.
 * The 21st Century brings with it an entirely new world of privacy concerns. Although laws like GDPR and PIPEDA are (arguably) a bare minimum, their existence acts as a forcing function on data tools. Thanks in no small part to GDPR, _erasure_ is non-optional in a modern database.
 * Computer languages are hard to get right. Although there are many attractive and modern alternatives to SQL, the SQL family of languages absolutely dominate the landscape of data products in 2022. This isn't going to change any time soon and, thankfully, SQL has a specification.
@@ -45,7 +45,7 @@ The timeliness of technical details, mentioned above, act as pillars to this cen
 Although pillars may shift based on product/market fit, it's unlikely any one would be removed or replaced.
 If we imagine each pillar as an actual physical column, it will have "faces" which an observer can see by walking around the pillar and looking at it from different angles.
 
-The pillars ("features") and ideas which underpin them can be seen here:
+A sketch of the pillars ("features") and ideas which underpin them can be seen here:
 
 image::img/vision-features-and-ideas.svg[Vision: Features and Ideas SVG]
 
@@ -53,6 +53,9 @@ Prior to the pillars, however, there are _anchors_.
 
 
 == The Anchors
+
+Individually, the anchors represent "hard" constraints on the architecture of XTDB Core2.
+Together, the space between these anchors represents the flexibility the architecture will need to embrace to support the pillars which follow.
 
 === SQL Specification
 
@@ -66,7 +69,7 @@ It should not be treated as a backstop.
 === Apache Arrow
 
 The Arrow ecosystem is constantly evolving and it affords a number of advantages.
-The Arrow type system removes ambiguity around which types Core2 supports.
+The rich Arrow type system removes ambiguity around which types Core2 supports.
 XTDB Core2's intended future as an HTAP database means data science is an important user base -- playing nicely means a lot.
 Core2's usage of Arrow shouldn't ever break promises that a regular Arrow user might come to expect.
 
@@ -76,13 +79,13 @@ Core2's usage of Arrow shouldn't ever break promises that a regular Arrow user m
 === Immutable (Temporal)
 
 * transactions require a consistent source of time
-* determinism: back doors, modularity, and customization should be actively discouraged, if not forbidden by the design
+* consistent: reads of historical data are always repeatable -- this is Core2's commitment to safety
+* deterministic: back doors, modularity, and customization should be actively discouraged, if not forbidden by the design
 
 === Schemaless / Nested
 
-* target "unstructured" (anything should be possible)
-* accept "semi-structured" (realistically, some commonality will exist between rows/documents written in any given time window)
-* isomorphic / automorphic: joins over nested data should not feel "special" (?)
+* target "semi-structured" (realistically, some commonality will exist between rows/documents written in any given time window)
+* joins over nested data should not feel "special"
 
 ==== Dynamic
 
@@ -90,9 +93,12 @@ Core2's usage of Arrow shouldn't ever break promises that a regular Arrow user m
 * schema is tracked in the database, but implicitly ... every record may have its own schema (although this is unlikely)
 * schema is tracked in userland, explicitly ... rather than reconciling program behaviour and schema migrations across a program's timeline (git history, usually), program behaviour and record schema are
 
+TODO: complete this sentence ^
+
 === Columnar / HTAP
 
-* build to support (slow) arbitrary OLAP queries -- don't force legacy OLAP approaches
+* build to support (slow) arbitrary OLAP queries
+* reduce need for ETL
 * concede / expect that OLTP frontends are favoured by most users
 
 === SQL
@@ -102,8 +108,7 @@ Core2's usage of Arrow shouldn't ever break promises that a regular Arrow user m
 * treat the specification as a foundation
 ** Postgres feels like a spec, but prefer the real spec to Postgres
 * begin with SQL:2011
-* extend to SQL:2016 at a later date
-* extend to SQL:2023 (PGQ) if/when the product is stable
+* look to SQL:2016 (JSON) and SQL:2023 (PGQ, when it exists) for inspiration
 
 === Bitemporal / SQL:2011
 
@@ -113,7 +118,7 @@ Core2's usage of Arrow shouldn't ever break promises that a regular Arrow user m
 
 === Separation of Storage and Compute
 
-* utility will largely be determined by "light" indexing
+* TODO
 
 === Erasure (née "Eviction")
 

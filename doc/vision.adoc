@@ -130,7 +130,10 @@ TODO: complete this sentence ^
 
 === Infra ("DBaaS")
 
-* k8s
+* multi-tenant, "scale-to-zero" Kubernetes
+
+TODO: move these to DBaaS doc:
+
 * expect to write operators for xtdb, kafka clusters, and object storage
 * reuse cloud-provider-managed solutions:
 ** Kube: EKS / AKS / GKE
@@ -140,18 +143,20 @@ TODO: complete this sentence ^
 
 === Drivers / Clients / APIs
 
-Be prepared not to have all the answers.
-A good user experience is about _iteration_ ... these will all feel somewhat broken at first.
+The XTDB SQL:2011 dialect _is_ the UI.
+
+There are multiple ways to speak this SQL dialect over the wire.
+There is no One True Wire Protocol ... yet.
+In time, it's likely that one (or maybe two) clients/drivers will emerge as the product's preferred choice.
+
+Each tool preferably behaves as an existing user would expect (or as close as possible).
+"Don't make me think."
+The reason two tools may be necessary is that row-oriented and column-oriented interfaces are both important to XTDB.
 
 * `pgwire` -- today. a necessary evil (OLTP-shaped txns, json out)
 * `FlightSQL` -- hopefully? XTDB team needs to coordinate with Arrow committers
 * `HTTP` -- eventually. doing this right requires a lot of careful thought.
-** auth
-** sessions / stickiness
-** content types
-** synchronous and interactive transactions? (avoid network hops)
-** required for "spin to zero" DBaaS, or can pgwire/FlightSQL talk to a proxy?
+* `Bespoke "Native" Drivers` -- hopefully to be avoided? (novel client APIs are antithetical.) may build on top of Flight SQL or on top of HTTP. could use ADBC?
 
-==== Synchronous Transactions
-
-* "fork" the db, allow synchronous activities, then "merge" back into upstream
+Be prepared not to have all the answers.
+A good user experience is about _iteration_ on the sharp edges ... these will all feel somewhat broken at first.

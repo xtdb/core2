@@ -17,19 +17,20 @@ content:
   sources:
     - url: ../../
       start_path: doc/adoc/main # index - Only necessary to read self-hosted docs.
-      branches: master
+      branches:
+        - deo/railroads
     - url: ../../
       start_path: doc/adoc/language-reference
       branches:
-        - master
+        - deo/railroads
     - url: ../../
       start_path: doc/adoc/clients
       branches:
-        - master
+        - deo/railroads
     - url: ../../
       start_path: doc/adoc/getting-started
       branches:
-        - master
+        - deo/railroads
 
 urls:
   html_extension_style: indexify

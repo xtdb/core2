@@ -7,10 +7,6 @@ module.exports = function (registry) {
     self.process(function (doc, output) {
       var proc = doc.attributes.$$smap.docfile;
       console.log('processing:',proc);
-      // just before a 1am commit, the `railroad::` block stopped showing up...?
-      // if (proc == 'modules/ROOT/pages/sql-time-queries.adoc') {
-      //   console.log(output);
-      // }
 
       // TODO: make this match multiple railroad:: blocks
       var matcher = /railroad::(?<filename>.*)\[\]/;

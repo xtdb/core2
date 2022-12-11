@@ -225,7 +225,8 @@
 </g>
 </svg>
 
-All tables in XTDB are system-verisoned. Without any of the following forms, XTDB queries will, by default, return rows &quot;as of now&quot;. The System Time period specification has four forms:
+<div>
+All tables in XTDB are system-versioned. The System Time period specification has four forms:
 
 <ol>
   <li><pre>AS OF ...</pre> - Acts as a point-in-time time-traveling mechanism. A query run with this specification will retrieve the rows that were current at the chosen point in time.</li>
@@ -233,4 +234,7 @@ All tables in XTDB are system-verisoned. Without any of the following forms, XTD
   <li><pre>FROM ... TO</pre> - Returns all rows between the two times provided, inclusive of the FROM time but not the TO time. 'From/To' acts as a closed-open period model.</li>
   <li><pre>FOR ALL</pre> - Returns rows for all available system time. 'For All' will return every version of each row.</li>
 </ol>
+
+Without any of the following forms, XTDB queries will, by default (assuming `AS_OF_NOW`), return rows &quot;as of now&quot;. See #set_app_time_defaults.
+</div>
 </div>

@@ -37,7 +37,7 @@ The timing of Core2 is due to the confluence of a number of factors.
 
 === Society and Culture
 
-* The past 20 years have brought dynamic typing and functional programming into the mainstream. Both are necessary for an immutable database.
+* The past 20 years have brought dynamic typing and functional programming into the mainstream. Both ideas are necessary for an immutable database.
 ** _Dynamic schema_ is a technical constraint. It is necessary to support a read-write (bitemporal) timeline. It's also a cultural constraint. The real world is messy and the database should support the data first and the shape/schema second.
 ** _Functional programming_ is a social constraint. It is necessary that society (software developers, data scientists, etc.) appreciate the value of immutability and repeatability. If they don't, immutable records will be seen as a luxury.
 
@@ -105,7 +105,7 @@ Core2's usage of Arrow shouldn't ever break promises that a regular Arrow user m
 ==== Dynamic
 
 * schema "migration" is automatic, from the perspective of the database
-* schema is tracked in the database, but implicitly ... every record may have its own schema (although this is unlikely)
+* schema is tracked in the database, but implicitly ... every record _may_ have its own explicit schema, although this is unlikely.
 * schema is tracked in userland, explicitly ... rather than reconciling program behaviour and schema migrations across a program's timeline (git history, usually), program behaviour and record schema are ambigrammatic. The schema may also be subject to assertion.
 
 === Columnar / HTAP

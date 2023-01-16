@@ -5,6 +5,7 @@
             [core2.blocks :as blocks]
             [core2.bloom :as bloom]
             [core2.buffer-pool :as bp]
+            [core2.datalog :as d]
             [core2.error :as err]
             [core2.metadata :as meta]
             core2.object-store
@@ -29,19 +30,19 @@
            core2.object_store.ObjectStore
            core2.operator.scan.ScanSource
            (core2.temporal ITemporalManager ITemporalTxIndexer)
-           (core2.vector IIndirectVector IIndirectRelation IVectorWriter)
+           (core2.vector IIndirectRelation IIndirectVector IVectorWriter)
            (core2.watermark IWatermarkManager)
            (java.io ByteArrayInputStream Closeable)
            java.lang.AutoCloseable
            java.nio.ByteBuffer
            (java.time Instant ZoneId)
-           [java.util Collections HashMap Map TreeMap]
-           [java.util.concurrent CompletableFuture ConcurrentHashMap ConcurrentSkipListMap]
-           [java.util.function Consumer Function]
-           [org.apache.arrow.memory ArrowBuf BufferAllocator]
-           [org.apache.arrow.vector BigIntVector BitVector TimeStampMicroTZVector TimeStampVector ValueVector VarBinaryVector VarCharVector VectorLoader VectorSchemaRoot VectorUnloader]
-           [org.apache.arrow.vector.complex DenseUnionVector ListVector StructVector]
-           [org.apache.arrow.vector.ipc ArrowStreamReader]
+           (java.util Collections HashMap Map TreeMap)
+           (java.util.concurrent CompletableFuture ConcurrentHashMap ConcurrentSkipListMap)
+           (java.util.function Consumer Function)
+           (org.apache.arrow.memory ArrowBuf BufferAllocator)
+           (org.apache.arrow.vector BigIntVector BitVector TimeStampMicroTZVector TimeStampVector ValueVector VarBinaryVector VarCharVector VectorLoader VectorSchemaRoot VectorUnloader)
+           (org.apache.arrow.vector.complex DenseUnionVector ListVector StructVector)
+           (org.apache.arrow.vector.ipc ArrowStreamReader)
            org.roaringbitmap.longlong.Roaring64Bitmap
            org.roaringbitmap.RoaringBitmap))
 
@@ -572,45 +573,48 @@
               (catch Throwable t
                 (throw (err/runtime-err :error-compiling-tx-fn {:fn-form fn-form} t))))))))))
 
+(defn- tx-fn-q [allocator scan-src tx-opts q & args]
+  ;; bear in mind Datalog doesn't yet look at `app-time-as-of-now?`, essentially just assumes its true.
+  (let [q (into tx-opts q)]
+    (with-open [res (d/open-datalog-query allocator q scan-src args)]
+      (vec (iterator-seq res)))))
+
 (defn- ->call-indexer ^core2.indexer.OpIndexer [allocator, ^DenseUnionVector tx-ops-vec, scan-src, tx-opts]
   (let [call-vec (.getStruct tx-ops-vec 4)
         ^DenseUnionVector fn-id-vec (.getChild call-vec "fn-id" DenseUnionVector)
         ^ListVector args-vec (.getChild call-vec "args" ListVector)
-        sci-ctx (sci/init {})]
+
+        ;; TODO confirm/expand API that we expose to tx-fns
+        sci-ctx (sci/init {:bindings {'q (partial tx-fn-q allocator scan-src tx-opts)}})]
+
     (reify OpIndexer
       (indexOp [_ tx-op-idx]
-        (try
-          (let [call-offset (.getOffset tx-ops-vec tx-op-idx)
-                fn-id (t/get-object fn-id-vec call-offset)
-                tx-fn (find-fn allocator (sci/fork sci-ctx) scan-src tx-opts fn-id)
+        (let [call-offset (.getOffset tx-ops-vec tx-op-idx)
+              fn-id (t/get-object fn-id-vec call-offset)
+              tx-fn (find-fn allocator (sci/fork sci-ctx) scan-src tx-opts fn-id)
 
-                args (t/get-object args-vec call-offset)
+              args (t/get-object args-vec call-offset)
 
-                res (try
-                      (sci/binding [sci/out *out*
-                                    sci/in *in*]
-                        (apply tx-fn args))
+              res (try
+                    (sci/binding [sci/out *out*
+                                  sci/in *in*]
+                      (apply tx-fn args))
 
-                      (catch Throwable t
-                        (throw (err/runtime-err :error-evaluating-tx-fn
-                                                {:fn-id fn-id, :args args}
-                                                t))))]
-            (when (false? res)
-              (throw abort-exn))
+                    (catch Throwable t
+                      (throw (err/runtime-err :error-evaluating-tx-fn
+                                              {:fn-id fn-id, :args args}
+                                              t))))]
+          (when (false? res)
+            (throw abort-exn))
 
-            (let [tx-ops-vec (txp/open-tx-ops-vec allocator)]
-              (try
-                (txp/write-tx-ops! allocator (.asDenseUnion (vw/vec->writer tx-ops-vec)) res)
-                tx-ops-vec
+          (let [tx-ops-vec (txp/open-tx-ops-vec allocator)]
+            (try
+              (txp/write-tx-ops! allocator (.asDenseUnion (vw/vec->writer tx-ops-vec)) res)
+              tx-ops-vec
 
-                (catch Throwable t
-                  (.close tx-ops-vec)
-                  (throw t)))))
-
-          (catch Throwable t
-            (when-not (= abort-exn t)
-              (log/error t "call error"))
-            (throw t)))))))
+              (catch Throwable t
+                (.close tx-ops-vec)
+                (throw t)))))))))
 
 (defn- table-row-writer [^IDocumentIndexer doc-idxer, ^String table-name]
   (let [^LiveColumn live-col (.getLiveColumn doc-idxer "_table")

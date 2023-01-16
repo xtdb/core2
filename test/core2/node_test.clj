@@ -305,3 +305,35 @@ ORDER BY foo.application_time_start"
                                (-> '{:find [?id]
                                      :where [[?id :id]]}
                                    (assoc :basis {:tx !tx1})))))))
+
+(t/deftest test-call-tx-fn
+  (t/testing "simple call"
+    (let [!tx (c2/submit-tx tu/*node* [[:put {:id :my-fn,
+                                              :fn #c2/clj-form (fn [id n]
+                                                                 [[:put {:id id, :n n}]])}]
+                                       [:call :my-fn :foo 0]
+                                       [:call :my-fn :bar 1]])]
+      (t/is (= [{:id :foo, :n 0}
+                {:id :bar, :n 1}]
+               (c2/datalog-query tu/*node*
+                                 (-> '{:find [?id ?n]
+                                       :where [[?id :n ?n]]}
+                                     (assoc :basis {:tx !tx})))))))
+
+  (t/testing "nested tx fn"
+    (let [!tx (c2/submit-tx tu/*node* [[:put {:id :inner-fn,
+                                              :fn #c2/clj-form (fn [id]
+                                                                 [[:put {:id (keyword (str (name id) "-inner")), :from :inner}]])}]
+                                       [:put {:id :outer-fn,
+                                              :fn #c2/clj-form (fn [id]
+                                                                 [[:call :inner-fn id]
+                                                                  [:put {:id (keyword (str (name id) "-outer")), :from :outer}]])}]
+                                       [:call :inner-fn :foo]
+                                       [:call :outer-fn :bar]])]
+      (t/is (= [{:id :foo-inner, :from :inner}
+                {:id :bar-inner, :from :inner}
+                {:id :bar-outer, :from :outer}]
+               (c2/datalog-query tu/*node*
+                                 (-> '{:find [?id ?from]
+                                       :where [[?id :from ?from]]}
+                                     (assoc :basis {:tx !tx}))))))))

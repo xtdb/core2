@@ -598,14 +598,15 @@
 (defn reset-tx-fn-error! []
   (first (reset-vals! !last-tx-fn-error nil)))
 
-(defn- ->call-indexer ^core2.indexer.OpIndexer [allocator, ^DenseUnionVector tx-ops-vec, scan-src, tx-opts]
+(defn- ->call-indexer ^core2.indexer.OpIndexer [allocator, ^DenseUnionVector tx-ops-vec, scan-src, {:keys [tx-key] :as tx-opts}]
   (let [call-vec (.getStruct tx-ops-vec 4)
         ^DenseUnionVector fn-id-vec (.getChild call-vec "fn-id" DenseUnionVector)
         ^ListVector args-vec (.getChild call-vec "args" ListVector)
 
         ;; TODO confirm/expand API that we expose to tx-fns
         sci-ctx (sci/init {:bindings {'q (partial tx-fn-q allocator scan-src tx-opts)
-                                      'sql-q (partial tx-fn-sql allocator scan-src tx-opts)}})]
+                                      'sql-q (partial tx-fn-sql allocator scan-src tx-opts)
+                                      '*current-tx* tx-key}})]
 
     (reify OpIndexer
       (indexOp [_ tx-op-idx]
@@ -893,7 +894,8 @@
                    :app-time-as-of-now? (== 1 (-> ^BitVector (.getVector tx-root "application-time-as-of-now?")
                                                   (.get 0)))
                    :default-tz (ZoneId/of (str (-> (.getVector tx-root "default-tz")
-                                                   (.getObject 0))))}]
+                                                   (.getObject 0))))
+                   :tx-key tx-key}]
 
       (letfn [(index-tx-ops [^DenseUnionVector tx-ops-vec]
                 (let [!put-idxer (delay (->put-indexer iid-mgr log-op-idxer temporal-idxer doc-idxer tx-ops-vec sys-time))

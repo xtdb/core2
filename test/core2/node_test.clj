@@ -388,6 +388,24 @@ ORDER BY foo.application_time_start"
                                      :where [[?id :doc-count ?doc-count]]}
                                    (assoc :basis {:tx !tx})))))))
 
+(t/deftest test-tx-fn-current-tx
+  (let [{tt0 :sys-time} @(c2/submit-tx tu/*node* [[:put {:id :with-tx
+                                                        :fn #c2/clj-form (fn [id]
+                                                                          [[:put (into {:id id} *current-tx*)]])}]
+                                                [:call :with-tx :foo]
+                                                [:call :with-tx :bar]])
+
+        {tt1 :sys-time, :as tx1} @(c2/submit-tx tu/*node* [[:call :with-tx :baz]])]
+
+    (t/is (= [{:id :foo, :tx-id 0, :sys-time (util/->zdt tt0)}
+              {:id :bar, :tx-id 0, :sys-time (util/->zdt tt0)}
+              {:id :baz, :tx-id 1, :sys-time (util/->zdt tt1)}]
+             (c2/datalog-query tu/*node*
+                               (-> '{:find [?id ?tx-id ?sys-time]
+                                     :where [[?id :tx-id ?tx-id]
+                                             [?id :sys-time ?sys-time]]}
+                                   (assoc :basis {:tx tx1})))))))
+
 (t/deftest test-tx-fn-exceptions
   (letfn [(foo-version [!tx]
             (-> (c2/datalog-query tu/*node*

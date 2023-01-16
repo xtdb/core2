@@ -368,3 +368,17 @@ ORDER BY foo.application_time_start"
                                (-> '{:find [?id ?doc-count]
                                      :where [[?id :doc-count ?doc-count]]}
                                    (assoc :basis {:tx !tx})))))))
+
+(t/deftest test-tx-fn-sql-q
+  (let [!tx (c2/submit-tx tu/*node* [[:put {:id :doc-counter,
+                                            :fn #c2/clj-form (fn [id]
+                                                               (let [[{doc-count :doc_count}] (sql-q "SELECT COUNT(*) doc_count FROM xt_docs")]
+                                                                 [[:put {:id id, :doc-count doc-count}]]))}]
+                                     [:call :doc-counter :foo]
+                                     [:call :doc-counter :bar]])]
+    (t/is (= [{:id :foo, :doc-count 1}
+              {:id :bar, :doc-count 2}]
+             (c2/datalog-query tu/*node*
+                               (-> '{:find [?id ?doc-count]
+                                     :where [[?id :doc-count ?doc-count]]}
+                                   (assoc :basis {:tx !tx})))))))

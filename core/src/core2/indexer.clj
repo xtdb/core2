@@ -579,13 +579,28 @@
     (with-open [res (d/open-datalog-query allocator q scan-src args)]
       (vec (iterator-seq res)))))
 
+(defn- tx-fn-sql
+  ([allocator scan-src tx-opts query]
+   (tx-fn-sql allocator scan-src tx-opts query {}))
+
+  ([allocator scan-src tx-opts query query-opts]
+   (try
+     (let [query-opts (into tx-opts query-opts)
+           pq (sql/prepare-sql query query-opts)]
+       (with-open [res (sql/open-sql-query allocator pq scan-src query-opts)]
+         (vec (iterator-seq res))))
+     (catch Throwable e
+       (log/error e)
+       (throw e)))))
+
 (defn- ->call-indexer ^core2.indexer.OpIndexer [allocator, ^DenseUnionVector tx-ops-vec, scan-src, tx-opts]
   (let [call-vec (.getStruct tx-ops-vec 4)
         ^DenseUnionVector fn-id-vec (.getChild call-vec "fn-id" DenseUnionVector)
         ^ListVector args-vec (.getChild call-vec "args" ListVector)
 
         ;; TODO confirm/expand API that we expose to tx-fns
-        sci-ctx (sci/init {:bindings {'q (partial tx-fn-q allocator scan-src tx-opts)}})]
+        sci-ctx (sci/init {:bindings {'q (partial tx-fn-q allocator scan-src tx-opts)
+                                      'sql-q (partial tx-fn-sql allocator scan-src tx-opts)}})]
 
     (reify OpIndexer
       (indexOp [_ tx-op-idx]
@@ -601,6 +616,7 @@
                       (apply tx-fn args))
 
                     (catch Throwable t
+                      (log/warn t "unhandled error evaluating tx fn")
                       (throw (err/runtime-err :error-evaluating-tx-fn
                                               {:fn-id fn-id, :args args}
                                               t))))]

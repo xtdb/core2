@@ -54,8 +54,8 @@
                  close-fn]
   api/PClient
   (-open-datalog-async [this query args]
-    (let [!db (snapshot-async this (get-in query [:basis :tx]) (:basis-timeout query))
-          query (into {:default-tz default-tz} query)]
+    (let [query (into {:default-tz default-tz} query)
+          !db (snapshot-async this (get-in query [:basis :tx]) (:basis-timeout query))]
 
       (-> !db
           (util/then-apply
@@ -63,27 +63,13 @@
               (d/open-datalog-query allocator query db args))))))
 
   (-open-sql-async [this query query-opts]
-    (let [!db (snapshot-async this (get-in query-opts [:basis :tx]) (:basis-timeout query-opts))
-          query-opts (into {:default-tz default-tz} query-opts)
-          plan (sql/compile-query query (select-keys query-opts [:app-time-as-of-now? :default-tz :decorrelate?]))
-          pq (op/prepare-ra plan)]
+    (let [query-opts (into {:default-tz default-tz} query-opts)
+          !db (snapshot-async this (get-in query-opts [:basis :tx]) (:basis-timeout query-opts))
+          pq (sql/prepare-sql query query-opts)]
       (-> !db
           (util/then-apply
             (fn [db]
-              (let [^AutoCloseable
-                    params (vw/open-params allocator
-                                           (->> (:? query-opts)
-                                                (into {} (map-indexed (fn [idx v]
-                                                                        (MapEntry/create (symbol (str "?_" idx)) v))))))]
-                (try
-                  (-> (.bind pq {:srcs {'$ db}, :params params
-                                 :current-time (get-in query-opts [:basis :current-time])
-                                 :default-tz (:default-tz query-opts)})
-                      (.openCursor)
-                      (op/cursor->result-set params))
-                  (catch Throwable t
-                    (.close params)
-                    (throw t)))))))))
+              (sql/open-sql-query allocator pq db query-opts))))))
 
   PNode
   (snapshot-async [this] (snapshot-async this nil))

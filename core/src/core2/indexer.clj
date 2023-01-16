@@ -791,7 +791,7 @@
                        1 (.indexOp put-idxer tx-op-idx)
                        2 (.indexOp delete-idxer tx-op-idx)
                        3 (.indexOp evict-idxer tx-op-idx)
-                       4 (throw abort-exn)))
+                       5 (throw abort-exn)))
                    (catch core2.RuntimeException e e)
                    (catch core2.IllegalArgumentException e e))]
         (do

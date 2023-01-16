@@ -1,6 +1,7 @@
 (ns core2.node-test
   (:require [clojure.test :as t]
             [core2.api :as c2]
+            [core2.indexer :as idx]
             [core2.test-util :as tu]
             [core2.util :as util]))
 
@@ -382,3 +383,81 @@ ORDER BY foo.application_time_start"
                                (-> '{:find [?id ?doc-count]
                                      :where [[?id :doc-count ?doc-count]]}
                                    (assoc :basis {:tx !tx})))))))
+
+(t/deftest test-tx-fn-exceptions
+  (letfn [(foo-version [!tx]
+            (-> (c2/datalog-query tu/*node*
+                                  (-> '{:find [?id ?version], :where [[?id :version ?version]]}
+                                      (assoc :basis {:tx !tx})))
+                first :version))]
+
+    (let [!tx (c2/submit-tx tu/*node* '[[:put {:id :assoc-version
+                                               :fn #c2/clj-form (fn [version]
+                                                                  [[:put {:id :foo, :version version}]])}]
+                                        [:call :assoc-version 0]])]
+      (t/is (= 0 (foo-version !tx))))
+
+    (t/testing "non existing tx fn"
+      (let [!tx (c2/submit-tx tu/*node* '[[:call :non-existing-fn]
+                                          [:call :assoc-version :fail]])]
+        (t/is (= 0 (foo-version !tx)))
+        (t/is (thrown-with-msg? RuntimeException
+                                #":core2.call/no-such-tx-fn"
+                                (some-> (idx/reset-tx-fn-error!) throw)))))
+
+    (t/testing "invalid results"
+      (c2/submit-tx tu/*node* [[:put {:id :invalid-fn
+                                      :fn #c2/clj-form (fn []
+                                                         [[:foo]])}]])
+      (let [!tx (c2/submit-tx tu/*node* '[[:call :invalid-fn]
+                                          [:call :assoc-version :fail]])]
+        (t/is (= 0 (foo-version !tx))))
+
+      (t/is (thrown-with-msg? IllegalArgumentException #"Invalid tx op"
+                              (some-> (idx/reset-tx-fn-error!) throw))))
+
+    (t/testing "no :fn"
+      (c2/submit-tx tu/*node* [[:put {:id :no-fn}]])
+
+      (let [!tx (c2/submit-tx tu/*node* '[[:call :no-fn]
+                                          [:call :assoc-version :fail]])]
+        (t/is (= 0 (foo-version !tx)))
+        (t/is (thrown-with-msg? RuntimeException
+                                #":core2.call/no-such-tx-fn"
+                                (some-> (idx/reset-tx-fn-error!) throw)))))
+
+    (t/testing "not a fn"
+      (c2/submit-tx tu/*node* [[:put {:id :not-a-fn, :fn 0}]])
+      (let [!tx (c2/submit-tx tu/*node* '[[:call :not-a-fn]
+                                          [:call :assoc-version :fail]])]
+        (t/is (= 0 (foo-version !tx)))
+
+        (t/is (thrown-with-msg? RuntimeException
+                                #":core2.call/invalid-tx-fn"
+                                (some-> (idx/reset-tx-fn-error!) throw)))))
+
+    (t/testing "compilation errors"
+      (c2/submit-tx tu/*node* [[:put {:id :compilation-error-fn
+                                      :fn #c2/clj-form (fn [] unknown-symbol)}]])
+      (let [!tx (c2/submit-tx tu/*node* '[[:call :compilation-error-fn]
+                                          [:call :assoc-version :fail]])]
+        (t/is (= 0 (foo-version !tx)))
+        (t/is (thrown-with-msg? RuntimeException #":core2.call/error-compiling-tx-fn"
+                                (some-> (idx/reset-tx-fn-error!) throw)))))
+
+    (t/testing "exception thrown"
+      #_{:clj-kondo/ignore [:unused-value]}
+      (c2/submit-tx tu/*node* [[:put {:id :exception-fn
+                                      :fn #c2/clj-form (fn []
+                                                         (/ 1 0)
+                                                         [])}]])
+
+      (let [!tx (c2/submit-tx tu/*node* '[[:call :exception-fn]
+                                          [:call :assoc-version :fail]])]
+        (t/is (= 0 (foo-version !tx)))
+        (t/is (thrown-with-msg? RuntimeException #":core2.call/error-evaluating-tx-fn"
+                                (some-> (idx/reset-tx-fn-error!) throw)))))
+
+    (t/testing "still working after all these errors"
+      (let [!tx (c2/submit-tx tu/*node* [[:call :update-version :done]])]
+        (= :done (foo-version !tx))))))

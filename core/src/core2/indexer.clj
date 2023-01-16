@@ -560,18 +560,18 @@
                            (aset !fn-doc 0 (first (iv/rel->rows in-rel)))))))
 
         (let [fn-doc (or (aget !fn-doc 0)
-                         (throw (err/runtime-err :no-such-tx-fn {:fn-id fn-id})))
+                         (throw (err/runtime-err :core2.call/no-such-tx-fn {:fn-id fn-id})))
               fn-body (:fn fn-doc)]
 
           (when-not (instance? ClojureForm fn-body)
-            (throw (err/runtime-err :invalid-tx-fn {:fn-doc fn-doc})))
+            (throw (err/illegal-arg :core2.call/invalid-tx-fn {:fn-doc fn-doc})))
 
           (let [fn-form (:form fn-body)]
             (try
               (sci/eval-form sci-ctx fn-form)
 
               (catch Throwable t
-                (throw (err/runtime-err :error-compiling-tx-fn {:fn-form fn-form} t))))))))))
+                (throw (err/runtime-err :core2.call/error-compiling-tx-fn {:fn-form fn-form} t))))))))))
 
 (defn- tx-fn-q [allocator scan-src tx-opts q & args]
   ;; bear in mind Datalog doesn't yet look at `app-time-as-of-now?`, essentially just assumes its true.
@@ -593,6 +593,11 @@
        (log/error e)
        (throw e)))))
 
+(def ^:private !last-tx-fn-error (atom nil))
+
+(defn reset-tx-fn-error! []
+  (first (reset-vals! !last-tx-fn-error nil)))
+
 (defn- ->call-indexer ^core2.indexer.OpIndexer [allocator, ^DenseUnionVector tx-ops-vec, scan-src, tx-opts]
   (let [call-vec (.getStruct tx-ops-vec 4)
         ^DenseUnionVector fn-id-vec (.getChild call-vec "fn-id" DenseUnionVector)
@@ -604,33 +609,37 @@
 
     (reify OpIndexer
       (indexOp [_ tx-op-idx]
-        (let [call-offset (.getOffset tx-ops-vec tx-op-idx)
-              fn-id (t/get-object fn-id-vec call-offset)
-              tx-fn (find-fn allocator (sci/fork sci-ctx) scan-src tx-opts fn-id)
+        (try
+          (let [call-offset (.getOffset tx-ops-vec tx-op-idx)
+                fn-id (t/get-object fn-id-vec call-offset)
+                tx-fn (find-fn allocator (sci/fork sci-ctx) scan-src tx-opts fn-id)
 
-              args (t/get-object args-vec call-offset)
+                args (t/get-object args-vec call-offset)
 
-              res (try
-                    (sci/binding [sci/out *out*
-                                  sci/in *in*]
-                      (apply tx-fn args))
+                res (try
+                      (sci/binding [sci/out *out*
+                                    sci/in *in*]
+                        (apply tx-fn args))
 
-                    (catch Throwable t
-                      (log/warn t "unhandled error evaluating tx fn")
-                      (throw (err/runtime-err :error-evaluating-tx-fn
-                                              {:fn-id fn-id, :args args}
-                                              t))))]
-          (when (false? res)
-            (throw abort-exn))
+                      (catch Throwable t
+                        (log/warn t "unhandled error evaluating tx fn")
+                        (throw (err/runtime-err :core2.call/error-evaluating-tx-fn
+                                                {:fn-id fn-id, :args args}
+                                                t))))]
+            (when (false? res)
+              (throw abort-exn))
 
-          (let [tx-ops-vec (txp/open-tx-ops-vec allocator)]
-            (try
-              (txp/write-tx-ops! allocator (.asDenseUnion (vw/vec->writer tx-ops-vec)) res)
-              tx-ops-vec
+            (let [tx-ops-vec (txp/open-tx-ops-vec allocator)]
+              (try
+                (txp/write-tx-ops! allocator (.asDenseUnion (vw/vec->writer tx-ops-vec)) res)
+                tx-ops-vec
 
-              (catch Throwable t
-                (.close tx-ops-vec)
-                (throw t)))))))))
+                (catch Throwable t
+                  (.close tx-ops-vec)
+                  (throw t)))))
+          (catch Throwable t
+            (reset! !last-tx-fn-error t)
+            (throw t)))))))
 
 (defn- table-row-writer [^IDocumentIndexer doc-idxer, ^String table-name]
   (let [^LiveColumn live-col (.getLiveColumn doc-idxer "_table")

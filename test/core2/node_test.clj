@@ -321,22 +321,6 @@ ORDER BY foo.application_time_start"
                                        :where [[?id :n ?n]]}
                                      (assoc :basis {:tx !tx})))))))
 
-  (t/testing "false return aborts the tx"
-    (let [_!tx0 (c2/submit-tx tu/*node* [[:put {:id :maybe-fn,
-                                                :fn #c2/clj-form (fn [continue?]
-                                                                   (if continue?
-                                                                     []
-                                                                     false))}]])
-          _!tx1 (c2/submit-tx tu/*node* [[:call :maybe-fn false]
-                                         [:put {:id :aborted, :continue? false}]])
-          !tx2 (c2/submit-tx tu/*node* [[:call :maybe-fn true]
-                                        [:put {:id :committed, :continue? true}]])]
-      (t/is (= [{:id :committed, :continue? true}]
-               (c2/datalog-query tu/*node*
-                                 (-> '{:find [?id ?continue?]
-                                       :where [[?id :continue? ?continue?]]}
-                                     (assoc :basis {:tx !tx2})))))))
-
   (t/testing "nested tx fn"
     (let [!tx (c2/submit-tx tu/*node* [[:put {:id :inner-fn,
                                               :fn #c2/clj-form (fn [id]
@@ -354,6 +338,26 @@ ORDER BY foo.application_time_start"
                                  (-> '{:find [?id ?from]
                                        :where [[?id :from ?from]]}
                                      (assoc :basis {:tx !tx}))))))))
+
+(t/deftest test-tx-fn-return-values
+  (c2/submit-tx tu/*node* [[:put {:id :identity,
+                                  :fn #c2/clj-form identity}]])
+
+  (letfn [(run-test [ret-val put-id]
+            (let [!tx (c2/submit-tx tu/*node* [[:call :identity ret-val]
+                                               [:put {:id put-id}]])]
+              (->> (c2/datalog-query tu/*node*
+                                    (-> '{:find [?id]
+                                          :in [?id]
+                                          :where [[?id :id]]}
+                                        (assoc :basis {:tx !tx}))
+                                    put-id)
+                   (into #{} (map :id)))))]
+
+    (t/is (= #{:empty-list} (run-test [] :empty-list)))
+    (t/is (= #{} (run-test false :false)))
+    (t/is (= #{:true} (run-test true :true)))
+    (t/is (= #{:nil} (run-test nil :nil)))))
 
 (t/deftest test-tx-fn-q
   (let [!tx (c2/submit-tx tu/*node* [[:put {:id :doc-counter,

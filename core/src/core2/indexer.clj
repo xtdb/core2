@@ -629,14 +629,17 @@
             (when (false? res)
               (throw abort-exn))
 
-            (let [tx-ops-vec (txp/open-tx-ops-vec allocator)]
-              (try
-                (txp/write-tx-ops! allocator (.asDenseUnion (vw/vec->writer tx-ops-vec)) res)
-                tx-ops-vec
+            ;; if the user returns `nil` or `true`, we just continue with the rest of the transaction
+            (when-not (or (nil? res) (true? res))
+              (let [tx-ops-vec (txp/open-tx-ops-vec allocator)]
+                (try
+                  (txp/write-tx-ops! allocator (.asDenseUnion (vw/vec->writer tx-ops-vec)) res)
+                  tx-ops-vec
 
-                (catch Throwable t
-                  (.close tx-ops-vec)
-                  (throw t)))))
+                  (catch Throwable t
+                    (.close tx-ops-vec)
+                    (throw t))))))
+
           (catch Throwable t
             (reset! !last-tx-fn-error t)
             (throw t)))))))

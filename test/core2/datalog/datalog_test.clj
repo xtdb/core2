@@ -9,9 +9,10 @@
             [clojure.test :as t :refer [deftest]]
             [core2.test-util :as tu]
             [core2.api :as c2]
-            [core2.node :as node]))
+            [core2.node :as node]
+            [core2.util :as util]))
 
-(t/use-fixtures :each tu/with-node)
+(t/use-fixtures :each tu/with-mock-clock tu/with-node)
 
 (def ivan+petr
   [[:put {:id :ivan, :first-name "Ivan", :last-name "Ivanov"}]
@@ -993,3 +994,68 @@
                                                              [(+ a 1) b])]}
                                        (assoc :basis {:tx !tx}))))
               "b is unified")))))
+
+(t/deftest test-temporal-opts
+  (letfn [(q [query !tx current-time]
+            (c2/datalog-query tu/*node*
+                              (-> query
+                                  (assoc :basis {:tx !tx, :current-time (util/->instant current-time)}))))]
+
+    (let [!tx0 (c2/submit-tx tu/*node* [[:put {:id :matthew} {:app-time-start #inst "2015"}]
+                                        [:put {:id :mark} {:app-time-start #inst "2018", :app-time-end #inst "2020"}]
+                                        [:put {:id :luke} {:app-time-start #inst "2021"}]])
+
+          !tx1 (c2/submit-tx tu/*node* [[:delete :luke {:app-time-start #inst "2022"}]
+                                        [:put {:id :mark} {:app-time-start #inst "2023", :app-time-end #inst "2024"}]
+                                        [:put {:id :john} {:app-time-start #inst "2016", :app-time-end #inst "2020"}]])]
+
+      (t/is (= [{:id :matthew}, {:id :mark}]
+               (q '{:find [id], :where [[id :id]]}, !tx1, #inst "2023")))
+
+      (t/is (= [{:id :matthew}, {:id :luke}]
+               (q '{:find [id], :where [[id :id]]}, !tx1, #inst "2021"))
+            "back in app-time")
+
+      (t/is (= [{:id :matthew}, {:id :luke}]
+               (q '{:find [id], :where [[id :id]]}, !tx0, #inst "2023"))
+            "back in sys-time")
+
+      (t/is (= [{:id :matthew, :app-start (util/->zdt #inst "2015"), :app-end (util/->zdt util/end-of-time)}
+                {:id :mark, :app-start (util/->zdt #inst "2018"), :app-end (util/->zdt #inst "2020")}
+                {:id :luke, :app-start (util/->zdt #inst "2021"), :app-end (util/->zdt #inst "2022")}
+                {:id :mark, :app-start (util/->zdt #inst "2023"), :app-end (util/->zdt #inst "2024")}
+                {:id :john, :app-start (util/->zdt #inst "2016"), :app-end (util/->zdt #inst "2020")}]
+               (q '{:find [id app-start app-end]
+                    :where [(xt_docs [id {:application_time_start app-start
+                                          :application_time_end app-end}]
+                                     {:app-time-in [nil nil]})]}
+                  !tx1, nil))
+            "entity history, all time")
+
+      (t/is (= [{:id :matthew, :app-start (util/->zdt #inst "2015"), :app-end (util/->zdt util/end-of-time)}
+                {:id :luke, :app-start (util/->zdt #inst "2021"), :app-end (util/->zdt #inst "2022")}]
+               (q '{:find [id app-start app-end]
+                    :where [(xt_docs [id {:application_time_start app-start
+                                          :application_time_end app-end}]
+                                     {:app-time-in [#inst "2021", #inst "2023"]})]}
+                  !tx1, nil))
+            "entity history, range")
+
+      (t/is (= [{:id :matthew}, {:id :mark}]
+               (q '{:find [id],
+                    :where [(xt_docs [id] {:at-app-time #inst "2018"})
+                            (xt_docs [id] {:at-app-time #inst "2023"})]},
+                  !tx1, nil))
+            "cross-time join - who was here in both 2018 and 2023?")
+
+      (t/is (= [{:id :matthew} {:id :mark}]
+               (q '{:find [id],
+                    :where [(xt_docs [id {:application_time_start start, :application_time_end end}]
+                                     {:app-time-in [nil nil]})
+                            (xt_docs [{:id :john, :application_time_start j-start, :application_time_end j-end}]
+                                     {:app-time-in [nil nil]})
+                            [(<> id :john)]
+                            [(< start j-end)]
+                            [(> end j-start)]]},
+                  !tx1, nil))
+            "who worked with John?"))))

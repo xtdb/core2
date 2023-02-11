@@ -96,6 +96,14 @@
                           (fn [v]
                             [:vector (mapv #(conj {} %) v)])))))
 
+(s/def ::at-app-time ::value)
+(s/def ::app-time-in (s/tuple (s/nilable ::value) (s/nilable ::value)))
+(s/def ::at-sys-time ::value)
+(s/def ::sys-time-in (s/tuple (s/nilable ::value) (s/nilable ::value)))
+
+(s/def ::temporal-opts
+  (s/keys :opt-un [::at-app-time ::app-time-in ::at-sys-time ::sys-time-in]))
+
 (s/def ::triple
   (s/and (s/or :triple (s/and vector?
                               (s/conformer identity vec)
@@ -103,7 +111,7 @@
                                      :a ::attr
                                      :v (s/? ::triple-value)))
                :table (-> (s/or :map ::single-map-match
-                                :list (s/and list? (s/cat :table ::table, :match ::match)))
+                                :list (s/and list? (s/cat :table ::table, :match ::match, :opts (s/? ::temporal-opts))))
                           (s/and (s/conformer (fn [[tag arg]]
                                                 (case tag
                                                   :map {:table 'xt_docs, :match arg}
@@ -350,7 +358,30 @@
     1 {scan-col (first col-preds)}
     {scan-col (list* 'and col-preds)}))
 
-(defn- plan-scan [table match]
+(defn- temporal-preds [attr {:keys [at-app-time app-time-in at-sys-time sys-time-in]}]
+  (case attr
+    application_time_start (if app-time-in
+                             (when-let [ate (second app-time-in)]
+                               [(list '< 'application_time_start ate)])
+                             [(list '<= 'application_time_start (or at-app-time '(current-timestamp)))])
+
+    application_time_end (if app-time-in
+                           (when-let [ats (first app-time-in)]
+                             [(list '> 'application_time_end ats)])
+                           [(list '> 'application_time_end (or at-app-time '(current-timestamp)))])
+
+    system_time_start (if sys-time-in
+                        (when-let [ste (second sys-time-in)]
+                          [(list '< 'system_time_start ste)])
+                        [(list '<= 'system_time_start (or at-sys-time '(current-timestamp)))])
+
+    system_time_end (if sys-time-in
+                      (when-let [sts (first sys-time-in)]
+                        [(list '> 'system_time_end sts)])
+                      [(list '> 'system_time_end (or at-sys-time '(current-timestamp)))])
+    nil))
+
+(defn- plan-scan [table match {:keys [at-sys-time sys-time-in] :as opts}]
   (let [attrs (set (keys match))
 
         attr->lits (-> match
@@ -363,16 +394,14 @@
     (-> [:scan (symbol table)
          (-> attrs
              (conj 'application_time_start 'application_time_end)
+             (cond-> (or at-sys-time sys-time-in) (conj 'system_time_start 'system_time_end))
              (disj '_table)
              (->> (mapv (fn [attr]
                           (-> attr
                               (wrap-scan-col-preds
                                (concat (for [lit (get attr->lits attr)]
                                          (list '= attr lit))
-                                       (case attr
-                                         application_time_start ['(<= application_time_start (current-timestamp))]
-                                         application_time_end ['(> application_time_end (current-timestamp))]
-                                         nil))))))))]
+                                       (temporal-preds attr opts))))))))]
         (with-meta {::vars attrs}))))
 
 (defn- attr->unwind-col [a]
@@ -407,7 +436,7 @@
                          (group-by :e triples)))]
 
     (vec
-     (for [{:keys [table match]} tables]
+     (for [{:keys [table match opts]} tables]
        (let [match (->> match (mapv (fn [[a v]] (MapEntry/create (col-sym a) v))))
              var->cols (-> match
                            (->> (keep (fn [[a [v-type v-arg]]]
@@ -417,7 +446,7 @@
                                           nil)))
                                 (group-by :lv))
                            (update-vals #(into #{} (map :col) %)))]
-         (-> (plan-scan table match)
+         (-> (plan-scan table match opts)
              (wrap-unwind match)
              (wrap-unify var->cols)))))))
 

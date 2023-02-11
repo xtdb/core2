@@ -17,7 +17,10 @@
 (def ^:private eid? (some-fn string? number? inst? keyword? (partial instance? LocalDate)))
 
 (s/def ::eid eid?)
+(s/def ::attr keyword?)
 (s/def ::value (some-fn eid?))
+(s/def ::table simple-symbol?)
+(s/def ::column simple-symbol?)
 
 (s/def ::fn-call
   (s/and list?
@@ -67,14 +70,46 @@
 
 (s/def ::in (s/* ::in-binding))
 
+(s/def ::triple-value
+  (s/or :literal ::value,
+        :logic-var ::logic-var
+        :unwind (s/tuple ::logic-var #{'...})))
+
+(s/def ::single-map-match
+  (-> (s/map-of ::attr ::triple-value)
+      (s/and (s/conformer vec #(into {} %)))))
+
+(s/def ::match
+  (-> (s/or :single-map ::single-map-match
+            :vector (-> (s/or :column ::column
+                              :map (s/map-of ::attr ::triple-value))
+                        (s/and (s/conformer (fn [[tag arg]]
+                                              (case tag :map arg, :column {(keyword arg) [:logic-var arg]}))
+                                            (fn [arg]
+                                              [:map arg])))
+                        (s/coll-of :kind vector?)))
+
+      (s/and (s/conformer (fn [[tag arg]]
+                            (case tag
+                              :single-map (vec arg)
+                              :vector (into [] cat arg)))
+                          (fn [v]
+                            [:vector (mapv #(conj {} %) v)])))))
+
 (s/def ::triple
-  (s/and vector?
-         (s/conformer identity vec)
-         (s/cat :e (s/or :literal ::eid, :logic-var ::logic-var)
-                :a keyword?
-                :v (s/? (s/or :literal ::value,
-                              :logic-var ::logic-var
-                              :unwind (s/tuple ::logic-var #{'...}))))))
+  (s/and (s/or :triple (s/and vector?
+                              (s/conformer identity vec)
+                              (s/cat :e (s/or :literal ::eid, :logic-var ::logic-var)
+                                     :a ::attr
+                                     :v (s/? ::triple-value)))
+               :table (-> (s/or :map ::single-map-match
+                                :list (s/and list? (s/cat :table ::table, :match ::match)))
+                          (s/and (s/conformer (fn [[tag arg]]
+                                                (case tag
+                                                  :map {:table 'xt_docs, :match arg}
+                                                  :list arg))
+                                              (fn [arg]
+                                                [:list arg])))))))
 
 (s/def ::call-clause
   (s/and vector?
@@ -106,12 +141,12 @@
   (s/cat :q #{'q}, :query ::query))
 
 (s/def ::term
-  (s/or :triple ::triple
-        :semi-join ::semi-join
+  (s/or :semi-join ::semi-join
         :anti-join ::anti-join
         :union-join ::union-join
-        :call ::call-clause
-        :sub-query ::sub-query))
+        :triple ::triple
+        :sub-query ::sub-query
+        :call ::call-clause))
 
 (s/def ::where
   (s/coll-of ::term :kind vector? :min-count 1))
@@ -242,18 +277,25 @@
                                 (case return-type
                                   :scalar #{return-arg}))})
 
-      :triple {:provided-vars (into #{}
-                                    (comp (map term-arg)
-                                          (keep (fn [[val-type val-arg]]
-                                                  (when (= :logic-var val-type)
-                                                    val-arg))))
-                                    [:e :v])}
+      :triple (let [[trip-tag trip-arg] term-arg]
+                {:provided-vars
+                 (case trip-tag
+                   :triple (into #{}
+                                 (comp (map trip-arg)
+                                       (keep (fn [[val-type val-arg]]
+                                               (when (= :logic-var val-type)
+                                                 val-arg))))
+                                 [:e :v])
+                   :table (->> (vals (:match trip-arg))
+                               (into #{} (keep (fn [[val-type val-arg]]
+                                                 (when (= :logic-var val-type)
+                                                   val-arg))))))})
 
       :union-join (let [{:keys [args branches]} term-arg
                         arg-vars (set args)
                         branches-vars (for [branch branches]
                                         (into {:branch branch}
-                                                (combine-term-vars (map term-vars branch))))
+                                              (combine-term-vars (map term-vars branch))))
                         provided-vars (->> branches-vars
                                            (map (comp set :provided-vars))
                                            (apply set/intersection))
@@ -308,21 +350,17 @@
     1 {scan-col (first col-preds)}
     {scan-col (list* 'and col-preds)}))
 
-(defn- plan-scan [e triples]
-  (let [triples (->> (conj triples {:e e, :a :id, :v e})
-                     (map #(update % :a col-sym)))
+(defn- plan-scan [table match]
+  (let [attrs (set (keys match))
 
-        attrs (into #{} (map :a) triples)
-
-        attr->lits (-> triples
-                       (->> (keep (fn [{:keys [a], [v-type v-arg] :v}]
+        attr->lits (-> match
+                       (->> (keep (fn [[a [v-type v-arg]]]
                                     (when (= :literal v-type)
                                       {:a a, :lit v-arg})))
                             (group-by :a))
                        (update-vals #(into #{} (map :lit) %)))]
 
-    (-> [:scan (or (some-> (first (attr->lits '_table)) symbol)
-                   'xt_docs)
+    (-> [:scan (symbol table)
          (-> attrs
              (conj 'application_time_start 'application_time_end)
              (disj '_table)
@@ -343,7 +381,7 @@
 (defn- wrap-unwind [plan triples]
   (->> triples
        (transduce
-        (comp (keep (fn [{:keys [a], [v-type _v-arg] :v}]
+        (comp (keep (fn [[a [v-type _v-arg]]]
                       (when (= v-type :unwind)
                         a)))
               (distinct))
@@ -356,23 +394,32 @@
         plan)))
 
 (defn- plan-triples [triples]
-  (->> (group-by :e triples)
-       (mapv (fn [[e triples]]
-               (let [triples (->> (conj triples {:e e, :a :id, :v e})
-                                  (map #(update % :a col-sym)))
+  (let [{tables :table, triples :triple} (-> (group-by first triples)
+                                             (update-vals #(mapv second %)))
+        tables (-> (->> tables
+                        (mapv #(-> % (update :table name))))
+                   (into (map (fn [[e triples]]
+                                (let [{triples false, table true} (group-by #(= :_table (:a %)) triples)]
+                                  {:table (name (or (second (:v (first table))) "xt_docs"))
+                                   :match (conj (for [{:keys [a v]} triples]
+                                                  (MapEntry/create a v))
+                                                (MapEntry/create :id e))})))
+                         (group-by :e triples)))]
 
-                     var->cols (-> triples
-                                   (->> (keep (fn [{:keys [a], [v-type v-arg] :v}]
-                                                (case v-type
-                                                  :logic-var {:lv v-arg, :col a}
-                                                  :unwind {:lv (first v-arg), :col (attr->unwind-col a)}
-                                                  nil)))
-                                        (group-by :lv))
-                                   (update-vals #(into #{} (map :col) %)))]
-
-                 (-> (plan-scan e triples)
-                     (wrap-unwind triples)
-                     (wrap-unify var->cols)))))))
+    (vec
+     (for [{:keys [table match]} tables]
+       (let [match (->> match (mapv (fn [[a v]] (MapEntry/create (col-sym a) v))))
+             var->cols (-> match
+                           (->> (keep (fn [[a [v-type v-arg]]]
+                                        (case v-type
+                                          :logic-var {:lv v-arg, :col a}
+                                          :unwind {:lv (first v-arg), :col (attr->unwind-col a)}
+                                          nil)))
+                                (group-by :lv))
+                           (update-vals #(into #{} (map :col) %)))]
+         (-> (plan-scan table match)
+             (wrap-unwind match)
+             (wrap-unify var->cols)))))))
 
 (defn- plan-call [{:keys [form return]}]
   (letfn [(with-col-metadata [[form-type form-arg]]

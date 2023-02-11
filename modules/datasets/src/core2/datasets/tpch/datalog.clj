@@ -17,86 +17,53 @@
            (count l)]
     :keys [l_returnflag l_linestatus sum_qty sum_base_price sum_disc_price
            sum_charge avg_qty avg_price avg_disc count_order]
-    :where [[l :_table :lineitem]
-            [l :l_shipdate l_shipdate]
-            [l :l_quantity l_quantity]
-            [l :l_extendedprice l_extendedprice]
-            [l :l_discount l_discount]
-            [l :l_tax l_tax]
-            [l :l_returnflag l_returnflag]
-            [l :l_linestatus l_linestatus]
+    :where [(lineitem [{:id l} l_shipdate l_quantity
+                       l_extendedprice l_discount l_tax
+                       l_returnflag l_linestatus])
             [(<= l_shipdate #time/date "1998-09-02")]]
     :order-by [[l_returnflag :asc] [l_linestatus :asc]]})
 
 (def q2
   '{:find [s_acctbal s_name n_name p p_mfgr s_address s_phone s_comment]
     :keys [s_acctbal s_name n_name p_partkey p_mfgr s_address s_phone s_comment]
-    :where [[p :_table :part]
-            [ps :_table :partsupp]
-            [s :_table :supplier]
-            [n :_table :nation]
-            [r :_table :region]
 
-            [p :p_mfgr p_mfgr]
-            [p :p_size 15]
-            [p :p_type p_type]
+    :where [(part [{:id p} p_mfgr {:p_size 15} p_type])
             [(like p_type "%BRASS")]
 
-            [ps :ps_partkey p]
-            [ps :ps_supplycost ps_supplycost]
-            [ps :ps_suppkey s]
+            (partsupp [{:ps_partkey p, :ps_suppkey s} ps_supplycost])
+
+            (supplier [{:id s, :s_nationkey n}
+                       s_acctbal s_address s_name s_phone s_comment])
+
+            (nation [{:id n, :n_regionkey r} n_name])
+            (region {:id r, :r_name "EUROPE"})
 
             (q {:find [(min ps_supplycost)]
                 :keys [ps_supplycost]
                 :in [p]
-                :where [[ps :_table :partsupp]
-                        [s :_table :supplier]
-                        [n :_table :nation]
-                        [r :_table :region]
-                        [ps :ps_partkey p]
-                        [ps :ps_supplycost ps_supplycost]
-                        [ps :ps_suppkey s]
-                        [s :s_nationkey n]
-                        [n :n_regionkey r]
-                        [r :r_name "EUROPE"]]})
+                :where [(partsupp [{:ps_partkey p, :ps_suppkey s}
+                                   ps_supplycost])
+                        (supplier {:id s, :s_nationkey n})
+                        (nation {:id n, :n_regionkey r})
+                        (region {:id r, :r_name "EUROPE"})]})]
 
-            [s :s_acctbal s_acctbal]
-            [s :s_address s_address]
-            [s :s_name s_name]
-            [s :s_phone s_phone]
-            [s :s_comment s_comment]
-            [s :s_nationkey n]
-
-            [n :n_name n_name]
-            [n :n_regionkey r]
-
-            [r :r_name "EUROPE"]]
-
-    :order-by [[s_acctbal :desc]
-               [n_name :asc]
-               [s_name :asc]
-               [p :asc]]
+    :order-by [[s_acctbal :desc] [n_name :asc] [s_name :asc] [p :asc]]
     :limit 100})
 
 (def q3
   (-> '{:find [o (sum revenue) o_orderdate o_shippriority]
         :keys [l_orderkey revenue o_orderdate o_shippriority]
         :in [?segment]
-        :where [[c :_table :customer]
-                [o :_table :orders]
-                [l :_table :lineitem]
 
-                [c :c_mktsegment ?segment]
-                [o :o_custkey c]
-                [o :o_shippriority o_shippriority]
-                [o :o_orderdate o_orderdate]
+        :where [(customer {:id c, :c_mktsegment ?segment})
+
+                (orders [{:id o, :o_custkey c} o_shippriority o_orderdate])
                 [(< o_orderdate #time/date "1995-03-15")]
-                [l :l_orderkey o]
-                [l :l_discount l_discount]
-                [l :l_extendedprice l_extendedprice]
-                [l :l_shipdate l_shipdate]
+
+                (lineitem [{:l_orderkey o} l_discount l_extendedprice l_shipdate])
                 [(> l_shipdate #time/date "1995-03-15")]
                 [(* l_extendedprice (- 1 l_discount)) revenue]]
+
         :order-by [[(sum revenue) :desc] [o_orderdate :asc]]
         :limit 10}
       (with-in-args ["BUILDING"])))
@@ -104,17 +71,12 @@
 (def q4
   '{:find [o_orderpriority (count o)]
     :keys [o_orderpriority order_count]
-    :where [[o :_table :orders]
-            [o :o_orderdate o_orderdate]
-            [o :o_orderpriority o_orderpriority]
+    :where [(orders [{:id o} o_orderdate o_orderpriority])
             [(>= o_orderdate #time/date "1993-07-01")]
             [(< o_orderdate #time/date "1993-10-01")]
 
             (exists? [o]
-                     [l :_table :lineitem]
-                     [l :l_orderkey o]
-                     [l :l_commitdate l_commitdate]
-                     [l :l_receiptdate l_receiptdate]
+                     (lineitem [{:l_orderkey o} l_commitdate l_receiptdate])
                      [(< l_commitdate l_receiptdate)])]
 
     :order-by [[o_orderpriority :asc]]})
@@ -123,39 +85,26 @@
   (-> '{:find [n_name (sum (* l_extendedprice (- 1 l_discount)))]
         :keys [n_name revenue]
         :in [region]
-        :where [[o :_table :orders]
-                [l :_table :lineitem]
-                [s :_table :supplier]
-                [c :_table :customer]
-                [n :_table :nation]
-                [r :_table :region]
-
-                [o :o_custkey c]
-                [o :o_orderdate o_orderdate]
+        :where [(orders [{:id o, :o_custkey c} o_orderdate])
                 [(>= o_orderdate #time/date "1994-01-01")]
                 [(< o_orderdate #time/date "1995-01-01")]
 
-                [l :l_orderkey o]
-                [l :l_suppkey s]
-                [l :l_extendedprice l_extendedprice]
-                [l :l_discount l_discount]
+                (lineitem [{:l_orderkey o, :l_suppkey s}
+                           l_extendedprice l_discount])
 
-                [s :s_nationkey n]
-                [c :c_nationkey n]
-                [n :n_name n_name]
-                [n :n_regionkey r]
-                [r :r_name region]]
+                (supplier {:id s, :s_nationkey n})
+                (customer {:id c, :c_nationkey n})
+                (nation [{:id n, :n_regionkey r} n_name])
+                (region {:id r, :r_name region})]
+
         :order-by [[(sum (* l_extendedprice (- 1 l_discount))) :desc]]}
       (with-in-args ["ASIA"])))
 
 (def q6
   '{:find [(sum (* l_extendedprice l_discount))]
     :keys [revenue]
-    :where [[l :_table :lineitem]
-            [l :l_shipdate l_shipdate]
-            [l :l_quantity l_quantity]
-            [l :l_extendedprice l_extendedprice]
-            [l :l_discount l_discount]
+    :where [(lineitem [l_shipdate l_quantity l_extendedprice l_discount])
+
             [(>= l_shipdate #time/date "1994-01-01")]
             [(< l_shipdate #time/date "1995-01-01")]
             [(>= l_discount 0.05)]
@@ -164,27 +113,19 @@
 
 (def q7
   '{:find [supp_nation cust_nation l_year (sum (* l_extendedprice (- 1 l_discount)))]
-    :where [[o :_table :orders]
-            [l :_table :lineitem]
-            [s :_table supplier]
-            [n1 :_table :nation]
-            [c :_table :customer]
-            [n2 :_table :nation]
+    :where [(orders {:o_custkey c})
 
-            [o :o_custkey c]
-            [l :l_orderkey o]
-            [l :l_suppkey s]
-            [l :l_shipdate l_shipdate]
-            [l :l_discount l_discount]
-            [l :l_extendedprice l_extendedprice]
+            (lineitem [{:l_orderkey o, :l_suppkey s}
+                       l_shipdate l_discount l_extendedprice])
             [(>= l_shipdate #time/date "1995-01-01")]
             [(<= l_shipdate #time/date "1996-12-31")]
             [(extract "YEAR" l_shipdate) l_year]
 
-            [s :s_nationkey n1]
-            [n1 :n_name supp_nation]
-            [c :c_nationkey n2]
-            [n2 :n_name cust_nation]
+            (supplier {:id s, :s_nationkey n1})
+            (nation {:id n1, :n_name supp_nation})
+
+            (customer {:id c, :c_nationkey n2})
+            (nation {:id n2, :n_name cust_nation})
 
             [(or (and (= "FRANCE" supp_nation)
                       (= "GERMANY" cust_nation))
@@ -200,33 +141,22 @@
                 :keys [o_year brazil_volume volume]
                 :where [(q {:find [o_year (sum (* l_extendedprice (- 1 l_discount))) nation]
                             :keys [o_year volume nation]
-                            :where [[o :_table :orders]
-                                    [c :_table :customer]
-                                    [l :_table :lineitem]
-                                    [s :_table :supplier]
-                                    [n1 :_table :nation]
-                                    [r1 :_table :region]
-                                    [n2 :_table :nation]
-                                    [p :_table :part]
-
-                                    [o :o_custkey c]
-                                    [o :o_orderdate o_orderdate]
+                            :where [(orders [{:id o, :o_custkey c} o_orderdate])
                                     [(>= o_orderdate #time/date "1995-01-01")]
                                     [(<= o_orderdate #time/date "1996-12-31")]
+                                    [(extract "YEAR" o_orderdate) o_year]
 
-                                    [l :l_orderkey o]
-                                    [l :l_suppkey s]
-                                    [l :l_partkey p]
-                                    [l :l_discount l_discount]
-                                    [l :l_extendedprice l_extendedprice]
+                                    (lineitem [{:id l, :l_orderkey o, :l_suppkey s, :l_partkey p}
+                                               l_extendedprice l_discount])
 
-                                    [c :c_nationkey n1]
-                                    [n1 :n_regionkey r1]
-                                    [r1 :r_name "AMERICA"]
-                                    [s :s_nationkey n2]
-                                    [n2 :n_name nation]
-                                    [p :p_type "ECONOMY ANODIZED STEEL"]
-                                    [(extract "YEAR" o_orderdate) o_year]]})]})
+                                    (customer {:id c, :c_nationkey n1})
+                                    (nation {:id n1, :n_regionkey r1})
+                                    (region {:id r1, :r_name "AMERICA"})
+
+                                    (supplier {:id s, :s_nationkey n2})
+                                    (nation {:id n2, :n_name nation})
+
+                                    (part {:id p, :p_type "ECONOMY ANODIZED STEEL"})]})]})
             [(/ brazil_volume volume) mkt_share]]
     :order-by [[o_year :asc]]})
 
@@ -235,32 +165,18 @@
            (sum (- (* l_extendedprice (- 1 l_discount))
                    (* ps_supplycost l_quantity)))]
     :keys [nation o_year sum_profit]
-    :where [[l :_table :lineitem]
-            [ps :_table :partsupp]
-            [s :_table :supplier]
-            [n :_table :nation]
-            [p :_table :part]
-            [o :_table :orders]
+    :where [(lineitem [{:l_orderkey o, :l_suppkey s, :l_partkey p}
+                       l_quantity l_extendedprice l_discount])
 
-            [l :l_orderkey o]
-            [l :l_suppkey s]
-            [l :l_partkey p]
-            [l :l_quantity l_quantity]
-            [l :l_discount l_discount]
-            [l :l_extendedprice l_extendedprice]
+            (partsupp [{:ps_partkey p, :ps_suppkey s} ps_supplycost])
 
-            [ps :ps_partkey p]
-            [ps :ps_suppkey s]
-            [ps :ps_supplycost ps_supplycost]
+            (supplier {:id s, :s_nationkey n})
+            (nation {:id n, :n_name nation})
 
-            [s :s_nationkey n]
-
-            [n :n_name nation]
-
-            [p :p_name p_name]
+            (part [{:id p} p_name])
             [(like p_name "%green%")]
 
-            [o :o_orderdate o_orderdate]
+            (orders [{:id o} o_orderdate])
             [(extract "YEAR" o_orderdate) o_year]]
 
     :order-by [[nation :asc] [o_year :desc]]})
@@ -270,26 +186,20 @@
            c_acctbal c_phone n_name c_address c_comment]
     :keys [c_custkey c_name revenue
            c_acctbal c_phone n_name c_address c_comment]
-    :where [[c :_table :customer]
-            [l :_table :lineitem]
-            [n :_table :nation]
-            [o :_table :orders]
 
-            [c :c_nationkey n]
-            [c :c_name c_name]
-            [c :c_acctbal c_acctbal]
-            [c :c_address c_address]
-            [c :c_phone c_phone]
-            [c :c_comment c_comment]
-            [o :o_custkey c]
-            [o :o_orderdate o_orderdate]
+    :where [(customer [{:id c, :c_nationkey n}
+                       c_name c_address c_phone
+                       c_acctbal c_comment])
+
+            (nation {:id n, :n_name n_name})
+
+            (orders [{:id o, :o_custkey c}, o_orderdate])
             [(>= o_orderdate #time/date "1993-10-01")]
             [(< o_orderdate #time/date "1994-01-01")]
-            [l :l_orderkey o]
-            [l :l_extendedprice l_extendedprice]
-            [l :l_discount l_discount]
-            [l :l_returnflag "R"]
-            [n :n_name n_name]]
+
+            (lineitem [{:l_orderkey o, :l_returnflag "R"}
+                       l_extendedprice l_discount])]
+
     :order-by [[(sum (* l_extendedprice (- 1 l_discount))) :desc]]
     :limit 20})
 

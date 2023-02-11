@@ -172,6 +172,17 @@
                   (into #{})))
           "multi-param join")
 
+    (t/is (= #{{:e 1, :e2 1, :n "Ivan"}
+               {:e 2, :e2 2, :n "Petr"}
+               {:e 3, :e2 3, :n "Ivan"}}
+             (->> (c2/plan-datalog tu/*node*
+                                   (-> '{:find [e e2 n]
+                                         :where [{:id e, :name n, :age a}
+                                                 (xt_docs {:id e2, :name n, :age a})]}
+                                       (assoc :basis {:tx tx})))
+                  (into #{})))
+          "multi-param join with match")
+
     (t/is (= #{{:e1 1, :e2 1, :a1 15, :a2 15}
                {:e1 1, :e2 3, :a1 15, :a2 37}
                {:e1 3, :e2 1, :a1 37, :a2 15}

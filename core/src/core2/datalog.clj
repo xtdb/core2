@@ -173,12 +173,21 @@
        (vec)))
 
 (defn- wrap-unify [plan var->cols]
-  (-> [:project (vec (for [[lv cols] var->cols]
-                       (or (cols lv)
-                           {(col-sym lv) (first cols)})))
-       (-> plan
-           (wrap-select (unify-preds var->cols)))]
-      (with-meta (-> (meta plan) (assoc ::vars (set (keys var->cols)))))))
+  (let [projected-vars (into
+                         {}
+                         (remove
+                           (fn [[_ cols]]
+                             (every? lp/correlated-column? cols))
+                           var->cols))]
+    (if-let [projection (not-empty (vec (for [[lv cols] projected-vars]
+                                          (or
+                                            (cols lv)
+                                            {(col-sym lv) (first (sort-by lp/correlated-column? cols))}))))]
+      (-> [:project projection
+           (-> plan
+               (wrap-select (unify-preds projected-vars)))]
+          (with-meta (-> (meta plan) (assoc ::vars (set (keys projected-vars))))))
+      (with-meta plan (-> (meta plan) (assoc ::vars (set (keys projected-vars))))))))
 
 (defn- with-unique-cols [plans param-vars]
   (as-> plans plans
@@ -369,22 +378,27 @@
                                                   nil)))
                                         (group-by :lv))
                                    (update-vals #(into #{} (map :col) %)))]
-
                  (-> (plan-scan e triples)
                      (wrap-unwind triples)
                      (wrap-unify var->cols)))))))
 
-(defn- plan-call [{:keys [form return]}]
+(defn- plan-call [apply-mapping {:keys [form return]}]
   (letfn [(with-col-metadata [[form-type form-arg]]
             [form-type
              (case form-type
-               :logic-var (if (str/starts-with? (name form-arg) "?")
+               :logic-var (cond
+                            (get apply-mapping form-arg)
+                            (get apply-mapping form-arg)
+
+                            (str/starts-with? (name form-arg) "?")
                             form-arg
+
+                            :else
                             (col-sym form-arg))
                :fn-call (-> form-arg (update :args #(mapv with-col-metadata %)))
                :value form-arg)])]
     (-> (s/unform ::form (with-col-metadata form))
-        (with-meta (into {::required-vars (form-vars form)}
+        (with-meta (into {::required-vars (set (remove #(get apply-mapping %) (form-vars form)))}
 
                          (when-let [[return-type return-arg] return]
                            (-> (case return-type
@@ -429,9 +443,9 @@
   (let [{sj-required-vars :required-vars} (term-vars [sj-type sj])
         required-vars (if (seq sj-required-vars) (set args) #{})
         apply-mapping (->apply-mapping required-vars)]
-
     (-> (plan-query
-         (cond-> {:find (vec (for [arg args]
+         (cond-> {:find (vec (for [arg args
+                                   :when (not (get apply-mapping arg))]
                                [:logic-var arg]))
                   :where terms}
            (seq required-vars) (assoc ::apply-mapping apply-mapping)))
@@ -458,7 +472,8 @@
     (-> branches
         (->> (mapv (fn [branch]
                      (plan-query
-                      {:find (vec (for [arg args]
+                      {:find (vec (for [arg args
+                                        :when (not (get apply-mapping arg))]
                                     [:logic-var arg]))
                        ::apply-mapping apply-mapping
                        :where branch})))
@@ -521,7 +536,7 @@
     (loop [plan (mega-join (vec (concat in-rels (plan-triples triple-clauses)))
                            (concat param-vars apply-mapping))
 
-           calls (some->> call-clauses (mapv plan-call))
+           calls (some->> call-clauses (mapv (partial plan-call apply-mapping)))
            union-joins (some->> union-join-clauses (mapv plan-union-join))
            semi-joins (some->> semi-join-clauses (mapv (partial plan-semi-join :semi-join)))
            anti-joins (some->> anti-join-clauses (mapv (partial plan-semi-join :anti-join)))
@@ -614,8 +629,10 @@
         (with-meta {::vars (->> clauses (into #{} (map (comp ::var meta))))}))))
 
 (defn- wrap-find [plan find-clauses]
-  (-> [:project find-clauses plan]
-      (with-meta (-> (meta plan) (assoc ::vars (::vars (meta find-clauses)))))))
+  (if (seq find-clauses)
+    (-> [:project find-clauses plan]
+        (with-meta (-> (meta plan) (assoc ::vars (::vars (meta find-clauses))))))
+    plan))
 
 (defn- plan-order-by [{:keys [order-by]} head-exprs]
   (some->> order-by

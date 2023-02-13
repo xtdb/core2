@@ -506,25 +506,27 @@
     (with-meta relation {:column->name smap
                          :add-projection-fn add-projection-fn})))
 
+(defn column? [x]
+  (and (symbol? x)
+       (:column? (meta x))))
+
+(defn correlated-column? [x]
+  (and (symbol? x)
+       (:correlated-column? (meta x))))
+
 (defn expr-symbols [expr]
   (set (for [x (flatten (if (coll? expr)
                           (seq expr)
                           [expr]))
-             :when (and (symbol? x)
-                        (:column? (meta x)))]
+             :when (column? x)]
          x)))
 
 (defn expr-correlated-symbols [expr]
   (set (for [x (flatten (if (coll? expr)
                           (seq expr)
                           [expr]))
-             :when (and (symbol? x)
-                        (:correlated-column? (meta x)))]
+             :when (correlated-column? x)]
          x)))
-
-(defn column? [x]
-  (and (symbol? x)
-       (:column? (meta x))))
 
 (defn equals-predicate? [predicate]
   (and (sequential? predicate)

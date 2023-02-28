@@ -1,6 +1,22 @@
+plugins {
+    `java-library`
+    id("dev.clojurephant.clojure")
+    `maven-publish`
+    signing
+}
+
+publishing {
+    publications.create("maven", MavenPublication::class) {
+        pom {
+            name.set("Core2 Wire Formats")
+            description.set("Core2 Wire Formats")
+        }
+    }
+}
+
 dependencies {
     api(project(":api"))
-    compileOnlyApi(files("src/main/resources"))
+    compileOnlyApi(sourceSets.main.get().resources)
 
     api("org.clojure", "clojure", "1.11.1")
     api("com.widdindustries", "time-literals", "0.1.10")

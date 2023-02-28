@@ -1,61 +1,138 @@
-import dev.clojurephant.plugin.clojure.tasks.ClojureCheck
-import dev.clojurephant.plugin.clojure.tasks.ClojureNRepl
+import dev.clojurephant.plugin.clojure.tasks.ClojureCompile
 
-group = "core2"
-version = System.getenv("CORE2_VERSION") ?: "dev-SNAPSHOT"
+evaluationDependsOnChildren()
 
 plugins {
     `java-library`
     id("dev.clojurephant.clojure") version "0.7.0"
 }
 
-repositories {
-    mavenCentral()
-    maven { url = uri("https://repo.clojars.org/") }
-}
-
-subprojects {
-    apply(plugin = "java-library")
-    apply(plugin = "dev.clojurephant.clojure")
-}
-
 allprojects {
-    java.sourceCompatibility = JavaVersion.VERSION_11
+    val proj = this
+
+    group = "com.xtdb.labs"
+    version = System.getenv("CORE2_VERSION") ?: "dev-SNAPSHOT"
 
     repositories {
         mavenCentral()
         maven { url = uri("https://repo.clojars.org/") }
     }
 
-    dependencies {
-        implementation("org.clojure", "clojure", "1.11.1")
+    if (plugins.hasPlugin("java-library")) {
+        java {
+            sourceCompatibility = JavaVersion.VERSION_11
 
-        testRuntimeOnly("dev.clojurephant", "jovial", "0.4.1")
-        nrepl("cider", "cider-nrepl", "0.28.6")
-    }
+            withSourcesJar()
+            withJavadocJar()
+        }
 
-    tasks.test {
-        useJUnitPlatform()
-    }
+        tasks.javadoc {
+            options {
+                (this as CoreJavadocOptions).addStringOption("Xdoclint:none", "-quiet")
+            }
+        }
 
-    clojure {
-        // disable `check` because it takes ages to start a REPL
-        builds.forEach {
-            it.checkNamespaces.empty()
+        tasks.test {
+            useJUnitPlatform()
+
+            jvmArgs = listOf(
+                "--add-opens=java.base/java.nio=ALL-UNNAMED",
+                "-Dio.netty.tryReflectionSetAccessible=true"
+            )
+
+            exclude("integration", "kafka", "jdbc", "timescale", "s3", "slt", "docker")
+        }
+
+        if (plugins.hasPlugin("dev.clojurephant.clojure")) {
+            dependencies {
+                implementation("org.clojure", "clojure", "1.11.1")
+
+                testRuntimeOnly("dev.clojurephant", "jovial", "0.4.1")
+                nrepl("cider", "cider-nrepl", "0.28.6")
+            }
+
+            clojure {
+                // disable `check` because it takes ages to start a REPL
+                builds.forEach {
+                    it.checkNamespaces.empty()
+                }
+            }
+
+            tasks.clojureRepl {
+                forkOptions.run {
+                    jvmArgs = listOf(
+                        "--add-opens=java.base/java.nio=ALL-UNNAMED",
+                        "-Dio.netty.tryReflectionSetAccessible=true",
+                        "-Djdk.attach.allowAttachSelf"
+                    )
+                }
+
+                middleware.add("cider.nrepl/cider-middleware")
+            }
+
+            tasks.existing(ClojureCompile::class) {
+                forkOptions.run {
+                    jvmArgs = listOf(
+                        "--add-opens=java.base/java.nio=ALL-UNNAMED",
+                        "-Dio.netty.tryReflectionSetAccessible=true"
+                    )
+                }
+            }
+        }
+
+        if (plugins.hasPlugin("maven-publish")) {
+            extensions.configure(PublishingExtension::class) {
+                publications.named("maven", MavenPublication::class) {
+                    groupId = "com.xtdb.labs"
+                    artifactId = "core2-${proj.name}"
+                    version = proj.version.toString()
+                    from(components["java"])
+
+                    pom {
+                        url.set("https://xtdb.com")
+
+                        licenses {
+                            license {
+                                name.set("GNU Affero General Public License, Version 2 (AGPL 3)")
+                                url.set("https://www.gnu.org/licenses/agpl-4.0.txt")
+                            }
+                        }
+                        developers {
+                            developer {
+                                id.set("juxt")
+                                name.set("JUXT")
+                                email.set("hello@xtdb.com")
+                            }
+                        }
+                        scm {
+                            connection.set("scm:git:git://github.com/xtdb/core2.git")
+                            developerConnection.set("scm:git:ssh://github.com/xtdb/core2.git")
+                            url.set("https://xtdb.com")
+                        }
+                    }
+                }
+
+                repositories {
+                    maven {
+                        name = "ossrh"
+                        val releasesRepoUrl = "https://s01.oss.sonatype.org/service/local/staging/deploy/maven2"
+                        val snapshotsRepoUrl = "https://s01.oss.sonatype.org/content/repositories/snapshots"
+                        url = uri(if (!version.toString().endsWith("-SNAPSHOT")) releasesRepoUrl else snapshotsRepoUrl)
+
+                        credentials {
+                            username = project.properties["ossrhUsername"] as? String
+                            password = project.properties["ossrhPassword"] as? String
+                        }
+                    }
+                }
+
+                extensions.configure(SigningExtension::class) {
+                    useGpgCmd()
+                    sign(publications["maven"])
+                }
+            }
         }
     }
-}
-
-val clojureRepl by tasks.existing(ClojureNRepl::class) {
-    forkOptions.run {
-        jvmArgs = listOf(
-            "--add-opens=java.base/java.nio=ALL-UNNAMED",
-            "-Dio.netty.tryReflectionSetAccessible=true",
-            "-Djdk.attach.allowAttachSelf"
-        )
-    }
-
-    middleware.add("cider.nrepl/cider-middleware")
 }
 
 dependencies {

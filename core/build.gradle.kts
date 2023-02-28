@@ -1,3 +1,19 @@
+plugins {
+    `java-library`
+    id("dev.clojurephant.clojure")
+    `maven-publish`
+    signing
+}
+
+publishing {
+    publications.create("maven", MavenPublication::class) {
+        pom {
+            name.set("Core2 Core")
+            description.set("Core2 Core")
+        }
+    }
+}
+
 dependencies {
     api(project(":api"))
     api(project(":wire-formats"))

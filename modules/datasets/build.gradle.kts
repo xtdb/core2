@@ -1,3 +1,8 @@
+plugins {
+    `java-library`
+    id("dev.clojurephant.clojure")
+}
+
 dependencies {
     api(project(":api"))
     api(project(":core"))

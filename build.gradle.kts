@@ -33,14 +33,16 @@ allprojects {
         }
 
         tasks.test {
-            useJUnitPlatform()
+            useJUnitPlatform {
+                excludeTags("integration", "kafka", "jdbc", "timescale", "s3", "slt", "docker")
+            }
 
             jvmArgs = listOf(
                 "--add-opens=java.base/java.nio=ALL-UNNAMED",
                 "-Dio.netty.tryReflectionSetAccessible=true"
             )
 
-            exclude("integration", "kafka", "jdbc", "timescale", "s3", "slt", "docker")
+            maxHeapSize = "4g"
         }
 
         if (plugins.hasPlugin("dev.clojurephant.clojure")) {
@@ -70,7 +72,7 @@ allprojects {
                 middleware.add("cider.nrepl/cider-middleware")
             }
 
-            tasks.existing(ClojureCompile::class) {
+            tasks.withType(ClojureCompile::class) {
                 forkOptions.run {
                     jvmArgs = listOf(
                         "--add-opens=java.base/java.nio=ALL-UNNAMED",

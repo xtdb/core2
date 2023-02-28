@@ -16,7 +16,7 @@ publishing {
 
 dependencies {
     api(project(":api"))
-    compileOnlyApi(sourceSets.main.get().resources)
+    compileOnlyApi(files("src/main/resources"))
 
     api("org.clojure", "clojure", "1.11.1")
     api("com.widdindustries", "time-literals", "0.1.10")

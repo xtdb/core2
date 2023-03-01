@@ -7,6 +7,12 @@ plugins {
     id("dev.clojurephant.clojure") version "0.7.0"
 }
 
+val defaultJvmArgs = listOf(
+    "--add-opens=java.base/java.nio=ALL-UNNAMED",
+    "-Dio.netty.tryReflectionSetAccessible=true",
+    "-Djdk.attach.allowAttachSelf",
+)
+
 allprojects {
     val proj = this
 
@@ -36,13 +42,18 @@ allprojects {
             useJUnitPlatform {
                 excludeTags("integration", "kafka", "jdbc", "timescale", "s3", "slt", "docker")
             }
+        }
 
-            jvmArgs = listOf(
-                "--add-opens=java.base/java.nio=ALL-UNNAMED",
-                "-Dio.netty.tryReflectionSetAccessible=true"
-            )
+        tasks.create("integration-test", Test::class) {
+            useJUnitPlatform {
+                includeTags("integration")
+            }
+        }
 
-            maxHeapSize = "4g"
+        tasks.withType(Test::class) {
+            jvmArgs = defaultJvmArgs
+
+            maxHeapSize = "2g"
         }
 
         if (plugins.hasPlugin("dev.clojurephant.clojure")) {
@@ -62,11 +73,7 @@ allprojects {
 
             tasks.clojureRepl {
                 forkOptions.run {
-                    jvmArgs = listOf(
-                        "--add-opens=java.base/java.nio=ALL-UNNAMED",
-                        "-Dio.netty.tryReflectionSetAccessible=true",
-                        "-Djdk.attach.allowAttachSelf"
-                    )
+                    jvmArgs = defaultJvmArgs
                 }
 
                 middleware.add("cider.nrepl/cider-middleware")
@@ -74,10 +81,7 @@ allprojects {
 
             tasks.withType(ClojureCompile::class) {
                 forkOptions.run {
-                    jvmArgs = listOf(
-                        "--add-opens=java.base/java.nio=ALL-UNNAMED",
-                        "-Dio.netty.tryReflectionSetAccessible=true"
-                    )
+                    jvmArgs = defaultJvmArgs
                 }
             }
         }
@@ -168,3 +172,73 @@ dependencies {
     testImplementation("org.clojure", "test.check", "1.1.1")
     testImplementation("org.apache.arrow", "flight-sql-jdbc-driver", "11.0.0")
 }
+
+fun createSltTask(
+    taskName: String,
+    maxFailures: Long = 0,
+    maxErrors: Long = 0,
+    testFiles: List<String>,
+    maxHeapSize: String = "4g"
+) {
+    tasks.create(taskName, JavaExec::class) {
+        classpath = sourceSets.test.get().runtimeClasspath
+        mainClass.set("clojure.main")
+        this.maxHeapSize = maxHeapSize
+        jvmArgs(defaultJvmArgs)
+        this.args = listOf(
+            "-m", "core2.sql.logic-test.runner",
+            "--verify",
+            "--db", "xtdb",
+            "--max-failures", maxFailures.toString(),
+            "--max-errors", maxErrors.toString(),
+        ) + testFiles.map {
+            "src/test/resources/core2/sql/logic_test/sqlite_test/$it"
+        }
+    }
+}
+
+createSltTask(
+    "slt-test",
+    testFiles = listOf(
+        "xtdb.test",
+        "select1.test", "select2.test", "select3.test", "select4.test",
+        // "select5.test",
+        "random/expr/slt_good_0.test",
+        "random/aggregates/slt_good_0.test",
+        "random/groupby/slt_good_0.test",
+        "random/select/slt_good_0.test"
+    )
+)
+
+createSltTask(
+    "slt-test-2",
+    testFiles = listOf(
+        "index/between/1/slt_good_0.test",
+        "index/commute/10/slt_good_0.test",
+        "index/in/10/slt_good_0.test",
+        "index/orderby/10/slt_good_0.test",
+        "index/orderby_nosort/10/slt_good_0.test",
+        "index/random/10/slt_good_0.test",
+    )
+)
+
+createSltTask(
+    "slt-nightly",
+    maxFailures = Long.MAX_VALUE,
+    maxErrors = Long.MAX_VALUE,
+    maxHeapSize = "6g",
+    testFiles = listOf(
+        "random/expr/",
+        "random/aggregates/",
+        "random/groupby/",
+        "random/select/",
+        "index/between/",
+        "index/commute/",
+        "index/orderby/",
+        "index/orderby_nosort/",
+        "index/in/",
+        "index/random/",
+        // "index/delete/",
+        // "index/view/",
+    )
+)

@@ -13,5 +13,5 @@
           (tu/then-await-tx node))
 
       (t/is (= [{:id :foo}]
-               (tu/query-ra '[:scan [id]]
+               (tu/query-ra '[:scan xt_docs [id]]
                             {:node node}))))))

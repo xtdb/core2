@@ -46,7 +46,9 @@
 
 (t/deftest bitemporal-sys-time-split-test
   (let [kd-tree nil
-        row-id->row (HashMap.)]
+        row-id->row (HashMap.)
+        !current-row-ids (volatile! #{})
+        sys-time-nanos (util/instant->micros (.toInstant #inst "1998-01-10"))]
     ;; Current Insert
     ;; Eva Nielsen buys the flat at Skovvej 30 in Aalborg on January 10,
     ;; 1998.
@@ -56,7 +58,9 @@
                                                                 (->coordinates {:id 7797
                                                                                 :row-id 1
                                                                                 :sys-time-start #inst "1998-01-10"
-                                                                                :new-entity? true}))]
+                                                                                :new-entity? true})
+                                                                !current-row-ids
+                                                                sys-time-nanos)]
       (.put row-id->row 1 {:customer-number 145})
       (t/is (= [{:id 7797,
                  :customer-number 145,
@@ -74,7 +78,9 @@
                                                  (->coordinates {:id 7797
                                                                  :row-id 2
                                                                  :sys-time-start #inst "1998-01-15"
-                                                                 :new-entity? false}))]
+                                                                 :new-entity? false})
+                                                 !current-row-ids
+                                                 sys-time-nanos)]
         (.put row-id->row 2 {:customer-number 827})
         (t/is (= [{:id 7797,
                    :row-id 1,
@@ -107,7 +113,9 @@
                                                                    :row-id 3
                                                                    :sys-time-start #inst "1998-01-20"
                                                                    :new-entity? false
-                                                                   :tombstone? true}))]
+                                                                   :tombstone? true})
+                                                   !current-row-ids
+                                                   sys-time-nanos)]
           (.put row-id->row 3 {:customer-number 827})
           (t/is (= [{:id 7797,
                      :customer-number 145,
@@ -148,7 +156,9 @@
                                                                      :sys-time-start #inst "1998-01-23"
                                                                      :app-time-start #inst "1998-01-03"
                                                                      :app-time-end #inst "1998-01-15"
-                                                                     :new-entity? false}))]
+                                                                     :new-entity? false})
+                                                     !current-row-ids
+                                                     sys-time-nanos)]
             (.put row-id->row 4 {:customer-number 145})
             (t/is (= [{:id 7797,
                        :customer-number 145,
@@ -198,7 +208,9 @@
                                                                        :app-time-start #inst "1998-01-02"
                                                                        :app-time-end #inst "1998-01-05"
                                                                        :new-entity? false
-                                                                       :tombstone? true}))]
+                                                                       :tombstone? true})
+                                                       !current-row-ids
+                                                       sys-time-nanos)]
               (.put row-id->row 5 {:customer-number 145})
               (t/is (= [{:id 7797,
                          :customer-number 145,
@@ -254,7 +266,9 @@
                                                                          :sys-time-start #inst "1998-01-28"
                                                                          :app-time-start #inst "1998-01-12"
                                                                          :app-time-end #inst "1998-01-15"
-                                                                         :new-entity? false}))]
+                                                                         :new-entity? false})
+                                                         !current-row-ids
+                                                         sys-time-nanos)]
                 (.put row-id->row 6 {:customer-number 827})
                 (t/is (= [{:id 7797,
                            :customer-number 145,

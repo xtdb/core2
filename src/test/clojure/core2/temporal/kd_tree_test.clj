@@ -1,5 +1,5 @@
 (ns core2.temporal.kd-tree-test
-  (:require [clojure.test :as t]
+  (:require [clojure.test :as t :refer [deftest]]
             [core2.temporal :as temporal]
             [core2.temporal.kd-tree :as kd]
             [core2.util :as util])
@@ -44,23 +44,26 @@
                                                   util/end-of-time))
                         new-entity? (boolean tombstone?)))
 
+(defn as-nanos [^java.util.Date inst]
+  (util/instant->micros (.toInstant inst)))
+
 (t/deftest bitemporal-sys-time-split-test
   (let [kd-tree nil
         row-id->row (HashMap.)
-        !current-row-ids (volatile! #{})
-        sys-time-nanos (util/instant->micros (.toInstant #inst "1998-01-10"))]
+        !current-row-ids (volatile! #{})]
     ;; Current Insert
     ;; Eva Nielsen buys the flat at Skovvej 30 in Aalborg on January 10,
     ;; 1998.
     (with-open [allocator (RootAllocator.)
-                ^Closeable kd-tree (temporal/insert-coordinates kd-tree
-                                                                allocator
-                                                                (->coordinates {:id 7797
-                                                                                :row-id 1
-                                                                                :sys-time-start #inst "1998-01-10"
-                                                                                :new-entity? true})
-                                                                !current-row-ids
-                                                                sys-time-nanos)]
+                ^Closeable kd-tree (let [sys-time #inst "1998-01-10"]
+                                     (temporal/insert-coordinates kd-tree
+                                                                  allocator
+                                                                  (->coordinates {:id 7797
+                                                                                  :row-id 1
+                                                                                  :sys-time-start sys-time
+                                                                                  :new-entity? true})
+                                                                  !current-row-ids
+                                                                  (as-nanos sys-time)))]
       (.put row-id->row 1 {:customer-number 145})
       (t/is (= [{:id 7797,
                  :customer-number 145,
@@ -70,17 +73,20 @@
                  :sys-time-start #inst "1998-01-10T00:00:00.000-00:00",
                  :sys-time-end #inst "9999-12-31T23:59:59.999-00:00"}]
                (temporal-rows kd-tree row-id->row)))
+      (t/is (= #{1}
+               @!current-row-ids))
 
       ;; Current Update
       ;; Peter Olsen buys the flat on January 15, 1998.
-      (let [kd-tree (temporal/insert-coordinates kd-tree
+      (let [sys-time #inst "1998-01-15"
+            kd-tree (temporal/insert-coordinates kd-tree
                                                  allocator
                                                  (->coordinates {:id 7797
                                                                  :row-id 2
-                                                                 :sys-time-start #inst "1998-01-15"
+                                                                 :sys-time-start sys-time
                                                                  :new-entity? false})
                                                  !current-row-ids
-                                                 sys-time-nanos)]
+                                                 (as-nanos sys-time))]
         (.put row-id->row 2 {:customer-number 827})
         (t/is (= [{:id 7797,
                    :row-id 1,
@@ -104,18 +110,21 @@
                    :sys-time-start #inst "1998-01-15T00:00:00.000-00:00",
                    :sys-time-end #inst "9999-12-31T23:59:59.999-00:00"}]
                  (temporal-rows kd-tree row-id->row)))
+        (t/is (= #{2}
+                 @!current-row-ids))
 
         ;; Current Delete
         ;; Peter Olsen sells the flat on January 20, 1998.
-        (let [kd-tree (temporal/insert-coordinates kd-tree
+        (let [sys-time #inst "1998-01-20"
+              kd-tree (temporal/insert-coordinates kd-tree
                                                    allocator
                                                    (->coordinates {:id 7797
                                                                    :row-id 3
-                                                                   :sys-time-start #inst "1998-01-20"
+                                                                   :sys-time-start sys-time
                                                                    :new-entity? false
                                                                    :tombstone? true})
                                                    !current-row-ids
-                                                   sys-time-nanos)]
+                                                   (as-nanos sys-time))]
           (.put row-id->row 3 {:customer-number 827})
           (t/is (= [{:id 7797,
                      :customer-number 145,
@@ -146,19 +155,22 @@
                      :sys-time-start #inst "1998-01-20T00:00:00.000-00:00",
                      :sys-time-end #inst "9999-12-31T23:59:59.999-00:00"}]
                    (temporal-rows kd-tree row-id->row)))
+          (t/is (= #{}
+                   @!current-row-ids))
 
           ;; Sequenced Insert
           ;; Eva actually purchased the flat on January 3, performed on January 23.
-          (let [kd-tree (temporal/insert-coordinates kd-tree
+          (let [sys-time #inst "1998-01-23"
+                kd-tree (temporal/insert-coordinates kd-tree
                                                      allocator
                                                      (->coordinates {:id 7797
                                                                      :row-id 4
-                                                                     :sys-time-start #inst "1998-01-23"
+                                                                     :sys-time-start sys-time
                                                                      :app-time-start #inst "1998-01-03"
                                                                      :app-time-end #inst "1998-01-15"
                                                                      :new-entity? false})
                                                      !current-row-ids
-                                                     sys-time-nanos)]
+                                                     (as-nanos sys-time))]
             (.put row-id->row 4 {:customer-number 145})
             (t/is (= [{:id 7797,
                        :customer-number 145,
@@ -196,21 +208,24 @@
                        :sys-time-start #inst "1998-01-23T00:00:00.000-00:00",
                        :sys-time-end #inst "9999-12-31T23:59:59.999-00:00"}]
                      (temporal-rows kd-tree row-id->row)))
+            (t/is (= #{}
+                     @!current-row-ids))
 
             ;; NOTE: rows differs from book, but covered area is the same.
             ;; Sequenced Delete
             ;; A sequenced deletion performed on January 26: Eva actually purchased the flat on January 5.
-            (let [kd-tree (temporal/insert-coordinates kd-tree
+            (let [sys-time #inst "1998-01-26"
+                  kd-tree (temporal/insert-coordinates kd-tree
                                                        allocator
                                                        (->coordinates {:id 7797
                                                                        :row-id 5
-                                                                       :sys-time-start #inst "1998-01-26"
+                                                                       :sys-time-start sys-time
                                                                        :app-time-start #inst "1998-01-02"
                                                                        :app-time-end #inst "1998-01-05"
                                                                        :new-entity? false
                                                                        :tombstone? true})
                                                        !current-row-ids
-                                                       sys-time-nanos)]
+                                                       (as-nanos sys-time))]
               (.put row-id->row 5 {:customer-number 145})
               (t/is (= [{:id 7797,
                          :customer-number 145,
@@ -255,20 +270,23 @@
                          :sys-time-start #inst "1998-01-26T00:00:00.000-00:00",
                          :sys-time-end #inst "9999-12-31T23:59:59.999-00:00"}]
                        (temporal-rows kd-tree row-id->row)))
+              (t/is (= #{}
+                       @!current-row-ids))
 
               ;; NOTE: rows differs from book, but covered area is the same.
               ;; Sequenced Update
               ;; A sequenced update performed on January 28: Peter actually purchased the flat on January 12.
-              (let [kd-tree (temporal/insert-coordinates kd-tree
+              (let [sys-time #inst "1998-01-28"
+                    kd-tree (temporal/insert-coordinates kd-tree
                                                          allocator
                                                          (->coordinates {:id 7797
                                                                          :row-id 6
-                                                                         :sys-time-start #inst "1998-01-28"
+                                                                         :sys-time-start sys-time
                                                                          :app-time-start #inst "1998-01-12"
                                                                          :app-time-end #inst "1998-01-15"
                                                                          :new-entity? false})
                                                          !current-row-ids
-                                                         sys-time-nanos)]
+                                                         (as-nanos sys-time))]
                 (.put row-id->row 6 {:customer-number 827})
                 (t/is (= [{:id 7797,
                            :customer-number 145,
@@ -326,13 +344,190 @@
                            :app-time-end #inst "1998-01-15T00:00:00.000-00:00",
                            :sys-time-start #inst "1998-01-28T00:00:00.000-00:00",
                            :sys-time-end #inst "9999-12-31T23:59:59.999-00:00"}]
-                         (temporal-rows kd-tree row-id->row))
+                         (temporal-rows kd-tree row-id->row)))
+                (t/is (= #{}
+                         @!current-row-ids))
 
-                      (t/testing "rebuilding tree results in tree with same points"
-                        (let [points (mapv vec (kd/kd-tree->seq kd-tree))]
-                          (with-open [rebuilt-tree (kd/build-node-kd-tree allocator (shuffle points))]
-                            (t/is (= (sort points)
-                                     (sort (mapv vec (kd/kd-tree->seq rebuilt-tree)))))))))))))))))
+
+                (t/testing "rebuilding tree results in tree with same points"
+                  (let [points (mapv vec (kd/kd-tree->seq kd-tree))]
+                    (with-open [rebuilt-tree (kd/build-node-kd-tree allocator (shuffle points))]
+                      (t/is (= (sort points)
+                               (sort (mapv vec (kd/kd-tree->seq rebuilt-tree))))))))))))))))
+
+(defn current-rows-for [sys-time inserts]
+  (let [kd-tree nil
+        !current-row-ids (volatile! #{})]
+    (with-open [allocator (RootAllocator.)
+                ^Closeable kd-tree (reduce
+                                     (fn [cur-kd-tree coords]
+                                       (temporal/insert-coordinates cur-kd-tree
+                                                                    allocator
+                                                                    coords
+                                                                    !current-row-ids
+                                                                    (as-nanos sys-time)))
+                                     kd-tree
+                                     inserts)]
+      @!current-row-ids)))
+
+(deftest current-row-ids-inserts
+  (let [sys-time #inst "2020-01-02"]
+    (t/is (=
+           #{1}
+           (current-rows-for
+             sys-time
+             [(->coordinates {:id 101
+                              :row-id 1
+                              :sys-time-start sys-time
+                              :app-time-start #inst "2020-01-02"
+                              :new-entity? true})]))
+          "app-time-start equal to sys-time"))
+
+  (let [sys-time #inst "2020-01-02"]
+    (t/is (=
+           #{1}
+           (current-rows-for
+             sys-time
+             [(->coordinates {:id 101
+                              :row-id 1
+                              :sys-time-start sys-time
+                              :app-time-start #inst "2020-01-01"
+                              :new-entity? true})]))
+         "app-time-start before sys-time"))
+
+  (let [sys-time #inst "2020-01-02"]
+    (t/is (=
+           #{}
+           (current-rows-for
+             sys-time
+             [(->coordinates {:id 101
+                              :row-id 1
+                              :sys-time-start sys-time
+                              :app-time-start #inst "2020-01-03"
+                              :new-entity? true})]))
+          "app-time-start after sys-time"))
+
+  (let [sys-time #inst "2020-01-02"]
+    (t/is (=
+           #{}
+           (current-rows-for
+             sys-time
+             [(->coordinates {:id 101
+                              :row-id 1
+                              :sys-time-start sys-time
+                              :app-time-start #inst "2020-01-01"
+                              :app-time-end #inst "2020-01-02"
+                              :new-entity? true})]))
+          "app-time-start and end before sys-time"))
+
+  (let [sys-time #inst "2020-01-02"]
+    (t/is (=
+           #{1 2}
+           (current-rows-for
+             sys-time
+             [(->coordinates {:id 101
+                              :row-id 1
+                              :sys-time-start sys-time
+                              :app-time-start #inst "2020-01-02"
+                              :new-entity? true})
+              (->coordinates {:id 102
+                              :row-id 2
+                              :sys-time-start sys-time
+                              :app-time-start #inst "2020-01-01"
+                              :new-entity? true})]))
+          "one row for each entity is added")))
+
+(deftest current-row-ids-overlaps
+  (let [sys-time #inst "2020-01-02"]
+    (t/is (=
+           #{}
+           (current-rows-for
+             sys-time
+             [(->coordinates {:id 101
+                              :row-id 1
+                              :sys-time-start sys-time
+                              :app-time-start #inst "2020-01-02"
+                              :new-entity? true})
+              (->coordinates {:id 101
+                              :row-id 2
+                              :sys-time-start sys-time
+                              :app-time-start #inst "2020-01-02"
+                              :new-entity? false
+                              :tombstone? true})]))
+          "delete overlapping at current sys-time"))
+
+  (let [sys-time #inst "2020-01-02"]
+    (t/is (=
+           #{1}
+           (current-rows-for
+             sys-time
+             [(->coordinates {:id 101
+                              :row-id 1
+                              :sys-time-start sys-time
+                              :app-time-start #inst "2020-01-02"
+                              :app-time-end #inst "2020-01-10"
+                              :new-entity? true})
+              (->coordinates {:id 101
+                              :row-id 2
+                              :sys-time-start sys-time
+                              :app-time-start #inst "2020-01-03"
+                              :app-time-end #inst "2020-01-20"
+                              :new-entity? false
+                              :tombstone? true})]))
+          "delete overlapping after current sys-time"))
+
+  (let [sys-time #inst "2020-01-02"]
+    (t/is (=
+           #{}
+           (current-rows-for
+             sys-time
+             [(->coordinates {:id 101
+                              :row-id 1
+                              :sys-time-start sys-time
+                              :app-time-start #inst "2020-01-01"
+                              :app-time-end #inst "2020-01-10"
+                              :new-entity? true})
+              (->coordinates {:id 101
+                              :row-id 2
+                              :sys-time-start sys-time
+                              :app-time-start #inst "2020-01-02"
+                              :app-time-end #inst "2020-01-04"
+                              :new-entity? false
+                              :tombstone? true})]))
+          "delete overlapping before current sys-time"))
+
+  (let [sys-time #inst "2020-01-02"]
+    (t/is (=
+           #{2}
+           (current-rows-for
+             sys-time
+             [(->coordinates {:id 101
+                              :row-id 1
+                              :sys-time-start sys-time
+                              :app-time-start #inst "2020-01-01"
+                              :new-entity? true})
+              (->coordinates {:id 101
+                              :row-id 2
+                              :sys-time-start sys-time
+                              :app-time-start #inst "2020-01-02"
+                              :new-entity? false})]))
+          "new put overlapping at current sys-time"))
+
+  (let [sys-time #inst "2020-01-02"]
+    (t/is (=
+           #{2}
+           (current-rows-for
+             sys-time
+             [(->coordinates {:id 101
+                              :row-id 1
+                              :sys-time-start sys-time
+                              :app-time-start #inst "2020-01-01"
+                              :new-entity? true})
+              (->coordinates {:id 101
+                              :row-id 2
+                              :sys-time-start sys-time
+                              :app-time-start #inst "2020-01-02"
+                              :new-entity? false})])))))
 
 (t/deftest kd-tree-sanity-check
   (let [points [[7 2] [5 4] [9 6] [4 7] [8 1] [2 3]]]

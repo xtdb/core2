@@ -1,7 +1,10 @@
 (ns core2.current-row-ids-test
   (:require [clojure.test :as t :refer [deftest]]
             [core2.datalog :as c2]
-            [core2.test-util :as tu]))
+            [core2.temporal :as temporal]
+            [core2.test-util :as tu]
+            )
+  (:import org.roaringbitmap.longlong.Roaring64Bitmap))
 
 (t/use-fixtures :each tu/with-mock-clock tu/with-node)
 
@@ -79,3 +82,13 @@
              (valid-ids-at #time/instant "2020-01-01T00:00:02Z")))
     (t/is (= []
              (valid-ids-at #time/instant "2020-01-01T00:00:03Z")))))
+
+
+(deftest remove-evicted-row-ids-test
+  (t/is
+    (= #{1 3}
+       (temporal/remove-evicted-row-ids
+         #{1 2 3}
+         (doto
+           (Roaring64Bitmap.)
+           (.addLong (long 2)))))))

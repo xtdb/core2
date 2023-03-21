@@ -422,15 +422,15 @@
                            temporal-col-names (mapv name temporal-col-names)
                            current-row-ids (let [{:keys [for-app-time for-sys-time]} scan-opts]
                                              (when (and (= [:at [:now :now]] for-app-time)
-                                                        (or (not for-sys-time)
-                                                            (= for-sys-time [:at [:now :now]]))
+                                                        (not for-sys-time)
                                                         (if (:current-time basis)
                                                           (>= (util/instant->micros (:current-time basis))
-                                                              (util/instant->micros (:sys-time (.txBasis watermark))))
+                                                              (util/instant->micros (:sys-time (:tx basis))))
                                                           true)
-                                                        (= (:tx basis)
-                                                           (.txBasis watermark))
+                                                        (= (:tx-id (:tx basis))
+                                                           (:tx-id (.txBasis watermark)))
                                                         (empty? (remove #(= % "id") temporal-col-names)))
+                                               ;; tx of basis needs to match watermarks tx, and there be no futher restriction on sys-time
                                                (.getCurrentRowIds
                                                  ^core2.temporal.ITemporalRelationSource
                                                  (.temporalRootsSource watermark)

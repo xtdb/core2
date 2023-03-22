@@ -351,6 +351,22 @@
 
     [min-range max-range]))
 
+(defn use-current-row-id-cache? [^IWatermark watermark scan-opts basis temporal-col-names]
+  (let [{:keys [for-app-time for-sys-time]} scan-opts]
+    (and (= [:at [:now :now]] for-app-time)
+         (or (not for-sys-time) (= [:at [:now :now]] for-sys-time))
+         (>= (util/instant->micros (:current-time basis))
+             (util/instant->micros (:sys-time (:tx basis))))
+         (= (:tx basis)
+            (.txBasis watermark))
+         (empty? (remove #(= % "id") temporal-col-names)))))
+
+(defn get-current-row-ids [^IWatermark watermark basis]
+  (.getCurrentRowIds
+    ^core2.temporal.ITemporalRelationSource
+    (.temporalRootsSource watermark)
+    (util/instant->micros (:current-time basis))))
+
 (defmethod ig/prep-key ::scan-emitter [_ opts]
   (merge opts
          {:metadata-mgr (ig/ref ::meta/metadata-manager)
@@ -420,22 +436,8 @@
                            [temporal-min-range temporal-max-range] (->temporal-min-max-range params basis scan-opts selects)
                            content-col-names (mapv name content-col-names)
                            temporal-col-names (mapv name temporal-col-names)
-                           current-row-ids (let [{:keys [for-app-time for-sys-time]} scan-opts]
-                                             (when (and (= [:at [:now :now]] for-app-time)
-                                                        (not for-sys-time)
-                                                        (if (:current-time basis)
-                                                          (>= (util/instant->micros (:current-time basis))
-                                                              (util/instant->micros (:sys-time (:tx basis))))
-                                                          true)
-                                                        (= (:tx-id (:tx basis))
-                                                           (:tx-id (.txBasis watermark)))
-                                                        (empty? (remove #(= % "id") temporal-col-names)))
-
-                                               (.getCurrentRowIds
-                                                 ^core2.temporal.ITemporalRelationSource
-                                                 (.temporalRootsSource watermark)
-                                                 (util/instant->micros (or (:current-time basis)
-                                                                           (:sys-time (:tx basis)))))))]
+                           current-row-ids (when (use-current-row-id-cache? watermark scan-opts basis temporal-col-names)
+                                             (get-current-row-ids watermark basis))]
 
                        (-> (ScanCursor. allocator metadata-mgr watermark
                                         content-col-names temporal-col-names col-preds

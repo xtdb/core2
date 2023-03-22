@@ -798,7 +798,92 @@
                  kd-tree
                  (util/instant->micros #time/instant "2020-01-01T00:00:01.000011Z")))))))
 
+(deftest advance-current-row-ids-multiple-periods
+  ;; test proves the need to sort additions/removals by valid time
+  (let [sys-time #time/instant "2020-01-01T00:00:01.000001Z"
+        kd-tree nil
+        !current-row-ids (volatile! #{})]
+    (with-open [allocator (RootAllocator.)
+                ^Closeable kd-tree (reduce
+                                     (fn [cur-kd-tree coords]
+                                       (temporal/insert-coordinates cur-kd-tree
+                                                                    allocator
+                                                                    coords
+                                                                    !current-row-ids
+                                                                    (util/instant->micros sys-time)))
+                                     kd-tree
+                                     [(->coordinates {:id 101
+                                                      :row-id 1
+                                                      :sys-time-start sys-time
+                                                      :app-time-start sys-time
+                                                      :new-entity? true})
+                                      (->coordinates {:id 101
+                                                      :row-id 2
+                                                      :sys-time-start sys-time
+                                                      :app-time-start #time/instant "2020-01-01T00:00:01.000003Z"
+                                                      :app-time-end #time/instant "2020-01-01T00:00:01.000004Z"
+                                                      :new-entity? false
+                                                      :tombstone? true})
+                                      (->coordinates {:id 101
+                                                      :row-id 3
+                                                      :sys-time-start sys-time
+                                                      :app-time-start #time/instant "2020-01-01T00:00:01.000006Z"
+                                                      :app-time-end  #time/instant "2020-01-01T00:00:01.000008Z"
+                                                      :new-entity? false
+                                                      :tombstone? true})])]
+      (t/is (= #{1}
+               @!current-row-ids))
 
+      (t/is (= #{1}
+               (temporal/advance-current-row-ids
+                 @!current-row-ids kd-tree
+                 (util/instant->micros sys-time)
+                 (util/instant->micros #time/instant "2020-01-01T00:00:01.000002Z"))))
+
+      (t/is (= #{}
+               (temporal/advance-current-row-ids
+                 @!current-row-ids kd-tree
+                 (util/instant->micros sys-time)
+                 (util/instant->micros #time/instant "2020-01-01T00:00:01.000003Z"))))
+
+
+      (t/is (= #{1}
+               (temporal/advance-current-row-ids
+                 @!current-row-ids kd-tree
+                 (util/instant->micros sys-time)
+                 (util/instant->micros #time/instant "2020-01-01T00:00:01.000004Z"))))
+
+
+      (t/is (= #{1}
+               (temporal/advance-current-row-ids
+                 @!current-row-ids kd-tree
+                 (util/instant->micros sys-time)
+                 (util/instant->micros #time/instant "2020-01-01T00:00:01.000005Z"))))
+
+
+      (t/is (= #{}
+               (temporal/advance-current-row-ids
+                 @!current-row-ids kd-tree
+                 (util/instant->micros sys-time)
+                 (util/instant->micros #time/instant "2020-01-01T00:00:01.000006Z"))))
+
+      (t/is (= #{}
+               (temporal/advance-current-row-ids
+                 @!current-row-ids kd-tree
+                 (util/instant->micros sys-time)
+                 (util/instant->micros #time/instant "2020-01-01T00:00:01.000007Z"))))
+
+      (t/is (= #{1}
+               (temporal/advance-current-row-ids
+                 @!current-row-ids kd-tree
+                 (util/instant->micros sys-time)
+                 (util/instant->micros #time/instant "2020-01-01T00:00:01.000008Z"))))
+
+      (t/is (= #{1}
+               (temporal/advance-current-row-ids
+                 @!current-row-ids kd-tree
+                 (util/instant->micros sys-time)
+                 (util/instant->micros #time/instant "2020-01-01T00:00:01.000009Z")))))))
 
 (t/deftest kd-tree-sanity-check
   (let [points [[7 2] [5 4] [9 6] [4 7] [8 1] [2 3]]]

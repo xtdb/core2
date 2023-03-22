@@ -353,6 +353,11 @@
                     (aset app-time-end-idx (inc latest-completed-tx-time))
                     (aset sys-time-end-idx (inc current-time)))
 
+        ;; justification here for sys-time-end constraint is that if a rows system time end
+        ;; is before current-time then then that row would have been removed during transaction
+        ;; processing as there is no way for a system time end to be in the future.
+        ;; Same applies above for row-ids-to-add
+
         max-range (doto (->max-range)
                     (aset app-time-start-idx latest-completed-tx-time)
                     (aset app-time-end-idx current-time))

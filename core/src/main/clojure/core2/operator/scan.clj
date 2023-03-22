@@ -430,7 +430,7 @@
                                                         (= (:tx-id (:tx basis))
                                                            (:tx-id (.txBasis watermark)))
                                                         (empty? (remove #(= % "id") temporal-col-names)))
-                                               ;; tx of basis needs to match watermarks tx, and there be no futher restriction on sys-time
+
                                                (.getCurrentRowIds
                                                  ^core2.temporal.ITemporalRelationSource
                                                  (.temporalRootsSource watermark)

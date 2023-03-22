@@ -754,7 +754,7 @@
                  (util/instant->micros sys-time)
                  (util/instant->micros #time/instant "2020-01-01T00:00:01.000002Z"))))
 
-      (t/is (= #{2}
+      (t/is (= #{}
                (temporal/advance-current-row-ids
                  @!current-row-ids kd-tree
                  (util/instant->micros sys-time)

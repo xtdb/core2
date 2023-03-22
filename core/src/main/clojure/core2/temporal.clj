@@ -327,11 +327,11 @@
 (defn row-ids-to-add [kd-tree ^long latest-completed-tx-time ^long current-time]
   (let [min-range (doto (->min-range)
                     (aset app-time-start-idx (inc latest-completed-tx-time))
-                    (aset app-time-end-idx current-time)
+                    (aset app-time-end-idx (inc current-time))
                     (aset sys-time-end-idx (inc current-time)))
 
         max-range (doto (->max-range)
-                    (aset app-time-start-idx (inc current-time)))
+                    (aset app-time-start-idx current-time))
 
         ^IKdTreePointAccess point-access (kd/kd-tree-point-access kd-tree)
 
@@ -351,7 +351,7 @@
 (defn row-ids-to-remove [kd-tree ^long latest-completed-tx-time ^long current-time]
   (let [min-range (doto (->min-range)
                     (aset app-time-end-idx (inc latest-completed-tx-time))
-                    (aset sys-time-end-idx (inc latest-completed-tx-time)))
+                    (aset sys-time-end-idx (inc current-time)))
 
         max-range (doto (->max-range)
                     (aset app-time-start-idx latest-completed-tx-time)
@@ -374,11 +374,11 @@
 
 (defn row-ids-to-from-start [kd-tree ^long current-time]
   (let [min-range (doto (->min-range)
-                    (aset app-time-end-idx current-time)
+                    (aset app-time-end-idx (inc current-time))
                     (aset sys-time-end-idx (inc current-time)))
 
         max-range (doto (->max-range)
-                    (aset app-time-start-idx (inc current-time)))
+                    (aset app-time-start-idx current-time))
 
         ^IKdTreePointAccess point-access (kd/kd-tree-point-access kd-tree)
 
@@ -470,10 +470,10 @@
     (when-let [temporal-chunk-idx (last (keys (.chunksMetadata metadata-manager)))]
       (.reloadTemporalIndex this temporal-chunk-idx (.latestTemporalSnapshotIndex this temporal-chunk-idx))
       (set! (.current-row-ids this)
-           (current-row-ids-from-start
-             (.kd-tree this)
-             (let [^core2.api.TransactionInstant  latest-completed-tx (.latest-completed-tx this)]
-               (util/instant->micros (.sys-time latest-completed-tx)))))))
+            (current-row-ids-from-start
+              (.kd-tree this)
+              (let [^core2.api.TransactionInstant  latest-completed-tx (.latest-completed-tx this)]
+                (util/instant->micros (.sys-time latest-completed-tx)))))))
 
   (awaitSnapshotBuild [_]
     (some-> snapshot-future (deref)))

@@ -30,21 +30,30 @@
 
 (defn ->coordinates ^core2.temporal.TemporalCoordinates [{:keys [id
                                                                  ^long row-id
-                                                                 ^Date sys-time-start
-                                                                 ^Date sys-time-end
-                                                                 ^Date app-time-start
-                                                                 ^Date app-time-end
+                                                                 sys-time-start
+                                                                 sys-time-end
+                                                                 app-time-start
+                                                                 app-time-end
                                                                  new-entity? tombstone?]}]
   (TemporalCoordinates. row-id id
-                        (util/instant->micros (.toInstant sys-time-start))
-                        (util/instant->micros (or (some-> sys-time-end .toInstant)
+                        (util/instant->micros (if (instance? Date sys-time-start)
+                                                (.toInstant ^Date sys-time-start)
+                                                sys-time-start))
+                        (util/instant->micros (or (if (instance? Date sys-time-end)
+                                                    (some-> ^Date sys-time-end .toInstant)
+                                                    sys-time-end)
                                                   util/end-of-time))
-                        (util/instant->micros (.toInstant (or app-time-start sys-time-start)))
-                        (util/instant->micros (or (some-> app-time-end .toInstant)
+                        (util/instant->micros (let [ats (or app-time-start sys-time-start)]
+                                                    (if (instance? Date ats)
+                                                      (.toInstant ^Date ats)
+                                                      ats)))
+                        (util/instant->micros (or (if (instance? Date app-time-end)
+                                                    (some-> ^Date app-time-end .toInstant)
+                                                    app-time-end)
                                                   util/end-of-time))
                         new-entity? (boolean tombstone?)))
 
-(defn as-nanos [^java.util.Date inst]
+ (defn as-micros [^java.util.Date inst]
   (util/instant->micros (.toInstant inst)))
 
 (t/deftest bitemporal-sys-time-split-test
@@ -63,7 +72,7 @@
                                                                                   :sys-time-start sys-time
                                                                                   :new-entity? true})
                                                                   !current-row-ids
-                                                                  (as-nanos sys-time)))]
+                                                                  (as-micros sys-time)))]
       (.put row-id->row 1 {:customer-number 145})
       (t/is (= [{:id 7797,
                  :customer-number 145,
@@ -86,7 +95,7 @@
                                                                  :sys-time-start sys-time
                                                                  :new-entity? false})
                                                  !current-row-ids
-                                                 (as-nanos sys-time))]
+                                                 (as-micros sys-time))]
         (.put row-id->row 2 {:customer-number 827})
         (t/is (= [{:id 7797,
                    :row-id 1,
@@ -124,7 +133,7 @@
                                                                    :new-entity? false
                                                                    :tombstone? true})
                                                    !current-row-ids
-                                                   (as-nanos sys-time))]
+                                                   (as-micros sys-time))]
           (.put row-id->row 3 {:customer-number 827})
           (t/is (= [{:id 7797,
                      :customer-number 145,
@@ -170,7 +179,7 @@
                                                                      :app-time-end #inst "1998-01-15"
                                                                      :new-entity? false})
                                                      !current-row-ids
-                                                     (as-nanos sys-time))]
+                                                     (as-micros sys-time))]
             (.put row-id->row 4 {:customer-number 145})
             (t/is (= [{:id 7797,
                        :customer-number 145,
@@ -225,7 +234,7 @@
                                                                        :new-entity? false
                                                                        :tombstone? true})
                                                        !current-row-ids
-                                                       (as-nanos sys-time))]
+                                                       (as-micros sys-time))]
               (.put row-id->row 5 {:customer-number 145})
               (t/is (= [{:id 7797,
                          :customer-number 145,
@@ -286,7 +295,7 @@
                                                                          :app-time-end #inst "1998-01-15"
                                                                          :new-entity? false})
                                                          !current-row-ids
-                                                         (as-nanos sys-time))]
+                                                         (as-micros sys-time))]
                 (.put row-id->row 6 {:customer-number 827})
                 (t/is (= [{:id 7797,
                            :customer-number 145,
@@ -365,7 +374,7 @@
                                                                     allocator
                                                                     coords
                                                                     !current-row-ids
-                                                                    (as-nanos sys-time)))
+                                                                    (as-micros sys-time)))
                                      kd-tree
                                      inserts)]
       @!current-row-ids)))
@@ -511,23 +520,246 @@
                               :sys-time-start sys-time
                               :app-time-start #inst "2020-01-02"
                               :new-entity? false})]))
-          "new put overlapping at current sys-time"))
+          "new put overlapping at current sys-time")))
 
-  (let [sys-time #inst "2020-01-02"]
-    (t/is (=
-           #{2}
-           (current-rows-for
-             sys-time
-             [(->coordinates {:id 101
-                              :row-id 1
-                              :sys-time-start sys-time
-                              :app-time-start #inst "2020-01-01"
-                              :new-entity? true})
-              (->coordinates {:id 101
-                              :row-id 2
-                              :sys-time-start sys-time
-                              :app-time-start #inst "2020-01-02"
-                              :new-entity? false})])))))
+(deftest advance-current-row-ids-add-app-time-start-upper-bound
+  (let [sys-time #time/instant "2020-01-01T00:00:01.000001Z"
+        kd-tree nil
+        !current-row-ids (volatile! #{})]
+    (with-open [allocator (RootAllocator.)
+                ^Closeable kd-tree (reduce
+                                     (fn [cur-kd-tree coords]
+                                       (temporal/insert-coordinates cur-kd-tree
+                                                                    allocator
+                                                                    coords
+                                                                    !current-row-ids
+                                                                    (util/instant->micros sys-time)))
+                                     kd-tree
+                                     [(->coordinates {:id 101
+                                                      :row-id 1
+                                                      :sys-time-start sys-time
+                                                      :app-time-start #time/instant "2020-01-01T00:00:01.000010Z"
+                                                      :new-entity? true})])]
+      (t/is (= #{}
+               @!current-row-ids))
+
+      (t/is (= #{}
+               (temporal/advance-current-row-ids
+                 @!current-row-ids kd-tree
+                 (util/instant->micros sys-time)
+                 (util/instant->micros #time/instant "2020-01-01T00:00:01.000009Z"))))
+
+      (t/is (= #{1}
+               (temporal/advance-current-row-ids
+                 @!current-row-ids kd-tree
+                 (util/instant->micros sys-time)
+                 (util/instant->micros #time/instant "2020-01-01T00:00:01.000010Z"))))
+
+      (t/is (= #{1}
+               (temporal/advance-current-row-ids
+                 @!current-row-ids kd-tree
+                 (util/instant->micros sys-time)
+                 (util/instant->micros #time/instant "2020-01-01T00:00:01.000011Z")))))))
+
+(deftest advance-current-row-ids-add-app-time-start-lower-bound
+  (let [sys-time #time/instant "2020-01-01T00:00:01.000001Z"
+        kd-tree nil
+        !current-row-ids (volatile! #{})]
+    (with-open [allocator (RootAllocator.)
+                ^Closeable kd-tree (reduce
+                                     (fn [cur-kd-tree coords]
+                                       (temporal/insert-coordinates cur-kd-tree
+                                                                    allocator
+                                                                    coords
+                                                                    !current-row-ids
+                                                                    (util/instant->micros sys-time)))
+                                     kd-tree
+                                     [(->coordinates {:id 101
+                                                      :row-id 1
+                                                      :sys-time-start sys-time
+                                                      :app-time-start #time/instant "2020-01-01T00:00:01.000002Z"
+                                                      :new-entity? true})])]
+      (t/is (= #{}
+               @!current-row-ids))
+
+      (t/is (= #{}
+               (temporal/advance-current-row-ids
+                 @!current-row-ids kd-tree
+                 (util/instant->micros sys-time)
+                 (util/instant->micros #time/instant "2020-01-01T00:00:01.000001Z"))))
+
+      (t/is (= #{1}
+               (temporal/advance-current-row-ids
+                 @!current-row-ids kd-tree
+                 (util/instant->micros sys-time)
+                 (util/instant->micros #time/instant "2020-01-01T00:00:01.000002Z"))))
+
+      (t/is (= #{1}
+               (temporal/advance-current-row-ids
+                 @!current-row-ids kd-tree
+                 (util/instant->micros sys-time)
+                 (util/instant->micros #time/instant "2020-01-01T00:00:01.000003Z")))))))
+
+
+(deftest advance-current-row-ids-add-app-time-end-lower-bound
+  (let [sys-time #time/instant "2020-01-01T00:00:01.000001Z"
+        kd-tree nil
+        !current-row-ids (volatile! #{})]
+    (with-open [allocator (RootAllocator.)
+                ^Closeable kd-tree (reduce
+                                     (fn [cur-kd-tree coords]
+                                       (temporal/insert-coordinates cur-kd-tree
+                                                                    allocator
+                                                                    coords
+                                                                    !current-row-ids
+                                                                    (util/instant->micros sys-time)))
+                                     kd-tree
+                                     [(->coordinates {:id 101
+                                                      :row-id 1
+                                                      :sys-time-start sys-time
+                                                      :app-time-start #time/instant "2020-01-01T00:00:01.000008Z"
+                                                      :app-time-end #time/instant "2020-01-01T00:00:01.000010Z"
+                                                      :new-entity? true})])]
+      (t/is (= #{}
+               @!current-row-ids))
+
+      (t/is (= #{1}
+               (temporal/advance-current-row-ids
+                 @!current-row-ids kd-tree
+                 (util/instant->micros sys-time)
+                 (util/instant->micros #time/instant "2020-01-01T00:00:01.000009Z"))))
+
+      (t/is (= #{}
+               (temporal/advance-current-row-ids
+                 @!current-row-ids kd-tree
+                 (util/instant->micros sys-time)
+                 (util/instant->micros #time/instant "2020-01-01T00:00:01.000010Z"))))
+
+      (t/is (= #{}
+               (temporal/advance-current-row-ids
+                 @!current-row-ids kd-tree
+                 (util/instant->micros sys-time)
+                 (util/instant->micros #time/instant "2020-01-01T00:00:01.000011Z")))))))
+
+
+(deftest advance-current-row-ids-remove-app-time-end-upper-bound
+  (let [sys-time #time/instant "2020-01-01T00:00:01.000001Z"
+        kd-tree nil
+        !current-row-ids (volatile! #{})]
+    (with-open [allocator (RootAllocator.)
+                ^Closeable kd-tree (reduce
+                                     (fn [cur-kd-tree coords]
+                                       (temporal/insert-coordinates cur-kd-tree
+                                                                    allocator
+                                                                    coords
+                                                                    !current-row-ids
+                                                                    (util/instant->micros sys-time)))
+                                     kd-tree
+                                     [(->coordinates {:id 101
+                                                      :row-id 1
+                                                      :sys-time-start sys-time
+                                                      :app-time-end #time/instant "2020-01-01T00:00:01.000010Z"
+                                                      :new-entity? true})])]
+      (t/is (= #{1}
+               @!current-row-ids))
+
+      (t/is (= #{1}
+               (temporal/advance-current-row-ids
+                 @!current-row-ids kd-tree
+                 (util/instant->micros sys-time)
+                 (util/instant->micros #time/instant "2020-01-01T00:00:01.000009Z"))))
+
+      (t/is (= #{}
+               (temporal/advance-current-row-ids
+                 @!current-row-ids kd-tree
+                 (util/instant->micros sys-time)
+                 (util/instant->micros #time/instant "2020-01-01T00:00:01.000010Z"))))
+
+      (t/is (= #{}
+               (temporal/advance-current-row-ids
+                 @!current-row-ids kd-tree
+                 (util/instant->micros sys-time)
+                 (util/instant->micros #time/instant "2020-01-01T00:00:01.000011Z")))))))
+
+(deftest advance-current-row-ids-remove-app-time-end-lower-bound
+  (let [sys-time #time/instant "2020-01-01T00:00:01.000001Z"
+        kd-tree nil
+        !current-row-ids (volatile! #{})]
+    (with-open [allocator (RootAllocator.)
+                ^Closeable kd-tree (reduce
+                                     (fn [cur-kd-tree coords]
+                                       (temporal/insert-coordinates cur-kd-tree
+                                                                    allocator
+                                                                    coords
+                                                                    !current-row-ids
+                                                                    (util/instant->micros sys-time)))
+                                     kd-tree
+                                     [(->coordinates {:id 101
+                                                      :row-id 1
+                                                      :sys-time-start sys-time
+                                                      :app-time-end #time/instant "2020-01-01T00:00:01.000002Z"
+                                                      :new-entity? true})])]
+      (t/is (= #{1}
+               @!current-row-ids))
+
+      (t/is (= #{1}
+               (temporal/advance-current-row-ids
+                 @!current-row-ids kd-tree
+                 (util/instant->micros sys-time)
+                 (util/instant->micros #time/instant "2020-01-01T00:00:01.000001Z"))))
+
+      (t/is (= #{}
+               (temporal/advance-current-row-ids
+                 @!current-row-ids kd-tree
+                 (util/instant->micros sys-time)
+                 (util/instant->micros #time/instant "2020-01-01T00:00:01.000002Z"))))
+
+      (t/is (= #{}
+               (temporal/advance-current-row-ids
+                 @!current-row-ids kd-tree
+                 (util/instant->micros sys-time)
+                 (util/instant->micros #time/instant "2020-01-01T00:00:01.000003Z")))))))
+
+(deftest advance-current-row-ids-remove-app-time-start-lower-bound
+  (let [sys-time #time/instant "2020-01-01T00:00:01.000001Z"
+        kd-tree nil
+        !current-row-ids (volatile! #{})]
+    (with-open [allocator (RootAllocator.)
+                ^Closeable kd-tree (reduce
+                                     (fn [cur-kd-tree coords]
+                                       (temporal/insert-coordinates cur-kd-tree
+                                                                    allocator
+                                                                    coords
+                                                                    !current-row-ids
+                                                                    (util/instant->micros sys-time)))
+                                     kd-tree
+                                     [(->coordinates {:id 101
+                                                      :row-id 1
+                                                      :sys-time-start sys-time
+                                                      :app-time-start #time/instant "2020-01-01T00:00:01.000001Z"
+                                                      :app-time-end #time/instant "2020-01-01T00:00:01.000002Z"
+                                                      :new-entity? true})])]
+      (t/is (= #{1}
+               @!current-row-ids))
+
+      (t/is (= #{1}
+               (temporal/advance-current-row-ids
+                 @!current-row-ids kd-tree
+                 (util/instant->micros sys-time)
+                 (util/instant->micros #time/instant "2020-01-01T00:00:01.000001Z"))))
+
+      (t/is (= #{}
+               (temporal/advance-current-row-ids
+                 @!current-row-ids kd-tree
+                 (util/instant->micros sys-time)
+                 (util/instant->micros #time/instant "2020-01-01T00:00:01.000002Z"))))
+
+      (t/is (= #{2}
+               (temporal/advance-current-row-ids
+                 @!current-row-ids kd-tree
+                 (util/instant->micros sys-time)
+                 (util/instant->micros #time/instant "2020-01-01T00:00:01.000003Z")))))))
+
 
 (t/deftest kd-tree-sanity-check
   (let [points [[7 2] [5 4] [9 6] [4 7] [8 1] [2 3]]]

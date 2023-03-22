@@ -366,7 +366,7 @@
                     (.mapToObj (reify LongFunction
                                  (apply [_ x]
                                    (doto (long-array 3)
-                                     (aset 0 (.getCoordinate point-access x app-time-start-idx))
+                                     (aset 0 (.getCoordinate point-access x app-time-end-idx))
                                      (aset 1 (.getCoordinate point-access x row-id-idx))
                                      (aset 2 0)))))
                     (.toArray))]
@@ -399,16 +399,22 @@
   (let [row-ids-to-add (row-ids-to-add kd-tree latest-completed-tx-time current-time)
         row-ids-to-remove (row-ids-to-remove kd-tree latest-completed-tx-time current-time)
         row-id-changes-by-app-time (sort-by #(aget ^longs % 0) (concat row-ids-to-add row-ids-to-remove))]
-    (reduce (fn [current-row-ids-acc ^longs change]
-              (if (= 1 (aget change 2))
-                (conj current-row-ids-acc (aget change 1))
-                (disj current-row-ids-acc (aget change 1)))) current-row-ids row-id-changes-by-app-time)))
+    (reduce
+      (fn [current-row-ids-acc ^longs change]
+        (if (= 1 (aget change 2))
+          (conj current-row-ids-acc (aget change 1))
+          (disj current-row-ids-acc (aget change 1))))
+      current-row-ids
+      row-id-changes-by-app-time)))
 
 (defn current-row-ids-from-start [kd-tree current-time]
   (let [row-ids-to-add (row-ids-to-from-start kd-tree current-time)
         row-id-changes-by-app-time (sort-by #(aget ^longs % 0) row-ids-to-add)]
-    (reduce (fn [current-row-ids-acc ^longs change]
-              (conj current-row-ids-acc (aget change 1))) #{} row-id-changes-by-app-time)))
+    (reduce
+      (fn [current-row-ids-acc ^longs change]
+        (conj current-row-ids-acc (aget change 1)))
+      #{}
+      row-id-changes-by-app-time)))
 
 (deftype TemporalManager [^BufferAllocator allocator
                           ^ObjectStore object-store
@@ -472,8 +478,7 @@
       (set! (.current-row-ids this)
             (current-row-ids-from-start
               (.kd-tree this)
-              (let [^core2.api.TransactionInstant  latest-completed-tx (.latest-completed-tx this)]
-                (util/instant->micros (.sys-time latest-completed-tx)))))))
+              (util/instant->micros (.sys-time latest-completed-tx))))))
 
   (awaitSnapshotBuild [_]
     (some-> snapshot-future (deref)))
@@ -501,7 +506,8 @@
 
   ITemporalManager
   (getTemporalWatermark [_]
-    (let [kd-tree (some-> kd-tree (kd/kd-tree-retain allocator))]
+    (let [kd-tree (some-> kd-tree (kd/kd-tree-retain allocator))
+          latest-completed-tx latest-completed-tx]
       (reify
         ITemporalRelationSource
         (createTemporalRelation [_ allocator columns temporal-min-range temporal-max-range row-id-bitmap]
@@ -551,7 +557,7 @@
           !kd-tree (volatile! kd-tree)
           !current-row-ids (volatile! current-row-ids)]
 
-      (when-let [^core2.api.TransactionInstant latest-completed-tx (.latest-completed-tx this-tm)]
+      (when latest-completed-tx
         (vswap!
           !current-row-ids
           advance-current-row-ids

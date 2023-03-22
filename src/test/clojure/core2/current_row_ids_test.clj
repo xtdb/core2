@@ -3,29 +3,34 @@
             [core2.datalog :as c2]
             [core2.temporal :as temporal]
             [core2.test-util :as tu]
-            )
-  (:import org.roaringbitmap.longlong.Roaring64Bitmap))
+            [core2.util :as util])
+  (:import org.roaringbitmap.longlong.Roaring64Bitmap
+           java.time.Duration))
 
 (t/use-fixtures :each tu/with-mock-clock tu/with-node)
+
+(def
+  tx1
+  '[[:put xt_docs {:id :ivan, :first-name "Ivan"}]
+    [:put xt_docs {:id :petr, :first-name "Petr"}
+     {:app-time-start #inst "2020-01-02T12:00:00Z"}]
+    [:put xt_docs {:id :susie, :first-name "Susie"}
+     {:app-time-end #inst "2020-01-02T13:00:00Z"}]
+    [:put xt_docs {:id :sam, :first-name "Sam"}]
+    [:put xt_docs {:id :petr, :first-name "Petr"}
+     {:app-time-start #inst "2020-01-04T12:00:00Z"}]
+    [:put xt_docs {:id :jen, :first-name "Jen"}
+     {:app-time-end #inst "2020-01-04T13:00:00Z"}]
+    [:put xt_docs {:id :james, :first-name "James"}
+     {:app-time-start #inst "2020-01-01T12:00:00Z"}]
+    [:put xt_docs {:id :jon, :first-name "Jon"}
+     {:app-time-end #inst "2020-01-01T12:00:00Z"}]
+    [:put xt_docs {:id :lucy :first-name "Lucy"}]])
 
 (deftest test-current-row-ids
   (c2/submit-tx
     tu/*node*
-    '[[:put xt_docs {:id :ivan, :first-name "Ivan"}]
-      [:put xt_docs {:id :petr, :first-name "Petr"}
-       {:app-time-start #inst "2020-01-02T12:00:00Z"}]
-      [:put xt_docs {:id :susie, :first-name "Susie"}
-       {:app-time-end #inst "2020-01-02T13:00:00Z"}]
-      [:put xt_docs {:id :sam, :first-name "Sam"}]
-      [:put xt_docs{:id :petr, :first-name "Petr"}
-       {:app-time-start #inst "2020-01-04T12:00:00Z"}]
-      [:put xt_docs {:id :jen, :first-name "Jen"}
-       {:app-time-end #inst "2020-01-04T13:00:00Z"}]
-      [:put xt_docs {:id :james, :first-name "James"}
-       {:app-time-start #inst "2020-01-01T12:00:00Z"}]
-      [:put xt_docs {:id :jon, :first-name "Jon"}
-       {:app-time-end #inst "2020-01-01T12:00:00Z"}]
-      [:put xt_docs {:id :lucy :first-name "Lucy"}]])
+    tx1)
 
   (c2/submit-tx
     tu/*node*
@@ -92,3 +97,39 @@
          (doto
            (Roaring64Bitmap.)
            (.addLong (long 2)))))))
+
+(deftest current-row-ids-can-be-built-at-startup
+  (let [node-dir (util/->path "target/can-build-current-row-ids-at-startup")
+        expectation [{:name "Ivan"}
+                     {:name "James"}
+                     {:name "Jen"}
+                     {:name "Lucy"}
+                     {:name "Petr"}
+                     {:name "Sam"}]]
+    (util/delete-dir node-dir)
+
+    (with-open [node (tu/->local-node {:node-dir node-dir})]
+
+      (-> (c2/submit-tx node tx1)
+          (tu/then-await-tx* node (Duration/ofMillis 2000)))
+
+      (tu/finish-chunk! node)
+
+      (t/is (= expectation
+               (c2/q
+                 node
+                 (-> '{:find [name]
+                       :where [(match xt_docs {:first-name name})]
+                       :order-by [[name :asc]]}
+                     (assoc :basis {:current-time #time/instant "2020-01-03T00:00:00Z"}))))))
+
+    (with-open [node (tu/->local-node {:node-dir node-dir})]
+      (t/is (= expectation
+               (c2/q
+                 node
+                 (-> '{:find [name]
+                       :where [(match xt_docs {:first-name name})]
+                       :order-by [[name :asc]]}
+                     (assoc :basis {:current-time #time/instant "2020-01-03T00:00:00Z"}))))))))
+
+

@@ -1645,8 +1645,8 @@
             "Case 8: Application-time sequenced and system-time nonsequenced"))))
 
 (deftest sub-query-projection-in-where-test
-  (xt/submit-tx tu/*node* [[:put :customer {:id 0, :firstname "bob"}]
-                           [:put :customer {:id 1, :firstname "alice"}]
+  (xt/submit-tx tu/*node* [[:put :customer {:id 0, :firstname "bob", :lastname "smith"}]
+                           [:put :customer {:id 1, :firstname "alice" :lastname "carrol"}]
                            [:put :order {:id 0, :customer 0, :items [{:sku "eggs", :qty 1}]}]
                            [:put :order {:id 1, :customer 0, :items [{:sku "cheese", :qty 3}]}]
                            [:put :order {:id 2, :customer 1, :items [{:sku "bread", :qty 1} {:sku "eggs", :qty 2}]}]])
@@ -1713,9 +1713,37 @@
                firstname]]}
     [{:order 0, :firstname "bob"}
      {:order 1, :firstname "bob"}
-     {:order 2, :firstname "alice"}])
+     {:order 2, :firstname "alice"}]
 
-  (t/testing "cardinality violation error"
+    '{:find [order fullname]
+      :where [(match :order {:id order, :customer customer})
+              [(concat
+                 (q {:find [fn]
+                     :in [customer]
+                     :where [(match :customer {:id customer, :firstname fn})]})
+                 " "
+                 (q {:find [ln]
+                     :in [customer]
+                     :where [(match :customer {:id customer, :lastname ln})]}))
+               fullname]]}
+    [{:order 0, :fullname "bob smith"}
+     {:order 1, :fullname "bob smith"}
+     {:order 2, :fullname "alice carrol"}]
+
+    ;; this query does not yet work (dlog compiles correctly, but the predicate
+    ;; is pushed into the dependent side incorrectly causing an erroneous result
+    ;; see
+    #_#_
+    '{:find [order]
+      :where [(match :order {:id order, :customer customer})
+              [(= (q {:find [fn]
+                      :in [customer]
+                      :where [(match :customer {:id customer, :firstname fn})]})
+                  "bob")]]}
+    [{:order 0}
+     {:order 1}])
+
+(t/testing "cardinality violation error"
     (t/is (thrown-with-msg? xtdb.RuntimeException #"cardinality violation"
                             (->> '{:find [firstname]
                                    :where [[(q {:find [firstname],

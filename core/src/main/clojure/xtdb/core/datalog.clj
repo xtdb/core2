@@ -590,6 +590,13 @@
     (-> [:apply :single-join apply-mapping-u plan-u sq-plan-u]
         (wrap-unify (::var->cols (meta rels))))))
 
+(defn- wrap-dependent-sub-queries [plan conformed-sub-queries param-vars]
+  (reduce-kv
+    (fn [plan sym sq]
+      (wrap-scalar-sub-query plan sym (:sub-query sq) param-vars))
+    plan
+    conformed-sub-queries))
+
 (defn- wrap-calls [plan calls param-vars]
   (letfn [(wrap-scalars [plan scalars]
             (let [scalars (->> scalars
@@ -606,17 +613,11 @@
                                {(::return-col (meta form)) form}))
                    plan]
                   (with-meta (-> (meta plan) (update ::vars into (map ::return-col scalars))))
-                  (wrap-unify var->cols))))
-          (wrap-sub-queries [plan conformed-sub-queries]
-            (reduce-kv
-              (fn [plan sym sq]
-                (wrap-scalar-sub-query plan sym (:sub-query sq) param-vars))
-              plan
-              conformed-sub-queries))]
+                  (wrap-unify var->cols))))]
     (let [sub-queries (reduce conj {} (map find-scalar-sub-query-placeholders calls))
           {selects nil, scalars :scalar} (group-by (comp ::return-type meta) calls)]
       (-> plan
-          (wrap-sub-queries sub-queries)
+          (wrap-dependent-sub-queries sub-queries param-vars)
           (cond-> scalars (wrap-scalars scalars))
           (wrap-select selects)))))
 
@@ -919,10 +920,8 @@
                                       {:rule-name name})))))
         rule-name->rules))
 
-(defn- plan-body [{where-clauses :where, apply-mapping ::apply-mapping, rules :rules, :as query}]
-  (let [in-rels (plan-in-tables query)
-        {::keys [param-vars]} (meta in-rels)
-
+(defn- plan-body [{where-clauses :where, apply-mapping ::apply-mapping, rules :rules, :as query} in-rels]
+  (let [{::keys [param-vars]} (meta in-rels)
         rule-name->rules (->> rules
                               gensym-rules
                               (group-by (comp :name :head)))
@@ -989,6 +988,11 @@
 
 (defn- unwrap-with-meta [{:keys [obj]}] obj)
 
+(defn- plan-head-call [[form-type form :as conformed-form]]
+  (case form-type
+    :literal form
+    (plan-call {:form conformed-form})))
+
 (defn- plan-head-exprs [{find-clause :find, :keys [order-by]}]
   (letfn [(with-col-name [prefix idx fc]
             (-> (vec fc) (with-meta {::col (col-sym prefix (str idx))})))
@@ -1006,11 +1010,11 @@
                         (with-meta {::col col
                                     ::agg {col (list f projection-sym)}
                                     ::agg-projection {projection-sym (s/unform ::form agg-arg)}})))))
-              (let [org-form (s/unform ::form form)
+              (let [planned-form (plan-head-call form)
                     m {::grouping-vars (form-vars form), ::col col}]
-                (if (instance? clojure.lang.IMeta org-form)
-                  (-> org-form (with-meta m))
-                  (wrap-with-meta org-form m)))))]
+                (if (instance? clojure.lang.IMeta planned-form)
+                  (-> planned-form (vary-meta merge m))
+                  (wrap-with-meta planned-form m)))))]
 
     (->> (concat (->> find-clause
                       (into [] (map-indexed (partial with-col-name "_column"))))
@@ -1040,9 +1044,12 @@
     (-> clauses
         (with-meta {::vars (->> clauses (into #{} (map (comp ::var meta))))}))))
 
-(defn- wrap-find [plan find-clauses]
-  (-> [:project find-clauses plan]
-      (with-meta (-> (meta plan) (assoc ::vars (::vars (meta find-clauses)))))))
+(defn- wrap-find [plan find-clauses param-vars]
+  (let [cols (map (fn [projection] (if (map? projection) (first (vals projection)) projection)) find-clauses)
+        sub-queries (reduce conj {} (map find-scalar-sub-query-placeholders cols))
+        plan' (wrap-dependent-sub-queries plan sub-queries param-vars)]
+    (-> [:project find-clauses plan']
+        (with-meta (-> (meta plan') (assoc ::vars (::vars (meta find-clauses))))))))
 
 (defn- plan-order-by [{:keys [order-by]} head-exprs]
   (some->> order-by
@@ -1087,7 +1094,7 @@
     (unbound-var-check find-vars body-provided-vars "find")
     (unbound-var-check order-by-vars body-provided-vars "order-by")))
 
-(defn- wrap-head [plan query]
+(defn- wrap-head [plan query param-vars]
 
   (check-head-vars query (meta plan))
 
@@ -1099,7 +1106,7 @@
     (-> plan
         (cond-> group-by-clauses (wrap-group-by group-by-clauses)
                 order-by-clauses (wrap-order-by order-by-clauses))
-        (wrap-find find-clauses))))
+        (wrap-find find-clauses param-vars))))
 
 (defn- wrap-top [plan {:keys [limit offset]}]
   (if (or limit offset)
@@ -1112,9 +1119,10 @@
     plan))
 
 (defn- plan-query [conformed-query]
-  (-> (plan-body conformed-query)
-      (wrap-head conformed-query)
-      (wrap-top conformed-query)))
+  (let [in-rels (plan-in-tables conformed-query)]
+    (-> (plan-body conformed-query in-rels)
+        (wrap-head conformed-query (::param-vars (meta in-rels)))
+        (wrap-top conformed-query))))
 
 (defn compile-query [query]
   (binding [*gensym* (seeded-gensym "_" 0)]

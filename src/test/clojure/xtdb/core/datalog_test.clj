@@ -1644,7 +1644,7 @@
                   tx7, nil, 7797))
             "Case 8: Application-time sequenced and system-time nonsequenced"))))
 
-(deftest sub-query-projection-in-where-test
+(deftest scalar-sub-queries-test
   (xt/submit-tx tu/*node* [[:put :customer {:id 0, :firstname "bob", :lastname "smith"}]
                            [:put :customer {:id 1, :firstname "alice" :lastname "carrol"}]
                            [:put :order {:id 0, :customer 0, :items [{:sku "eggs", :qty 1}]}]
@@ -1741,7 +1741,19 @@
                       :where [(match :customer {:id customer, :firstname fn})]})
                   "bob")]]}
     [{:order 0}
-     {:order 1}])
+     {:order 1}]
+
+    '{:find [(q {:find [(count c)] :where [(match :customer {:id c})]})]
+      :keys [n]}
+    [{:n 2}]
+
+
+    '{:find [(q {:find [(count c)]
+                 :where [(match :customer {:id c})]})
+             (q {:find [(count o)]
+                 :where [(match :order {:id o})]})]
+      :keys [c, o]}
+    [{:c 2, :o 3}])
 
 (t/testing "cardinality violation error"
     (t/is (thrown-with-msg? xtdb.RuntimeException #"cardinality violation"

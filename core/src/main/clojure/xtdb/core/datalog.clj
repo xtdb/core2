@@ -565,7 +565,7 @@
              (MapEntry/create param param-symbol)))
          (into {}))))
 
-(defn- plan-sub-query [{:keys [sub-query]}]
+(defn- plan-sub-query [sub-query]
   (let [required-vars (->> (:in sub-query)
                            (into #{} (map
                                        (fn [[in-type in-arg :as in]]
@@ -580,11 +580,11 @@
         (vary-meta into {::required-vars required-vars, ::apply-mapping apply-mapping}))))
 
 (defn- wrap-scalar-sub-query [plan binding-sym scalar-sub-query param-vars]
-  (let [sq-plan (plan-sub-query scalar-sub-query)
-        {sq-vars ::vars, ::keys [apply-mapping]} (meta sq-plan)
-        _ (when (not= 1 (count sq-vars)) (throw (err/illegal-arg :scalar-sub-query-requires-one-column {::err/message "scalar sub query requires exactly one column"})))
-        sq-var (first sq-vars)
-        sq-plan (vary-meta [:rename {sq-var binding-sym} sq-plan] assoc ::vars #{binding-sym})
+  (let [col-count (count (:find scalar-sub-query))
+        _ (when (not= 1 col-count) (throw (err/illegal-arg :scalar-sub-query-requires-one-column {::err/message "scalar sub query requires exactly one column"})))
+        sq-plan (plan-sub-query (assoc scalar-sub-query :keys [binding-sym]))
+        {::keys [apply-mapping]} (meta sq-plan)
+        sq-plan (vary-meta sq-plan assoc ::vars #{binding-sym})
         [plan-u sq-plan-u :as rels] (with-unique-cols [plan sq-plan] param-vars)
         apply-mapping-u (update-keys apply-mapping (::var->col (meta plan-u)))]
     (-> [:apply :single-join apply-mapping-u plan-u sq-plan-u]
@@ -607,12 +607,12 @@
                    plan]
                   (with-meta (-> (meta plan) (update ::vars into (map ::return-col scalars))))
                   (wrap-unify var->cols))))
-          (wrap-sub-queries [plan sub-queries]
+          (wrap-sub-queries [plan conformed-sub-queries]
             (reduce-kv
               (fn [plan sym sq]
-                (wrap-scalar-sub-query plan sym sq param-vars))
+                (wrap-scalar-sub-query plan sym (:sub-query sq) param-vars))
               plan
-              sub-queries))]
+              conformed-sub-queries))]
     (let [sub-queries (reduce conj {} (map find-scalar-sub-query-placeholders calls))
           {selects nil, scalars :scalar} (group-by (comp ::return-type meta) calls)]
       (-> plan
@@ -941,7 +941,7 @@
                            (concat param-vars apply-mapping))
 
            calls (some->> call-clauses (mapv plan-call))
-           sub-queries (some->> sub-query-clauses (mapv plan-sub-query))
+           sub-queries (some->> sub-query-clauses (mapv (comp plan-sub-query :sub-query)))
            union-joins (some->> union-join-clauses (mapv plan-union-join))
            semi-joins (some->> semi-join-clauses (mapv (partial plan-semi-join :semi-join)))
            anti-joins (some->> anti-join-clauses (mapv (partial plan-semi-join :anti-join)))]

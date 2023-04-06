@@ -1753,7 +1753,17 @@
              (q {:find [(count o)]
                  :where [(match :order {:id o})]})]
       :keys [c, o]}
-    [{:c 2, :o 3}])
+    [{:c 2, :o 3}]
+
+    '{:find [(q {:find [(count c)]
+                 :in [c]
+                 :where [(match :customer {:id c})]})
+             (q {:find [(count o)]
+                 :in [c]
+                 :where [(match :order {:id o, :customer c})]})]
+      :keys [c, o]
+      :where [(match :customer [{:id c, :firstname "bob"}])]}
+    [{:c 1, :o 2}])
 
 (t/testing "cardinality violation error"
     (t/is (thrown-with-msg? xtdb.RuntimeException #"cardinality violation"

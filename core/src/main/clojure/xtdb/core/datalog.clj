@@ -30,9 +30,9 @@
 
 (s/def ::form
   (s/or :logic-var ::logic-var
+        :sub-query ::sub-query
         :fn-call ::fn-call
-        :literal ::value
-        :sub-query ::sub-query))
+        :literal ::value))
 
 (s/def ::find-arg
   (s/or :logic-var ::logic-var

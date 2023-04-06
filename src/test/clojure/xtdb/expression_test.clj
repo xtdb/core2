@@ -92,7 +92,7 @@
 
   Usage: (project '(+ a b) [{:a 1, :b 2}, {:a 3, :b 4}]) ;; => [3, 7]"
   [expr docs]
-  (let [docs (map-indexed #(assoc %2 :id %1) docs)
+  (let [docs (map-indexed #(assoc %2 :id (:id %2 %1)) docs)
         lp [:project [{'ret expr}] [:table docs]]]
     (mapv :ret (tu/query-ra lp {}))))
 
@@ -1665,3 +1665,6 @@
       (t/is (= exp (test-null-cast :i64)))
       (t/is (= exp (test-null-cast :utf8)))
       (t/is (= exp (test-null-cast [:timestamp-local :milli]))))))
+
+(t/deftest test-row-struct
+  (t/is (= {:id "hello", :a 42} (project1 '(row-struct) {:id "hello", :a 42}))))

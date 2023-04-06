@@ -2002,3 +2002,9 @@
                    '{:find [id foo]
                      :where [(match :xt_docs [id foo])]
                      :default-all-app-time? true})))))
+
+(t/deftest test-row-alias
+  (let [docs [{:id 42, :firstname "bob"}
+              {:id 43, :firstname "alice"}]]
+    (xt/submit-tx tu/*node* (map (partial vector :put :customer) docs))
+    (t/is (= (mapv (fn [doc] {:c doc}) docs) (xt/q tu/*node* '{:find [c] :where [($ :customer {:xt/* c})]})))))

@@ -145,6 +145,14 @@
    :f (keyword (namespace f) (name f))
    :args (mapv #(form->expr % env) args)})
 
+(defmethod parse-list-form 'row-struct [_ env]
+  {:op :struct
+   :entries (into {} (for [k (keys (:col-types env))
+                           :when (and (not= "*" (name k))
+                                      (not= "_row-id" (name k))
+                                      (not ((requiring-resolve 'xtdb.temporal/temporal-column?) (name k))))]
+                       (MapEntry/create k (form->expr (symbol (name k)) env))))})
+
 (defn with-tag [sym tag]
   (-> sym
       (vary-meta assoc :tag (if (symbol? tag)

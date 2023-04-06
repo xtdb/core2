@@ -414,36 +414,62 @@
 (defmethod ig/init-key ::scan-emitter [_ {:keys [^IMetadataManager metadata-mgr, ^IBufferPool buffer-pool]}]
   (reify IScanEmitter
     (scanColTypes [_ wm scan-cols]
-      (letfn [(->col-type [[table col-name]]
-                (if (temporal/temporal-column? col-name)
-                  [:timestamp-tz :micro "UTC"]
-                  (types/merge-col-types (.columnType metadata-mgr (name table) (name col-name))
-                                         (some-> (.liveChunk wm)
-                                                 (.liveTable (name table))
-                                                 (.columnTypes)
-                                                 (get (name col-name))))))]
+      (letfn [(->col-types [[table col-name :as k]]
+                (cond
+                  (temporal/temporal-column? col-name)
+                  {k [:timestamp-tz :micro "UTC"]}
+
+                  (= '* col-name)
+                  (let [[_ key-set :as struct]
+                        (types/merge-col-types
+                          [:struct (.columnTypes metadata-mgr (name table))]
+                          [:struct (some-> (.liveChunk wm)
+                                           (.liveTable (name table))
+                                           (.columnTypes))])]
+                    (into {k struct}
+                          (for [[k col-t] key-set]
+                            (MapEntry/create [table (symbol (name k))] col-t))))
+
+                  :else
+                  {k (types/merge-col-types (.columnType metadata-mgr (name table) (name col-name))
+                                            (some-> (.liveChunk wm)
+                                                    (.liveTable (name table))
+                                                    (.columnTypes)
+                                                    (get (name col-name))))}))]
 
         (->> scan-cols
-             (into {} (map (juxt identity ->col-type))))))
+             (into {} (map ->col-types)))))
 
     (emitScan [_ {:keys [columns], {:keys [table for-app-time] :as scan-opts} :scan-opts} scan-col-types param-types]
-      (let [col-names (->> columns
+      (let [classify-column
+            #(cond (temporal/temporal-column? (name %)) :temporal
+                   (= '* %) :row
+                   :else :content)
+
+            col-names (->> columns
                            (into [] (comp (map (fn [[col-type arg]]
                                                  (case col-type
                                                    :column arg
                                                    :select (key (first arg)))))
                                           (distinct))))
 
-            {content-col-names false, temporal-col-names true}
-            (->> col-names
-                 (group-by (comp temporal/temporal-column? name)))
+            {content-col-names :content, temporal-col-names :temporal, has-row-col? :row}
+            (group-by classify-column col-names)
 
-            content-col-names (conj (set content-col-names) "_row-id")
+            content-col-names (if has-row-col?
+                                (let [struct (scan-col-types [table '*])
+                                      [_ key-map] struct]
+                                  (mapv (comp symbol name) (keys key-map)))
+                                content-col-names)
 
             col-types (->> col-names
+                           (remove #{'*})
+                           (concat (when has-row-col? content-col-names))
                            (into {} (map (juxt identity
                                                (fn [col-name]
                                                  (get scan-col-types [table col-name]))))))
+
+            content-col-names (conj (set content-col-names) "_row-id")
 
             selects (->> (for [[tag arg] columns
                                :when (= tag :select)]

@@ -58,7 +58,8 @@
   (^void finishChunk [^long chunkIdx, newChunkMetadata])
   (^java.util.NavigableMap chunksMetadata [])
   (^java.util.concurrent.CompletableFuture withMetadata [^long chunkIdx, ^String tableName, ^java.util.function.Function #_<ITableMetadata> f])
-  (columnType [^String tableName, ^String colName]))
+  (columnType [^String tableName, ^String colName])
+  (columnTypes [^String tableName]))
 
 #_{:clj-kondo/ignore [:unused-binding :clojure-lsp/unused-public-var]}
 (definterface IMetadataPredicate
@@ -488,6 +489,7 @@
 
   (chunksMetadata [_] chunks-metadata)
 
+  (columnTypes [_ table-name] (get col-types table-name))
   (columnType [_ table-name col-name] (get-in col-types [table-name col-name]))
 
   AutoCloseable

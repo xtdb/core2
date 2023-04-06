@@ -420,10 +420,21 @@
      plan]
     plan))
 
+(def row-alias-sym 'xt__*)
+
 (defn- plan-scan [table match temporal-opts]
   (let [original-attrs (set (keys match))
 
         attrs (replace-period-cols-with-temporal-attrs original-attrs)
+
+        [row-alias row-binding]
+        (some (fn [[attr binding]]
+                (when (= row-alias-sym attr)
+                  [attr binding]))
+               match)
+
+        [row-binding-type] row-binding
+        _ (when (and row-binding-type (not= :logic-var row-binding-type)) (throw (err/illegal-arg :row-alias-must-be-plain-logic-var)))
 
         attr->lits (-> match
                        (->> (keep (fn [[a [v-type v-arg]]]
@@ -431,18 +442,26 @@
                                       {:a a, :lit v-arg})))
                             (group-by :a))
                        (update-vals #(into #{} (map :lit) %)))
-        plan (-> [:scan {:table table
-                         :for-app-time (:for-app-time temporal-opts)
-                         :for-sys-time (:for-sys-time temporal-opts)}
-                  (-> attrs
-                      (disj '_table)
-                      (->> (mapv (fn [attr]
-                                   (-> attr
-                                       (wrap-scan-col-preds (for [lit (get attr->lits attr)]
-                                                              (list '= attr lit))))))))])]
+        plan
+        [:scan {:table table
+                :for-app-time (:for-app-time temporal-opts)
+                :for-sys-time (:for-sys-time temporal-opts)}
+         (-> attrs
+             (disj '_table)
+             (->> (mapv (fn [attr]
+                          (if (= row-alias-sym attr)
+                            '*
+                            (-> attr
+                                (wrap-scan-col-preds (for [lit (get attr->lits attr)]
+                                                       (list '= attr lit)))))))))]
+
+        plan-with-row-alias
+        (if row-alias
+          [:map [{row-alias-sym '(row-struct)}] plan]
+          plan)]
 
     (with-meta
-      (wrap-with-period-constructor plan match)
+      (wrap-with-period-constructor plan-with-row-alias match)
       {::vars attrs})))
 
 (defn- attr->unwind-col [a]

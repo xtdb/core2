@@ -205,3 +205,14 @@
                                 "system_time_end" '(< ?sys-time system_time_end)
                                 "application_time_start" '(<= ?app-time application_time_start)
                                 "application_time_end" '(> ?app-time application_time_end)})))))))))
+
+(t/deftest test-scan-wildcard-includes-all-cols
+  (with-open [node (node/start-node {})]
+
+    (xt/submit-tx node [[:put :xt_docs {:id :foo, :col1 "foo1"}]
+                        [:put :xt_docs {:id :bar, :col1 "bar1", :col2 "bar2"}]
+                        [:put :xt_docs {:id :foo, :col2 "baz2"}]])
+
+    (t/is (= [{:id :bar, :col1 "bar1", :col2 "bar2"}
+              {:id :foo, :col2 "baz2"}]
+             (tu/query-ra '[:scan {:table xt_docs} [*]] {:node node})))))

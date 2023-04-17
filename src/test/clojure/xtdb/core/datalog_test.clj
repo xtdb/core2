@@ -5,7 +5,9 @@
 ;; https://github.com/tonsky/datascript
 
 (ns xtdb.core.datalog-test
-  (:require [clojure.test :as t :refer [deftest]]
+  (:require [clojure.set :as set]
+            [clojure.test :as t :refer [deftest]]
+            [clojure.walk :as walk]
             [xtdb.datalog :as xt]
             [xtdb.james-bond :as bond]
             [xtdb.node :as node]
@@ -2106,7 +2108,10 @@
                    :where [(match :bar [foo])]}))))
 
 (t/deftest test-row-alias
-  (let [docs [{:id 42, :firstname "bob"}
-              {:id 43, :firstname "alice", :lastname "carrol"}]]
+  (let [docs [{:xt/id 42, :firstname "bob"}
+              {:xt/id 43, :firstname "alice", :lastname "carrol"}
+              {:xt/id 44, :firstname "jim", :orders [{:sku "eggs", :qty 2}, {:sku "cheese", :qty 1}]}]
+        ;; this renaming behaviour is expected to change so that we round trip here, but for now we don't.
+        read-docs (mapv #(set/rename-keys % {:xt/id :xt__id}) docs)]
     (xt/submit-tx tu/*node* (map (partial vector :put :customer) docs))
-    (t/is (= (mapv (fn [doc] {:c doc}) docs) (xt/q tu/*node* '{:find [c] :where [($ :customer {:xt/* c})]})))))
+    (t/is (= (mapv (fn [doc] {:c doc}) read-docs) (xt/q tu/*node* '{:find [c] :where [($ :customer {:xt/* c})]})))))

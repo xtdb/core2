@@ -2115,3 +2115,29 @@
         read-docs (mapv #(set/rename-keys % {:xt/id :xt__id}) docs)]
     (xt/submit-tx tu/*node* (map (partial vector :put :customer) docs))
     (t/is (= (mapv (fn [doc] {:c doc}) read-docs) (xt/q tu/*node* '{:find [c] :where [($ :customer {:xt/* c})]})))))
+
+(t/deftest test-row-alias-sys-time-key-set
+  (let [inputs
+        [[{:xt/id 0, :a 0} #inst "2023-01-17T00:00:00"]
+         [{:xt/id 0, :b 0} #inst "2023-01-18T00:00:00"]
+         [{:xt/id 0, :c 0, :a 0} #inst "2023-01-19T00:00:00"]]
+
+        _
+        (doseq [[doc sys-time] inputs]
+          (xt/submit-tx tu/*node* [[:put :x doc]] {:sys-time sys-time}))
+
+        q (partial xt/q tu/*node*)]
+
+    (t/is (= [{:x {:xt__id 0, :a 0, :c 0}}]
+             (q '{:find [x]
+                  :where [($ :x {:xt/* x})]})))
+
+    (t/is (= [{:x {:xt__id 0, :b 0}}]
+             (q '{:find [x]
+                  :where [($ :x {:xt/* x})],
+                  :basis {:tx #xt/tx-key {:tx-id 1, :sys-time #time/instant "2023-01-18T00:00:00Z"}}})))
+
+    (t/is (= [{:x {:xt__id 0, :a 0}}]
+             (q '{:find [x]
+                  :where [($ :x {:xt/* x})],
+                  :basis {:tx #xt/tx-key {:tx-id 0, :sys-time #time/instant "2023-01-17T00:00:00Z"}}})))))

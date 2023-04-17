@@ -2141,3 +2141,27 @@
              (q '{:find [x]
                   :where [($ :x {:xt/* x})],
                   :basis {:tx #xt/tx-key {:tx-id 0, :sys-time #time/instant "2023-01-17T00:00:00Z"}}})))))
+
+(t/deftest test-row-alias-app-time-key-set
+  (let [inputs
+        [[{:xt/id 0, :a 0} #inst "2023-01-17T00:00:00"]
+         [{:xt/id 0, :b 0} #inst "2023-01-18T00:00:00"]
+         [{:xt/id 0, :c 0, :a 0} #inst "2023-01-19T00:00:00"]]
+
+        _
+        (doseq [[doc app-time] inputs]
+          (xt/submit-tx tu/*node* [[:put :x doc {:for-app-time [:in app-time]}]]))
+
+        q (partial xt/q tu/*node*)]
+
+    (t/is (= [{:x {:xt__id 0, :a 0, :c 0}}]
+             (q '{:find [x]
+                  :where [($ :x {:xt/* x})]})))
+
+    (t/is (= [{:x {:xt__id 0, :b 0}}]
+             (q '{:find [x]
+                  :where [($ :x {:xt/* x} {:for-app-time [:at #time/instant "2023-01-18T00:00:00Z"]})],})))
+
+    (t/is (= [{:x {:xt__id 0, :a 0}}]
+             (q '{:find [x]
+                  :where [($ :x {:xt/* x} {:for-app-time [:at #time/instant "2023-01-17T00:00:00Z"]})]})))))
